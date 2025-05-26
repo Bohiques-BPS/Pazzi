@@ -24,6 +24,20 @@ export interface Client extends User {
   address?: string;
 }
 
+// Product related types
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  sku: string;
+  stock: number;
+  unit: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Project related types
 export interface Project {
   id: string;
@@ -36,6 +50,13 @@ export interface Project {
   quote?: number;
   assignedEmployees: string[]; // Employee IDs
   visits: Visit[];
+  products: ProjectProduct[];
+}
+
+export interface ProjectProduct {
+  productId: string;
+  quantity: number;
+  price: number;
 }
 
 export interface Visit {

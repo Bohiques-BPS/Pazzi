@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectsPage from './pages/ProjectsPage';
+import ProductsPage from './pages/ProductsPage';
 import EmployeesPage from './pages/EmployeesPage';
 import CalendarPage from './pages/CalendarPage';
 import MessagesPage from './pages/MessagesPage';
@@ -41,6 +42,7 @@ function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="projects" element={<ProjectsPage />} />
+            <Route path="products" element={<ProductsPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="messages" element={<MessagesPage />} />
