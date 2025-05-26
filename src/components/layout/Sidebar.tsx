@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, Briefcase, MessageSquare, Settings, LogOut, Home, ShoppingBag, Store, CreditCard, Apps } from 'lucide-react';
+import { Calendar, Users, Briefcase, MessageSquare, Settings, LogOut, Home, ShoppingBag, Store, CreditCard, Apple as Apps } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import logo from '/images/Logo.png';
 
