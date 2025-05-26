@@ -1,46 +1,62 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, KeyRound, Mail, AlertCircle, Lock } from 'lucide-react';
+import { User, KeyRound, Mail, AlertCircle, Lock, UserPlus } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useAuth } from '../contexts/AuthContext';
-import logo from '/images/Logo.png'; // Tell webpack this JS file uses this image
+import logo from '/images/Logo.png';
 
 const LoginPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'credentials' | 'accessCode'>('credentials');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [accessCode, setAccessCode] = useState('');
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [registerType, setRegisterType] = useState<'client' | 'employee'>('client');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: '',
+    contactNumber: '',
+    specialization: '',
+  });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const { login, loginWithAccessCode } = useAuth();
   const navigate = useNavigate();
 
-  const handleCredentialsLogin = async (e: React.FormEvent) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     
     try {
-      await login(email, password);
+      await login(formData.email, formData.password);
       navigate('/');
     } catch (err) {
-      setError('Datos no validos , vuelva a intentar.');
+      setError('Datos no validos, vuelva a intentar.');
       setIsLoading(false);
     }
   };
 
-  const handleAccessCodeLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     
+    // Here you would implement the registration logic
     try {
-      await loginWithAccessCode(accessCode);
-      navigate('/');
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Register:', { ...formData, type: registerType });
+      setIsLoading(false);
+      setActiveTab('login');
     } catch (err) {
-      setError('Invalid access code. Please try again.');
+      setError('Error en el registro. Por favor, intente nuevamente.');
       setIsLoading(false);
     }
   };
@@ -49,29 +65,27 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-[#242E3D] flex flex-col items-center justify-center p-4">
       <img src={logo} alt="Logo" />
       <div className="max-w-md mt-8 w-full bg-white rounded-lg shadow-xl overflow-hidden">
-      
-        
         <div className="p-6">
           <div className="flex border-b border-gray-200 mb-6">
             <button
               className={`flex-1 py-3 font-medium text-center border-b-2 ${
-                activeTab === 'credentials'
+                activeTab === 'login'
                   ? 'border-teal-500 text-teal-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
-              onClick={() => setActiveTab('credentials')}
+              onClick={() => setActiveTab('login')}
             >
-              Login
+              Iniciar Sesión
             </button>
             <button
               className={`flex-1 py-3 font-medium text-center border-b-2 ${
-                activeTab === 'accessCode'
+                activeTab === 'register'
                   ? 'border-teal-500 text-teal-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
-              onClick={() => setActiveTab('accessCode')}
+              onClick={() => setActiveTab('register')}
             >
-              Cliente
+              Registrarse
             </button>
           </div>
           
@@ -82,14 +96,15 @@ const LoginPage: React.FC = () => {
             </div>
           )}
           
-          {activeTab === 'credentials' ? (
-            <form onSubmit={handleCredentialsLogin}>
+          {activeTab === 'login' ? (
+            <form onSubmit={handleLogin}>
               <Input
                 label="Email"
-                type="text"
+                type="email"
+                name="email"
                 placeholder="Ingresa tu email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={handleInputChange}
                 leftIcon={<Mail size={18} />}
                 fullWidth
                 required
@@ -98,9 +113,10 @@ const LoginPage: React.FC = () => {
               <Input
                 label="Contraseña"
                 type="password"
+                name="password"
                 placeholder="Ingresa tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={handleInputChange}
                 leftIcon={<Lock size={18} />}
                 fullWidth
                 required
@@ -118,7 +134,8 @@ const LoginPage: React.FC = () => {
                   </label>
                 </div>
                 <a href="/forgot-password" className="text-sm text-teal-600 hover:text-teal-500">
-¿Haz olvidado tu contraseña?                </a>
+                  ¿Olvidaste tu contraseña?
+                </a>
               </div>
               
               <Button
@@ -126,43 +143,110 @@ const LoginPage: React.FC = () => {
                 variant="primary"
                 fullWidth
                 isLoading={isLoading}
-               
               >
                 Iniciar sesión
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleAccessCodeLogin}>
+            <form onSubmit={handleRegister}>
+              <div className="mb-6">
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    className={`flex-1 py-2 px-4 rounded-md ${
+                      registerType === 'client'
+                        ? 'bg-teal-500 text-white'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                    onClick={() => setRegisterType('client')}
+                  >
+                    Cliente
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 py-2 px-4 rounded-md ${
+                      registerType === 'employee'
+                        ? 'bg-teal-500 text-white'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                    onClick={() => setRegisterType('employee')}
+                  >
+                    Empleado
+                  </button>
+                </div>
+              </div>
+
               <Input
-                label="Access Code"
+                label="Nombre Completo"
                 type="text"
-                placeholder="Enter your access code"
-                value={accessCode}
-                onChange={(e) => setAccessCode(e.target.value)}
-                leftIcon={<KeyRound size={18} />}
-                helperText="Enter the access code provided by your administrator"
+                name="name"
+                placeholder="Ingresa tu nombre completo"
+                value={formData.name}
+                onChange={handleInputChange}
+                leftIcon={<User size={18} />}
                 fullWidth
                 required
               />
-              
-              <div className="mt-6">
-                <Button
-                  type="submit"
-                  variant="primary"
+
+              <Input
+                label="Email"
+                type="email"
+                name="email"
+                placeholder="Ingresa tu email"
+                value={formData.email}
+                onChange={handleInputChange}
+                leftIcon={<Mail size={18} />}
+                fullWidth
+                required
+              />
+
+              <Input
+                label="Contraseña"
+                type="password"
+                name="password"
+                placeholder="Ingresa tu contraseña"
+                value={formData.password}
+                onChange={handleInputChange}
+                leftIcon={<Lock size={18} />}
+                fullWidth
+                required
+              />
+
+              <Input
+                label="Teléfono"
+                type="tel"
+                name="contactNumber"
+                placeholder="Ingresa tu número de teléfono"
+                value={formData.contactNumber}
+                onChange={handleInputChange}
+                fullWidth
+                required
+              />
+
+              {registerType === 'employee' && (
+                <Input
+                  label="Especialización"
+                  type="text"
+                  name="specialization"
+                  placeholder="Ingresa tu especialización"
+                  value={formData.specialization}
+                  onChange={handleInputChange}
                   fullWidth
-                  isLoading={isLoading}
-                  leftIcon={<User size={18} />}
-                >
-                  Sign In as Employee
-                </Button>
-              </div>
+                  required
+                />
+              )}
+
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                isLoading={isLoading}
+                leftIcon={<UserPlus size={18} />}
+              >
+                Registrarse
+              </Button>
             </form>
           )}
-          
-          <div className="mt-4 text-center text-sm text-gray-500">
-            <p>Test credentials (admin): admin / admin</p>
-            <p>Test access code (employee): 123456</p>
-          </div>
         </div>
       </div>
     </div>
