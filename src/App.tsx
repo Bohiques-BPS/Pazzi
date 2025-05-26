@@ -2,9 +2,11 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProductsPage from './pages/ProductsPage';
+import POSPage from './pages/POSPage';
 import EmployeesPage from './pages/EmployeesPage';
 import CalendarPage from './pages/CalendarPage';
 import MessagesPage from './pages/MessagesPage';
@@ -31,6 +33,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           
           <Route
             path="/"
@@ -43,6 +46,7 @@ function App() {
             <Route index element={<DashboardPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route path="pos" element={<POSPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="messages" element={<MessagesPage />} />
@@ -54,5 +58,3 @@ function App() {
     </AuthProvider>
   );
 }
-
-export default App;
