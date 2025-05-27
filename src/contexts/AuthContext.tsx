@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const MOCK_ADMIN: User = {
   id: '1',
   name: 'Admin User',
-  email: 'admin@pazzi.com',
+  email: 'admin@admin.com',
   role: 'admin',
 };
 
@@ -32,7 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is stored in localStorage (simulating persistent auth)
     const storedUser = localStorage.getItem('pazzi_user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
@@ -47,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Mock authentication logic
-    if (email === 'admin' && password === 'admin') {
+    if ((email === 'admin@admin.com' || email === 'admin') && password === 'admin') {
       setUser(MOCK_ADMIN);
       localStorage.setItem('pazzi_user', JSON.stringify(MOCK_ADMIN));
     } else {
