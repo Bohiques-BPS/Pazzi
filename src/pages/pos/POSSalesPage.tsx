@@ -242,7 +242,7 @@ const POSSalesPage: React.FC = () => {
                   Efectivo
                 </button>
                 <button
-                  className={`p-2 text-center rounded-md border ${
+                  className={\`p-2 text-center rounded-md border ${
                     paymentMethod === 'card'
                       ? 'border-teal-500 bg-teal-50 text-teal-700'
                       : 'border-gray-300 hover:bg-gray-50'

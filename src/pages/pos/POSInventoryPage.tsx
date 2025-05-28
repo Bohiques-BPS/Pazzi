@@ -90,7 +90,7 @@ const POSInventoryPage: React.FC = () => {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        className={`p-2 text-center rounded-md border ${
+                        className={\`p-2 text-center rounded-md border ${
                           adjustmentType === 'add'
                             ? 'border-teal-500 bg-teal-50 text-teal-700'
                             : 'border-gray-300 hover:bg-gray-50'
@@ -102,7 +102,7 @@ const POSInventoryPage: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        className={`p-2 text-center rounded-md border ${
+                        className={\`p-2 text-center rounded-md border ${
                           adjustmentType === 'remove'
                             ? 'border-red-500 bg-red-50 text-red-700'
                             : 'border-gray-300 hover:bg-gray-50'
