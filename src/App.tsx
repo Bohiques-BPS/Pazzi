@@ -9,11 +9,6 @@ import EmployeesPage from './pages/EmployeesPage';
 import CalendarPage from './pages/CalendarPage';
 import MessagesPage from './pages/MessagesPage';
 import POSDashboardPage from './pages/pos/POSDashboardPage';
-import POSSalesPage from './pages/pos/POSSalesPage';
-import POSProductsPage from './pages/pos/POSProductsPage';
-import POSInventoryPage from './pages/pos/POSInventoryPage';
-import POSSuppliersPage from './pages/pos/POSSuppliersPage';
-import POSCustomersPage from './pages/pos/POSCustomersPage';
 import StoreDashboardPage from './pages/store/StoreDashboardPage';
 import StoreProductsPage from './pages/store/StoreProductsPage';
 import StoreOrdersPage from './pages/store/StoreOrdersPage';
@@ -59,11 +54,6 @@ function App() {
 
             {/* POS Routes */}
             <Route path="pos" element={<POSDashboardPage />} />
-            <Route path="pos/sales" element={<POSSalesPage />} />
-            <Route path="pos/products" element={<POSProductsPage />} />
-            <Route path="pos/inventory" element={<POSInventoryPage />} />
-            <Route path="pos/suppliers" element={<POSSuppliersPage />} />
-            <Route path="pos/customers" element={<POSCustomersPage />} />
 
             {/* E-commerce Routes */}
             <Route path="store" element={<StoreDashboardPage />} />
