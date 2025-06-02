@@ -197,17 +197,9 @@ export const LandingPage: React.FC = () => {
                         </div>
                     </div>
                 </section>
+</div>
+        </LandingLayout>
+    );
+};
 
-                {/* Contact Section (Placeholder) */}
-                <section id="contact" className="py-16 md:py-24 bg-neutral-100 dark:bg-neutral-900">
-                    <div className="container mx-auto px-6">
-                        <h2 className="text-3xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-12">Ponte en Contacto</h2>
-                        <div className="max-w-lg mx-auto bg-white dark:bg-neutral-800 p-8 rounded-lg shadow-xl">
-                            <form className="space-y-6">
-                                <div>
-                                    <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre Completo</label>
-                                    <input type="text" name="name" id="name" className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" />
-                                </div>
-                                <div>
-                                    <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Email</label>
-                                    <input type="email" name="email" id="email" className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow
+                
