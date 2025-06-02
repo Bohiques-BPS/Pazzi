@@ -1,0 +1,9 @@
+{
+  "name": "Copy of Pazzi - Integrated Business Platform",
+  "description": "A prototype of Pazzi, an integral platform combining project management, point of sale (POS), and e-commerce functionalities.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "prompt": ""
+}
