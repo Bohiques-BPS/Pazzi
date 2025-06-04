@@ -1,7 +1,7 @@
 
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
 import { ECommerceSettings, UserRole } from '../types';
-import { DEFAULT_ECOMMERCE_SETTINGS, ADMIN_USER_ID, PREDEFINED_CLIENT_ID } from '../constants';
+import { DEFAULT_ECOMMERCE_SETTINGS, ADMIN_USER_ID, ECOMMERCE_CLIENT_ID } from '../constants'; // Changed PREDEFINED_CLIENT_ID to ECOMMERCE_CLIENT_ID
 import { useAuth } from './AuthContext';
 
 export interface ECommerceSettingsContextType {
@@ -25,7 +25,7 @@ export const ECommerceSettingsProvider: React.FC<{ children: React.ReactNode }> 
         return {
             [DEFAULT_SETTINGS_KEY]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Pazzi Tienda Por Defecto" },
             [ADMIN_USER_ID]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Tienda Oficial Pazzi Admin", logoUrl: "https://picsum.photos/seed/pazziadminlogo/150/50", primaryColor: "#D97706" },
-            [PREDEFINED_CLIENT_ID]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Ferretería Cliente Demo", logoUrl: "https://picsum.photos/seed/clientdemologo/150/50", primaryColor: "#2563EB" },
+            [ECOMMERCE_CLIENT_ID]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Ferretería Cliente Demo", logoUrl: "https://picsum.photos/seed/clientdemologo/150/50", primaryColor: "#2563EB" }, // Changed PREDEFINED_CLIENT_ID to ECOMMERCE_CLIENT_ID
         };
     });
 

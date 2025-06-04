@@ -3,7 +3,7 @@ import React, { useState, createContext, useContext, useEffect, useCallback, use
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, useParams, Outlet } from 'react-router-dom';
 
 import { User, UserRole, Product, Client, Employee, Project, Sale, Order, AppModule, ProductFormData, ClientFormData, EmployeeFormData, ProjectFormData, ProjectStatus, CartItem, ProjectResource, Visit, VisitStatus, VisitFormData, ECommerceSettings, Category, CategoryFormData, Theme, ChatMessage } from './types';
-import { APP_MODULES_CONFIG, PREDEFINED_CLIENT_ID, ADMIN_USER_ID } from './constants'; 
+import { APP_MODULES_CONFIG, ADMIN_USER_ID, PROJECT_CLIENT_ID, ECOMMERCE_CLIENT_ID } from './constants'; 
 
 // Contexts
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -17,7 +17,7 @@ import { AppContextProvider, useAppContext } from './contexts/AppContext';
 import { LandingLayout } from './components/layout/LandingLayout';
 import { MainLayout } from './components/layout/MainLayout';
 // ClientLayout is kept for potential future "Store Owner" role, but not used by basic CLIENT role.
-import { ClientLayout } from './components/layout/ClientLayout'; 
+// import { ClientLayout } from './components/layout/ClientLayout'; // Deprecating this generic client layout
 
 // Auth Pages
 import { LoginPage } from './pages/auth/LoginPage';
@@ -27,38 +27,40 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 // General Pages
 import { LandingPage } from './pages/LandingPage';
 import { DashboardHomePage } from './pages/DashboardHomePage'; 
-// These client-specific management pages are no longer primary for UserRole.CLIENT (shopper)
-import { ClientDashboardPage } from './pages/ClientDashboardPage';
-import { ClientProjectChatPage } from './pages/client/ClientProjectChatPage'; 
-import { ClientEcommerceSettingsPage } from './pages/client/ClientEcommerceSettingsPage';
-import { ClientProductsPage } from './pages/client/ClientProductsPage';
-import { ClientOrdersPage } from './pages/client/ClientOrdersPage';
-import { MyOrdersPage } from './pages/ecommerce/MyOrdersPage'; // New page for shopper's orders
+
+// PM Client Pages (New or Adapted)
+import { ProjectClientDashboardPage } from './pages/project_client/ProjectClientDashboardPage';
+import { ProjectClientCalendarPage } from './pages/project_client/ProjectClientCalendarPage';
+import { ProjectClientChatPage } from './pages/project_client/ProjectClientChatPage';
 
 
-// PM Pages
+// E-commerce Client (Shopper) specific view for their orders
+import { MyOrdersPage } from './pages/ecommerce/MyOrdersPage'; 
+
+
+// PM Pages (Manager & PM Employee)
 import { ProductsListPage } from './pages/pm/ProductsListPage';
 import { CategoriesListPage } from './pages/pm/CategoriesListPage';
 import { ClientsListPage } from './pages/pm/ClientsListPage';
 import { EmployeesListPage } from './pages/pm/EmployeesListPage';
 import { ProjectsListPage } from './pages/pm/ProjectsListPage';
-import { ProjectCalendarPage } from './pages/pm/ProjectCalendarPage';
-import { ProjectChatPage } from './pages/pm/ProjectChatPage';
-import { BranchesListPage } from './pages/admin/BranchesListPage'; // Added Branches
+import { ProjectCalendarPage } from './pages/pm/ProjectCalendarPage'; // Manager/Employee full calendar
+import { ProjectChatPage } from './pages/pm/ProjectChatPage'; // Manager/Employee full chat
+import { BranchesListPage } from './pages/admin/BranchesListPage'; 
 
-// POS Pages
+// POS Pages (Manager & POS Employee)
 import { POSCashierPage } from './pages/pos/POSCashierPage'; 
 import { POSDashboardPage } from './pages/pos/POSDashboardPage'; 
 import { POSSalesHistoryPage } from './pages/pos/POSSalesHistoryPage'; 
-import { POSInventoryPage } from './pages/pos/POSInventoryPage'; // Standard extension-less import
+import { POSInventoryPage } from './pages/pos/POSInventoryPage'; 
 import { AccountsPayablePage } from './pages/pos/AccountsPayablePage';
 import { AccountsReceivablePage } from './pages/pos/AccountsReceivablePage';
 
 
 // Admin Ecommerce Pages (global settings, Pazzi's own store if any)
 import { ECommerceSettingsPage } from './pages/ecommerce/ECommerceDashboardPage'; 
-import { EcommerceStorePage } from './pages/ecommerce/EcommerceStorePage'; 
-import { EcommerceOrdersPage } from './pages/ecommerce/EcommerceOrdersPage'; 
+import { EcommerceStorePage } from './pages/ecommerce/EcommerceStorePage'; // Public store view
+import { EcommerceOrdersPage } from './pages/ecommerce/EcommerceOrdersPage'; // Manager viewing all orders
 import { SuppliersListPage } from './pages/ecommerce/SuppliersListPage';
 import { SupplierOrdersListPage } from './pages/ecommerce/SupplierOrdersListPage';
 import { CheckoutPage } from './pages/ecommerce/CheckoutPage'; 
@@ -68,7 +70,7 @@ import { OrderConfirmationPage } from './pages/ecommerce/OrderConfirmationPage';
 // Icons
 import { SunIcon, MoonIcon } from './components/icons';
 
-// Constants (for inputFormStyle, BUTTON_PRIMARY_SM_CLASSES)
+// Constants
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from './constants';
 
 
@@ -85,38 +87,52 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     const nonAuthPaths = ['/login', '/register', '/forgot-password', '/', '/checkout', '/order-confirmation'];
-    const publicStorePathRegex = /^\/store(\/[^/]+)?$/;
+    const publicStorePathRegex = /^\/store(\/[^/]+)?$/; // Matches /store and /store/someId
     const orderConfirmationRegex = /^\/order-confirmation(\/[^/]+)?$/;
     
-    const clientShopperPaths = ['/store', '/my-orders', '/checkout', '/order-confirmation', '/settings']; 
+    const clientEcommercePaths = ['/store', '/my-orders', '/checkout', '/order-confirmation', '/settings']; 
+    const clientProjectPaths = ['/project-client/dashboard', '/project-client/calendar', '/project-client/chat', '/settings'];
+
 
     if (!currentUser && !nonAuthPaths.some(p => location.pathname.startsWith(p)) && !publicStorePathRegex.test(location.pathname) && !orderConfirmationRegex.test(location.pathname)) {
         navigate('/login');
     } else if (currentUser) {
-        if (currentUser.role === UserRole.CLIENT) {
-            const isAllowedClientShopperPath = 
-                clientShopperPaths.some(p => location.pathname.startsWith(p)) ||
+        if (currentUser.role === UserRole.CLIENT_ECOMMERCE) {
+            const isAllowedClientEcommercePath = 
+                clientEcommercePaths.some(p => location.pathname.startsWith(p)) ||
                 publicStorePathRegex.test(location.pathname) ||
                 orderConfirmationRegex.test(location.pathname);
 
-            if (!isAllowedClientShopperPath && location.pathname !== '/login') {
+            if (!isAllowedClientEcommercePath && location.pathname !== '/login') {
                  navigate('/store', { replace: true }); 
             }
-        } else if (currentUser.role === UserRole.EMPLOYEE) {
-            if (location.pathname !== '/pos/cashier' && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/settings') ) { 
-                 setCurrentModule(AppModule.POS);
-                 navigate('/pos/cashier', { replace: true });
+        } else if (currentUser.role === UserRole.CLIENT_PROJECT) {
+            const isAllowedClientProjectPath = clientProjectPaths.some(p => location.pathname.startsWith(p));
+            if (!isAllowedClientProjectPath && location.pathname !== '/login') {
+                 navigate('/project-client/dashboard', { replace: true });
             }
-        } else { // Manager 
+        } else if (currentUser.role === UserRole.EMPLOYEE) {
+             if (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password') {
+                // Default to POS Cashier if that's their current module, otherwise PM Projects
+                const defaultPath = currentModule === AppModule.POS ? '/pos/cashier' : '/pm/projects';
+                navigate(defaultPath, { replace: true });
+            }
+            const allowedEmployeePaths = ['/settings', '/pm/projects', '/pm/chat', '/pos/cashier'];
+            const isAllowedPath = allowedEmployeePaths.some(p => location.pathname.startsWith(p));
+            if(!isAllowedPath && !location.pathname.startsWith('/login')) {
+                 const defaultPath = currentModule === AppModule.POS ? '/pos/cashier' : '/pm/projects';
+                 navigate(defaultPath, { replace: true });
+            }
+        } else { // Manager (UserRole.MANAGER)
             if (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password') {
                 const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === currentModule);
                 let firstSubModulePath = moduleConfig?.path || '/pm'; 
                 if(moduleConfig) {
-                    if (moduleConfig.name === AppModule.PROJECT_MANAGEMENT && moduleConfig.subModulesProject.length > 0 && moduleConfig.subModulesProject[0].type === 'link') {
+                    if (moduleConfig.name === AppModule.PROJECT_MANAGEMENT && moduleConfig.subModulesProject && moduleConfig.subModulesProject.length > 0 && moduleConfig.subModulesProject[0].type === 'link') {
                         firstSubModulePath = moduleConfig.subModulesProject[0].path;
-                    } else if (moduleConfig.name === AppModule.POS && moduleConfig.subModulesPOS.length > 0 && moduleConfig.subModulesPOS[0].type === 'link') {
+                    } else if (moduleConfig.name === AppModule.POS && moduleConfig.subModulesPOS && moduleConfig.subModulesPOS.length > 0 && moduleConfig.subModulesPOS[0].type === 'link') {
                         firstSubModulePath = moduleConfig.subModulesPOS[0].path;
-                    } else if (moduleConfig.name === AppModule.ECOMMERCE && moduleConfig.subModulesEcommerce.length > 0 && moduleConfig.subModulesEcommerce[0].type === 'link') {
+                    } else if (moduleConfig.name === AppModule.ECOMMERCE && moduleConfig.subModulesEcommerce && moduleConfig.subModulesEcommerce.length > 0 && moduleConfig.subModulesEcommerce[0].type === 'link') {
                         firstSubModulePath = moduleConfig.subModulesEcommerce[0].path;
                     }
                 }
@@ -126,37 +142,46 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser, location.pathname, navigate, currentModule, setCurrentModule]);
   
-  const ProjectManagementModuleRoutes = () => (
+  const ProjectManagementModuleRoutes = () => ( // For Manager and PM Employee
     <Routes>
         <Route index element={<Navigate to="projects" replace />} />
-        <Route path="projects" element={<ProjectsListPage />} />
-        <Route path="products" element={<ProductsListPage />} /> 
-        <Route path="categories" element={<CategoriesListPage />} /> 
-        <Route path="clients" element={<ClientsListPage />} />
-        <Route path="employees" element={<EmployeesListPage />} />
-        <Route path="calendar" element={<ProjectCalendarPage />} />
+        <Route path="projects" element={<ProjectsListPage />} /> 
         <Route path="chat" element={<ProjectChatPage />} /> 
-        <Route path="reports" element={<div>Reportes de Gestión de Proyectos (Próximamente)</div>} />
-        <Route path="branches" element={<BranchesListPage />} /> {/* Added Branches Route */}
+        { currentUser?.role === UserRole.MANAGER && ( // Manager specific PM routes
+            <>
+                <Route path="products" element={<ProductsListPage />} /> 
+                <Route path="categories" element={<CategoriesListPage />} /> 
+                <Route path="clients" element={<ClientsListPage />} />
+                <Route path="employees" element={<EmployeesListPage />} />
+                <Route path="calendar" element={<ProjectCalendarPage />} />
+                <Route path="reports" element={<div>Reportes de Gestión de Proyectos (Próximamente)</div>} />
+                <Route path="branches" element={<BranchesListPage />} />
+            </>
+        )}
+        {/* PM Employee sees only projects and chat, handled by ProjectsListPage and ProjectChatPage filtering */}
         <Route path="*" element={<Navigate to="projects" replace />} />
     </Routes>
   );
 
-  const POSModuleRoutes = () => (
+  const POSModuleRoutes = () => ( // For Manager and POS Employee
     <Routes>
-      <Route index element={<Navigate to="dashboard" replace />} />
-      <Route path="dashboard" element={<POSDashboardPage />} />
+      <Route index element={<Navigate to={currentUser?.role === UserRole.EMPLOYEE ? "cashier" : "dashboard"} replace />} />
       <Route path="cashier" element={<POSCashierPage />} />
-      <Route path="sales-history" element={<POSSalesHistoryPage />} />
-      <Route path="inventory" element={<POSInventoryPage />} />
-      <Route path="accounts-payable" element={<AccountsPayablePage />} />
-      <Route path="accounts-receivable" element={<AccountsReceivablePage />} />
-      {/* Suppliers link in sidebar points to /ecommerce/suppliers */}
-      <Route path="*" element={<Navigate to="dashboard" replace />} />
+      { currentUser?.role === UserRole.MANAGER && ( // Manager specific POS routes
+        <>
+            <Route path="dashboard" element={<POSDashboardPage />} />
+            <Route path="sales-history" element={<POSSalesHistoryPage />} />
+            <Route path="inventory" element={<POSInventoryPage />} />
+            <Route path="accounts-payable" element={<AccountsPayablePage />} />
+            <Route path="accounts-receivable" element={<AccountsReceivablePage />} />
+        </>
+      )}
+       {/* POS Employee sees only cashier, handled by POSCashierPage */}
+      <Route path="*" element={<Navigate to={currentUser?.role === UserRole.EMPLOYEE ? "cashier" : "dashboard"} replace />} />
     </Routes>
   );
   
-  const AdminEcommerceModuleRoutes = () => (
+  const AdminEcommerceModuleRoutes = () => ( // Only for Manager
     <Routes>
       <Route index element={<Navigate to="dashboard" replace />} />
       <Route path="dashboard" element={<ECommerceSettingsPage />} /> 
@@ -164,6 +189,16 @@ const AppContent: React.FC = () => {
       <Route path="suppliers" element={<SuppliersListPage />} /> 
       <Route path="supplier-orders" element={<SupplierOrdersListPage />} /> 
       <Route path="*" element={<Navigate to="dashboard" replace />} />
+    </Routes>
+  );
+
+  const ProjectClientModuleRoutes = () => ( // For UserRole.CLIENT_PROJECT
+    <Routes>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<ProjectClientDashboardPage />} />
+        <Route path="calendar" element={<ProjectClientCalendarPage />} />
+        <Route path="chat/:projectId" element={<ProjectClientChatPage />} />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Routes>
   );
 
@@ -235,13 +270,13 @@ const AppContent: React.FC = () => {
                         onClick={() => setTheme(Theme.LIGHT)} 
                         className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center ${theme === Theme.LIGHT ? 'ring-2 ring-offset-2 dark:ring-offset-neutral-800 ring-primary' : 'opacity-70 hover:opacity-100'}`}
                     >
-                        <SunIcon/> Claro
+                        <SunIcon />{' '}Claro
                     </button>
                     <button 
                         onClick={() => setTheme(Theme.DARK)} 
                         className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center ${theme === Theme.DARK ? 'ring-2 ring-offset-2 dark:ring-offset-neutral-800 ring-primary' : 'opacity-70 hover:opacity-100'}`}
                     >
-                         <MoonIcon/> Oscuro
+                         <MoonIcon />{' '}Oscuro
                     </button>
                 </div>
             </div>
@@ -267,7 +302,7 @@ const AppContent: React.FC = () => {
     return <PublicRoutes />;
   }
 
-  if (currentUser.role === UserRole.CLIENT) {
+  if (currentUser.role === UserRole.CLIENT_ECOMMERCE) {
     return (
       <MainLayout> 
         <Routes>
@@ -282,44 +317,57 @@ const AppContent: React.FC = () => {
       </MainLayout>
     );
   }
+  
+  if (currentUser.role === UserRole.CLIENT_PROJECT) {
+    return (
+        <MainLayout>
+            <Routes>
+                <Route path="/project-client/*" element={<ProjectClientModuleRoutes />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="*" element={<Navigate to="/project-client/dashboard" replace />} />
+            </Routes>
+        </MainLayout>
+    );
+  }
 
+
+  // Manager and Employee routes
   return (
     <MainLayout>
         <Routes>
-            {currentUser.role === UserRole.EMPLOYEE ? (
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/pm/*" element={<ProjectManagementModuleRoutes />} />
+            <Route path="/pos/*" element={<POSModuleRoutes />} />
+            {currentUser.role === UserRole.MANAGER && (
                 <>
-                    <Route path="/pos/cashier" element={<POSCashierPage />} />
-                    <Route path="/settings" element={<SettingsPage />} /> 
-                    <Route path="*" element={<Navigate to="/pos/cashier" replace />} /> 
-                </>
-            ) : (
-                <>
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/pm/*" element={<ProjectManagementModuleRoutes />} />
-                    <Route path="/pos/*" element={<POSModuleRoutes />} />
                     <Route path="/ecommerce/*" element={<AdminEcommerceModuleRoutes />} />
-                    <Route path="/store/:storeOwnerId" element={<EcommerceStorePage />} />
+                    <Route path="/store/:storeOwnerId" element={<EcommerceStorePage />} /> 
                     <Route path="/store" element={<EcommerceStorePage />} />
-                    <Route path="/checkout" element={<CheckoutPage />} />
+                    <Route path="/checkout" element={<CheckoutPage />} /> 
                     <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
-                    <Route path="/" element={<DashboardHomePage />} /> 
-                    <Route path="*" element={
-                        <Navigate 
-                            to={(() => {
-                                const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === currentModule);
-                                if (moduleConfig) {
-                                    if (moduleConfig.name === AppModule.PROJECT_MANAGEMENT && moduleConfig.subModulesProject.length > 0 && moduleConfig.subModulesProject[0].type === 'link') return moduleConfig.subModulesProject[0].path;
-                                    if (moduleConfig.name === AppModule.POS && moduleConfig.subModulesPOS.length > 0 && moduleConfig.subModulesPOS[0].type === 'link') return moduleConfig.subModulesPOS[0].path;
-                                    if (moduleConfig.name === AppModule.ECOMMERCE && moduleConfig.subModulesEcommerce.length > 0 && moduleConfig.subModulesEcommerce[0].type === 'link') return moduleConfig.subModulesEcommerce[0].path;
-                                    return moduleConfig.path;
-                                }
-                                return "/pm/projects";
-                            })()} 
-                            replace 
-                        />} 
-                    />
                 </>
             )}
+            <Route path="/" element={<DashboardHomePage />} /> 
+            <Route path="*" element={
+                <Navigate 
+                    to={(() => {
+                        // Default navigation for Manager/Employee if current route not matched
+                        const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === currentModule);
+                        if (currentUser.role === UserRole.EMPLOYEE) {
+                            return currentModule === AppModule.POS ? "/pos/cashier" : "/pm/projects";
+                        }
+                        // Manager default
+                        if (moduleConfig) {
+                            if (moduleConfig.name === AppModule.PROJECT_MANAGEMENT && moduleConfig.subModulesProject && moduleConfig.subModulesProject.length > 0 && moduleConfig.subModulesProject[0].type === 'link') return moduleConfig.subModulesProject[0].path;
+                            if (moduleConfig.name === AppModule.POS && moduleConfig.subModulesPOS && moduleConfig.subModulesPOS.length > 0 && moduleConfig.subModulesPOS[0].type === 'link') return moduleConfig.subModulesPOS[0].path;
+                            if (moduleConfig.name === AppModule.ECOMMERCE && moduleConfig.subModulesEcommerce && moduleConfig.subModulesEcommerce.length > 0 && moduleConfig.subModulesEcommerce[0].type === 'link') return moduleConfig.subModulesEcommerce[0].path;
+                            return moduleConfig.path;
+                        }
+                        return "/pm/projects"; // Fallback for manager
+                    })()} 
+                    replace 
+                />} 
+            />
         </Routes>
     </MainLayout>
   );

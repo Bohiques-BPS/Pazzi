@@ -51,8 +51,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } 
 
     if (userToLogin && determinedRole) {
-        setCurrentUser({ ...userToLogin, role: determinedRole }); 
-        return true;
+        // Ensure roles like CLIENT_ECOMMERCE and CLIENT_PROJECT are correctly set
+        if (determinedRole === UserRole.CLIENT_ECOMMERCE || determinedRole === UserRole.CLIENT_PROJECT || determinedRole === UserRole.EMPLOYEE || determinedRole === UserRole.MANAGER) {
+            setCurrentUser({ ...userToLogin, role: determinedRole }); 
+            return true;
+        } else {
+            // Handle potential old "CLIENT" role or other invalid roles if necessary
+            // For now, we assume roles are one of the above valid ones.
+             alert('Rol de usuario no reconocido.');
+             return false;
+        }
     }
     
     alert('Credenciales incorrectas.');
@@ -63,6 +71,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (allUsers.find(u => u.email.toLowerCase() === email.toLowerCase())) {
       alert('El email ya está registrado.');
       return false;
+    }
+    // Ensure only valid assignable roles can be registered
+    if (![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT, UserRole.MANAGER, UserRole.EMPLOYEE].includes(role)) {
+        alert('Tipo de cuenta inválido para registro.');
+        return false;
     }
     const newUser: User & {password: string} = { id: `user-${Date.now()}`, email, name, lastName, role, password: pass };
     setAllUsers(prev => [...prev, newUser]);

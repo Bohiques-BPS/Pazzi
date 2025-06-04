@@ -2,15 +2,17 @@
 import React, { useState, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Project, ProjectStatus, Client, Product as ProductType, Employee, ECommerceSettings, ProjectFormData } from '../../types'; // Adjusted path
+import { Project, ProjectStatus, Client, Product as ProductType, Employee, ECommerceSettings, ProjectFormData, UserRole } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
+import { useAuth } from '../../contexts/AuthContext'; // Added useAuth
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext'; // Adjusted path
 import { ProjectFormModal } from './ProjectFormModal'; // Adjusted path
 import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { ProjectCard } from '../../components/cards/ProjectCard'; // Adjusted path
-import { PlusIcon, SparklesIcon } from '../../components/icons'; // Adjusted path
+import { PlusIcon, SparklesIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adjusted path
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { AIImportModal } from '../../components/AIImportModal'; // Adjusted path
+import { DataTable, TableColumn } from '../../components/DataTable'; // Added TableColumn import
 
 interface GenerateQuotationPDFProps {
     project: Project;
@@ -214,7 +216,8 @@ const generateQuotationPDF = ({project, client, allProducts, allEmployees, store
 };
 
 export const ProjectsListPage: React.FC = () => {
-    const { projects, setProjects, getClientById, products: allProductsFromHook, getAllEmployees, clients } = useData(); 
+    const { projects: allProjectsContext, setProjects, getClientById, products: allProductsFromHook, getAllEmployees, clients } = useData(); 
+    const { currentUser } = useAuth();
     const { getDefaultSettings } = useECommerceSettings(); // Changed to use getDefaultSettings
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -229,8 +232,18 @@ export const ProjectsListPage: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>('Todos');
     
     const allEmployees = getAllEmployees();
+    const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
+
+    const projectsToDisplay = useMemo(() => {
+        if (isEmployeeView && currentUser) {
+            return allProjectsContext.filter(p => p.assignedEmployeeIds.includes(currentUser.id));
+        }
+        return allProjectsContext; // For manager
+    }, [allProjectsContext, currentUser, isEmployeeView]);
+
 
     const openModalForCreate = (initialData?: Partial<ProjectFormData>) => { 
+        if (isEmployeeView) return; // Employees cannot create projects
         setEditingProject(null); 
         setInitialModalTab('details');
         if (initialData) {
@@ -257,6 +270,7 @@ export const ProjectsListPage: React.FC = () => {
     };
     
     const requestDelete = (projId: string) => {
+        if (isEmployeeView) return; // Employees cannot delete projects
         setItemToDeleteId(projId);
         setShowDeleteConfirmModal(true);
     };
@@ -270,17 +284,18 @@ export const ProjectsListPage: React.FC = () => {
     
     const handleGenerateQuotationPDF = (project: Project) => {
         const client = getClientById(project.clientId);
-        const currentStoreSettings = getDefaultSettings(); // Get current default settings
+        const currentStoreSettings = getDefaultSettings(); 
         generateQuotationPDF({
             project,
             client,
             allProducts: allProductsFromHook,
             allEmployees,
-            storeSettings: currentStoreSettings // Pass the obtained settings
+            storeSettings: currentStoreSettings 
         });
     };
 
     const handleAiProjectImportSuccess = (dataArray: any[]) => {
+        if (isEmployeeView) return;
         console.log("AI Data Array for Project Import:", dataArray);
         if (!Array.isArray(dataArray)) {
             alert("La IA no devolvió un array de datos de proyectos.");
@@ -309,7 +324,6 @@ export const ProjectsListPage: React.FC = () => {
                 else if (aiStatus.includes('pausado') || aiStatus.includes('paused')) status = ProjectStatus.PAUSED;
             }
 
-            // Attempt to find client ID if AI provided a name. For simplicity, exact match for now.
             let foundClientId = item.clientId || '';
             if (!foundClientId && item.clientName) {
                 const clientByName = clients.find(c => 
@@ -318,7 +332,7 @@ export const ProjectsListPage: React.FC = () => {
                 );
                 if (clientByName) foundClientId = clientByName.id;
             }
-            if (!foundClientId && clients.length > 0) { // Fallback if no client match
+            if (!foundClientId && clients.length > 0) { 
                 console.warn(`Cliente no encontrado para proyecto "${name}", usando el primer cliente disponible o ninguno si no hay.`);
                 foundClientId = clients[0]?.id || ''; 
             }
@@ -334,9 +348,9 @@ export const ProjectsListPage: React.FC = () => {
                 status,
                 clientId: foundClientId,
                 startDate: item.startDate || new Date().toISOString().split('T')[0],
-                endDate: item.endDate || '', // End date can be optional initially
-                assignedProducts: [], // Keep manual for bulk import
-                assignedEmployeeIds: [], // Keep manual for bulk import
+                endDate: item.endDate || '', 
+                assignedProducts: [], 
+                assignedEmployeeIds: [], 
             };
             newProjects.push(newProject);
             importedCount++;
@@ -355,15 +369,26 @@ export const ProjectsListPage: React.FC = () => {
     };
     
     const filteredProjects = useMemo(() => {
-        return projects
+        return projectsToDisplay
             .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
             .filter(p => statusFilter === 'Todos' || p.status === statusFilter);
-    }, [projects, searchTerm, statusFilter]);
+    }, [projectsToDisplay, searchTerm, statusFilter]);
+
+    const tableColumns: TableColumn<Project>[] = [
+        { header: 'Nombre Proyecto', accessor: 'name' },
+        { header: 'Cliente', accessor: (p) => getClientById(p.clientId)?.name || 'N/A' },
+        { header: 'Fecha Inicio', accessor: (p) => new Date(p.startDate + 'T00:00:00').toLocaleDateString() },
+        { header: 'Fecha Fin', accessor: (p) => new Date(p.endDate + 'T00:00:00').toLocaleDateString() },
+        { header: 'Estado', accessor: 'status' },
+    ];
+
 
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Proyectos</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
+                    {isEmployeeView ? "Mis Proyectos Asignados" : "Gestión de Proyectos"}
+                </h1>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <input 
                         type="text" 
@@ -382,17 +407,21 @@ export const ProjectsListPage: React.FC = () => {
                         <option value="Todos">Todos los Estados</option>
                         {Object.values(ProjectStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}>
-                        <SparklesIcon /> Importar con IA
-                    </button>
-                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
-                        <PlusIcon /> Crear Proyecto
-                    </button>
+                    {!isEmployeeView && (
+                        <>
+                            <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}>
+                                <SparklesIcon /> Importar con IA
+                            </button>
+                            <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
+                                <PlusIcon /> Crear Proyecto
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
             {filteredProjects.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"> {/* Adjusted to 3 columns for XL too */}
                     {filteredProjects.map(proj => (
                         <ProjectCard 
                             key={proj.id} 
@@ -401,6 +430,7 @@ export const ProjectsListPage: React.FC = () => {
                             onRequestDelete={requestDelete} 
                             onViewQuotation={handleGenerateQuotationPDF}
                             allEmployees={allEmployees}
+                            showManagementActions={!isEmployeeView} 
                         />
                     ))}
                 </div>
@@ -414,27 +444,31 @@ export const ProjectsListPage: React.FC = () => {
                 project={editingProject}
                 initialTab={initialModalTab} 
             />
-            <ConfirmationModal
-                isOpen={showDeleteConfirmModal}
-                onClose={() => setShowDeleteConfirmModal(false)}
-                onConfirm={confirmDelete}
-                title="Confirmar Eliminación"
-                message="¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer."
-                confirmButtonText="Sí, Eliminar"
-            />
-            <AIImportModal
-                isOpen={showAIImportModal}
-                onClose={() => setShowAIImportModal(false)}
-                onImportSuccess={handleAiProjectImportSuccess}
-                entityName="Proyecto"
-                fieldsToExtract="nombre (string), descripción (string), estado (string: Activo, Completado, Pausado, Pendiente), opcionalmente: clientId (string), clientName (string), startDate (string YYYY-MM-DD), endDate (string YYYY-MM-DD)"
-                exampleFormat={`{
-  "nombre": "Renovación Baño Principal",
-  "descripcion": "Actualización completa de azulejos, sanitarios y grifería.",
-  "estado": "Pendiente",
-  "clientName": "Laura Díaz" 
-}`}
-            />
+            {!isEmployeeView && (
+                 <ConfirmationModal
+                    isOpen={showDeleteConfirmModal}
+                    onClose={() => setShowDeleteConfirmModal(false)}
+                    onConfirm={confirmDelete}
+                    title="Confirmar Eliminación"
+                    message="¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer."
+                    confirmButtonText="Sí, Eliminar"
+                />
+            )}
+            {!isEmployeeView && (
+                <AIImportModal
+                    isOpen={showAIImportModal}
+                    onClose={() => setShowAIImportModal(false)}
+                    onImportSuccess={handleAiProjectImportSuccess}
+                    entityName="Proyecto"
+                    fieldsToExtract="nombre (string), descripción (string), estado (string: Activo, Completado, Pausado, Pendiente), opcionalmente: clientId (string), clientName (string), startDate (string YYYY-MM-DD), endDate (string YYYY-MM-DD)"
+                    exampleFormat={`{
+    "nombre": "Renovación Baño Principal",
+    "descripcion": "Actualización completa de azulejos, sanitarios y grifería.",
+    "estado": "Pendiente",
+    "clientName": "Laura Díaz" 
+    }`}
+                />
+            )}
         </div>
     );
 };

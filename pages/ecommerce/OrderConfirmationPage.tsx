@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Order as OrderType, ECommerceSettings as StoreSettingsType } from '../../types';
-import { BUTTON_PRIMARY_CLASSES, PREDEFINED_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
+import { BUTTON_PRIMARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
 import { ArrowUturnLeftIcon, CreditCardIcon, BanknotesIcon } from '../../components/icons'; // Added BanknotesIcon for other methods
 
 
@@ -18,7 +17,7 @@ export const OrderConfirmationPage: React.FC = () => {
     const [order, setOrder] = useState<OrderType | null>(null);
     const [storeSettings, setStoreSettings] = useState<StoreSettingsType | null>(null);
 
-    const effectiveStoreOwnerId = state?.storeOwnerId || order?.storeOwnerId || PREDEFINED_CLIENT_ID;
+    const effectiveStoreOwnerId = state?.storeOwnerId || order?.storeOwnerId || ECOMMERCE_CLIENT_ID;
 
 
     useEffect(() => {
@@ -30,7 +29,7 @@ export const OrderConfirmationPage: React.FC = () => {
             } else if (state?.storeOwnerId) { // Fallback if order not found yet but state has owner
                 setStoreSettings(getSettingsForClient(state.storeOwnerId));
             } else {
-                setStoreSettings(getSettingsForClient(PREDEFINED_CLIENT_ID)); // Ultimate fallback
+                setStoreSettings(getSettingsForClient(ECOMMERCE_CLIENT_ID)); // Ultimate fallback
             }
         }
     }, [orderId, getOrderById, getSettingsForClient, state?.storeOwnerId]);

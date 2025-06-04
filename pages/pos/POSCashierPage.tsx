@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Product, CartItem, Sale, UserRole } from '../../types';
@@ -287,12 +288,12 @@ export const POSCashierPage: React.FC = () => {
       </header>
 
       {/* Top Button Bar */}
-      <div className="bg-neutral-700 px-2 py-1.5 flex space-x-1 shadow">
+      <div className="bg-neutral-700 px-2 py-1.5 flex flex-wrap space-x-1 shadow"> {/* Added flex-wrap */}
         {paymentButtonsTop.map(btn => (
           <button 
             key={btn.name} 
             onClick={btn.action} 
-            className={`${POS_BUTTON_BLUE_CLASSES} !px-2 !py-1.5 !text-xs flex-1 flex flex-col items-center justify-center h-14 ${selectedPaymentMethod === btn.name.split('.')[0] && btn.name !== "Void" && btn.name !== "Opciones" ? '!bg-blue-500 ring-2 ring-white' : ''}`}
+            className={`${POS_BUTTON_BLUE_CLASSES} !px-2 !py-1.5 !text-xs flex-1 flex flex-col items-center justify-center h-14 min-w-[60px] mb-1 ${selectedPaymentMethod === btn.name.split('.')[0] && btn.name !== "Void" && btn.name !== "Opciones" ? '!bg-blue-500 ring-2 ring-white' : ''}`}
             disabled={!currentShift}
             title={btn.name}
           >
@@ -300,7 +301,7 @@ export const POSCashierPage: React.FC = () => {
             <span className={btn.icon ? "mt-0.5" : ""}>{btn.name}</span>
           </button>
         ))}
-        <button onClick={() => { handleEndShift(); navigate('/pos/dashboard');}} className={`${POS_BUTTON_RED_CLASSES} !px-2 !py-1.5 !text-xs flex-1 flex flex-col items-center justify-center h-14`} disabled={!currentShift} title="Salir y Cerrar Turno">
+        <button onClick={() => { handleEndShift(); navigate('/pos/dashboard');}} className={`${POS_BUTTON_RED_CLASSES} !px-2 !py-1.5 !text-xs flex-1 flex flex-col items-center justify-center h-14 min-w-[60px] mb-1`} disabled={!currentShift} title="Salir y Cerrar Turno">
             <ArrowLeftOnRectangleIcon className="w-6 h-6 mx-auto mb-1"/> Salir
         </button>
       </div>
@@ -362,42 +363,42 @@ export const POSCashierPage: React.FC = () => {
       </div>
       
       {/* Footer */}
-      <footer className="bg-neutral-700 text-white p-1.5 grid grid-cols-12 gap-1 items-stretch">
-        <div className="col-span-2 space-y-0.5 text-xs pr-1 border-r border-neutral-600">
+      <footer className="bg-neutral-700 text-white p-1.5 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-1 items-stretch">
+        <div className="col-span-full sm:col-span-2 space-y-0.5 text-xs p-1 sm:pr-1 sm:border-r border-neutral-600">
             <div className="flex justify-between"><span>Peso:</span> <span className="font-mono">0.00 Lbs</span></div>
             <div className="flex justify-between"><span>Cantidad:</span> <span className="font-mono">{cart.reduce((acc, item) => acc + item.quantity, 0) || "1.00"}</span></div>
             <div className="text-center text-yellow-400 mt-1">Caja Inactiva</div> {/* Placeholder */}
             <div className="mt-1">Cajero: <span className="font-mono">{currentUser?.name?.split(' ')[0] || 'N/A'}</span></div>
         </div>
 
-        <div className="col-span-5 grid grid-cols-3 grid-rows-3 gap-1 text-xs">
+        <div className="col-span-full sm:col-span-5 grid grid-cols-3 grid-rows-3 gap-1 text-xs p-1">
             {/* Row 1 */}
-            <button onClick={() => handleGenericButtonClick('Touch')} className={`${POS_BUTTON_BLUE_CLASSES} row-span-1`}>Touch</button>
-            <button onClick={() => handleGenericButtonClick('Hold')} className={`${POS_BUTTON_BLUE_CLASSES} row-span-1`}>Hold</button>
-            <button onClick={() => handleGenericButtonClick('Solo Precio')} className={`${POS_BUTTON_BLUE_CLASSES} row-span-1`}>Solo Precio</button>
+            <button onClick={() => handleGenericButtonClick('Touch')} className={`${POS_BUTTON_BLUE_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}>Touch</button>
+            <button onClick={() => handleGenericButtonClick('Hold')} className={`${POS_BUTTON_BLUE_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}>Hold</button>
+            <button onClick={() => handleGenericButtonClick('Solo Precio')} className={`${POS_BUTTON_BLUE_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}>Solo Precio</button>
             {/* Row 2 */}
-            <button onClick={() => handleGenericButtonClick('Imprimir')} className={`${POS_BUTTON_YELLOW_CLASSES} row-span-1`}><PrinterIcon className="mx-auto mb-0.5"/>Imprimir</button>
-            <button onClick={() => handleGenericButtonClick('Guardar Trans.')} className={`${POS_BUTTON_BLUE_CLASSES} row-span-1`}><FloppyDiskIcon className="mx-auto mb-0.5"/>Guardar</button>
-            <button onClick={() => handleGenericButtonClick('Recargas')} className={`${POS_BUTTON_PURPLE_CLASSES} row-span-1`}>Recargas</button>
+            <button onClick={() => handleGenericButtonClick('Imprimir')} className={`${POS_BUTTON_YELLOW_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}><PrinterIcon className="mx-auto mb-0.5 w-4 h-4"/>Imprimir</button>
+            <button onClick={() => handleGenericButtonClick('Guardar Trans.')} className={`${POS_BUTTON_BLUE_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}><FloppyDiskIcon className="mx-auto mb-0.5 w-4 h-4"/>Guardar</button>
+            <button onClick={() => handleGenericButtonClick('Recargas')} className={`${POS_BUTTON_PURPLE_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}>Recargas</button>
             {/* Row 3 */}
-            <button onClick={() => handleGenericButtonClick('Dev Consignación')} className={`${POS_BUTTON_DARK_RED_CLASSES} row-span-1`}>Dev Consignación</button>
-            <button onClick={() => { setReferenceInput(''); referenceInputRef.current?.focus();}} className={`${POS_BUTTON_SECONDARY_CLASSES} row-span-1`}><EscKeyIcon className="mx-auto mb-0.5"/>ESC</button>
-            <button onClick={() => handleGenericButtonClick('Eliminar Línea')} className={`${POS_BUTTON_DARK_RED_CLASSES} row-span-1`}>Eliminar</button>
+            <button onClick={() => handleGenericButtonClick('Dev Consignación')} className={`${POS_BUTTON_DARK_RED_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}>Dev Consignación</button>
+            <button onClick={() => { setReferenceInput(''); referenceInputRef.current?.focus();}} className={`${POS_BUTTON_SECONDARY_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}><EscKeyIcon className="mx-auto mb-0.5 w-4 h-4"/>ESC</button>
+            <button onClick={() => handleGenericButtonClick('Eliminar Línea')} className={`${POS_BUTTON_DARK_RED_CLASSES} !py-1 !px-0.5 !h-auto min-h-[36px] row-span-1`}>Eliminar</button>
         </div>
         
-        <div className="col-span-3 space-y-0 text-xs pl-1 border-l border-neutral-600">
+        <div className="col-span-full sm:col-span-3 space-y-0 text-xs p-1 sm:pl-1 sm:border-l border-neutral-600">
             <div className="flex justify-between"><span>{cart.length} Productos:</span> <span className="font-mono">${subtotal.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Estatal:</span> <span className="font-mono">+ ${estatalTax.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>T. Reducido 6%:</span> <span className="font-mono">+ ${reducidoTax.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Municipal:</span> <span className="font-mono">+ ${municipalTax.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Descuento:</span> <span className="font-mono">- ${discount.toFixed(2)}</span></div>
             <div className="flex justify-between items-baseline mt-1 pt-1 border-t border-neutral-600">
-                <span className="text-lg font-bold">Total:</span>
-                <span className="text-2xl font-bold font-mono text-yellow-300">${grandTotal.toFixed(2)}</span>
+                <span className="text-base sm:text-lg font-bold">Total:</span>
+                <span className="text-xl sm:text-2xl font-bold font-mono text-yellow-300">${grandTotal.toFixed(2)}</span>
             </div>
         </div>
 
-        <div className="col-span-2 flex flex-col justify-between pl-1 border-l border-neutral-600">
+        <div className="col-span-full sm:col-span-2 flex flex-col justify-between p-1 sm:pl-1 sm:border-l border-neutral-600">
             <div className="text-xs">
                 <div>Cliente Activo:</div>
                 <div className="font-semibold">Caja Registradora</div> {/* Placeholder */}
@@ -405,7 +406,7 @@ export const POSCashierPage: React.FC = () => {
             </div>
             <button 
                 onClick={handleProcessPayment} 
-                className={`${POS_BUTTON_GREEN_CLASSES} w-full !text-lg !font-bold h-16`}
+                className={`${POS_BUTTON_GREEN_CLASSES} w-full !text-base sm:!text-lg !font-bold h-12 sm:h-16 mt-1`}
                 disabled={cart.length === 0 || !currentShift}
             >
                 COBRAR
@@ -431,3 +432,4 @@ export const POSCashierPage: React.FC = () => {
     </div>
   );
 };
+        

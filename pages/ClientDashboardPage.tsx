@@ -1,24 +1,31 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom'; // Added Link
-import { useAuth } from '../contexts/AuthContext'; // Adjusted path
-import { useData } from '../contexts/DataContext'; // Adjusted path
-import { BUTTON_SECONDARY_SM_CLASSES } from '../constants'; // Added for button styling
-import { ChatBubbleLeftRightIcon } from '../components/icons'; // Added for icon
+import { Link } from 'react-router-dom'; 
+import { useAuth } from '../contexts/AuthContext'; 
+import { useData } from '../contexts/DataContext'; 
+import { BUTTON_SECONDARY_SM_CLASSES } from '../constants'; 
+import { ChatBubbleLeftRightIcon } from '../components/icons'; 
 
+// This page is currently not used. 
+// CLIENT_ECOMMERCE goes to /store.
+// CLIENT_PROJECT goes to /project-client/dashboard.
+// This could be repurposed if a "Store Owner" client type is added in the future.
 export const ClientDashboardPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { projects, orders } = useData();
 
+  // This filtering logic might need adjustment based on new client roles
+  // For now, it assumes a generic client ID.
   const clientProjects = projects.filter(p => (currentUser && p.clientId === currentUser.id)); 
   const clientOrders = orders.filter(o => o.clientEmail === currentUser?.email);
 
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-6 text-neutral-700 dark:text-neutral-200">Bienvenido, {currentUser?.name || currentUser?.email}!</h1>
+      <p className="text-neutral-500 dark:text-neutral-400">Este es un dashboard genérico para clientes. La funcionalidad específica se moverá a roles de cliente más definidos.</p>
       
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-3 text-neutral-600 dark:text-neutral-300">Mis Proyectos</h2>
+      <div className="mb-8 mt-4">
+        <h2 className="text-xl font-semibold mb-3 text-neutral-600 dark:text-neutral-300">Mis Proyectos (Ejemplo)</h2>
         {clientProjects.length > 0 ? (
           <ul className="space-y-3">
             {clientProjects.map(p => (
@@ -29,8 +36,9 @@ export const ClientDashboardPage: React.FC = () => {
                         <p className="text-sm text-neutral-500 dark:text-neutral-400">Estado: {p.status}</p>
                         <p className="text-sm text-neutral-500 dark:text-neutral-400">Fechas: {new Date(p.startDate).toLocaleDateString()} - {new Date(p.endDate).toLocaleDateString()}</p>
                     </div>
+                    {/* The link below should point to a client-specific chat page if this dashboard were active for project clients */}
                     <Link 
-                        to={`/client/chat/${p.id}`} 
+                        to={`/project-client/chat/${p.id}`} // Example path
                         className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center self-start`}
                         aria-label={`Abrir chat para proyecto ${p.name}`}
                     >
@@ -45,7 +53,7 @@ export const ClientDashboardPage: React.FC = () => {
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold mb-3 text-neutral-600 dark:text-neutral-300">Historial de Compras (E-commerce)</h2>
+        <h2 className="text-xl font-semibold mb-3 text-neutral-600 dark:text-neutral-300">Historial de Compras (E-commerce - Ejemplo)</h2>
         {clientOrders.length > 0 ? (
           <ul className="space-y-3">
             {clientOrders.map(o => (

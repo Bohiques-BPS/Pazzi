@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Client, ClientFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
@@ -22,7 +21,20 @@ export const ClientsListPage: React.FC = () => {
     const openModalForCreate = (initialData?: Partial<ClientFormData>) => { 
         setEditingClient(null); 
         if (initialData) {
-            setEditingClient({ id: '', ...initialData } as Client); 
+            setEditingClient({ 
+                id: '', 
+                ...initialData,
+                address: initialData.address || '', 
+                billingAddress: initialData.billingAddress || '',
+                clientType: initialData.clientType || 'Particular',
+                companyName: initialData.companyName || '',
+                taxId: initialData.taxId || '',
+                contactPersonName: initialData.contactPersonName || '',
+                preferredCommunication: initialData.preferredCommunication || 'Email',
+                clientNotes: initialData.clientNotes || '',
+                industry: initialData.industry || '',
+                acquisitionSource: initialData.acquisitionSource || '',
+            } as Client); 
         }
         setShowFormModal(true); 
     };
@@ -69,6 +81,16 @@ export const ClientsListPage: React.FC = () => {
                 lastName,
                 email,
                 phone: item.telefono || item.phone || '',
+                address: item.direccion || item.address || '',
+                billingAddress: item.direccion_facturacion || item.billingAddress || '',
+                clientType: item.tipoCliente || item.clientType || 'Particular',
+                companyName: item.nombreEmpresa || item.companyName || '',
+                taxId: item.idFiscal || item.taxId || '',
+                contactPersonName: item.personaContacto || item.contactPersonName || '',
+                preferredCommunication: item.comunicacionPreferida || item.preferredCommunication || 'Email',
+                clientNotes: item.notas || item.clientNotes || '',
+                industry: item.industria || item.industry || '',
+                acquisitionSource: item.fuenteAdquisicion || item.acquisitionSource || '',
             };
             newClients.push(newClient);
             importedCount++;
@@ -91,6 +113,10 @@ export const ClientsListPage: React.FC = () => {
         { header: 'Apellido', accessor: 'lastName' },
         { header: 'Email', accessor: 'email' },
         { header: 'Teléfono', accessor: 'phone' },
+        { header: 'Tipo', accessor: (client) => client.clientType || 'N/A' },
+        { header: 'Empresa', accessor: (client) => client.companyName || 'N/A' },
+        // { header: 'Dirección', accessor: (client) => client.address || 'N/A' },
+        // { header: 'ID Fiscal', accessor: (client) => client.taxId || 'N/A' },
     ];
     return (
         <div>
@@ -123,12 +149,21 @@ export const ClientsListPage: React.FC = () => {
                 onClose={() => setShowAIImportModal(false)}
                 onImportSuccess={handleAiClientImportSuccess}
                 entityName="Cliente"
-                fieldsToExtract="nombre (string), apellido (string), email (string), telefono (string, opcional)"
+                fieldsToExtract="nombre (string), apellido (string), email (string), telefono (opcional), direccion (opcional), tipoCliente ('Particular' o 'Empresa', opcional), nombreEmpresa (opcional), idFiscal (opcional), personaContacto (opcional), comunicacionPreferida ('Email', 'Teléfono', 'WhatsApp', 'Otro', opcional), notas (opcional), industria (opcional), fuenteAdquisicion (opcional)"
                 exampleFormat={`{
   "nombre": "Ana",
   "apellido": "García",
   "email": "ana.garcia@example.com",
-  "telefono": "555-1234"
+  "telefono": "555-1234",
+  "direccion": "Calle Sol 123, Ciudad Luz",
+  "tipoCliente": "Empresa",
+  "nombreEmpresa": "Soluciones Creativas S.A.",
+  "idFiscal": "GAMA123456XYZ",
+  "personaContacto": "Ana García",
+  "comunicacionPreferida": "Email",
+  "notas": "Cliente importante, requiere atención personalizada.",
+  "industria": "Diseño Gráfico",
+  "fuenteAdquisicion": "Referido por Juan Pérez"
 }`}
             />
         </div>

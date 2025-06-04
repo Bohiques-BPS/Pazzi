@@ -1,8 +1,9 @@
-
 export enum UserRole {
   MANAGER = 'Gerente',
   EMPLOYEE = 'Empleado',
-  CLIENT = 'Cliente',
+  CLIENT_ECOMMERCE = 'Cliente E-commerce', // Shopper
+  CLIENT_PROJECT = 'Cliente de Proyecto', // Project specific access
+  // CLIENT = 'Cliente', // Deprecating general Client role
 }
 
 export interface User {
@@ -11,13 +12,13 @@ export interface User {
   name?: string;
   lastName?: string;
   role: UserRole;
-  purchaseCode?: string; // For clients
+  purchaseCode?: string; 
 }
 
 export interface Category {
   id: string;
   name: string;
-  storeOwnerId?: string; // Categories can also be store-specific
+  storeOwnerId?: string; 
 }
 
 export interface Branch {
@@ -40,30 +41,34 @@ export interface Product {
   ivaRate?: number;
   storeOwnerId: string; 
 
-  // New fields from image
-  barcode2?: string; // Código Barras 2
-  isActive?: boolean; // Activo Si/No
-  isService?: boolean; // Servicio checkbox
+  barcode2?: string; 
+  isActive?: boolean; 
+  isService?: boolean; 
   
-  barcode13Digits?: string; // Código Barra 13 Dígitos
-  chainCode?: string; // Código Cadena
-  manufacturer?: string; // Manufacturero
-  supplierId?: string; // Suplidor (ID)
-  costPrice?: number; // Costo de Unidad Menor / Costo from supplier list
-  supplierProductCode?: string; // Código de Facturación del suplidor / Código from supplier list
+  barcode13Digits?: string; 
+  chainCode?: string; 
+  manufacturer?: string; 
+  supplierId?: string; 
+  costPrice?: number; 
+  supplierProductCode?: string; 
   
-  department?: string; // Departamento
-  family?: string; // Familia
-  physicalLocation?: string; // Localización
+  department?: string; 
+  family?: string; 
+  physicalLocation?: string; 
   
-  displayOnScreen?: boolean; // Ilustrar en Pantalla Si/No
-  requiresSerialNumber?: boolean; // Num. de Serie tracking
-  creationDate?: string; // Fecha Creado (YYYY-MM-DD)
+  displayOnScreen?: boolean; 
+  requiresSerialNumber?: boolean; 
+  creationDate?: string; 
   
-  useKitchenPrinter?: boolean; // Usar impresora de Cocina
-  useBarcodePrinter?: boolean; // Usar impresora de Barra
+  useKitchenPrinter?: boolean; 
+  useBarcodePrinter?: boolean; 
 
-  availableStock?: number; // Disponible (distinct from total inventory)
+  availableStock?: number; // This might represent total stock or stock for a default/primary location
+}
+
+export interface ProductStockInfo extends Product {
+  stockAtBranch: number;
+  totalStockAcrossAllBranches?: number; // Added for clarity in stock adjustment
 }
 
 export interface Client {
@@ -72,6 +77,17 @@ export interface Client {
   lastName: string;
   email: string;
   phone: string;
+  address?: string; 
+  billingAddress?: string; 
+  // New fields for enhanced client information
+  clientType?: 'Particular' | 'Empresa';
+  companyName?: string;
+  taxId?: string; // For RFC, NIF, CUIT, etc.
+  contactPersonName?: string; // If clientType is 'Empresa'
+  preferredCommunication?: 'Email' | 'Teléfono' | 'WhatsApp' | 'Otro';
+  clientNotes?: string;
+  industry?: string; // e.g., "Restauración", "Retail", "Servicios Profesionales"
+  acquisitionSource?: string; // e.g., "Referido por X", "Búsqueda Web", "Redes Sociales"
 }
 
 export interface Employee {
@@ -79,7 +95,19 @@ export interface Employee {
   name: string;
   lastName: string;
   email: string;
-  role: string; 
+  role: string; // This will be "Puesto"
+  address?: string;
+  phone?: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
+  hireDate?: string; // YYYY-MM-DD
+  department?: string;
+  salary?: number;
+  bankName?: string;
+  bankAccountNumber?: string;
+  socialSecurityNumber?: string; // Sensitive data
+  profilePictureUrl?: string;
 }
 
 export enum ProjectStatus {
@@ -119,8 +147,8 @@ export interface Sale {
   cajaId: string; 
   employeeId: string; 
   clientId?: string; 
-  branchId: string; // Added branchId
-  paymentStatus?: 'Pagado' | 'Pendiente de Pago'; // Added for Accounts Receivable
+  branchId: string; 
+  paymentStatus?: 'Pagado' | 'Pendiente de Pago'; 
 }
 
 export interface Order { 
@@ -140,7 +168,8 @@ export enum AppModule {
   PROJECT_MANAGEMENT = "Gestión de Proyectos",
   POS = "POS",
   ECOMMERCE = "E-commerce Admin", 
-  CLIENT_ECOMMERCE = "Mi Tienda Online" 
+  PROJECT_CLIENT_DASHBOARD = "Portal de Cliente de Proyecto" 
+  // CLIENT_ECOMMERCE is not a module, it's a user type accessing public store
 }
 
 export enum VisitStatus {
@@ -224,7 +253,6 @@ export interface ProductFormData {
   ivaRate?: number; 
   storeOwnerId: string; 
 
-  // New fields from image for form
   barcode2?: string;
   isActive?: boolean;
   isService?: boolean;
@@ -242,10 +270,7 @@ export interface ProductFormData {
   creationDate?: string;
   useKitchenPrinter?: boolean;
   useBarcodePrinter?: boolean;
-  availableStock?: number; 
-  // stockByBranch is handled by DataContext, not directly in form for initial creation.
-  // Default branch stock can be part of form if needed, then translated.
-  // For simplicity, current stock shown in image (Inventario: 6) will be applied to product's owner branch.
+  availableStock?: number; // Represents initial total stock or for default location
 }
 
 export interface ClientFormData { 
@@ -253,13 +278,36 @@ export interface ClientFormData {
   lastName: string;
   email: string;
   phone: string;
+  address?: string; 
+  billingAddress?: string;
+  // New fields for enhanced client information
+  clientType?: 'Particular' | 'Empresa';
+  companyName?: string;
+  taxId?: string; 
+  contactPersonName?: string; 
+  preferredCommunication?: 'Email' | 'Teléfono' | 'WhatsApp' | 'Otro';
+  clientNotes?: string;
+  industry?: string; 
+  acquisitionSource?: string; 
 }
 
 export interface EmployeeFormData {
   name: string;
   lastName: string;
   email: string;
-  role: string;
+  role: string; // This will be "Puesto"
+  address?: string;
+  phone?: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
+  hireDate?: string; // YYYY-MM-DD
+  department?: string;
+  salary?: number;
+  bankName?: string;
+  bankAccountNumber?: string;
+  socialSecurityNumber?: string; // Sensitive data
+  profilePictureUrl?: string;
 }
 
 export interface ProjectFormData {
@@ -312,4 +360,17 @@ export interface SupplierOrderFormData {
     items: SupplierOrderItem[];
     status: SupplierOrderStatus;
     storeOwnerId?: string;
+}
+
+export type NotificationType = 'new_order' | 'project_update' | 'chat_message' | 'low_stock' | 'generic';
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: string; // ISO string
+  read: boolean;
+  link?: string; // Optional link to navigate to
+  type: NotificationType;
+  icon?: React.ReactNode; // Specific icon based on type, e.g., ShoppingCartIcon for 'new_order'
 }

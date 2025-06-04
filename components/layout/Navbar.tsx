@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext'; // Adjusted path
-import { AppModule, UserRole } from '../../types';
-import { APP_MODULES_CONFIG } from '../../constants'; // Adjusted path
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon } from '../icons'; // Adjusted path, Added Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon
+import { useAuth } from '../../contexts/AuthContext'; 
+import { useData } from '../../contexts/DataContext'; // Added useData
+import { AppModule, UserRole, Notification } from '../../types'; // Added Notification
+import { APP_MODULES_CONFIG } from '../../constants'; 
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon } from '../icons'; // Added BellIcon, OrderIcon
 
 interface NavbarProps {
     onToggleSidebar: () => void;
@@ -12,62 +13,152 @@ interface NavbarProps {
     setCurrentModule: (module: AppModule) => void;
 }
 
+const logoUrl = "/Logo.png"; 
+
+// Helper to format time relatively (simplified)
+const formatRelativeTime = (isoTimestamp: string) => {
+    const now = new Date();
+    const past = new Date(isoTimestamp);
+    const diffInSeconds = Math.round((now.getTime() - past.getTime()) / 1000);
+
+    const minutes = Math.round(diffInSeconds / 60);
+    const hours = Math.round(minutes / 60);
+    const days = Math.round(hours / 24);
+
+    if (minutes < 1) return 'Ahora';
+    if (minutes < 60) return `Hace ${minutes} min`;
+    if (hours < 24) return `Hace ${hours}h`;
+    if (days === 1) return 'Ayer';
+    return `Hace ${days} días`;
+};
+
+
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, setCurrentModule }) => {
   const { currentUser, logout } = useAuth();
+  const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData(); // Added notification context
   const navigate = useNavigate();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false); // State for notification dropdown
+  
+  const unreadCount = getUnreadNotificationsCount();
+  const latestNotifications = notifications.sort((a : any, b : any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 7); // Show latest 7
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const availableModules = currentUser?.role === UserRole.EMPLOYEE 
-    ? APP_MODULES_CONFIG.filter(mod => mod.name === AppModule.POS)
-    : APP_MODULES_CONFIG;
+  const availableModulesForSelector = APP_MODULES_CONFIG.filter(mod => {
+    if (currentUser?.role === UserRole.MANAGER) {
+      return mod.name !== AppModule.PROJECT_CLIENT_DASHBOARD; 
+    }
+    if (currentUser?.role === UserRole.EMPLOYEE) {
+      return mod.name === AppModule.POS || mod.name === AppModule.PROJECT_MANAGEMENT;
+    }
+    return false; 
+  });
+
+
+  const getModuleBasePath = (moduleName: AppModule) => {
+    const mod = APP_MODULES_CONFIG.find(m => m.name === moduleName);
+    if (!mod) return '/';
+
+    if (currentUser?.role === UserRole.EMPLOYEE) {
+        if (moduleName === AppModule.POS) return '/pos/cashier';
+        if (moduleName === AppModule.PROJECT_MANAGEMENT) return '/pm/projects';
+    }
+    
+    if (moduleName === AppModule.PROJECT_MANAGEMENT && mod.subModulesProject && mod.subModulesProject.length > 0 && mod.subModulesProject[0].type === 'link') {
+        return mod.subModulesProject[0].path;
+    } else if (moduleName === AppModule.POS && mod.subModulesPOS && mod.subModulesPOS.length > 0 && mod.subModulesPOS[0].type === 'link') {
+        return mod.subModulesPOS[0].path;
+    } else if (moduleName === AppModule.ECOMMERCE && mod.subModulesEcommerce && mod.subModulesEcommerce.length > 0 && mod.subModulesEcommerce[0].type === 'link') {
+        return mod.subModulesEcommerce[0].path;
+    }
+    return mod.path;
+  };
+
+  const getLogoLink = () => {
+    if (!currentUser) return "/";
+    switch (currentUser.role) {
+        case UserRole.CLIENT_ECOMMERCE: return "/store";
+        case UserRole.CLIENT_PROJECT: return "/project-client/dashboard";
+        default: return "/"; 
+    }
+  }
+
+  const renderClientProjectNavLinks = () => (
+    <>
+        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-base font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Dashboard</Link>
+        <Link to="/project-client/calendar" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-base font-medium flex items-center"><CalendarDaysIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Calendario</Link>
+        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-base font-medium flex items-center"><ChatBubbleLeftRightIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Mis Chats</Link>
+    </>
+  );
+
+  const handleNotificationClick = (notification: Notification) => {
+    markNotificationAsRead(notification.id);
+    if (notification.link) {
+        navigate(notification.link);
+    }
+    // Potentially close dropdown if not navigating, or if navigating within same page.
+    // For now, it will stay open unless a navigation happens which re-renders navbar.
+    // To ensure it closes, you might need: setNotificationDropdownOpen(false);
+  };
+
 
   return (
-    <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-4 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700">
-      <div className="container mx-auto flex items-center justify-between">
+    <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]"> 
+      <div className="mx-auto flex items-center justify-between h-full px-4"> 
         <div className="flex items-center">
-          { currentUser?.role !== UserRole.CLIENT && /* Hide sidebar toggle for shopper client */
-            <button onClick={onToggleSidebar} className="mr-3 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden text-neutral-600 dark:text-neutral-300">
-              <MenuIcon />
+         
+          { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && 
+            <button onClick={onToggleSidebar} className="mr-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden">
+              <MenuIcon className="w-6 h-6 text-iconCustomBlue" />
             </button>
           }
-          <Link to={currentUser?.role === UserRole.CLIENT ? "/store" : "/"} className="text-2xl font-bold text-primary mr-4">Pazzi</Link>
           
-          {currentUser?.role !== UserRole.EMPLOYEE && currentUser?.role !== UserRole.CLIENT && availableModules.length > 1 && (
-            <div className="relative">
+      
+          {availableModulesForSelector.length > 0 && ( 
+            <div className="relative mr-3">
+                {/* Mobile/Tablet: Text-based dropdown */}
                 <button 
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
-                    className="px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="md:hidden px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-haspopup="true"
                     aria-expanded={moduleDropdownOpen}
                     aria-controls="module-menu"
                 >
-                    {currentModule} <ChevronDownIcon />
+                    {currentModule} <ChevronDownIcon className="w-6 h-6 text-iconCustomBlue ml-1" />
                 </button>
+
+                {/* Desktop: Icon-based dropdown */}
+                <button
+                    onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
+                    className="hidden md:flex items-center justify-center p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md border border-neutral-300 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    aria-label="Seleccionar módulo"
+                    aria-haspopup="true"
+                    aria-expanded={moduleDropdownOpen}
+                    aria-controls="module-menu"
+                >
+                    <Squares2X2Icon className="w-6 h-6 text-iconCustomBlue" />
+                </button>
+
+                {/* Dropdown menu content (shared) */}
                 {moduleDropdownOpen && (
-                    <div id="module-menu" className="absolute mt-2 w-56 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600 left-0">
-                        {availableModules.map(mod => (
+                    <div 
+                        id="module-menu" 
+                        className="absolute mt-2 w-56 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600 left-0"
+                    >
+                        {availableModulesForSelector.map(mod => (
                             <button
                                 key={mod.name}
                                 onClick={() => {
                                     setCurrentModule(mod.name);
                                     setModuleDropdownOpen(false);
-                                    let basePath = mod.path;
-                                    if (mod.name === AppModule.PROJECT_MANAGEMENT && mod.subModulesProject.length > 0 && mod.subModulesProject[0].type === 'link') {
-                                        basePath = mod.subModulesProject[0].path;
-                                    } else if (mod.name === AppModule.POS && mod.subModulesPOS.length > 0 && mod.subModulesPOS[0].type === 'link') {
-                                        basePath = mod.subModulesPOS[0].path;
-                                    } else if (mod.name === AppModule.ECOMMERCE && mod.subModulesEcommerce.length > 0 && mod.subModulesEcommerce[0].type === 'link') {
-                                        basePath = mod.subModulesEcommerce[0].path;
-                                    }
-                                    navigate(basePath);
+                                    navigate(getModuleBasePath(mod.name));
                                 }}
-                                className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                                className="block w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                                 role="menuitem"
                             >
                                 {mod.name}
@@ -77,60 +168,121 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                 )}
             </div>
           )}
-           {currentUser?.role === UserRole.EMPLOYEE && (
-             <span className="px-3 py-1.5 text-neutral-700 dark:text-neutral-200 text-sm font-medium">{AppModule.POS}</span>
-           )}
-           {/* For CLIENT role, no module selector, they are in "store" context */}
+
+          {/* Logo */}
+          <Link to={getLogoLink()} className="mr-4 flex-shrink-0">
+            <img src={logoUrl} alt="Pazzi Logo" className="h-9" /> {/* Slightly increased logo size */}
+          </Link>
+          
+          {/* Client Project Nav Links (Desktop) */}
+          {currentUser?.role === UserRole.CLIENT_PROJECT && (
+              <div className="hidden md:flex items-center space-x-1">
+                  {renderClientProjectNavLinks()}
+              </div>
+          )}
         </div>
 
-        <div className="relative">
-          <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
-            <UserCircleIcon />
-            <span className="hidden md:inline">{currentUser?.name || currentUser?.email}</span>
-            <ChevronDownIcon />
-          </button>
-          {userDropdownOpen && (
-            <div id="user-menu" className="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600">
-              {currentUser?.role === UserRole.CLIENT && (
-                <Link 
-                    to="/my-orders" 
-                    onClick={() => setUserDropdownOpen(false)} 
-                    className="flex items-center w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
-                    role="menuitem"
+        {/* Right side of Navbar: Notifications & User Menu */}
+        <div className="flex items-center space-x-2">
+           {/* Notification Bell - Visible for logged-in users except e-commerce clients */}
+           {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
+            <div className="relative">
+                <button 
+                    onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)} 
+                    className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    aria-label="Notificaciones"
+                    aria-haspopup="true"
+                    aria-expanded={notificationDropdownOpen}
+                    aria-controls="notification-menu"
                 >
-                  <ListBulletIcon className="w-4 h-4 mr-2" /> Mis Pedidos
-                </Link>
-              )}
-              {currentUser?.role !== UserRole.CLIENT && ( // Settings for Manager and Employee
-                <Link 
-                    to="/settings" 
-                    onClick={() => setUserDropdownOpen(false)} 
-                    className="flex items-center w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
-                    role="menuitem"
-                >
-                  <Cog6ToothIcon className="w-4 h-4 mr-2" /> Configuración
-                </Link>
-              )}
-               {/* All roles can see a settings link for password/theme */}
-              {(currentUser?.role === UserRole.CLIENT) && ( 
-                <Link 
-                    to="/settings" 
-                    onClick={() => setUserDropdownOpen(false)} 
-                    className="flex items-center w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
-                    role="menuitem"
-                >
-                  <Cog6ToothIcon className="w-4 h-4 mr-2" /> Mi Cuenta
-                </Link>
-              )}
-              <button 
-                onClick={() => {handleLogout(); setUserDropdownOpen(false);}} 
-                className="flex items-center w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
-                role="menuitem"
-              >
-                <ArrowLeftOnRectangleIcon className="w-4 h-4 mr-2" /> Cerrar Sesión
-              </button>
+                    <BellIcon className="w-6 h-6 text-iconCustomBlue"/>
+                    {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-neutral-800 bg-red-500 animate-pulse"></span>
+                    )}
+                </button>
+                {notificationDropdownOpen && (
+                    <div id="notification-menu" className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-neutral-700 rounded-md shadow-xl py-1 z-30 border border-neutral-200 dark:border-neutral-600 max-h-[70vh] flex flex-col">
+                        <div className="flex justify-between items-center px-4 py-2 border-b dark:border-neutral-600">
+                            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Notificaciones</h3>
+                            {unreadCount > 0 && (
+                                <button 
+                                    onClick={() => {markAllNotificationsAsRead(); /* setNotificationDropdownOpen(false); */}}
+                                    className="text-xs text-primary hover:underline"
+                                >
+                                    Marcar todas como leídas
+                                </button>
+                            )}
+                        </div>
+                        <div className="overflow-y-auto flex-grow">
+                            {latestNotifications.length > 0 ? latestNotifications.map(notification => (
+                                <div
+                                    key={notification.id}
+                                    onClick={() => handleNotificationClick(notification)}
+                                    className={`px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer border-b dark:border-neutral-600/50 ${!notification.read ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
+                                    role="menuitem"
+                                >
+                                    <div className="flex items-start">
+                                        {notification.icon && <span className="mr-3 mt-0.5 text-primary dark:text-accent">{notification.icon}</span>}
+                                        <div className="flex-1">
+                                            <p className={`text-sm font-medium ${!notification.read ? 'text-primary dark:text-accent' : 'text-neutral-800 dark:text-neutral-100'}`}>{notification.title}</p>
+                                            <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-xs">{notification.message}</p>
+                                            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{formatRelativeTime(notification.timestamp)}</p>
+                                        </div>
+                                        {!notification.read && <span className="ml-2 mt-1 w-2 h-2 bg-primary dark:bg-accent rounded-full flex-shrink-0"></span>}
+                                    </div>
+                                </div>
+                            )) : (
+                                <p className="text-center text-sm text-neutral-500 dark:text-neutral-400 py-6">No hay notificaciones nuevas.</p>
+                            )}
+                        </div>
+                         {notifications.length > 0 && (
+                             <div className="px-4 py-2 border-t dark:border-neutral-600 text-center">
+                                {/* <Link to="/notifications" onClick={() => setNotificationDropdownOpen(false)} className="text-sm text-primary hover:underline">Ver todas</Link> */}
+                                <span className="text-xs text-neutral-400 dark:text-neutral-500">Mostrando últimas {latestNotifications.length}</span>
+                            </div>
+                         )}
+                    </div>
+                )}
             </div>
-          )}
+           )}
+
+          {/* User Menu */}
+          <div className="relative">
+            <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
+                <UserCircleIcon className="w-6 h-6 text-iconCustomBlue" />
+                <span className="hidden md:inline text-base text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
+                <ChevronDownIcon className="w-6 h-6 text-iconCustomBlue" />
+            </button>
+            {userDropdownOpen && (
+                <div id="user-menu" className="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600">
+                {currentUser?.role === UserRole.CLIENT_ECOMMERCE && (
+                    <Link 
+                        to="/my-orders" 
+                        onClick={() => setUserDropdownOpen(false)} 
+                        className="flex items-center w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
+                        role="menuitem"
+                    >
+                    <ListBulletIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Mis Pedidos
+                    </Link>
+                )}
+                <Link 
+                    to="/settings" 
+                    onClick={() => setUserDropdownOpen(false)} 
+                    className="flex items-center w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
+                    role="menuitem"
+                >
+                    <Cog6ToothIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Mi Cuenta
+                </Link>
+                <button
+                    onClick={() => {handleLogout(); setUserDropdownOpen(false);}}
+                    className="flex items-center w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                    role="menuitem"
+                >
+                    <ArrowLeftOnRectangleIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Cerrar Sesión
+                </button>
+            </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>

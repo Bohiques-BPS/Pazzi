@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext'; // Adjusted path
-import { LandingLayout } from '../../components/layout/LandingLayout'; // Adjusted path
-import { UserRole } from '../../types'; // Adjusted path
-import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constants'; // Adjusted path
+import { useAuth } from '../../contexts/AuthContext'; 
+import { LandingLayout } from '../../components/layout/LandingLayout'; 
+import { UserRole } from '../../types'; 
+import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constants'; 
 
 export const RegisterPage: React.FC = () => {
   const [name, setName] = useState('');
@@ -12,7 +12,7 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<UserRole>(UserRole.CLIENT);
+  const [role, setRole] = useState<UserRole>(UserRole.CLIENT_ECOMMERCE); // Default to E-commerce Client
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -59,7 +59,8 @@ export const RegisterPage: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">Tipo de Cuenta</label>
             <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className={authInputStyle} required>
-              <option value={UserRole.CLIENT}>Cliente</option>
+              <option value={UserRole.CLIENT_ECOMMERCE}>Cliente E-commerce (Comprador)</option>
+              <option value={UserRole.CLIENT_PROJECT}>Cliente de Proyecto</option>
               <option value={UserRole.MANAGER}>Gerente</option>
               <option value={UserRole.EMPLOYEE}>Empleado</option>
             </select>

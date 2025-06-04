@@ -1,9 +1,9 @@
 {
-  "name": "Pazzi",
-  "description": "Pazzi, an integral platform combining project management, point of sale (POS), and e-commerce functionalities.",
   "requestFramePermissions": [
     "camera",
     "microphone"
   ],
+  "name": "Copy of Pazzi - Integrated Business Platform",
+  "description": "",
   "prompt": ""
 }

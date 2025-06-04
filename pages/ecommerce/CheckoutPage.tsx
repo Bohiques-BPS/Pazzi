@@ -1,17 +1,59 @@
 
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, Link as RouterLink, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, Link as RouterLink, useParams } from 'react-router-dom'; // Added useNavigate
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { CartItem, Order, ECommerceSettings } from '../../types';
-import { BUTTON_PRIMARY_CLASSES, inputFormStyle, BUTTON_SECONDARY_CLASSES, PREDEFINED_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
-import { CreditCardIcon, ArrowUturnLeftIcon } from '../../components/icons'; // Added ArrowUturnLeftIcon
+import { CartItem, Order, ECommerceSettings as StoreSettingsType } from '../../types'; // Added Order type
+import { BUTTON_PRIMARY_CLASSES, inputFormStyle, BUTTON_SECONDARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants'; // Changed PREDEFINED_CLIENT_ID
+import { CreditCardIcon, ArrowUturnLeftIcon } from '../../components/icons'; 
 
 interface CheckoutLocationState {
     cart: CartItem[];
     cartTotal: number;
     storeOwnerId: string;
 }
+
+const PaymentMethodSelector: React.FC<{
+    selectedMethod: 'Tarjeta' | 'PayPal' | 'ATH Móvil';
+    onSelectMethod: (method: 'Tarjeta' | 'PayPal' | 'ATH Móvil') => void;
+    primaryColor: string;
+}> = ({ selectedMethod, onSelectMethod, primaryColor }) => {
+    const paymentOptions = [
+        { id: 'Tarjeta', label: 'Tarjeta de Crédito/Débito' },
+        { id: 'PayPal', label: 'PayPal' },
+        { id: 'ATH Móvil', label: 'ATH Móvil' },
+    ] as const;
+
+    return (
+        <div className="space-y-3">
+            {paymentOptions.map(option => (
+                <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onSelectMethod(option.id)}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all duration-200 focus:outline-none
+                        ${selectedMethod === option.id
+                            ? `border-transparent ring-2 ring-offset-1 dark:ring-offset-neutral-800 shadow-md ring-[${primaryColor}]`
+                            : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500 hover:shadow-sm'
+                        }`}
+                    style={selectedMethod === option.id ? { borderColor: primaryColor } : {}}
+                >
+                    <span className={`font-medium text-sm ${selectedMethod === option.id ? '' : 'text-neutral-700 dark:text-neutral-200'}`}
+                          style={selectedMethod === option.id ? { color: primaryColor } : {}}
+                    >
+                        {option.label}
+                    </span>
+                    {selectedMethod === option.id && (
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path></svg>
+                        </span>
+                    )}
+                </button>
+            ))}
+        </div>
+    );
+};
+
 
 export const CheckoutPage: React.FC = () => {
     const location = useLocation();
@@ -21,7 +63,7 @@ export const CheckoutPage: React.FC = () => {
 
     const { cart, cartTotal, storeOwnerId } = (location.state as CheckoutLocationState || {});
     
-    const effectiveStoreOwnerId = storeOwnerId || PREDEFINED_CLIENT_ID; // Fallback
+    const effectiveStoreOwnerId = storeOwnerId || ECOMMERCE_CLIENT_ID; // Fallback
     const storeSettings = getSettingsForClient(effectiveStoreOwnerId);
     const storePrimaryColor = storeSettings.primaryColor || DEFAULT_ECOMMERCE_SETTINGS.primaryColor;
 
@@ -191,46 +233,35 @@ export const CheckoutPage: React.FC = () => {
 
                         <div>
                             <h3 className="text-lg font-medium text-neutral-700 dark:text-neutral-200 mb-3">Método de Pago</h3>
-                            <div className="space-y-3 mb-4">
-                                {(['Tarjeta', 'PayPal', 'ATH Móvil'] as const).map(method => (
-                                    <label key={method} className={`flex items-center p-3 border rounded-md cursor-pointer transition-all ${selectedPaymentMethod === method ? 'border-primary ring-2 ring-primary bg-primary/5 dark:bg-primary/10' : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500'}`}>
-                                        <input type="radio" name="paymentMethod" value={method} checked={selectedPaymentMethod === method} onChange={() => setSelectedPaymentMethod(method)} className="form-radio h-4 w-4 text-primary focus:ring-primary/50 mr-3"/>
-                                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{method}</span>
-                                    </label>
-                                ))}
-                            </div>
+                            <PaymentMethodSelector 
+                                selectedMethod={selectedPaymentMethod}
+                                onSelectMethod={setSelectedPaymentMethod}
+                                primaryColor={storePrimaryColor}
+                            />
 
                             {selectedPaymentMethod === 'Tarjeta' && (
-                                <div className="space-y-3 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md bg-neutral-50 dark:bg-neutral-700/30">
-                                    <div className="relative">
-                                        <CreditCardIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
-                                        <input type="text" name="number" placeholder="Número de Tarjeta (simulado)" value={cardDetails.number} onChange={handleCardInputChange} className={`${inputFormStyle} pl-10`} required />
-                                    </div>
+                                <div className="mt-4 space-y-3 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md">
+                                     <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-300 flex items-center">
+                                        <CreditCardIcon className="mr-2" /> Detalles de la Tarjeta
+                                    </h4>
+                                    <input type="text" name="number" placeholder="Número de Tarjeta" value={cardDetails.number} onChange={handleCardInputChange} className={inputFormStyle} required />
                                     <div className="grid grid-cols-2 gap-3">
-                                        <input type="text" name="expiry" placeholder="MM/AA (simulado)" value={cardDetails.expiry} onChange={handleCardInputChange} className={inputFormStyle} required />
-                                        <input type="text" name="cvc" placeholder="CVC (simulado)" value={cardDetails.cvc} onChange={handleCardInputChange} className={inputFormStyle} required />
+                                        <input type="text" name="expiry" placeholder="MM/AA (Expiración)" value={cardDetails.expiry} onChange={handleCardInputChange} className={inputFormStyle} required />
+                                        <input type="text" name="cvc" placeholder="CVC" value={cardDetails.cvc} onChange={handleCardInputChange} className={inputFormStyle} required />
                                     </div>
+                                </div>
+                            )}
+                             {selectedPaymentMethod === 'ATH Móvil' && (
+                                <div className="mt-4 space-y-3 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md">
+                                     <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Confirmación ATH Móvil</h4>
+                                    <input type="text" name="athConfirmation" placeholder="Número de Confirmación de Pago" value={athConfirmationNumber} onChange={(e) => setAthConfirmationNumber(e.target.value)} className={inputFormStyle} required />
+                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">Realiza el pago a: <span className="font-semibold">/PazziTienda</span> e ingresa el número de confirmación.</p>
                                 </div>
                             )}
                             {selectedPaymentMethod === 'PayPal' && (
-                                <div className="p-4 border border-blue-200 dark:border-blue-700 rounded-md bg-blue-50 dark:bg-blue-900/30 text-center">
-                                    <p className="text-sm text-blue-700 dark:text-blue-300">Serás redirigido a PayPal para completar tu pago (simulación).</p>
-                                </div>
-                            )}
-                            {selectedPaymentMethod === 'ATH Móvil' && (
-                                 <div className="p-4 border border-pink-200 dark:border-pink-700 rounded-md bg-pink-50 dark:bg-pink-900/30">
-                                    <p className="text-sm text-pink-700 dark:text-pink-300 mb-2">
-                                        Realiza tu pago a <strong className="font-mono">/PazziTiendaOnline</strong> (ejemplo) en ATH Móvil.
-                                    </p>
-                                    <input 
-                                        type="text" 
-                                        name="athConfirmationNumber" 
-                                        placeholder="Número de Confirmación ATH Móvil" 
-                                        value={athConfirmationNumber} 
-                                        onChange={(e) => setAthConfirmationNumber(e.target.value)} 
-                                        className={inputFormStyle} 
-                                        required 
-                                    />
+                                <div className="mt-4 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md text-center">
+                                    <p className="text-sm text-neutral-600 dark:text-neutral-300">Serás redirigido a PayPal para completar tu pago.</p>
+                                    {/* Actual PayPal button would go here */}
                                 </div>
                             )}
                         </div>
@@ -239,11 +270,11 @@ export const CheckoutPage: React.FC = () => {
 
                         <button 
                             type="submit" 
-                            className={`${BUTTON_PRIMARY_CLASSES} w-full !py-3 text-base`} 
+                            className={`${BUTTON_PRIMARY_CLASSES} w-full text-lg py-3 mt-2`} 
                             style={{backgroundColor: storePrimaryColor}}
                             disabled={isLoading}
                         >
-                            {isLoading ? 'Procesando Pago...' : `Pagar $${cartTotal.toFixed(2)} Ahora`}
+                            {isLoading ? 'Procesando Pedido...' : `Pagar $${cartTotal.toFixed(2)}`}
                         </button>
                     </form>
                 </section>

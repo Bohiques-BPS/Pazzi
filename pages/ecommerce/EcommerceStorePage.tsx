@@ -5,7 +5,7 @@ import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Product, CartItem, ECommerceSettings as StoreSettingsType, Order } from '../../types'; // Added Order type
 import { ShoppingCartIcon, PlusIcon, TrashIconMini } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, PREDEFINED_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants'; 
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants'; // Changed PREDEFINED_CLIENT_ID to ECOMMERCE_CLIENT_ID
 
 const ProductStoreCard: React.FC<{ product: Product; onAddToCart: (product: Product) => void; storePrimaryColor: string; }> = ({ product, onAddToCart, storePrimaryColor }) => {
     return (
@@ -47,7 +47,7 @@ export const EcommerceStorePage: React.FC = () => {
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     
-    const effectiveStoreOwnerId = storeOwnerId || PREDEFINED_CLIENT_ID; // Fallback to demo client if no ID in URL
+    const effectiveStoreOwnerId = storeOwnerId || ECOMMERCE_CLIENT_ID; // Fallback to demo client if no ID in URL
 
     useEffect(() => {
         if (effectiveStoreOwnerId) {

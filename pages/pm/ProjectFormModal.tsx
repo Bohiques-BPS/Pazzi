@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project, ProjectFormData, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, UserRole } from '../../types'; // Adjusted path, Added UserRole
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { useAuth } from '../../contexts/AuthContext'; // Adjusted path
@@ -44,7 +44,9 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
     const [isAiGenerating, setIsAiGenerating] = useState(false); // AI loading state
 
-    const projectMessages = project ? getChatMessagesForProject(project.id) : [];
+    const projectMessages = useMemo(() => project ? getChatMessagesForProject(project.id) : [], [project, getChatMessagesForProject]);
+    const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
+
 
     const scrollToBottomChat = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -81,10 +83,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     }, [project, isOpen, clients, initialTab]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        if (isEmployeeView && activeTab === 'details') return; // Prevent changes by employee on details tab
         setFormData(prev => ({...prev, [e.target.name]: e.target.value}));
     };
 
     const handleAddProduct = () => {
+        if (isEmployeeView) return;
         if (currentProduct && currentQuantity > 0) {
             const existing = formData.assignedProducts.find(p => p.productId === currentProduct);
             if (existing) {
@@ -98,10 +102,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     };
     
     const handleRemoveProduct = (productId: string) => {
+        if (isEmployeeView) return;
         setFormData(prev => ({...prev, assignedProducts: prev.assignedProducts.filter(p => p.productId !== productId)}));
     };
 
     const handleEmployeeToggle = (employeeId: string) => {
+        if (isEmployeeView) return;
         setFormData(prev => {
             const isAssigned = prev.assignedEmployeeIds.includes(employeeId);
             if (isAssigned) {
@@ -123,6 +129,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
     const handleSubmitDetails = (e: React.FormEvent) => {
         e.preventDefault();
+        if (isEmployeeView) return; // Employees cannot save project details
         if (!formData.clientId) {
             alert("Por favor, seleccione un cliente.");
             return;
@@ -161,12 +168,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     };
 
     const handleGenerateAiResponse = async () => {
-        if (!project || !currentUser || isAiGenerating) return;
+        if (!project || !currentUser || isAiGenerating || isEmployeeView) return;
 
         setIsAiGenerating(true);
         const lastClientMessages = projectMessages
             .filter(msg => msg.senderId !== currentUser.id)
-            .slice(-3) // Get last 3 non-admin messages
+            .slice(-3) 
             .map(msg => `${msg.senderName}: ${msg.text}`)
             .join('\n');
 
@@ -257,69 +264,73 @@ La respuesta debe ser solo el texto para enviar al cliente, sin introducciones c
 
                 {activeTab === 'details' || !project ? (
                     <form onSubmit={handleSubmitDetails} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                        <div>
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre del Proyecto</label>
-                            <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputFormStyle + " w-full"} required/>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
-                            <textarea name="description" value={formData.description} onChange={handleChange} className={inputFormStyle + " w-full"} rows={3}/>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <fieldset disabled={isEmployeeView}> {/* Disable all fields in details tab for employee */}
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha de Inicio</label>
-                                <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} className={inputFormStyle + " w-full"} required/>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre del Proyecto</label>
+                                <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputFormStyle + " w-full"} required/>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha de Fin</label>
-                                <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} className={inputFormStyle + " w-full"} required/>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
+                                <textarea name="description" value={formData.description} onChange={handleChange} className={inputFormStyle + " w-full"} rows={3}/>
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Cliente</label>
-                            <select name="clientId" value={formData.clientId} onChange={handleChange} className={inputFormStyle + " w-full"} required>
-                                <option value="">Seleccionar Cliente</option>
-                                {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Estado</label>
-                            <select name="status" value={formData.status} onChange={handleChange} className={inputFormStyle + " w-full"}>
-                                {Object.values(ProjectStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-
-                        <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                            <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Asignar Productos</legend>
-                            <div className="flex items-end gap-2 mb-2">
-                                <select value={currentProduct} onChange={(e) => setCurrentProduct(e.target.value)} className={inputFormStyle + " flex-grow"}>
-                                    <option value="">Seleccionar Producto</option>
-                                    {allProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha de Inicio</label>
+                                    <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} className={inputFormStyle + " w-full"} required/>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha de Fin</label>
+                                    <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} className={inputFormStyle + " w-full"} required/>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Cliente</label>
+                                <select name="clientId" value={formData.clientId} onChange={handleChange} className={inputFormStyle + " w-full"} required>
+                                    <option value="">Seleccionar Cliente</option>
+                                    {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
                                 </select>
-                                <input type="number" value={currentQuantity} onChange={(e) => setCurrentQuantity(parseInt(e.target.value))} min="1" className={inputFormStyle + " w-20"}/>
-                                <button type="button" onClick={handleAddProduct} className={BUTTON_SECONDARY_SM_CLASSES}>Añadir</button>
                             </div>
-                            <ul className="max-h-32 overflow-y-auto">
-                                {formData.assignedProducts.map(ap => {
-                                    const prod = allProducts.find(p => p.id === ap.productId);
-                                    return <li key={ap.productId} className="text-sm flex justify-between items-center p-1 bg-neutral-100 dark:bg-neutral-700 rounded mb-1 text-neutral-700 dark:text-neutral-200"><span>{prod?.name} x {ap.quantity}</span> <button type="button" onClick={() => handleRemoveProduct(ap.productId)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs">Quitar</button></li>;
-                                })}
-                            </ul>
-                        </fieldset>
-
-                        <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                            <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Asignar Empleados</legend>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
-                                {allEmployeesHook.map(emp => (
-                                    <label key={emp.id} className="flex items-center space-x-2 p-1.5 bg-neutral-100 dark:bg-neutral-700 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-600">
-                                        <input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500"/>
-                                        <span className="text-sm text-neutral-700 dark:text-neutral-200">{emp.name} {emp.lastName}</span>
-                                    </label>
-                                ))}
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Estado</label>
+                                <select name="status" value={formData.status} onChange={handleChange} className={inputFormStyle + " w-full"}>
+                                    {Object.values(ProjectStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
                             </div>
-                        </fieldset>
 
-                        <div className="flex justify-end space-x-2 pt-2"><button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button><button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Guardar Proyecto</button></div>
+                            <fieldset className="border dark:border-neutral-600 p-3 rounded">
+                                <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Asignar Productos</legend>
+                                <div className="flex items-end gap-2 mb-2">
+                                    <select value={currentProduct} onChange={(e) => setCurrentProduct(e.target.value)} className={inputFormStyle + " flex-grow"} disabled={isEmployeeView}>
+                                        <option value="">Seleccionar Producto</option>
+                                        {allProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                    </select>
+                                    <input type="number" value={currentQuantity} onChange={(e) => setCurrentQuantity(parseInt(e.target.value))} min="1" className={inputFormStyle + " w-20"} disabled={isEmployeeView}/>
+                                    <button type="button" onClick={handleAddProduct} className={BUTTON_SECONDARY_SM_CLASSES} disabled={isEmployeeView}>Añadir</button>
+                                </div>
+                                <ul className="max-h-32 overflow-y-auto">
+                                    {formData.assignedProducts.map(ap => {
+                                        const prod = allProducts.find(p => p.id === ap.productId);
+                                        return <li key={ap.productId} className="text-sm flex justify-between items-center p-1 bg-neutral-100 dark:bg-neutral-700 rounded mb-1 text-neutral-700 dark:text-neutral-200"><span>{prod?.name} x {ap.quantity}</span> {!isEmployeeView && <button type="button" onClick={() => handleRemoveProduct(ap.productId)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs">Quitar</button>}</li>;
+                                    })}
+                                </ul>
+                            </fieldset>
+
+                            <fieldset className="border dark:border-neutral-600 p-3 rounded">
+                                <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Asignar Empleados</legend>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                                    {allEmployeesHook.map(emp => (
+                                        <label key={emp.id} className={`flex items-center space-x-2 p-1.5 bg-neutral-100 dark:bg-neutral-700 rounded ${isEmployeeView ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-600'}`}>
+                                            <input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" disabled={isEmployeeView}/>
+                                            <span className="text-sm text-neutral-700 dark:text-neutral-200">{emp.name} {emp.lastName}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </fieldset>
+                        </fieldset>
+                        <div className="flex justify-end space-x-2 pt-2">
+                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                            {!isEmployeeView && <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Guardar Proyecto</button>}
+                        </div>
                     </form>
                 ) : (
                     // Chat Tab Content
@@ -357,7 +368,7 @@ La respuesta debe ser solo el texto para enviar al cliente, sin introducciones c
                         </div>
                         <div className="p-2 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                             <form onSubmit={(e) => { e.preventDefault(); handleSendChatMessage(); }} className="flex items-center space-x-2">
-                                {currentUser?.role === UserRole.MANAGER && (
+                                {!isEmployeeView && ( // Only show AI button for Manager
                                      <button
                                         type="button"
                                         onClick={handleGenerateAiResponse}
@@ -397,14 +408,16 @@ La respuesta debe ser solo el texto para enviar al cliente, sin introducciones c
                     </div>
                 )}
             </Modal>
-            <ConfirmationModal
-                isOpen={showDateChangeConfirmModal}
-                onClose={() => { setShowDateChangeConfirmModal(false); setPendingFormData(null); }}
-                onConfirm={confirmDateChangeAndSave}
-                title="Confirmar Cambio de Fechas"
-                message="Se notificará a todos los implicados (cliente y empleados asignados) sobre el cambio en las fechas del proyecto. ¿Desea continuar?"
-                confirmButtonText="Sí, Continuar y Notificar"
-            />
+            {!isEmployeeView && (
+                <ConfirmationModal
+                    isOpen={showDateChangeConfirmModal}
+                    onClose={() => { setShowDateChangeConfirmModal(false); setPendingFormData(null); }}
+                    onConfirm={confirmDateChangeAndSave}
+                    title="Confirmar Cambio de Fechas"
+                    message="Se notificará a todos los implicados (cliente y empleados asignados) sobre el cambio en las fechas del proyecto. ¿Desea continuar?"
+                    confirmButtonText="Sí, Continuar y Notificar"
+                />
+            )}
             <CallModal
                 isOpen={isCallModalOpen}
                 onClose={() => setIsCallModalOpen(false)}

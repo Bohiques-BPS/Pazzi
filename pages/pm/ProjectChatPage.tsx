@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { useAuth } from '../../contexts/AuthContext'; // Adjusted path
 import { ProjectStatus, Client, Employee, UserRole } from '../../types'; // Adjusted path, Added UserRole
@@ -10,7 +10,7 @@ import { CallModal } from '../../components/CallModal'; // Added CallModal
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai"; // Added Gemini
 
 export const ProjectChatPage: React.FC = () => {
-    const { projects, clients, employees: allEmployeesHook, chatMessages, addChatMessage, getChatMessagesForProject, getClientById, getEmployeeById } = useData();
+    const { projects: allProjectsContext, clients, employees: allEmployeesHook, chatMessages, addChatMessage, getChatMessagesForProject, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
@@ -21,9 +21,17 @@ export const ProjectChatPage: React.FC = () => {
     const [callParticipants, setCallParticipants] = useState<string[]>([]);
 
     const [isAiGenerating, setIsAiGenerating] = useState(false); // AI loading state
+    const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
 
-    const activeProjects = projects.filter(p => p.status === ProjectStatus.ACTIVE || p.status === ProjectStatus.PENDING); 
-    const selectedProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : null;
+    const activeProjects = useMemo(() => {
+        const baseProjects = allProjectsContext.filter(p => p.status === ProjectStatus.ACTIVE || p.status === ProjectStatus.PENDING);
+        if (isEmployeeView && currentUser) {
+            return baseProjects.filter(p => p.assignedEmployeeIds.includes(currentUser.id));
+        }
+        return baseProjects;
+    }, [allProjectsContext, currentUser, isEmployeeView]);
+
+    const selectedProject = selectedProjectId ? allProjectsContext.find(p => p.id === selectedProjectId) : null;
 
     const projectMessages = selectedProjectId ? getChatMessagesForProject(selectedProjectId) : [];
 
@@ -32,6 +40,16 @@ export const ProjectChatPage: React.FC = () => {
     };
 
     useEffect(scrollToBottom, [projectMessages]);
+
+     // Auto-select first project if list changes and current selection is invalid or none
+    useEffect(() => {
+        if (activeProjects.length > 0 && (!selectedProjectId || !activeProjects.find(p => p.id === selectedProjectId))) {
+            setSelectedProjectId(activeProjects[0].id);
+        } else if (activeProjects.length === 0) {
+            setSelectedProjectId(null);
+        }
+    }, [activeProjects, selectedProjectId]);
+
 
     const handleSendMessage = () => {
         if (newMessage.trim() && selectedProjectId && currentUser) {
@@ -45,12 +63,12 @@ export const ProjectChatPage: React.FC = () => {
     };
 
     const handleGenerateAiResponse = async () => {
-        if (!selectedProject || !currentUser || isAiGenerating) return;
+        if (!selectedProject || !currentUser || isAiGenerating || isEmployeeView) return;
 
         setIsAiGenerating(true);
         const lastClientMessages = projectMessages
             .filter(msg => msg.senderId !== currentUser.id)
-            .slice(-3) // Get last 3 non-admin messages
+            .slice(-3) 
             .map(msg => `${msg.senderName}: ${msg.text}`)
             .join('\n');
 
@@ -208,7 +226,7 @@ La respuesta debe ser solo el texto para enviar al cliente, sin introducciones c
                         {/* Message Input */}
                         <div className="p-3 sm:p-4 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2 sm:space-x-3">
-                                {currentUser?.role === UserRole.MANAGER && (
+                                {!isEmployeeView && ( // Only show AI button for Manager
                                     <button
                                         type="button"
                                         onClick={handleGenerateAiResponse}
