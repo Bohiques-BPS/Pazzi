@@ -142,7 +142,7 @@ export const LandingPage: React.FC = () => {
                 </nav>
 
                 {/* Hero Section */}
-                <section id="hero" className="relative bg-gradient-to-r from-primary via-teal-600 to-secondary text-white pt-32 pb-20 md:pt-40 md:pb-28 flex items-center justify-center min-h-[calc(100vh-64px)] md:min-h-screen bg-fixed" style={{backgroundImage: "url('/banner.jpg')", backgroundSize: 'cover', backgroundPosition: 'center'}}>
+                <section id="hero" className="relative bg-gradient-to-r from-primary via-teal-600 to-secondary text-white pt-32 pb-20 md:pt-40 md:pb-28 flex items-center justify-center min-h-[calc(100vh-64px)] md:min-h-screen bg-fixed" style={{backgroundImage: "url('/banner.jpg')", backgroundSize: 'cover', backgroundPosition: 'top center'}}>
                     <div className="absolute inset-0 bg-black opacity-50"></div>
                     <div className="container mx-auto px-6 text-center relative z-10">
                         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 leading-tight">
