@@ -1,6 +1,7 @@
 
 import React from 'react';
 
+// General purpose menu icon
 export const MenuIcon = (props?: {className?: string}) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -56,8 +57,8 @@ export const DeleteIcon = () => (
   </svg>
 );
 
-export const EyeIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+export const EyeIcon = (props?: {className?: string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 ${props?.className || ''}`}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
@@ -93,6 +94,13 @@ export const UserGroupIcon = (props?: {className?: string}) => (
   </svg>
 );
 
+export const UserPlusIcon = (props?: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 ${props?.className || ''}`}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+  </svg>
+);
+
+
 export const EllipsisVerticalIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
@@ -110,8 +118,12 @@ export const BanknotesIcon = (props?: {className?: string}) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
     </svg>
 );
-export const CashBillIcon = (props?: {className?: string}) => ( 
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
+
+interface CashBillIconProps {
+  className?: string;
+}
+export const CashBillIcon = ({ className: passedClassName }: CashBillIconProps) => ( 
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-6 h-6 ${passedClassName || ''}`}>
     <path d="M12.378 1.602a.75.75 0 00-.756 0L3 6.632l9 5.25 9-5.25-8.622-5.03zM21.75 7.93l-9 5.25v9l8.628-5.032a.75.75 0 00.372-.648V7.93zM11.25 22.18v-9l-9-5.25v8.368c0 .265.108.52.304.704l8.321 8.156a.75.75 0 00.375.02z" />
     <path d="M4.775 8.655c-.195.113-.43.113-.625 0l-1.125-.65a.75.75 0 010-1.3L3 6.632l.002.001.375-.218a.75.75 0 01.75 0l.375.218.002-.001 1.125.65c.195.113.195.354 0 .467L4.775 8.655z" />
     <circle cx="12" cy="12" r="1.5" fill="white"/>
@@ -119,8 +131,8 @@ export const CashBillIcon = (props?: {className?: string}) => (
 );
 
 
-export const ArrowUturnLeftIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
+export const ArrowUturnLeftIcon = (props?: {className?: string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 ${props?.className || 'mr-2'}`}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
     </svg>
 );
@@ -205,8 +217,8 @@ export const WrenchScrewdriverIcon = () => (
     </svg>
 );
 
-export const ExclamationTriangleIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-yellow-500">
+export const ExclamationTriangleIcon = (props?: {className?: string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 text-yellow-500 ${props?.className || ''}`}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
     </svg>
 );
@@ -343,64 +355,102 @@ export const ShieldCheckIcon = (props?: {className?: string}) => (
 
 // Social Icons (Simple Placeholders)
 export const FacebookIcon = (props?: {className?: string}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className={`w-6 h-6 ${props?.className || ''}`}>
-    <path d="M12 2.03998C6.48 2.03998 2 6.51998 2 12.03998C2 17.05998 5.66 21.20998 10.44 21.95998V14.88998H7.89999V12.03998H10.44V9.84998C10.44 7.33998 11.93 5.95998 14.22 5.95998C15.31 5.95998 16.45 6.14998 16.45 6.14998V8.61998H15.19C13.95 8.61998 13.56 9.38998 13.56 10.17998V12.03998H16.34L15.89 14.88998H13.56V22.00998C19.3 21.38998 22 17.08998 22 12.03998C22 6.51998 17.52 2.03998 12 2.03998Z"/>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
+    <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
   </svg>
 );
 
 export const TwitterIcon = (props?: {className?: string}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className={`w-6 h-6 ${props?.className || ''}`}>
-    <path d="M22.46,6.52c-0.74,0.33-1.52,0.55-2.35,0.64c0.85-0.51,1.5-1.31,1.8-2.26c-0.79,0.47-1.67,0.81-2.61,1c-0.75-0.8-1.82-1.3-3-1.3c-2.26,0-4.09,1.83-4.09,4.09c0,0.32,0.04,0.63,0.11,0.93C9.16,9.46,6.3,7.96,4.42,5.64C4.08,6.22,3.89,6.89,3.89,7.61c0,1.42,0.72,2.67,1.82,3.4c-0.67-0.02-1.3-0.21-1.85-0.51v0.05c0,1.98,1.41,3.63,3.28,4c-0.34,0.09-0.7,0.14-1.07,0.14c-0.26,0-0.52-0.03-0.77-0.07c0.52,1.62,2.03,2.8,3.82,2.83c-1.4,1.1-3.16,1.75-5.08,1.75c-0.33,0-0.66-0.02-0.98-0.06c1.81,1.16,3.96,1.84,6.26,1.84c7.51,0,11.62-6.22,11.62-11.62c0-0.18,0-0.35-0.01-0.53C21.25,8.08,21.92,7.36,22.46,6.52z"/>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
+    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-.42.722-.665 1.554-.665 2.441 0 1.616.823 3.043 2.074 3.868-.766-.024-1.483-.234-2.11-.583v.061c0 2.256 1.605 4.14 3.737 4.568-.39.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.307 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.513 2.096 7.141 2.096 8.573 0 13.267-7.096 13.267-13.267 0-.202-.005-.403-.014-.602.908-.655 1.697-1.468 2.323-2.404z"/>
   </svg>
 );
 
 export const LinkedInIcon = (props?: {className?: string}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className={`w-6 h-6 ${props?.className || ''}`}>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
     <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
   </svg>
 );
 
-export const SparklesIcon = (props?: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 mr-1 ${props?.className || ''}`}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L1.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 12L17 14.25l-1.25-2.25L13.5 11l2.25-1.25L17 7.5l1.25 2.25L20.5 11l-2.25 1.25z" />
+
+// Sidebar Icons
+export const BuildingStorefrontIcon = (props?: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 ${props?.className || ''}`}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5A2.25 2.25 0 0011.25 11.25H6.75A2.25 2.25 0 004.5 13.5V21M6.75 21H3v-7.5A2.25 2.25 0 015.25 11.25h13.5A2.25 2.25 0 0121 13.5V21H6.750M4.5 13.5V21M21 13.5V21M12 18.75V15.75" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5V6A2.25 2.25 0 014.5 3.75h15A2.25 2.25 0 0121.75 6v7.5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.75a.75.75 0 01-.75-.75V13.5a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75H12z" />
+  </svg>
+);
+
+export const BellIcon = (props?: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0M3.124 15.248C3.036 15.083 3 14.917 3 14.75c0-1.02.513-1.904 1.32-2.465l.088-.06M21.676 15.248l.088.06c.808.56 1.32 1.445 1.32 2.465 0 .166-.036.332-.124.498m1.256-5.086C21.962 9.628 21 8.092 21 6.75c0-3.452-2.688-6.25-6-6.25S9 3.298 9 6.75c0 1.342-.962 2.878-1.744 3.412m14.488 0L17.25 12M6.75 12L3.124 10.162" />
     </svg>
 );
 
 export const DocumentArrowUpIcon = (props?: {className?: string}) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12H9m0 0H7.5m1.5 0v-4.5m0 4.5L7.5 16.5m1.5-1.5l-1.5-1.5M12 3.375H7.125A2.25 2.25 0 004.875 5.625v12.75c0 1.24 1.01 2.25 2.25 2.25h9.75c1.24 0 2.25-1.01 2.25-2.25V7.875a2.25 2.25 0 00-2.25-2.25H12m0-2.25V6.75m0-3.375L14.25 6.75M12 3.375L9.75 6.75" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 13.5l3 3m0 0l3-3m-3 3v-6m1.06-4.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
   </svg>
 );
 
-export const EnvelopeIcon = (props?: {className?: string}) => (
+export const InformationCircleIcon = (props?: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+    </svg>
+);
+
+export const CubeIcon = (props?: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+    </svg>
+);
+
+export const SparklesIcon = (props?: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 mr-1 ${props?.className || ''}`}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L1.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 12L17 13.75M17 8.25L15.75 10" />
+    </svg>
+);
+// Trivial comment added to help with potential parsing/caching issues.
+export const ArrowUpIcon = (props?: {className?: string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-4 h-4 ${props?.className || ''}`}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+    </svg>
+);
+
+export const ArrowDownIcon = (props?: {className?: string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-4 h-4 ${props?.className || ''}`}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+);
+
+export const EnvelopeIcon = (props?: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 ${props?.className || ''}`}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
   </svg>
 );
 
-export const LockClosedIcon = (props?: {className?: string}) => (
+export const LockClosedIcon = (props?: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 ${props?.className || ''}`}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
   </svg>
 );
 
-export const InformationCircleIcon = (props?: {className?: string}) => (
+export const DocumentArrowDownIcon = (props?: {className?: string}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+);
+
+export const ClipboardDocumentListIcon = (props?: {className?: string}) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75c0-.231-.035-.454-.1-.664M6.75 7.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125.504 1.125-1.125V16.5" />
   </svg>
 );
 
-export const BuildingStorefrontIcon = (props?: {className?: string}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h2.64m-13.5 0L12 14.25M3.75 21L12 14.25m0 0L20.25 21M12 14.25V21" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.375V12m19.5-5.625V12M2.25 6.375L12 3m10.5 3.375L12 3M12 3v1.75m0 0l6.375 3.375M12 4.75L5.625 8.125" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.25l6.75 3.375M12 14.25l-6.75 3.375" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21.75A2.625 2.625 0 011.875 19.5V12a2.25 2.25 0 012.25-2.25h15a2.25 2.25 0 012.25 2.25v7.5a2.625 2.625 0 01-2.625 2.25H4.5z" />
- </svg>
-);
-
-export const BellIcon = (props?: {className?: string}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${props?.className || ''}`}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+export const MagnifyingGlassIcon = (props?: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 ${props?.className || ''}`}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
   </svg>
 );
+// Another trivial comment

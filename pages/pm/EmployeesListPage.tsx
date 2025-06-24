@@ -44,7 +44,7 @@ export const EmployeesListPage: React.FC = () => {
     const handleAiEmployeeImportSuccess = (dataArray: any[]) => {
         console.log("AI Data Array for Employee Import:", dataArray);
          if (!Array.isArray(dataArray)) {
-            alert("La IA no devolvió un array de datos de empleados.");
+            alert("La IA no devolvió un array de datos de colaboradores.");
             return;
         }
         
@@ -85,9 +85,9 @@ export const EmployeesListPage: React.FC = () => {
             setEmployees(prev => [...prev, ...newEmployees]);
         }
 
-        let message = `${importedCount} empleados importados correctamente.`;
+        let message = `${importedCount} colaboradores importados correctamente.`;
         if (failedCount > 0) {
-            message += ` ${failedCount} empleados no pudieron ser importados (datos faltantes o rol inválido).`;
+            message += ` ${failedCount} colaboradores no pudieron ser importados (datos faltantes o rol inválido).`;
         }
         alert(message);
         setShowAIImportModal(false);
@@ -102,12 +102,12 @@ export const EmployeesListPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Empleados</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Colaboradores</h1>
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
                         <SparklesIcon /> Importar con IA
                     </button>
-                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon /> Crear Empleado</button>
+                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon /> Crear Colaborador</button>
                 </div>
             </div>
             <DataTable<Employee> data={employees} columns={columns} actions={(emp) => (
@@ -122,14 +122,14 @@ export const EmployeesListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title="Confirmar Eliminación"
-                message="¿Estás seguro de que quieres eliminar este empleado? Esta acción no se puede deshacer."
+                message="¿Estás seguro de que quieres eliminar este colaborador? Esta acción no se puede deshacer."
                 confirmButtonText="Sí, Eliminar"
             />
             <AIImportModal
                 isOpen={showAIImportModal}
                 onClose={() => setShowAIImportModal(false)}
                 onImportSuccess={handleAiEmployeeImportSuccess}
-                entityName="Empleado"
+                entityName="Colaborador"
                 fieldsToExtract="nombre (string), apellido (string), email (string), rol (string)"
                 exampleFormat={`{
   "nombre": "Carlos",

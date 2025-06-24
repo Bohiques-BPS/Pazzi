@@ -13,7 +13,7 @@ interface NavbarProps {
     setCurrentModule: (module: AppModule) => void;
 }
 
-const logoUrl = "/Logo.png"; 
+const logoUrl = "./Logo.png"; 
 
 // Helper to format time relatively (simplified)
 const formatRelativeTime = (isoTimestamp: string) => {
@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false); // State for notification dropdown
   
   const unreadCount = getUnreadNotificationsCount();
-  const latestNotifications = notifications.sort((a : any, b : any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 7); // Show latest 7
+  const latestNotifications = notifications.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 7); // Show latest 7
 
   const handleLogout = () => {
     logout();
@@ -68,11 +68,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
         if (moduleName === AppModule.POS) return '/pos/cashier';
         if (moduleName === AppModule.PROJECT_MANAGEMENT) return '/pm/projects';
     }
+     if (currentUser?.role === UserRole.MANAGER && moduleName === AppModule.POS) {
+        return '/pos/reports'; // Manager defaults to reports page for POS
+    }
     
     if (moduleName === AppModule.PROJECT_MANAGEMENT && mod.subModulesProject && mod.subModulesProject.length > 0 && mod.subModulesProject[0].type === 'link') {
         return mod.subModulesProject[0].path;
-    } else if (moduleName === AppModule.POS && mod.subModulesPOS && mod.subModulesPOS.length > 0 && mod.subModulesPOS[0].type === 'link') {
-        return mod.subModulesPOS[0].path;
+    } else if (moduleName === AppModule.POS && mod.subModulesPOS && mod.subModulesPOS.length > 0) {
+        const firstPosItem = mod.subModulesPOS[0];
+        if (firstPosItem.type === 'link') return firstPosItem.path;
+        if (firstPosItem.type === 'group' && firstPosItem.children.length > 0) return firstPosItem.children[0].path;
+         return mod.path; // Fallback to base path if no direct sub-module link
     } else if (moduleName === AppModule.ECOMMERCE && mod.subModulesEcommerce && mod.subModulesEcommerce.length > 0 && mod.subModulesEcommerce[0].type === 'link') {
         return mod.subModulesEcommerce[0].path;
     }
@@ -108,21 +114,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
 
   return (
-    <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]"> 
-      <div className="mx-auto flex items-center justify-between h-full px-4"> 
+    <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]"> {/* Fixed height */}
+      <div className="mx-auto flex items-center justify-between h-full px-4"> {/* Added px-4 here for overall padding */}
         <div className="flex items-center">
-         
+          {/* Mobile Sidebar Toggle (Manager/Employee on mobile) */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && 
             <button onClick={onToggleSidebar} className="mr-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden">
               <MenuIcon className="w-6 h-6 text-iconCustomBlue" />
             </button>
           }
           
-      
+          {/* Module Selector (Desktop Icon / Mobile Text) - if available */}
           {availableModulesForSelector.length > 0 && ( 
             <div className="relative mr-3">
                 {/* Mobile/Tablet: Text-based dropdown */}
                 <button 
+                    id="navbar-module-selector-button-mobile"
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
                     className="md:hidden px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-haspopup="true"
@@ -134,6 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
                 {/* Desktop: Icon-based dropdown */}
                 <button
+                    id="navbar-module-selector-button-desktop"
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
                     className="hidden md:flex items-center justify-center p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md border border-neutral-300 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-label="Seleccionar módulo"

@@ -1,14 +1,15 @@
+
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
-import { ProjectStatus, UserRole } from '../../types';
+import { ProjectStatus, UserRole, VisitStatus } from '../../types'; // Added VisitStatus
 import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ChatBubbleLeftRightIcon, CalendarDaysIcon, BriefcaseIcon } from '../../components/icons';
 
 export const ProjectClientDashboardPage: React.FC = () => {
   const { currentUser } = useAuth();
-  const { projects: allProjects, getClientById } = useData();
+  const { projects: allProjects, getClientById, visits } = useData();
 
   const clientProjects = useMemo(() => {
     if (!currentUser || currentUser.role !== UserRole.CLIENT_PROJECT) return [];
@@ -58,34 +59,50 @@ export const ProjectClientDashboardPage: React.FC = () => {
         <h2 className="text-2xl font-semibold mb-4 text-neutral-700 dark:text-neutral-200">Mis Proyectos</h2>
         {clientProjects.length > 0 ? (
           <div className="space-y-4">
-            {clientProjects.map(project => (
-              <div key={project.id} className="bg-white dark:bg-neutral-800 p-5 rounded-lg shadow-md">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-primary">{project.name}</h3>
-                    <p className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block my-1 ${
-                        project.status === ProjectStatus.ACTIVE ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200' :
-                        project.status === ProjectStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-200' :
-                        project.status === ProjectStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200' :
-                        'bg-orange-100 text-orange-700 dark:bg-orange-700 dark:text-orange-200' // Paused
-                    }`}>{project.status}</p>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-1 line-clamp-2">{project.description || "Sin descripción detallada."}</p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                      Fechas: {new Date(project.startDate + 'T00:00:00').toLocaleDateString()} - {new Date(project.endDate + 'T00:00:00').toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="mt-3 sm:mt-0 sm:ml-4 flex-shrink-0">
-                    <Link 
-                      to={`/project-client/chat/${project.id}`}
-                      className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center w-full sm:w-auto justify-center`}
-                    >
-                      <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" />
-                      Abrir Chat
-                    </Link>
+            {clientProjects.map(project => {
+              const projectVisits = visits.filter(v => v.projectId === project.id).sort((a,b) => new Date(a.date + 'T' + a.startTime).getTime() - new Date(b.date + 'T' + b.startTime).getTime());
+              const nextVisit = projectVisits.find(v => new Date(v.date + 'T' + v.endTime) >= new Date() && v.status === VisitStatus.PROGRAMADO);
+              return (
+                <div key={project.id} className="bg-white dark:bg-neutral-800 p-5 rounded-lg shadow-md">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-primary">{project.name}</h3>
+                      <p className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block my-1 ${
+                          project.status === ProjectStatus.ACTIVE ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200' :
+                          project.status === ProjectStatus.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-200' :
+                          project.status === ProjectStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200' :
+                          'bg-orange-100 text-orange-700 dark:bg-orange-700 dark:text-orange-200' // Paused
+                      }`}>{project.status}</p>
+                      <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-1 line-clamp-2">{project.description || "Sin descripción detallada."}</p>
+                      {nextVisit && (
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                          Próxima visita: {new Date(nextVisit.date + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} a las {nextVisit.startTime}
+                        </p>
+                      )}
+                      {!nextVisit && projectVisits.length > 0 && (
+                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                            Última visita: {new Date(projectVisits[projectVisits.length-1].date + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        </p>
+                      )}
+                      {projectVisits.length === 0 && (
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                            Sin visitas programadas.
+                        </p>
+                      )}
+                    </div>
+                    <div className="mt-3 sm:mt-0 sm:ml-4 flex-shrink-0">
+                      <Link 
+                        to={`/project-client/chat/${project.id}`}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center w-full sm:w-auto justify-center`}
+                      >
+                        <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" />
+                        Abrir Chat
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow text-center">

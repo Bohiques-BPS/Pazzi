@@ -38,15 +38,101 @@
     "react-router-dom": "https://esm.sh/react-router-dom@^7.6.1",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
     "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
+    "@google/genai": "https://esm.sh/@google/genai@^1.3.0",
+    "xlsx": "https://esm.sh/xlsx@0.18.5",
+
     "@/App": "./App.tsx",
+    "@/constants": "./constants.ts",
+
+    "@/contexts/AuthContext": "./contexts/AuthContext.tsx",
+    "@/contexts/DataContext": "./contexts/DataContext.tsx",
+    "@/contexts/ECommerceSettingsContext": "./contexts/ECommerceSettingsContext.tsx",
+    "@/contexts/ThemeContext": "./contexts/ThemeContext.tsx",
+    "@/contexts/AppContext": "./contexts/AppContext.tsx",
+
     "@/components/icons": "./components/icons.tsx",
+    "@/components/Modal": "./components/Modal.tsx",
+    "@/components/DataTable": "./components/DataTable.tsx",
+    "@/components/AIImportModal": "./components/AIImportModal.tsx",
+    "@/components/CallModal": "./components/CallModal.tsx",
+    "@/components/ClientSearchModal": "./components/ClientSearchModal.tsx",
+    "@/components/VirtualAssistant": "./components/VirtualAssistant.tsx",
+    "@/components/GuidedTour": "./components/GuidedTour.tsx",
+    
+    "@/components/layout/LandingLayout": "./components/layout/LandingLayout.tsx",
+    "@/components/layout/MainLayout": "./components/layout/MainLayout.tsx",
+    "@/components/layout/Navbar": "./components/layout/Navbar.tsx",
+    "@/components/layout/Sidebar": "./components/layout/Sidebar.tsx",
+    "@/components/layout/ClientLayout": "./components/layout/ClientLayout.tsx",
+    
+    "@/components/cards/ProductCard": "./components/cards/ProductCard.tsx",
+    "@/components/cards/ProjectCard": "./components/cards/ProjectCard.tsx",
+    
+    "@/components/forms/BranchFormModal": "./components/forms/BranchFormModal.tsx",
+    "@/components/forms/CajaFormModal": "./components/forms/CajaFormModal.tsx",
+    "@/components/forms/StockAdjustmentModal": "./components/forms/StockAdjustmentModal.tsx",
+
+    "@/components/ui/ProductAutocomplete": "./components/ui/ProductAutocomplete.tsx",
+    "@/components/ui/VisitStatusBadge": "./components/ui/VisitStatusBadge.tsx",
+    "@/components/ui/ClientPOSReportModal": "./components/ui/ClientPOSReportModal.tsx",
+
+    "@/pages/LandingPage": "./pages/LandingPage.tsx",
+    "@/pages/DashboardHomePage": "./pages/DashboardHomePage.tsx",
+    "@/pages/ClientDashboardPage": "./pages/ClientDashboardPage.tsx",
+
+    "@/pages/auth/LoginPage": "./pages/auth/LoginPage.tsx",
+    "@/pages/auth/RegisterPage": "./pages/auth/RegisterPage.tsx",
+    "@/pages/auth/ForgotPasswordPage": "./pages/auth/ForgotPasswordPage.tsx",
+    
+    "@/pages/admin/BranchesListPage": "./pages/admin/BranchesListPage.tsx",
+
+    "@/pages/pm/ProductsListPage": "./pages/pm/ProductsListPage.tsx",
+    "@/pages/pm/CategoriesListPage": "./pages/pm/CategoriesListPage.tsx",
+    "@/pages/pm/ClientsListPage": "./pages/pm/ClientsListPage.tsx",
+    "@/pages/pm/EmployeesListPage": "./pages/pm/EmployeesListPage.tsx",
+    "@/pages/pm/ProjectsListPage": "./pages/pm/ProjectsListPage.tsx",
+    "@/pages/pm/ProjectCalendarPage": "./pages/pm/ProjectCalendarPage.tsx",
+    "@/pages/pm/ProjectChatPage": "./pages/pm/ProjectChatPage.tsx",
+    "@/pages/pm/ProjectReportsPage": "./pages/pm/ProjectReportsPage.tsx",
+    "@/pages/pm/ProductFormModal": "./pages/pm/ProductFormModal.tsx",
+    "@/pages/pm/CategoryFormModal": "./pages/pm/CategoryFormModal.tsx",
+    "@/pages/pm/ClientFormModal": "./pages/pm/ClientFormModal.tsx",
+    "@/pages/pm/EmployeeFormModal": "./pages/pm/EmployeeFormModal.tsx",
+    "@/pages/pm/ProjectFormModal": "./pages/pm/ProjectFormModal.tsx",
+    "@/pages/pm/ScheduleVisitModal": "./pages/pm/ScheduleVisitModal.tsx",
+    "@/pages/pm/VisitDetailModal": "./pages/pm/VisitDetailModal.tsx",
+    "@/pages/pm/ChatMessageItem": "./pages/pm/ChatMessageItem.tsx",
+    
+    "@/pages/pos/POSCashierPage": "./pages/pos/POSCashierPage.tsx",
+    "@/pages/pos/POSReportsPage": "./pages/pos/POSReportsPage.tsx",
+    "@/pages/pos/POSSalesHistoryPage": "./pages/pos/POSSalesHistoryPage.tsx",
     "@/pages/pos/POSInventoryPage": "./pages/pos/POSInventoryPage.tsx",
     "@/pages/pos/AccountsPayablePage": "./pages/pos/AccountsPayablePage.tsx",
     "@/pages/pos/AccountsReceivablePage": "./pages/pos/AccountsReceivablePage.tsx",
-    "@google/genai": "https://esm.sh/@google/genai@^1.3.0",
-    "xlsx": "https://esm.sh/xlsx@0.18.5",
-    "@/constants": "./constants.ts",
-    "@/contexts/DataContext": "./contexts/DataContext.tsx"
+    "@/pages/pos/POSCajasPage": "./pages/pos/POSCajasPage.tsx",
+    "@/pages/pos/ReceivableEditModal": "./pages/pos/ReceivableEditModal.tsx",
+
+
+    "@/pages/ecommerce/ECommerceDashboardPage": "./pages/ecommerce/ECommerceDashboardPage.tsx",
+    "@/pages/ecommerce/EcommerceStorePage": "./pages/ecommerce/EcommerceStorePage.tsx",
+    "@/pages/ecommerce/EcommerceOrdersPage": "./pages/ecommerce/EcommerceOrdersPage.tsx",
+    "@/pages/ecommerce/SuppliersListPage": "./pages/ecommerce/SuppliersListPage.tsx",
+    "@/pages/ecommerce/SupplierOrdersListPage": "./pages/ecommerce/SupplierOrdersListPage.tsx",
+    "@/pages/ecommerce/CheckoutPage": "./pages/ecommerce/CheckoutPage.tsx",
+    "@/pages/ecommerce/OrderConfirmationPage": "./pages/ecommerce/OrderConfirmationPage.tsx",
+    "@/pages/ecommerce/MyOrdersPage": "./pages/ecommerce/MyOrdersPage.tsx",
+    "@/pages/ecommerce/OrderDetailModal": "./pages/ecommerce/OrderDetailModal.tsx",
+    "@/pages/ecommerce/OrderStatusUpdateModal": "./pages/ecommerce/OrderStatusUpdateModal.tsx",
+    "@/pages/ecommerce/SupplierFormModal": "./pages/ecommerce/SupplierFormModal.tsx",
+    "@/pages/ecommerce/SupplierOrderFormModal": "./pages/ecommerce/SupplierOrderFormModal.tsx",
+
+    "@/pages/project_client/ProjectClientDashboardPage": "./pages/project_client/ProjectClientDashboardPage.tsx",
+    "@/pages/project_client/ProjectClientCalendarPage": "./pages/project_client/ProjectClientCalendarPage.tsx",
+    "@/pages/project_client/ProjectClientChatPage": "./pages/project_client/ProjectClientChatPage.tsx",
+    
+    "@/pages/client/ClientEcommerceSettingsPage": "./pages/client/ClientEcommerceSettingsPage.tsx",
+    "@/pages/client/ClientProductsPage": "./pages/client/ClientProductsPage.tsx",
+    "@/pages/client/ClientOrdersPage": "./pages/client/ClientOrdersPage.tsx"
   }
 }
 </script>

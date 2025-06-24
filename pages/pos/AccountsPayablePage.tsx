@@ -2,13 +2,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { SupplierOrder, SupplierOrderStatus, Product as ProductType } from '../../types';
+import { SupplierOrder, SupplierOrderStatus, Product as ProductType, Supplier } from '../../types'; // Added Supplier type
 import { DataTable, TableColumn } from '../../components/DataTable';
-import { Modal } from '../../components/Modal';
-import { PrinterIcon, BanknotesIcon } from '../../components/icons';
+import { Modal, ConfirmationModal } from '../../components/Modal';
+import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon } from '../../components/icons'; // Changed DeleteIcon to CancelIcon for clarity
 import jsPDF from 'jspdf';
 import autoTable, { UserOptions } from 'jspdf-autotable';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal'; // To edit orders
 
 type JsPdfAutoTableColumnStyles = UserOptions['columnStyles'];
 
@@ -17,14 +18,15 @@ interface RecordPaymentModalProps {
     onClose: () => void;
     order: SupplierOrder | null;
     onRecordPayment: (orderId: string, amount: number) => void;
+    getSupplierById: (id: string) => Supplier | undefined; // Added prop
 }
 
-const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, order, onRecordPayment }) => {
+const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, order, onRecordPayment, getSupplierById }) => {
     const [amountPaidInput, setAmountPaidInput] = useState<string>('');
 
     useEffect(() => {
         if (isOpen) {
-            setAmountPaidInput(''); // Reset on open
+            setAmountPaidInput(''); 
         }
     }, [isOpen]);
 
@@ -51,7 +53,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
         <Modal isOpen={isOpen} onClose={onClose} title={`Registrar Pago para Pedido #${order.id.substring(0,8)}`} size="md">
             <form onSubmit={handleSubmitPayment} className="space-y-4">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                    Pedido a: {order.supplierId} <br/>
+                    Pedido a: {getSupplierById(order.supplierId)?.name || order.supplierId} <br/>
                     Total Pedido: ${order.totalCost.toFixed(2)} <br/>
                     Pagado Hasta Ahora: ${ (order.amountPaid || 0).toFixed(2)} <br/>
                     <strong className="text-primary">Saldo Pendiente: ${remainingBalance.toFixed(2)}</strong>
@@ -82,26 +84,33 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
 
 
 export const AccountsPayablePage: React.FC = () => {
-  const { supplierOrders, getSupplierById, getProductById, recordSupplierOrderPayment } = useData();
+  const { supplierOrders, getSupplierById, getProductById, recordSupplierOrderPayment, updateSupplierOrderStatus, setSupplierOrders } = useData();
   const { getDefaultSettings } = useECommerceSettings();
 
   const [paymentModalOrder, setPaymentModalOrder] = useState<SupplierOrder | null>(null);
+  const [showEditOrderModal, setShowEditOrderModal] = useState(false);
+  const [orderToEdit, setOrderToEdit] = useState<SupplierOrder | null>(null);
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
+  const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
+
 
   const outstandingOrders = useMemo(() => {
-    return supplierOrders.filter(order => order.paymentStatus !== 'Pagado Completo')
+    return supplierOrders.filter(order => 
+        order.paymentStatus !== 'Pagado Completo' && 
+        order.status !== SupplierOrderStatus.CANCELADO
+      )
       .sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
   }, [supplierOrders]);
 
   const generatePayablePDF = (order: SupplierOrder) => {
     const doc = new jsPDF();
-    const storeSettings = getDefaultSettings(); // Pazzi's details
+    const storeSettings = getDefaultSettings(); 
     const supplier = getSupplierById(order.supplierId);
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 15;
     let currentY = margin;
 
-    // Header (Pazzi's Info)
     if (storeSettings.logoUrl && !storeSettings.logoUrl.startsWith('https://picsum.photos')) {
         doc.setFontSize(10);
         doc.text(`Logo: ${storeSettings.storeName}`, margin, currentY + 5);
@@ -121,7 +130,6 @@ export const AccountsPayablePage: React.FC = () => {
     currentY += 5;
     doc.text(storeSettings.storeName || "Pazzi Plataforma Integrada", margin, currentY);
     currentY += 5;
-    // Add Pazzi's address, contact from storeSettings if available
     doc.text("Calle Pazzi 789, Ciudad Pazzi | Tel: (555) 987-6543", margin, currentY);
     currentY += 10;
 
@@ -209,6 +217,24 @@ export const AccountsPayablePage: React.FC = () => {
   const handleRecordPayment = (orderId: string, amount: number) => {
     recordSupplierOrderPayment(orderId, amount);
   };
+  
+  const handleEditOrder = (order: SupplierOrder) => {
+    setOrderToEdit(order);
+    setShowEditOrderModal(true);
+  };
+
+  const handleCancelOrder = (orderId: string) => {
+    setOrderToCancelId(orderId);
+    setShowCancelConfirmModal(true);
+  };
+
+  const confirmCancelOrder = () => {
+    if (orderToCancelId) {
+        updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO);
+    }
+    setOrderToCancelId(null);
+    setShowCancelConfirmModal(false);
+  };
 
   const columns: TableColumn<SupplierOrder>[] = [
     { header: 'ID Pedido', accessor: (o) => o.id.substring(0, 8).toUpperCase() },
@@ -228,12 +254,13 @@ export const AccountsPayablePage: React.FC = () => {
         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
             o.paymentStatus === 'No Pagado' ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' :
             o.paymentStatus === 'Pagado Parcialmente' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-100' :
-            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100' // Should not see 'Pagado Completo' here
+            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100' 
         }`}>
           {o.paymentStatus}
         </span>
       )
     },
+    { header: 'Estado Pedido', accessor: (o) => o.status }
   ];
 
   return (
@@ -245,21 +272,36 @@ export const AccountsPayablePage: React.FC = () => {
         data={outstandingOrders}
         columns={columns}
         actions={(order) => (
-          <div className="flex space-x-2">
+          <div className="flex space-x-1">
+            <button
+              onClick={() => handleEditOrder(order)}
+              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+              title="Editar Pedido"
+            >
+              <EditIcon className="w-4 h-4" />
+            </button>
             <button
               onClick={() => generatePayablePDF(order)}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1"
+              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-1"
               title="Imprimir Estado de Cuenta"
             >
-              <PrinterIcon />
+              <PrinterIcon className="w-4 h-4" />
             </button>
             <button
               onClick={() => setPaymentModalOrder(order)}
-              className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 p-1"
+              className="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 p-1"
               title="Registrar Pago"
-              disabled={order.paymentStatus === 'Pagado Completo'}
+              disabled={order.paymentStatus === 'Pagado Completo' || order.status === SupplierOrderStatus.CANCELADO}
             >
-              <BanknotesIcon />
+              <BanknotesIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleCancelOrder(order.id)}
+              className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
+              title="Cancelar Pedido"
+              disabled={order.status === SupplierOrderStatus.CANCELADO || order.status === SupplierOrderStatus.RECIBIDO_COMPLETO}
+            >
+              <CancelIcon className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -269,7 +311,23 @@ export const AccountsPayablePage: React.FC = () => {
         onClose={() => setPaymentModalOrder(null)}
         order={paymentModalOrder}
         onRecordPayment={handleRecordPayment}
+        getSupplierById={getSupplierById} // Pass the function here
       />
+      <SupplierOrderFormModal
+        isOpen={showEditOrderModal}
+        onClose={() => setShowEditOrderModal(false)}
+        orderToEdit={orderToEdit}
+      />
+      {orderToCancelId && (
+        <ConfirmationModal
+            isOpen={showCancelConfirmModal}
+            onClose={() => setShowCancelConfirmModal(false)}
+            onConfirm={confirmCancelOrder}
+            title="Confirmar Cancelación de Pedido"
+            message={`¿Está seguro que desea cancelar el pedido PO-${orderToCancelId.slice(-6).toUpperCase()}? Esta acción no revertirá automáticamente el stock si ya fue recibido.`}
+            confirmButtonText="Sí, Cancelar Pedido"
+        />
+      )}
     </div>
   );
 };

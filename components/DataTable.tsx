@@ -2,7 +2,7 @@
 import React from 'react';
 
 export interface TableColumn<T> {
-  header: string;
+  header: string | React.ReactNode; // Changed from string to string | React.ReactNode
   accessor: keyof T | ((item: T) => React.ReactNode);
   className?: string; 
 }
@@ -21,7 +21,7 @@ export const DataTable = <T extends {id: string}, >({ data, columns, actions, on
           <tr>
             {columns.map((col, idx) => (
               <th key={idx} scope="col" className={`px-4 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider ${col.className || ''}`}>
-                {col.header}
+                <React.Fragment>{col.header}</React.Fragment> {/* Wrapped col.header */}
               </th>
             ))}
             {actions && <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Acciones</th>}
@@ -49,3 +49,4 @@ export const DataTable = <T extends {id: string}, >({ data, columns, actions, on
     </div>
   );
 };
+    

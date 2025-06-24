@@ -7,7 +7,7 @@ import { ProductFormModal } from './ProductFormModal';
 import { ConfirmationModal } from '../../components/Modal'; 
 import { ProductCard } from '../../components/cards/ProductCard'; 
 import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, SparklesIcon } from '../../components/icons'; 
-import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID } from '../../constants'; 
+import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID, inputFormStyle } from '../../constants'; 
 import { AIImportModal } from '../../components/AIImportModal'; 
 
 export const ProductsListPage: React.FC = () => {
@@ -128,6 +128,9 @@ export const ProductsListPage: React.FC = () => {
         // { header: 'Stock', accessor: 'stock' }, // Removed stock column
         { header: 'IVA', accessor: (p) => p.ivaRate ? `${(p.ivaRate * 100).toFixed(0)}%` : 'N/A' },
     ];
+    
+    const baseInputClasses = inputFormStyle.replace('block w-full', '').replace('text-sm', 'text-base').replace('py-1.5', 'py-2');
+
 
     return (
         <div>
@@ -139,27 +142,33 @@ export const ProductsListPage: React.FC = () => {
                         placeholder="Buscar productos globales..." 
                         value={searchTerm} 
                         onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1);}}
-                        className={`${INPUT_SM_CLASSES} flex-grow`}
+                        className={`${baseInputClasses} flex-grow text-base`}
                         aria-label="Buscar productos globales"
                     />
                     <select 
                         value={selectedCategory} 
                         onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1);}}
-                        className={`${INPUT_SM_CLASSES} flex-shrink-0`}
+                        className={`${baseInputClasses} flex-shrink-0 text-base`}
                         aria-label="Filtrar por categoría global"
                     >
                         <option value="Todos">Todas las categorías</option>
                         {dynamicCategories.filter(c => !c.storeOwnerId || c.storeOwnerId === ADMIN_USER_ID).map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                     </select>
                      <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
-                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tarjetas"><Squares2X2Icon/></button>
-                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon/></button>
+                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tarjetas"><Squares2X2Icon className="w-5 h-5"/></button>
+                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon className="w-5 h-5"/></button>
                     </div>
-                    <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}>
-                        <SparklesIcon /> Importar con IA
+                    <button 
+                        onClick={() => setShowAIImportModal(true)} 
+                        className={`${BUTTON_SECONDARY_SM_CLASSES.replace('text-sm','text-base').replace('py-1.5','py-2').replace('px-3','px-4')} flex items-center flex-shrink-0`}
+                    >
+                        <SparklesIcon className="w-5 h-5"/> Importar con IA
                     </button>
-                    <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
-                       <PlusIcon /> Agregar Producto
+                    <button 
+                        onClick={openModalForCreate} 
+                        className={`${BUTTON_PRIMARY_SM_CLASSES.replace('text-sm','text-base').replace('py-1.5','py-2').replace('px-3','px-4')} flex items-center flex-shrink-0`}
+                    >
+                       <PlusIcon className="w-5 h-5"/> Agregar Producto
                     </button>
                 </div>
             </div>

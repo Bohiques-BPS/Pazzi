@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from './Navbar'; // Adjusted path
@@ -26,9 +27,20 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     const currentPath = location.pathname;
     const matchedModule = APP_MODULES_CONFIG.find(m => currentPath.startsWith(m.path));
-    if (matchedModule && matchedModule.name !== currentModule) {
-        setCurrentModule(matchedModule.name);
+
+    // Paths that are part of PM module but can be accessed from POS sidebar's "Tienda" group
+    // and should not switch the module context away from POS if currentModule is POS.
+    const SHARED_PM_PATHS_FROM_POS = ['/pm/products', '/pm/categories', '/pm/clients', '/pm/employees'];
+
+    if (matchedModule) {
+        // If current module is POS and we are navigating to a shared PM path, DON'T switch module context.
+        if (currentModule === AppModule.POS && SHARED_PM_PATHS_FROM_POS.some(sharedPath => currentPath.startsWith(sharedPath))) {
+            // Do nothing, keep currentModule as POS
+        } else if (matchedModule.name !== currentModule) {
+            setCurrentModule(matchedModule.name);
+        }
     }
+    // If no matchedModule (e.g. /settings), currentModule remains as is, which is fine.
   }, [location.pathname, currentModule, setCurrentModule]);
 
 
@@ -38,14 +50,22 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
         let firstSubModulePath: string | undefined;
         if (currentModule === AppModule.PROJECT_MANAGEMENT && moduleConfig.subModulesProject.length > 0 && moduleConfig.subModulesProject[0].type === 'link') {
             firstSubModulePath = moduleConfig.subModulesProject[0].path;
-        } else if (currentModule === AppModule.POS && moduleConfig.subModulesPOS.length > 0 && moduleConfig.subModulesPOS[0].type === 'link') {
-            firstSubModulePath = moduleConfig.subModulesPOS[0].path;
+        } else if (currentModule === AppModule.POS && moduleConfig.subModulesPOS && moduleConfig.subModulesPOS.length > 0) {
+            const firstItem = moduleConfig.subModulesPOS[0];
+            if (firstItem.type === 'link') {
+                firstSubModulePath = firstItem.path;
+            } else if (firstItem.type === 'group' && firstItem.children.length > 0) {
+                firstSubModulePath = firstItem.children[0].path;
+            }
         } else if (currentModule === AppModule.ECOMMERCE && moduleConfig.subModulesEcommerce.length > 0 && moduleConfig.subModulesEcommerce[0].type === 'link') {
             firstSubModulePath = moduleConfig.subModulesEcommerce[0].path;
         }
         
         if (firstSubModulePath && location.pathname !== firstSubModulePath) {
-            navigate(firstSubModulePath);
+            // Avoid redirecting if already on a deeper path of the module
+            if (!location.pathname.startsWith(firstSubModulePath) || location.pathname === moduleConfig.path) {
+                 // navigate(firstSubModulePath); // This might be too aggressive, App.tsx handles initial redirects
+            }
         }
     }
   }, [currentModule, location.pathname, navigate]);

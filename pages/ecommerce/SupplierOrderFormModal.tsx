@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { SupplierOrder, SupplierOrderFormData, SupplierOrderItem, Product as ProductType, SupplierOrderStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -19,7 +20,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         orderDate: new Date().toISOString().split('T')[0],
         expectedDeliveryDate: '',
         items: [],
-        status: 'Borrador',
+        status: SupplierOrderStatus.BORRADOR, // Changed from 'Borrador'
     };
     const [formData, setFormData] = useState<SupplierOrderFormData>(initialFormData);
     const [currentItem, setCurrentItem] = useState<{ productId: string; quantityOrdered: number; unitCost: number }>({

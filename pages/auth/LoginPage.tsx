@@ -17,8 +17,8 @@ import {
 } from '../../constants';
 import { ArrowUturnLeftIcon, EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini } from '../../components/icons';
 
-const logoUrl = "/Logo.png"; 
-const rightPanelImageUrl = "https://picsum.photos/seed/businessgrowth/400/300";
+const logoUrl = "./Logo.png";
+const rightPanelImageUrl = "./login.jpg";
 
 const demoUsers = [
     { name: 'Admin (Gerente)', email: ADMIN_EMAIL, pass: ADMIN_PASSWORD },
@@ -101,7 +101,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 bg-white dark:bg-neutral-800 overflow-y-auto">
         <div className="w-full max-w-md">
           <div className="flex justify-center mb-6">
-            <img src={logoUrl} alt="Pazzi Logo" className="h-18" />
+            <img src={logoUrl} alt="Pazzi Logo" className="h-10" />
           </div>
           <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-6">
             Inicie sesión en su cuenta
@@ -176,12 +176,21 @@ export const LoginPage: React.FC = () => {
         </div>
       </div>
       {/* Decorative Panel */}
-      <div className="hidden md:flex md:w-1/2 bg-iconCustomBlue items-center justify-center p-10 flex-col bg-blend-multiply" style={{backgroundImage: "url('/login.jpg')", backgroundSize: 'cover', backgroundPosition: 'center'}}>
-      
-        <p className="text-xl lg:text-4xl text-white text-center font-semibold leading-relaxed max-w-md">
-          Simplificamos la gestión de tu negocio para que te enfoques en crecer.
-        </p>
-      </div>
+      <div 
+        className="hidden md:flex md:w-1/2 relative items-center justify-center p-10 flex-col"
+        style={{
+          backgroundImage: `url('${rightPanelImageUrl}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="absolute inset-0 bg-black opacity-50"></div> {/* Overlay for text readability */}
+        <div className="relative z-10 flex flex-col items-center"> {/* Content wrapper to ensure z-index */}
+          <p className="text-xl lg:text-4xl text-white text-center font-semibold uppercase leading-relaxed max-w-md">
+            "Simplificamos la gestión de tu negocio para que te enfoques en crecer"
+          </p>
+        </div>
+        </div>
     </div>
   );
 };

@@ -68,6 +68,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             useKitchenPrinter: productToEdit?.useKitchenPrinter || false,
             useBarcodePrinter: productToEdit?.useBarcodePrinter || false,
             availableStock: productToEdit?.availableStock || 0,
+            isEmergencyTaxExempt: productToEdit?.isEmergencyTaxExempt || false, // Initialize new field
         };
     };
     
@@ -261,11 +262,25 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                 {formData.imageUrl && <img key={formData.imageUrl} src={formData.imageUrl} alt="Vista previa" className="mt-1 w-16 h-16 object-cover rounded shadow"/>}
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 items-center"> {/* Added items-center */}
                              <label className="flex items-center text-xs"><input type="checkbox" name="displayOnScreen" checked={!!formData.displayOnScreen} onChange={handleChange} className="form-checkbox rounded mr-1"/> Ilustrar en Pantalla</label>
                              <label className="flex items-center text-xs"><input type="checkbox" name="requiresSerialNumber" checked={!!formData.requiresSerialNumber} onChange={handleChange} className="form-checkbox rounded mr-1"/> Requiere Núm. Serie</label>
                              <label className="flex items-center text-xs"><input type="checkbox" name="useKitchenPrinter" checked={!!formData.useKitchenPrinter} onChange={handleChange} className="form-checkbox rounded mr-1"/> Impr. Cocina</label>
                              <label className="flex items-center text-xs"><input type="checkbox" name="useBarcodePrinter" checked={!!formData.useBarcodePrinter} onChange={handleChange} className="form-checkbox rounded mr-1"/> Impr. Barras</label>
+                        </div>
+                        {/* New Checkbox for Emergency Tax Exemption */}
+                        <div className="pt-2">
+                            <label className="flex items-center text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                                <input 
+                                    type="checkbox" 
+                                    name="isEmergencyTaxExempt" 
+                                    checked={!!formData.isEmergencyTaxExempt} 
+                                    onChange={handleChange} 
+                                    className="form-checkbox rounded mr-1.5 text-amber-500 focus:ring-amber-500"
+                                />
+                                Aplicar Exención de Impuestos en Modo Emergencia
+                            </label>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 ml-5">Marcar si este producto debe venderse sin IVA cuando el POS esté en "Modo Emergencia".</p>
                         </div>
                          <div>
                             <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Otros SKUs/Códigos Alternos</label>

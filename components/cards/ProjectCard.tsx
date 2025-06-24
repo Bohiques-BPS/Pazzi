@@ -1,19 +1,29 @@
-
 import React, { useState, useMemo } from 'react';
 import { Project, ProjectStatus, Employee, Client } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
-import { EllipsisVerticalIcon, CalendarDaysIcon, UserGroupIcon, ChatBubbleLeftRightIcon } from '../icons'; // Adjusted path
+import { EllipsisVerticalIcon, CalendarDaysIcon, UserGroupIcon, ChatBubbleLeftRightIcon, DocumentArrowDownIcon } from '../icons'; // Adjusted path, Added DocumentArrowDownIcon
 
 interface ProjectCardProps {
     project: Project;
     onEdit: (project: Project, initialTab?: 'details' | 'chat') => void; // Modified to accept initialTab
     onRequestDelete: (projectId: string) => void;
     onViewQuotation: (project: Project) => void;
+    onGenerateInvoice: (project: Project) => void; // New prop
+    onViewInvoice: (project: Project) => void; // New prop
     allEmployees: Employee[];
     showManagementActions?: boolean; // New prop
 }
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onRequestDelete, onViewQuotation, allEmployees, showManagementActions = true }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ 
+    project, 
+    onEdit, 
+    onRequestDelete, 
+    onViewQuotation, 
+    onGenerateInvoice,
+    onViewInvoice,
+    allEmployees, 
+    showManagementActions = true 
+}) => {
   const [actionsOpen, setActionsOpen] = useState(false);
   const { getClientById } = useData();
   const client = getClientById(project.clientId);
@@ -37,32 +47,38 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onReq
       <div>
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">{project.name}</h3> {/* Increased size */}
-          <div className="relative">
-            <button onClick={() => setActionsOpen(!actionsOpen)} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`project-actions-${project.id}`}>
-              <EllipsisVerticalIcon /> {/* Default size from component */}
-            </button>
-            {actionsOpen && (
-              <div id={`project-actions-${project.id}`}className="absolute right-0 mt-1 w-40 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-10 border border-neutral-200 dark:border-neutral-600">
-                {showManagementActions && (
-                  <>
+          {showManagementActions && (
+            <div className="relative">
+                <button onClick={() => setActionsOpen(!actionsOpen)} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`project-actions-${project.id}`}>
+                <EllipsisVerticalIcon /> {/* Default size from component */}
+                </button>
+                {actionsOpen && (
+                <div id={`project-actions-${project.id}`}className="absolute right-0 mt-1 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-10 border border-neutral-200 dark:border-neutral-600">
+                    <button onClick={() => { onEdit(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Editar Proyecto</button>
                     <button onClick={() => { onViewQuotation(project); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Cotización</button>
-                    <button onClick={() => { onEdit(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Editar</button>
+                    {project.status === ProjectStatus.COMPLETED && !project.invoiceGenerated && (
+                        <button onClick={() => { onGenerateInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-600/50">Generar Factura</button>
+                    )}
+                    {project.invoiceGenerated && (
+                         <button onClick={() => { onViewInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-600/50">Ver Factura</button>
+                    )}
                     <button onClick={() => { onRequestDelete(project.id); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-600/50">Eliminar</button>
-                  </>
+                </div>
                 )}
-                {!showManagementActions && (
-                    <button onClick={() => { onEdit(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Detalles</button>
-                )}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         <span className={`text-sm font-medium px-2.5 py-0.5 rounded-full ${statusColors[project.status]}`}>{project.status}</span> {/* Status text size increased */}
         <p className="text-base text-neutral-600 dark:text-neutral-300 mt-2 mb-3 min-h-[40px] line-clamp-2">{project.description || 'Sin descripción.'}</p> {/* Increased size */}
+        
+        {project.invoiceGenerated && (
+            <p className="text-xs text-green-600 dark:text-green-400 mb-1">Factura N°: {project.invoiceNumber} ({project.invoiceDate})</p>
+        )}
+
         <div className="text-sm text-neutral-500 dark:text-neutral-400 space-y-1.5 mb-3"> {/* Date/assignee text size increased */}
           <div className="flex items-center">
             <CalendarDaysIcon className="w-5 h-5" /> {/* Adjusted icon size */}
-            <span className="ml-1.5">Creado: {new Date(project.startDate + 'T00:00:00').toLocaleDateString('es-ES')}</span>
+            <span className="ml-1.5">Programación vía Visitas</span>
           </div>
           <div className="flex items-center">
             <UserGroupIcon className="w-5 h-5" /> {/* Adjusted icon size */}

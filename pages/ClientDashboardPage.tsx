@@ -34,7 +34,8 @@ export const ClientDashboardPage: React.FC = () => {
                     <div>
                         <h3 className="font-medium text-primary">{p.name}</h3>
                         <p className="text-sm text-neutral-500 dark:text-neutral-400">Estado: {p.status}</p>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Fechas: {new Date(p.startDate).toLocaleDateString()} - {new Date(p.endDate).toLocaleDateString()}</p>
+                        {/* Fechas del proyecto ahora se gestionan a través de Visitas */}
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Cronograma: Ver visitas programadas.</p>
                     </div>
                     {/* The link below should point to a client-specific chat page if this dashboard were active for project clients */}
                     <Link 

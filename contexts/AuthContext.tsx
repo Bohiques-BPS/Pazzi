@@ -10,6 +10,7 @@ export interface AuthContextType {
   logout: () => void;
   allUsers: (User & { password?: string })[];
   updateUserPassword: (userId: string, currentPasswordPlain: string, newPasswordPlain: string) => Promise<{success: boolean, message: string}>;
+  toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>; // New function
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -47,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         determinedRole = existingUser.role;
     } else if (email.toLowerCase() === ADMIN_EMAIL && pass === ADMIN_PASSWORD) { 
         determinedRole = UserRole.MANAGER;
-        userToLogin = { id: 'admin-user', email: ADMIN_EMAIL, role: determinedRole, name: 'Admin', lastName: 'Pazzi' };
+        userToLogin = { id: 'admin-user', email: ADMIN_EMAIL, role: determinedRole, name: 'Admin', lastName: 'Pazzi', isEmergencyOrderActive: false };
     } 
 
     if (userToLogin && determinedRole) {
@@ -77,7 +78,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         alert('Tipo de cuenta inválido para registro.');
         return false;
     }
-    const newUser: User & {password: string} = { id: `user-${Date.now()}`, email, name, lastName, role, password: pass };
+    const newUser: User & {password: string} = { 
+        id: `user-${Date.now()}`, 
+        email, 
+        name, 
+        lastName, 
+        role, 
+        password: pass, 
+        isEmergencyOrderActive: false // Default for new users
+    };
     setAllUsers(prev => [...prev, newUser]);
     alert('Registro exitoso. Por favor, inicie sesión.');
     return true;
@@ -102,15 +111,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAllUsers(updatedUsers);
     
     if (currentUser && currentUser.id === userId) {
-        setCurrentUser(prev => prev ? { ...prev, password: newPasswordPlain } : null);
+        setCurrentUser(prev => prev ? { ...prev } : null); // Password isn't stored in currentUser directly for display
     }
     
     return { success: true, message: "Contraseña actualizada correctamente." };
   };
 
+  const toggleUserEmergencyOrderMode = async (userId: string): Promise<boolean> => {
+    const userIndex = allUsers.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        console.error("User not found for emergency mode toggle");
+        return false;
+    }
+    
+    const updatedUsers = [...allUsers];
+    const currentEmergencyStatus = updatedUsers[userIndex].isEmergencyOrderActive || false;
+    updatedUsers[userIndex] = { ...updatedUsers[userIndex], isEmergencyOrderActive: !currentEmergencyStatus };
+    setAllUsers(updatedUsers);
+    
+    if (currentUser && currentUser.id === userId) {
+        setCurrentUser(prev => prev ? { ...prev, isEmergencyOrderActive: !currentEmergencyStatus } : null);
+    }
+    return true;
+  };
+
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword }}>
+    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode }}>
       {children}
     </AuthContext.Provider>
   );
