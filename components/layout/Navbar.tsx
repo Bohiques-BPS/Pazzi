@@ -13,7 +13,7 @@ interface NavbarProps {
     setCurrentModule: (module: AppModule) => void;
 }
 
-const logoUrl = "./Logo.png"; 
+const logoUrl = "https://picsum.photos/seed/pazziapplogo/120/40"; 
 
 // Helper to format time relatively (simplified)
 const formatRelativeTime = (isoTimestamp: string) => {
@@ -96,9 +96,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
   const renderClientProjectNavLinks = () => (
     <>
-        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-base font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Dashboard</Link>
-        <Link to="/project-client/calendar" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-base font-medium flex items-center"><CalendarDaysIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Calendario</Link>
-        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-base font-medium flex items-center"><ChatBubbleLeftRightIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Mis Chats</Link>
+        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Dashboard</Link>
+        <Link to="/project-client/calendar" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><CalendarDaysIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Calendario</Link>
+        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><ChatBubbleLeftRightIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Mis Chats</Link>
     </>
   );
 
@@ -111,10 +111,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     // For now, it will stay open unless a navigation happens which re-renders navbar.
     // To ensure it closes, you might need: setNotificationDropdownOpen(false);
   };
+  
+  const moduleLabelColors: Record<AppModule, string> = {
+    [AppModule.TIENDA]: 'bg-purple-500',
+    [AppModule.PROJECT_MANAGEMENT]: 'bg-blue-500',
+    [AppModule.POS]: 'bg-teal-500',
+    [AppModule.ECOMMERCE]: 'bg-amber-500',
+    [AppModule.PROJECT_CLIENT_DASHBOARD]: 'bg-gray-500', // For completeness
+  };
+  const moduleLabelColorClass = moduleLabelColors[currentModule] || 'bg-gray-500'; // Fallback
 
 
   return (
-    <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]"> {/* Fixed height */}
+    <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]">
       <div className="mx-auto flex items-center justify-between h-full px-4"> {/* Added px-4 here for overall padding */}
         <div className="flex items-center">
           {/* Mobile Sidebar Toggle (Manager/Employee on mobile) */}
@@ -131,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                 <button 
                     id="navbar-module-selector-button-mobile"
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
-                    className="md:hidden px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="md:hidden px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-haspopup="true"
                     aria-expanded={moduleDropdownOpen}
                     aria-controls="module-menu"
@@ -166,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                     setModuleDropdownOpen(false);
                                     navigate(getModuleBasePath(mod.name));
                                 }}
-                                className="block w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                                className="block w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                                 role="menuitem"
                             >
                                 {mod.name}
@@ -178,9 +187,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           )}
 
           {/* Logo */}
-          <Link to={getLogoLink()} className="mr-4 flex-shrink-0">
-            <img src={logoUrl} alt="Pazzi Logo" className="h-9" /> {/* Slightly increased logo size */}
+          <Link to={getLogoLink()} className="mr-3 flex-shrink-0">
+            <img src={logoUrl} alt="Pazzi Logo" className="h-9" />
           </Link>
+
+          {/* NEW: Module Label */}
+          { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
+            <div className={`hidden md:flex items-center px-2.5 py-1 rounded-md text-base font-semibold text-white ${moduleLabelColorClass}`}>
+                {currentModule}
+            </div>
+          }
           
           {/* Client Project Nav Links (Desktop) */}
           {currentUser?.role === UserRole.CLIENT_PROJECT && (
@@ -211,11 +227,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                 {notificationDropdownOpen && (
                     <div id="notification-menu" className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-neutral-700 rounded-md shadow-xl py-1 z-30 border border-neutral-200 dark:border-neutral-600 max-h-[70vh] flex flex-col">
                         <div className="flex justify-between items-center px-4 py-2 border-b dark:border-neutral-600">
-                            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Notificaciones</h3>
+                            <h3 className="text-base font-semibold text-neutral-700 dark:text-neutral-200">Notificaciones</h3>
                             {unreadCount > 0 && (
                                 <button 
                                     onClick={() => {markAllNotificationsAsRead(); /* setNotificationDropdownOpen(false); */}}
-                                    className="text-xs text-primary hover:underline"
+                                    className="text-sm text-primary hover:underline"
                                 >
                                     Marcar todas como leídas
                                 </button>
@@ -232,21 +248,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                     <div className="flex items-start">
                                         {notification.icon && <span className="mr-3 mt-0.5 text-primary dark:text-accent">{notification.icon}</span>}
                                         <div className="flex-1">
-                                            <p className={`text-sm font-medium ${!notification.read ? 'text-primary dark:text-accent' : 'text-neutral-800 dark:text-neutral-100'}`}>{notification.title}</p>
-                                            <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-xs">{notification.message}</p>
-                                            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{formatRelativeTime(notification.timestamp)}</p>
+                                            <p className={`text-base font-medium ${!notification.read ? 'text-primary dark:text-accent' : 'text-neutral-800 dark:text-neutral-100'}`}>{notification.title}</p>
+                                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate max-w-xs">{notification.message}</p>
+                                            <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-0.5">{formatRelativeTime(notification.timestamp)}</p>
                                         </div>
                                         {!notification.read && <span className="ml-2 mt-1 w-2 h-2 bg-primary dark:bg-accent rounded-full flex-shrink-0"></span>}
                                     </div>
                                 </div>
                             )) : (
-                                <p className="text-center text-sm text-neutral-500 dark:text-neutral-400 py-6">No hay notificaciones nuevas.</p>
+                                <p className="text-center text-base text-neutral-500 dark:text-neutral-400 py-6">No hay notificaciones nuevas.</p>
                             )}
                         </div>
                          {notifications.length > 0 && (
                              <div className="px-4 py-2 border-t dark:border-neutral-600 text-center">
-                                {/* <Link to="/notifications" onClick={() => setNotificationDropdownOpen(false)} className="text-sm text-primary hover:underline">Ver todas</Link> */}
-                                <span className="text-xs text-neutral-400 dark:text-neutral-500">Mostrando últimas {latestNotifications.length}</span>
+                                {/* <Link to="/notifications" onClick={() => setNotificationDropdownOpen(false)} className="text-base text-primary hover:underline">Ver todas</Link> */}
+                                <span className="text-sm text-neutral-400 dark:text-neutral-500">Mostrando últimas {latestNotifications.length}</span>
                             </div>
                          )}
                     </div>
@@ -258,7 +274,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           <div className="relative">
             <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
                 <UserCircleIcon className="w-6 h-6 text-iconCustomBlue" />
-                <span className="hidden md:inline text-base text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
+                <span className="hidden md:inline text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
                 <ChevronDownIcon className="w-6 h-6 text-iconCustomBlue" />
             </button>
             {userDropdownOpen && (
@@ -267,7 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     <Link 
                         to="/my-orders" 
                         onClick={() => setUserDropdownOpen(false)} 
-                        className="flex items-center w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
+                        className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
                         role="menuitem"
                     >
                     <ListBulletIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Mis Pedidos
@@ -276,14 +292,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                 <Link 
                     to="/settings" 
                     onClick={() => setUserDropdownOpen(false)} 
-                    className="flex items-center w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
+                    className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
                     role="menuitem"
                 >
                     <Cog6ToothIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Mi Cuenta
                 </Link>
                 <button
                     onClick={() => {handleLogout(); setUserDropdownOpen(false);}}
-                    className="flex items-center w-full text-left px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                    className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                     role="menuitem"
                 >
                     <ArrowLeftOnRectangleIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Cerrar Sesión

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { SupplierOrder, SupplierOrderFormData, SupplierOrderItem, Product as ProductType, SupplierOrderStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -104,7 +103,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? 'Editar Pedido a Proveedor' : 'Crear Pedido a Proveedor'} size="2xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? 'Editar Pedido a Proveedor' : 'Crear Pedido a Proveedor'} size="4xl">
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -136,24 +135,24 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                     <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Artículos del Pedido</legend>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 items-end">
                         <div className="md:col-span-2">
-                            <label htmlFor="itemProductId" className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Producto</label>
-                            <select name="productId" id="itemProductId" value={currentItem.productId} onChange={handleItemInputChange} className={inputFormStyle + " text-xs !py-1.5"}>
+                            <label htmlFor="itemProductId" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Producto</label>
+                            <select name="productId" id="itemProductId" value={currentItem.productId} onChange={handleItemInputChange} className={inputFormStyle + " text-sm !py-1.5"}>
                                 {catalogProducts.map(p => <option key={p.id} value={p.id}>{p.name} (Stock Total: {p.stockByBranch.reduce((sum, sb) => sum + sb.quantity, 0)})</option>)}
                             </select>
                         </div>
                         <div>
-                            <label htmlFor="itemQuantity" className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Cantidad</label>
-                            <input type="number" name="quantityOrdered" id="itemQuantity" value={currentItem.quantityOrdered} onChange={handleItemInputChange} className={inputFormStyle + " text-xs !py-1.5"} min="1" />
+                            <label htmlFor="itemQuantity" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Cantidad</label>
+                            <input type="number" name="quantityOrdered" id="itemQuantity" value={currentItem.quantityOrdered} onChange={handleItemInputChange} className={inputFormStyle + " text-sm !py-1.5"} min="1" />
                         </div>
                         <div>
-                            <label htmlFor="itemUnitCost" className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Costo Unit.</label>
-                            <input type="number" name="unitCost" id="itemUnitCost" value={currentItem.unitCost} onChange={handleItemInputChange} className={inputFormStyle + " text-xs !py-1.5"} min="0" step="0.01" />
+                            <label htmlFor="itemUnitCost" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Costo Unit.</label>
+                            <input type="number" name="unitCost" id="itemUnitCost" value={currentItem.unitCost} onChange={handleItemInputChange} className={inputFormStyle + " text-sm !py-1.5"} min="0" step="0.01" />
                         </div>
-                        <button type="button" onClick={handleAddItem} className={`${BUTTON_SECONDARY_SM_CLASSES} md:col-start-4 !text-xs`}>Añadir Artículo</button>
+                        <button type="button" onClick={handleAddItem} className={`${BUTTON_SECONDARY_SM_CLASSES} md:col-start-4 !text-sm`}>Añadir Artículo</button>
                     </div>
                     {formData.items.length > 0 && (
                         <div className="max-h-40 overflow-y-auto border dark:border-neutral-600 rounded">
-                            <table className="min-w-full text-xs">
+                            <table className="min-w-full text-sm">
                                 <thead className="bg-neutral-50 dark:bg-neutral-700 sticky top-0">
                                     <tr>
                                         <th className="px-2 py-1 text-left">Producto</th>

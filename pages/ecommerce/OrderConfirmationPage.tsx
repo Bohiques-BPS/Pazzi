@@ -1,10 +1,12 @@
+
+
 import React, { useEffect, useState } from 'react';
 import { useParams, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Order as OrderType, ECommerceSettings as StoreSettingsType } from '../../types';
 import { BUTTON_PRIMARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
-import { ArrowUturnLeftIcon, CreditCardIcon, BanknotesIcon } from '../../components/icons'; // Added BanknotesIcon for other methods
+import { ArrowUturnLeftIcon, CreditCardIcon, BanknotesIcon, AthMovilIcon } from '../../components/icons'; // Added BanknotesIcon for other methods
 
 
 export const OrderConfirmationPage: React.FC = () => {
@@ -38,7 +40,8 @@ export const OrderConfirmationPage: React.FC = () => {
 
     const getPaymentMethodIcon = (method: string) => {
         if (method.toLowerCase().includes('tarjeta')) return <CreditCardIcon className="inline mr-1.5"/>;
-        // Could add more specific icons for PayPal, ATH Móvil
+        if (method.toLowerCase().includes('ath móvil')) return <AthMovilIcon className="inline mr-1.5"/>;
+        // Could add more specific icons for PayPal
         return <BanknotesIcon className="inline mr-1.5"/>; // Generic for others
     }
 

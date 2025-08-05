@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Client, ClientFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, CLIENT_PRICE_LEVEL_OPTIONS } from '../../constants'; // Adjusted path
+import { TrashIconMini } from '../../components/icons';
 
 interface ClientFormModalProps {
     isOpen: boolean;
@@ -10,59 +12,95 @@ interface ClientFormModalProps {
     client: Client | null;
 }
 
+// Mock data for dropdowns based on screenshots
+const paymentTermsOptions = ['Neto', 'N-15 DIAS', 'N-30 DIAS', 'N-60 DIAS', 'Contado'];
+const clientCategoryOptions = ['Cliente General', 'Contratista', 'Cliente VIP', 'Gubernamental'];
+const salespersonOptions = ['ADM ADM', 'Vendedor 1', 'Vendedor 2'];
+
 export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose, client}) => {
-    const { setClients, clients: allClients } = useData(); // Added allClients for validation
+    const { setClients, clients: allClients } = useData();
+    
+    const [activeTab, setActiveTab] = useState('General');
+    const tabs = ['General', 'Impuestos', 'Facturación', 'Cobros', 'Envío', 'Loyalty', 'Foto'];
+    
     const initialFormState: ClientFormData = { 
         name: '', 
         lastName: '', 
         email: '', 
         phone: '',
-        address: '',
-        billingAddress: '',
-        clientType: 'Particular',
-        companyName: '',
-        taxId: '',
+        isActive: true,
+        address: '', city: '', country: '', zip: '',
+        phone2: '', fax: '',
         contactPersonName: '',
-        preferredCommunication: 'Email',
+        socialSecurity: '', dateOfBirth: '',
         clientNotes: '',
-        industry: '',
-        acquisitionSource: '',
+        taxId: '', stateTaxRate: 0, municipalTaxRate: 0, municipalTaxExemptionUntil: '',
+        billingAddress: '',
+        creditLimit: 0, paymentTerms: paymentTermsOptions[0], showBalance: false,
+        category: clientCategoryOptions[0],
+        salesperson: salespersonOptions[0],
+        priceLevel: CLIENT_PRICE_LEVEL_OPTIONS[0],
+        businessType: '', zone: '',
+        clientType: 'Particular', companyName: '',
+        preferredCommunication: 'Email', industry: '', acquisitionSource: '',
+        balance: 0,
+        specialInvoiceMessageEnabled: false,
+        chargeType: 'discountOnPrice',
+        chargeValueType: 'percentage',
+        chargeValue: 0,
+        chargeCode: '',
+        images: [],
+        loyaltyPoints: 0,
+        loyaltyLevel: '',
+        shippingAddress: '',
+        shippingContactName: '',
+        shippingContactPhone: '',
+        preferredCarrier: '',
     };
     const [formData, setFormData] = useState<ClientFormData>(initialFormState);
+    const [newImageUrl, setNewImageUrl] = useState('');
 
     useEffect(() => {
-        if (client && isOpen) {
-            setFormData({
-                name: client.name,
-                lastName: client.lastName,
-                email: client.email,
-                phone: client.phone,
-                address: client.address || '',
-                billingAddress: client.billingAddress || '',
-                clientType: client.clientType || 'Particular',
-                companyName: client.companyName || '',
-                taxId: client.taxId || '',
-                contactPersonName: client.contactPersonName || '',
-                preferredCommunication: client.preferredCommunication || 'Email',
-                clientNotes: client.clientNotes || '',
-                industry: client.industry || '',
-                acquisitionSource: client.acquisitionSource || '',
-            });
-        } else if (!client && isOpen) {
-            setFormData(initialFormState);
+        if (isOpen) {
+            if (client) {
+                setFormData({
+                    ...initialFormState,
+                    ...client,
+                    chargeType: client.chargeType || 'discountOnPrice',
+                    chargeValueType: client.chargeValueType || 'percentage',
+                    chargeValue: client.chargeValue || 0,
+                    images: client.images || [],
+                });
+            } else {
+                setFormData(initialFormState);
+            }
+            setActiveTab('General');
+            setNewImageUrl('');
         }
-    }, [client, isOpen, initialFormState]); // Added initialFormState to dependencies
+    }, [client, isOpen]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({...prev, [name]: value}));
+        const { name, value, type } = e.target;
+        if (type === 'checkbox') {
+             setFormData(prev => ({...prev, [name]: (e.target as HTMLInputElement).checked}));
+        } else {
+            setFormData(prev => ({...prev, [name]: type === 'number' ? (parseFloat(value) || 0) : value}));
+        }
     };
 
+    const handleAddImage = () => {
+        if (newImageUrl.trim() && !formData.images?.includes(newImageUrl.trim())) {
+            setFormData(prev => ({ ...prev, images: [...(prev.images || []), newImageUrl.trim()] }));
+            setNewImageUrl('');
+        }
+    };
+    const handleRemoveImage = (urlToRemove: string) => {
+        setFormData(prev => ({ ...prev, images: prev.images?.filter(url => url !== urlToRemove) }));
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Basic validation for duplicate email
         const isDuplicateEmail = allClients.some(
             c => c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
         );
@@ -70,117 +108,167 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             alert("Ya existe un cliente con este correo electrónico.");
             return;
         }
-        
-        // Conditional Tax ID requirement for companies
-        if (formData.clientType === 'Empresa' && !formData.taxId?.trim()) {
-            alert("El ID Fiscal (RFC/NIF/etc.) es requerido para clientes de tipo 'Empresa'.");
-            return;
-        }
-
 
         if (client) {
-            setClients(prev => prev.map(c => c.id === client.id ? {...client, ...formData} : c));
+            setClients(prev => prev.map(c => c.id === client.id ? {...c, ...formData} : c));
         } else {
-            setClients(prev => [...prev, {id: `client-${Date.now()}`, ...formData}]);
+            setClients(prev => [...prev, {
+                ...initialFormState, 
+                ...formData, 
+                id: `client-${Date.now()}`,
+                createdDate: new Date().toISOString().split('T')[0],
+             }]);
         }
         onClose();
     };
+    
+    const renderGeneralTab = () => (
+        <div className="space-y-3">
+            <div><label className="block text-lg font-medium">Nombre</label><input type="text" name="name" value={formData.name} onChange={handleChange} className={inputFormStyle} required/></div>
+            <div><label className="block text-lg font-medium">Apellido</label><input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} /></div>
+            <div><label className="block text-lg font-medium">Dirección Principal</label><input type="text" name="address" value={formData.address} onChange={handleChange} className={inputFormStyle} /></div>
+            <div className="grid grid-cols-3 gap-2">
+                <div><label className="block text-lg font-medium">Ciudad</label><input type="text" name="city" value={formData.city} onChange={handleChange} className={inputFormStyle} /></div>
+                <div><label className="block text-lg font-medium">País</label><input type="text" name="country" value={formData.country} onChange={handleChange} className={inputFormStyle} /></div>
+                <div><label className="block text-lg font-medium">Zip</label><input type="text" name="zip" value={formData.zip} onChange={handleChange} className={inputFormStyle} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+                 <div><label className="block text-lg font-medium">Teléfono</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputFormStyle} required/></div>
+                 <div><label className="block text-lg font-medium">Teléfono 2</label><input type="tel" name="phone2" value={formData.phone2} onChange={handleChange} className={inputFormStyle} /></div>
+            </div>
+            <div><label className="block text-lg font-medium">Fax</label><input type="tel" name="fax" value={formData.fax} onChange={handleChange} className={inputFormStyle} /></div>
+            <div><label className="block text-lg font-medium">E-Mail</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} required/></div>
+            <div><label className="block text-lg font-medium">Persona de Contacto</label><input type="text" name="contactPersonName" value={formData.contactPersonName} onChange={handleChange} className={inputFormStyle}/></div>
+             <div className="grid grid-cols-2 gap-2">
+                <div><label className="block text-lg font-medium">Social Security</label><input type="text" name="socialSecurity" value={formData.socialSecurity} onChange={handleChange} className={inputFormStyle} /></div>
+                <div><label className="block text-lg font-medium">Fecha Nacimiento</label><input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={inputFormStyle} /></div>
+            </div>
+            <div><label className="block text-lg font-medium">Comentarios</label><textarea name="clientNotes" value={formData.clientNotes} onChange={handleChange} rows={2} className={inputFormStyle}></textarea></div>
+            <div className="pt-2"><label className="flex items-center text-lg"><input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> Activo</label></div>
+        </div>
+    );
+
+    const renderImpuestosTab = () => (
+         <div className="space-y-4 max-w-md">
+            <fieldset className="border p-3 rounded dark:border-neutral-600">
+                <legend className="text-lg font-medium px-1">Responsabilidad Contributiva</legend>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                     <div><label className="block text-lg font-medium">Estatal (%)</label><input type="number" name="stateTaxRate" value={formData.stateTaxRate} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
+                     <div><label className="block text-lg font-medium">Municipal (%)</label><input type="number" name="municipalTaxRate" value={formData.municipalTaxRate} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
+                </div>
+            </fieldset>
+            <div><label className="block text-lg font-medium">Fiscal ID # (RFC/NIF)</label><input type="text" name="taxId" value={formData.taxId} onChange={handleChange} className={inputFormStyle}/></div>
+            <div><label className="block text-lg font-medium">Exención IVU Municipal - Válido Hasta</label><input type="date" name="municipalTaxExemptionUntil" value={formData.municipalTaxExemptionUntil} onChange={handleChange} className={inputFormStyle}/></div>
+        </div>
+    );
+    
+    const renderFacturacionTab = () => (
+        <div className="space-y-4 max-w-lg">
+            <div><label className="block text-lg font-medium">Dirección de Facturación</label><textarea name="billingAddress" value={formData.billingAddress} onChange={handleChange} rows={2} className={inputFormStyle}></textarea></div>
+
+            <label className="flex items-center text-lg font-medium pt-2">
+                <input type="checkbox" name="specialInvoiceMessageEnabled" checked={!!formData.specialInvoiceMessageEnabled} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> Mensaje Especial en la Factura
+            </label>
+            <p className="text-lg text-neutral-500 -mt-3 ml-6">El mensaje se puede configurar en: Mantenimiento - Opciones - Otras Opciones - Recibos Facturas</p>
+            
+            <fieldset className="border p-4 rounded dark:border-neutral-600">
+                <legend className="text-lg font-semibold px-2 text-primary">Tipo de Cobro Acordado</legend>
+                <div className="flex items-start gap-6 mt-2">
+                    <div className="space-y-2.5">
+                        <label className="flex items-center text-lg cursor-pointer"><input type="radio" name="chargeType" value="discountOnPrice" checked={formData.chargeType === 'discountOnPrice'} onChange={handleChange} className="form-radio mr-1.5"/> Descuento al Precio</label>
+                        <label className="flex items-center text-lg cursor-pointer"><input type="radio" name="chargeType" value="markupOnCost" checked={formData.chargeType === 'markupOnCost'} onChange={handleChange} className="form-radio mr-1.5"/> Sobre el Costo</label>
+                    </div>
+                    <div className="border p-2 rounded flex items-center gap-2 bg-neutral-50 dark:bg-neutral-700/50">
+                        <div className="space-y-1.5">
+                            <label className="flex items-center text-lg cursor-pointer"><input type="radio" name="chargeValueType" value="percentage" checked={formData.chargeValueType === 'percentage'} onChange={handleChange} className="form-radio mr-1.5"/> %</label>
+                            <label className="flex items-center text-lg cursor-pointer"><input type="radio" name="chargeValueType" value="fixed" checked={formData.chargeValueType === 'fixed'} onChange={handleChange} className="form-radio mr-1.5"/> $</label>
+                        </div>
+                        <input type="number" name="chargeValue" value={formData.chargeValue} onChange={handleChange} className={`${inputFormStyle} w-24`} step="0.01" />
+                    </div>
+                </div>
+                 <div className="mt-4">
+                    <label className="block text-lg font-medium">Contraseña/Código</label>
+                    <input type="password" name="chargeCode" value={formData.chargeCode} onChange={handleChange} className={inputFormStyle + " w-32"} />
+                </div>
+            </fieldset>
+        </div>
+    );
+    
+    const renderCobrosTab = () => (
+        <div className="space-y-3">
+             <div><label className="block text-lg font-medium">Balance</label><input type="text" value={`$${(formData.balance || 0).toFixed(2)}`} className={`${inputFormStyle} bg-neutral-100 dark:bg-neutral-700`} readOnly/></div>
+             <div><label className="block text-lg font-medium">Límite Crédito</label><input type="number" name="creditLimit" value={formData.creditLimit} onChange={handleChange} className={inputFormStyle} /></div>
+             <div><label className="block text-lg font-medium">Términos</label><select name="paymentTerms" value={formData.paymentTerms} onChange={handleChange} className={inputFormStyle}>{paymentTermsOptions.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+             <div><label className="block text-lg font-medium">Categoría</label><select name="category" value={formData.category} onChange={handleChange} className={inputFormStyle}>{clientCategoryOptions.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+             <div><label className="block text-lg font-medium">Vendedor</label><select name="salesperson" value={formData.salesperson} onChange={handleChange} className={inputFormStyle}>{salespersonOptions.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+             <div><label className="block text-lg font-medium">Nivel de Precios</label><select name="priceLevel" value={formData.priceLevel} onChange={handleChange} className={inputFormStyle}>{CLIENT_PRICE_LEVEL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+            <div className="grid grid-cols-2 gap-2">
+                <div><label className="block text-lg font-medium">Tipo de Negocio</label><input type="text" name="businessType" value={formData.businessType} onChange={handleChange} className={inputFormStyle}/></div>
+                <div><label className="block text-lg font-medium">Zona</label><input type="text" name="zone" value={formData.zone} onChange={handleChange} className={inputFormStyle}/></div>
+            </div>
+             <div className="pt-2"><label className="flex items-center text-lg"><input type="checkbox" name="showBalance" checked={!!formData.showBalance} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> Ver Balance</label></div>
+        </div>
+    );
+    
+    const renderEnvioTab = () => (
+         <div className="space-y-3 max-w-md">
+            <div><label className="block text-lg font-medium">Dirección de Envío</label><textarea name="shippingAddress" value={formData.shippingAddress} onChange={handleChange} rows={3} className={inputFormStyle}></textarea></div>
+            <div><label className="block text-lg font-medium">Nombre Contacto Envío</label><input type="text" name="shippingContactName" value={formData.shippingContactName} onChange={handleChange} className={inputFormStyle}/></div>
+            <div><label className="block text-lg font-medium">Teléfono Contacto Envío</label><input type="tel" name="shippingContactPhone" value={formData.shippingContactPhone} onChange={handleChange} className={inputFormStyle}/></div>
+            <div><label className="block text-lg font-medium">Transportista Preferido</label><input type="text" name="preferredCarrier" value={formData.preferredCarrier} onChange={handleChange} className={inputFormStyle}/></div>
+        </div>
+    );
+    
+    const renderLoyaltyTab = () => (
+        <div className="space-y-3 max-w-md">
+            <div><label className="block text-lg font-medium">Puntos de Lealtad</label><input type="number" name="loyaltyPoints" value={formData.loyaltyPoints} onChange={handleChange} className={inputFormStyle}/></div>
+            <div><label className="block text-lg font-medium">Nivel de Lealtad</label><input type="text" name="loyaltyLevel" value={formData.loyaltyLevel} onChange={handleChange} className={inputFormStyle} placeholder="Ej: Bronce, Plata, Oro"/></div>
+        </div>
+    );
+    
+    const renderFotoTab = () => (
+        <div className="space-y-3 max-w-md">
+             <label className="block text-lg font-medium">Añadir URL de Imagen</label>
+            <div className="flex items-center gap-2">
+                <input type="url" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} placeholder="https://ejemplo.com/imagen.jpg" className={inputFormStyle + " flex-grow"} />
+                <button type="button" onClick={handleAddImage} className={BUTTON_SECONDARY_SM_CLASSES}>Añadir</button>
+            </div>
+             {formData.images && formData.images.length > 0 && (
+                <ul className="list-disc list-inside space-y-1 max-h-40 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-lg">
+                    {formData.images.map(url => (
+                        <li key={url} className="flex justify-between items-center group">
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="truncate text-blue-600 dark:text-blue-400 hover:underline">{url}</a>
+                            <button type="button" onClick={() => handleRemoveImage(url)} className="text-red-500 hover:text-red-700 text-sm p-0.5 opacity-0 group-hover:opacity-100" aria-label={`Quitar imagen ${url}`}><TrashIconMini/></button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={client ? "Editar Cliente" : "Crear Cliente"} size="xl"> {/* Changed size to xl */}
-            <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
-                <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                    <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Información Básica</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="clientName" className="block text-xs font-medium">Nombre</label>
-                            <input type="text" name="name" id="clientName" value={formData.name} onChange={handleChange} className={inputFormStyle} required/>
-                        </div>
-                        <div>
-                            <label htmlFor="clientLastName" className="block text-xs font-medium">Apellido</label>
-                            <input type="text" name="lastName" id="clientLastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} required/>
-                        </div>
-                        <div>
-                            <label htmlFor="clientEmail" className="block text-xs font-medium">Email</label>
-                            <input type="email" name="email" id="clientEmail" value={formData.email} onChange={handleChange} className={inputFormStyle} required/>
-                        </div>
-                        <div>
-                            <label htmlFor="clientPhone" className="block text-xs font-medium">Teléfono Principal</label>
-                            <input type="tel" name="phone" id="clientPhone" value={formData.phone} onChange={handleChange} className={inputFormStyle} required/>
-                        </div>
-                    </div>
-                </fieldset>
+        <Modal isOpen={isOpen} onClose={onClose} title={client ? "Modificar Cliente" : "Crear Cliente"} size="6xl">
+            <form onSubmit={handleSubmit}>
+                <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4 -mx-4 px-4 overflow-x-auto">
+                    {tabs.map(tab => (
+                        <button type="button" key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-2 text-lg font-medium whitespace-nowrap ${activeTab === tab ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
+                            {tab}
+                        </button>
+                    ))}
+                </div>
                 
-                <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                     <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Detalles Adicionales</legend>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="clientType" className="block text-xs font-medium">Tipo de Cliente</label>
-                            <select name="clientType" id="clientType" value={formData.clientType} onChange={handleChange} className={inputFormStyle}>
-                                <option value="Particular">Particular</option>
-                                <option value="Empresa">Empresa</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="preferredCommunication" className="block text-xs font-medium">Comunicación Preferida</label>
-                            <select name="preferredCommunication" id="preferredCommunication" value={formData.preferredCommunication} onChange={handleChange} className={inputFormStyle}>
-                                <option value="Email">Email</option>
-                                <option value="Teléfono">Teléfono</option>
-                                <option value="WhatsApp">WhatsApp</option>
-                                <option value="Otro">Otro</option>
-                            </select>
-                        </div>
-                         <div>
-                            <label htmlFor="acquisitionSource" className="block text-xs font-medium">Fuente de Adquisición</label>
-                            <input type="text" name="acquisitionSource" id="acquisitionSource" placeholder="Ej: Referido, Web, Publicidad" value={formData.acquisitionSource} onChange={handleChange} className={inputFormStyle}/>
-                        </div>
-                    </div>
-                </fieldset>
+                <div className="max-h-[65vh] overflow-y-auto pr-2">
+                   <div className={activeTab === 'General' ? '' : 'hidden'}>{renderGeneralTab()}</div>
+                   <div className={activeTab === 'Impuestos' ? '' : 'hidden'}>{renderImpuestosTab()}</div>
+                   <div className={activeTab === 'Facturación' ? '' : 'hidden'}>{renderFacturacionTab()}</div>
+                   <div className={activeTab === 'Cobros' ? '' : 'hidden'}>{renderCobrosTab()}</div>
+                   <div className={activeTab === 'Envío' ? '' : 'hidden'}>{renderEnvioTab()}</div>
+                   <div className={activeTab === 'Loyalty' ? '' : 'hidden'}>{renderLoyaltyTab()}</div>
+                   <div className={activeTab === 'Foto' ? '' : 'hidden'}>{renderFotoTab()}</div>
+                </div>
 
-                {formData.clientType === 'Empresa' && (
-                    <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                        <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Información de Empresa</legend>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="companyName" className="block text-xs font-medium">Nombre de la Empresa</label>
-                                <input type="text" name="companyName" id="companyName" value={formData.companyName} onChange={handleChange} className={inputFormStyle} required={formData.clientType === 'Empresa'}/>
-                            </div>
-                            <div>
-                                <label htmlFor="taxId" className="block text-xs font-medium">ID Fiscal (RFC, NIF, etc.)</label>
-                                <input type="text" name="taxId" id="taxId" value={formData.taxId} onChange={handleChange} className={inputFormStyle} required={formData.clientType === 'Empresa'}/>
-                            </div>
-                            <div>
-                                <label htmlFor="contactPersonName" className="block text-xs font-medium">Persona de Contacto Principal</label>
-                                <input type="text" name="contactPersonName" id="contactPersonName" value={formData.contactPersonName} onChange={handleChange} className={inputFormStyle}/>
-                            </div>
-                            <div>
-                                <label htmlFor="industry" className="block text-xs font-medium">Industria / Sector</label>
-                                <input type="text" name="industry" id="industry" placeholder="Ej: Restauración, Retail" value={formData.industry} onChange={handleChange} className={inputFormStyle}/>
-                            </div>
-                        </div>
-                    </fieldset>
-                )}
-                
-                <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                    <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Direcciones</legend>
-                    <div>
-                        <label htmlFor="clientAddress" className="block text-xs font-medium">Dirección Principal (Envío/Servicio)</label>
-                        <textarea name="address" id="clientAddress" value={formData.address} onChange={handleChange} rows={2} placeholder="Calle, Número, Colonia, Ciudad, Estado, CP" className={inputFormStyle}/>
-                    </div>
-                    <div className="mt-3">
-                        <label htmlFor="clientBillingAddress" className="block text-xs font-medium">Dirección de Facturación (si es diferente)</label>
-                        <textarea name="billingAddress" id="clientBillingAddress" value={formData.billingAddress} onChange={handleChange} rows={2} className={inputFormStyle}/>
-                    </div>
-                </fieldset>
-
-                <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                    <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Notas Adicionales</legend>
-                    <div>
-                        <label htmlFor="clientNotes" className="sr-only">Notas sobre el cliente</label>
-                        <textarea name="clientNotes" id="clientNotes" value={formData.clientNotes} onChange={handleChange} rows={3} placeholder="Anotaciones importantes, historial, preferencias específicas..." className={inputFormStyle}/>
-                    </div>
-                </fieldset>
-
-                <div className="flex justify-end space-x-2 pt-2">
+                <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Guardar Cliente</button>
                 </div>

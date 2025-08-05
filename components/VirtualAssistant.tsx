@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { useAuth } from '../contexts/AuthContext';
@@ -213,7 +212,7 @@ No inventes información. No respondas preguntas que no estén relacionadas con 
 Si se te pregunta por los productos que ha pedido un cliente específico, primero verifica si el cliente está en la muestra y si sus pedidos/ventas recientes (con detalle de items) están listados en el contexto. Si no es así, indica que no tienes el detalle completo en el resumen actual.`;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-04-17",
+                model: "gemini-2.5-flash",
                 contents: [{ role: "user", parts: [{text: userInput}] }, {role: "model", parts:[{text: `Contexto actual para Pazzi Asistente: ${JSON.stringify(contextualData)}`}]}],
                 config: {
                   systemInstruction: systemInstruction,

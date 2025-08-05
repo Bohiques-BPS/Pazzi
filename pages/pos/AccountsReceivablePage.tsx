@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
@@ -13,7 +12,7 @@ import { ReceivableEditModal } from './ReceivableEditModal'; // New Modal
 type JsPdfAutoTableColumnStyles = UserOptions['columnStyles'];
 
 export const AccountsReceivablePage: React.FC = () => {
-  const { sales, getClientById, getProductById, recordSalePayment, setSales } = useData();
+  const { sales, getClientById, getProductById, recordSalePayment, setSales, getProjectById } = useData();
   const { getDefaultSettings } = useECommerceSettings();
 
   const [showConfirmPaidModal, setShowConfirmPaidModal] = useState(false);
@@ -198,6 +197,10 @@ export const AccountsReceivablePage: React.FC = () => {
         const client = getClientById(s.clientId || '');
         return client ? `${client.name} ${client.lastName}` : (s.clientId ? 'Cliente Contado' : 'N/A');
       } 
+    },
+    { 
+      header: 'Proyecto', 
+      accessor: (s) => getProjectById(s.projectId || '')?.name || 'N/A' 
     },
     { header: 'Monto Total', accessor: (s) => `$${s.totalAmount.toFixed(2)}` },
     { 

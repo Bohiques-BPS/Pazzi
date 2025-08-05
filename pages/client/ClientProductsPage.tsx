@@ -10,10 +10,11 @@ import { ProductCard } from '../../components/cards/ProductCard';
 import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, SparklesIcon } from '../../components/icons';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { AIImportModal } from '../../components/AIImportModal'; 
+import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 
 export const ClientProductsPage: React.FC = () => {
     const { currentUser } = useAuth();
-    const { products, setProducts, getCategoriesByStoreOwner, getProductsByStoreOwner, addProduct } = useData();
+    const { products, setProducts, getCategoriesByStoreOwner, getProductsByStoreOwner, addProduct, addInventoryLog } = useData();
     
     const [clientProducts, setClientProducts] = useState<Product[]>([]);
     const [clientCategories, setClientCategories] = useState<CategoryType[]>([]);
@@ -33,6 +34,10 @@ export const ClientProductsPage: React.FC = () => {
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
     const [showAIImportModal, setShowAIImportModal] = useState(false);
+    
+    const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+    const [productToAdjust, setProductToAdjust] = useState<Product | null>(null);
+    const [branchForAdjustment, setBranchForAdjustment] = useState<string | null>(null);
 
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     const [searchTerm, setSearchTerm] = useState('');
@@ -55,6 +60,16 @@ export const ClientProductsPage: React.FC = () => {
     const requestDelete = (productId: string) => {
         setItemToDeleteId(productId);
         setShowDeleteConfirmModal(true);
+    };
+
+    const handleOpenAdjustmentModal = (product: Product, branchId: string) => {
+        if (currentUser && product.storeOwnerId === currentUser.id) {
+            setProductToAdjust(product);
+            setBranchForAdjustment(branchId);
+            setShowAdjustmentModal(true);
+        } else {
+            alert("No tienes permiso para ajustar el stock de este producto.");
+        }
     };
 
     const confirmDelete = () => {
@@ -168,7 +183,13 @@ export const ClientProductsPage: React.FC = () => {
                     {paginatedCardProducts.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5">
                             {paginatedCardProducts.map(product => (
-                                <ProductCard key={product.id} product={product} onEdit={() => openModalForEdit(product)} onRequestDelete={requestDelete} />
+                                <ProductCard 
+                                    key={product.id} 
+                                    product={product} 
+                                    onEdit={() => openModalForEdit(product)} 
+                                    onRequestDelete={requestDelete} 
+                                    onAdjustStock={handleOpenAdjustmentModal}
+                                />
                             ))}
                         </div>
                     ) : (
@@ -222,6 +243,13 @@ export const ClientProductsPage: React.FC = () => {
   "tasaIVA": 0.16,
   "descripcion": "Martillo de uña profesional con mango de fibra de vidrio."
 }`}
+            />
+             <StockAdjustmentModal
+                isOpen={showAdjustmentModal}
+                onClose={() => setShowAdjustmentModal(false)}
+                product={productToAdjust}
+                branchId={branchForAdjustment}
+                addInventoryLog={addInventoryLog}
             />
         </div>
     );

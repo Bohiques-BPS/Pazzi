@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project, ProjectFormData, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, UserRole, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Modal } from '../../components/Modal';
+import { Modal, ConfirmationModal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, SparklesIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon } from '../../components/icons'; // Added DocumentArrowDownIcon
 import { ChatMessageItem } from './ChatMessageItem';
@@ -19,12 +20,13 @@ interface ProjectFormModalProps {
 }
 
 type ActiveTab = 'details' | 'chat';
+type ActiveDetailsTab = 'Detalles' | 'Programación' | 'Recursos' | 'Facturación';
 
 const defaultWorkDayTime: WorkDayTimeRange = { date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00' };
 const defaultToday = new Date().toISOString().split('T')[0];
 
 export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClose, project, initialTab = 'details', onGenerateInvoice, onViewInvoicePDF}) => {
-    const { setProjects, clients, products: allProductsHookData, employees: allEmployeesHook, getChatMessagesForProject, addChatMessage, getClientById, getEmployeeById, generateInvoiceForProject } = useData();
+    const { projects, setProjects, clients, products: allProductsHookData, employees: allEmployeesHook, getChatMessagesForProject, addChatMessage, getClientById, getEmployeeById, generateInvoiceForProject } = useData();
     const { currentUser } = useAuth();
     
     const projectRelevantProducts = useMemo(() => allProductsHookData.filter(p => p.storeOwnerId === ADMIN_USER_ID || !p.storeOwnerId), [allProductsHookData]);
@@ -47,10 +49,12 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     
     const [formData, setFormData] = useState<ProjectFormData>(getInitialFormData());
     
-    const [currentProduct, setCurrentProduct] = useState<string>(''); // Initialize as empty
+    const [currentProduct, setCurrentProduct] = useState<string>('');
     const [currentQuantity, setCurrentQuantity] = useState<number>(1);
 
     const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+    const [activeDetailsTab, setActiveDetailsTab] = useState<ActiveDetailsTab>('Detalles');
+
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -62,6 +66,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
     const [currentSingleWorkDay, setCurrentSingleWorkDay] = useState<string>(defaultToday);
     const [currentWorkDayRange, setCurrentWorkDayRange] = useState<WorkDayTimeRange>({...defaultWorkDayTime});
+    
+    const [conflictDetails, setConflictDetails] = useState<{
+        conflictingProjects: { project: Project; employee: Employee }[];
+        date: string;
+        actionToConfirm: () => void;
+    } | null>(null);
+    const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
 
 
     const projectMessages = useMemo(() => project ? getChatMessagesForProject(project.id) : [], [project, getChatMessagesForProject]);
@@ -78,7 +89,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
     useEffect(() => {
         if (isOpen) {
-            setActiveTab(project ? initialTab : 'details'); 
+            setActiveTab(project ? initialTab : 'details');
+            setActiveDetailsTab('Detalles'); 
             if (project) {
                 setFormData({
                     name: project.name,
@@ -128,6 +140,117 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             workEndDate: mode === 'dateRange' ? (prev.workEndDate || defaultToday) : '',
         }));
     };
+    
+    // --- Conflict Detection and Resolution Logic ---
+    const isDateInProjectSchedule = (dateStr: string, p: Project): boolean => {
+        const checkDate = new Date(dateStr + 'T00:00:00');
+        switch(p.workMode) {
+            case 'daysOnly':
+                return p.workDays?.includes(dateStr) ?? false;
+            case 'daysAndTimes':
+                return p.workDayTimeRanges?.some(r => r.date === dateStr) ?? false;
+            case 'dateRange':
+                if (p.workStartDate && p.workEndDate) {
+                    const start = new Date(p.workStartDate + 'T00:00:00');
+                    const end = new Date(p.workEndDate + 'T00:00:00');
+                    return checkDate >= start && checkDate <= end;
+                }
+                return false;
+            default:
+                return false;
+        }
+    };
+
+    const findConflicts = (employeeIds: string[], dateStr: string): { project: Project; employee: Employee }[] => {
+        const conflictingAssignments: { project: Project; employee: Employee }[] = [];
+        const otherProjects = projects.filter(p => p.id !== project?.id);
+
+        for (const empId of employeeIds) {
+            const employee = getEmployeeById(empId);
+            if (!employee) continue;
+
+            for (const otherProject of otherProjects) {
+                if (otherProject.assignedEmployeeIds.includes(empId) && isDateInProjectSchedule(dateStr, otherProject)) {
+                    conflictingAssignments.push({ project: otherProject, employee });
+                }
+            }
+        }
+        return conflictingAssignments;
+    };
+
+    const handleConflictResolution = (confirmReschedule: boolean) => {
+        if (!conflictDetails) return;
+
+        if (confirmReschedule) {
+            const { conflictingProjects, date: conflictingDateStr } = conflictDetails;
+            
+            const projectsToUpdate = new Map<string, Project>();
+            
+            conflictingProjects.forEach(({ project: p }) => {
+                const newDate = new Date(conflictingDateStr + 'T00:00:00');
+                newDate.setDate(newDate.getDate() + 1);
+                const newDateStr = newDate.toISOString().split('T')[0];
+
+                let updatedProject = projectsToUpdate.get(p.id) || { ...p };
+
+                switch(updatedProject.workMode) {
+                    case 'daysOnly':
+                        updatedProject.workDays = updatedProject.workDays?.map(d => d === conflictingDateStr ? newDateStr : d);
+                        break;
+                    case 'daysAndTimes':
+                        updatedProject.workDayTimeRanges = updatedProject.workDayTimeRanges?.map(r => 
+                            r.date === conflictingDateStr ? { ...r, date: newDateStr } : r
+                        );
+                        break;
+                    case 'dateRange':
+                         if (updatedProject.workStartDate === conflictingDateStr) {
+                            const originalStartDate = new Date(updatedProject.workStartDate + 'T00:00:00');
+                            const originalEndDate = new Date(updatedProject.workEndDate + 'T00:00:00');
+                            const duration = (originalEndDate.getTime() - originalStartDate.getTime());
+
+                            const newStartDate = new Date(conflictingDateStr + 'T00:00:00');
+                            newStartDate.setDate(newStartDate.getDate() + 1);
+                            
+                            const newEndDate = new Date(newStartDate.getTime() + duration);
+
+                            updatedProject.workStartDate = newStartDate.toISOString().split('T')[0];
+                            updatedProject.workEndDate = newEndDate.toISOString().split('T')[0];
+                        } else {
+                            console.warn(`Cannot auto-reschedule a conflict in the middle of a date range for project ${p.name}. Manual adjustment needed.`);
+                        }
+                        break;
+                }
+                projectsToUpdate.set(p.id, updatedProject);
+            });
+            
+            setProjects(prevProjects => prevProjects.map(p => projectsToUpdate.get(p.id) || p));
+            conflictDetails.actionToConfirm();
+        }
+
+        setIsConflictModalOpen(false);
+        setConflictDetails(null);
+    };
+    
+    const checkForConflictsAndExecute = (action: () => void, employeeIds: string[], dates: string[]) => {
+        if (!canEditDetails) {
+            action();
+            return;
+        }
+
+        const allConflicts = dates.flatMap(date => findConflicts(employeeIds, date));
+        
+        if (allConflicts.length > 0) {
+            setConflictDetails({
+                conflictingProjects: allConflicts,
+                date: dates[0], // Show conflict for the first problematic date
+                actionToConfirm: action,
+            });
+            setIsConflictModalOpen(true);
+        } else {
+            action();
+        }
+    };
+
 
     const handleSingleWorkDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setCurrentSingleWorkDay(e.target.value);
@@ -135,9 +258,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     
     const handleAddSingleWorkDay = () => {
         if (!canEditDetails || !currentSingleWorkDay) return;
-        if (!formData.workDays.includes(currentSingleWorkDay)) {
-            setFormData(prev => ({ ...prev, workDays: [...prev.workDays, currentSingleWorkDay].sort() }));
-        }
+        
+        const action = () => {
+            if (!formData.workDays.includes(currentSingleWorkDay)) {
+                setFormData(prev => ({ ...prev, workDays: [...prev.workDays, currentSingleWorkDay].sort() }));
+            }
+        };
+        checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentSingleWorkDay]);
     };
 
     const handleRemoveSingleWorkDay = (dateToRemove: string) => {
@@ -151,8 +278,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     };
 
     const handleAddWorkDayTimeRange = () => {
-        if (!canEditDetails) return;
-        if (!currentWorkDayRange.date || !currentWorkDayRange.startTime || !currentWorkDayRange.endTime) {
+        if (!canEditDetails || !currentWorkDayRange.date || !currentWorkDayRange.startTime || !currentWorkDayRange.endTime) {
             alert("Por favor, complete todos los campos para el rango de trabajo.");
             return;
         }
@@ -160,15 +286,19 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             alert("La hora de fin debe ser posterior a la hora de inicio.");
             return;
         }
-        setFormData(prev => ({ 
-            ...prev, 
-            workDayTimeRanges: [...prev.workDayTimeRanges, currentWorkDayRange].sort((a,b) => {
-                if (a.date < b.date) return -1;
-                if (a.date > b.date) return 1;
-                return a.startTime.localeCompare(b.startTime);
-            })
-        }));
-        setCurrentWorkDayRange({...defaultWorkDayTime, date: defaultToday}); 
+
+        const action = () => {
+            setFormData(prev => ({ 
+                ...prev, 
+                workDayTimeRanges: [...prev.workDayTimeRanges, currentWorkDayRange].sort((a,b) => {
+                    if (a.date < b.date) return -1;
+                    if (a.date > b.date) return 1;
+                    return a.startTime.localeCompare(b.startTime);
+                })
+            }));
+            setCurrentWorkDayRange({...defaultWorkDayTime, date: defaultToday}); 
+        };
+        checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentWorkDayRange.date]);
     };
     
     const handleRemoveWorkDayTimeRange = (indexToRemove: number) => {
@@ -200,16 +330,33 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
     const handleEmployeeToggle = (employeeId: string) => {
         if (!canEditDetails) return;
-        setFormData(prev => {
-            const isAssigned = prev.assignedEmployeeIds.includes(employeeId);
-            return {
+        const isCurrentlyAssigned = formData.assignedEmployeeIds.includes(employeeId);
+        
+        const action = () => {
+             setFormData(prev => ({
                 ...prev,
-                assignedEmployeeIds: isAssigned 
+                assignedEmployeeIds: isCurrentlyAssigned 
                     ? prev.assignedEmployeeIds.filter(id => id !== employeeId)
                     : [...prev.assignedEmployeeIds, employeeId]
-            };
-        });
+            }));
+        };
+
+        if (!isCurrentlyAssigned) {
+            // Check conflicts for the employee being added across all existing dates
+            const scheduledDates = [...new Set([
+                ...(formData.workDays || []),
+                ...(formData.workDayTimeRanges?.map(r => r.date) || [])
+            ])];
+            if (scheduledDates.length > 0) {
+                 checkForConflictsAndExecute(action, [employeeId], scheduledDates);
+            } else {
+                 action(); // No dates scheduled, no conflicts to check
+            }
+        } else {
+            action(); // Removing an employee doesn't cause a conflict
+        }
     };
+
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -265,8 +412,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
          try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
              const response: GenerateContentResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-04-17",
-                contents: [{ parts: [{ text: `Genera una respuesta breve para un chat de proyecto sobre "${project.name}"` }] }],
+                model: "gemini-2.5-flash",
+                contents: `Genera una respuesta breve para un chat de proyecto sobre "${project.name}"`,
             });
             setNewMessage(response.text.trim());
         } catch (error) {
@@ -297,10 +444,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
         setCallType(type);
         setIsCallModalOpen(true);
     };
+
+    const detailTabs: ActiveDetailsTab[] = ['Detalles', 'Programación', 'Recursos'];
+    if (project) detailTabs.push('Facturación');
     
     return (
         <>
-        <Modal isOpen={isOpen} onClose={onClose} title={project ? (isEmployeeView ? 'Ver Detalles del Proyecto' : 'Editar Proyecto') : 'Crear Proyecto'} size="2xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={project ? (isEmployeeView ? 'Ver Detalles del Proyecto' : 'Editar Proyecto') : 'Crear Proyecto'} size="5xl">
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4">
                 <button onClick={() => setActiveTab('details')} className={`px-4 py-2 text-sm font-medium ${activeTab === 'details' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
                     Detalles
@@ -313,216 +463,191 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             </div>
             
             {activeTab === 'details' && (
-                <form onSubmit={handleSubmit} className="space-y-4 max-h-[65vh] overflow-y-auto pr-2">
-                    {/* Basic Info */}
-                    <fieldset className="border dark:border-neutral-600 p-3 rounded" disabled={!canEditDetails}>
-                        <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Información Básica</legend>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                                <label htmlFor="projectName" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Nombre del Proyecto</label>
-                                <input type="text" name="name" id="projectName" value={formData.name} onChange={handleChange} className={inputFormStyle} required/>
-                            </div>
-                            <div>
-                                <label htmlFor="clientId" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Cliente</label>
-                                <select name="clientId" id="clientId" value={formData.clientId} onChange={handleChange} className={inputFormStyle} required>
-                                    {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
-                                    {clients.length === 0 && <option value="" disabled>No hay clientes</option>}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="mt-3">
-                            <label htmlFor="projectStatus" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Estado</label>
-                            <select name="status" id="projectStatus" value={formData.status} onChange={handleChange} className={inputFormStyle} required>
-                                {PROJECT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div className="mt-3">
-                            <label htmlFor="projectDescription" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
-                            <textarea name="description" id="projectDescription" value={formData.description} onChange={handleChange} rows={3} className={inputFormStyle}/>
-                        </div>
-                    </fieldset>
+                <form onSubmit={handleSubmit}>
+                    <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-3 -mx-4 px-4">
+                        {detailTabs.map(tab => (
+                            <button
+                                key={tab}
+                                type="button"
+                                onClick={() => setActiveDetailsTab(tab)}
+                                className={`px-3 py-2 text-sm font-medium ${activeDetailsTab === tab ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
                     
-                    {/* Visit Scheduling */}
-                    <fieldset className="border dark:border-neutral-600 p-3 rounded" disabled={!canEditDetails}>
-                        <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Programación de Visita Inicial</legend>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                                <label htmlFor="visitDate" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Fecha Visita</label>
-                                <input type="date" name="visitDate" id="visitDate" value={formData.visitDate || ''} onChange={handleChange} className={inputFormStyle}/>
-                            </div>
-                            <div>
-                                <label htmlFor="visitTime" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Hora Visita</label>
-                                <input type="time" name="visitTime" id="visitTime" value={formData.visitTime || ''} onChange={handleChange} className={inputFormStyle}/>
-                            </div>
-                        </div>
-                    </fieldset>
-
-                    {/* Work Scheduling */}
-                    <fieldset className="border dark:border-neutral-600 p-3 rounded" disabled={!canEditDetails}>
-                        <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Programación de Trabajo del Proyecto</legend>
-                        <div className="flex space-x-4 mb-3">
-                            <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300">
-                                <input type="radio" name="workMode" value="daysOnly" checked={formData.workMode === 'daysOnly'} onChange={() => handleWorkModeChange('daysOnly')} className="form-radio mr-1 text-primary focus:ring-primary"/> Solo Días
-                            </label>
-                            <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300">
-                                <input type="radio" name="workMode" value="daysAndTimes" checked={formData.workMode === 'daysAndTimes'} onChange={() => handleWorkModeChange('daysAndTimes')} className="form-radio mr-1 text-primary focus:ring-primary"/> Días y Horas Específicas
-                            </label>
-                            <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300">
-                                <input type="radio" name="workMode" value="dateRange" checked={formData.workMode === 'dateRange'} onChange={() => handleWorkModeChange('dateRange')} className="form-radio mr-1 text-primary focus:ring-primary"/> Rango de Fechas Continuo
-                            </label>
-                        </div>
-
-                        {formData.workMode === 'daysOnly' && (
-                            <div className="space-y-2">
-                                <div className="flex items-end gap-2">
-                                    <div className="flex-grow">
-                                        <label htmlFor="singleWorkDay" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Día de Trabajo</label>
-                                        <input type="date" id="singleWorkDay" value={currentSingleWorkDay} onChange={handleSingleWorkDayChange} className={inputFormStyle}/>
-                                    </div>
-                                    <button type="button" onClick={handleAddSingleWorkDay} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}><PlusIcon className="w-4 h-4 mr-1"/>Añadir Día</button>
-                                </div>
-                                {formData.workDays.length > 0 && (
-                                    <ul className="list-disc list-inside space-y-0.5 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">
-                                        {formData.workDays.map(day => (
-                                            <li key={day} className="text-neutral-700 dark:text-neutral-200 flex justify-between items-center">
-                                                {new Date(day + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                                                <button type="button" onClick={() => handleRemoveSingleWorkDay(day)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={`Quitar día ${day}`}><TrashIconMini/></button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        )}
-
-                        {formData.workMode === 'daysAndTimes' && (
-                            <div className="space-y-2">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-                                    <div className="md:col-span-2">
-                                        <label htmlFor="rangeDate" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Fecha</label>
-                                        <input type="date" name="date" id="rangeDate" value={currentWorkDayRange.date} onChange={handleWorkDayRangeChange} className={inputFormStyle}/>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="rangeStartTime" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Hora Inicio</label>
-                                        <input type="time" name="startTime" id="rangeStartTime" value={currentWorkDayRange.startTime} onChange={handleWorkDayRangeChange} className={inputFormStyle}/>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="rangeEndTime" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Hora Fin</label>
-                                        <input type="time" name="endTime" id="rangeEndTime" value={currentWorkDayRange.endTime} onChange={handleWorkDayRangeChange} className={inputFormStyle}/>
-                                    </div>
-                                    <button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} md:col-span-4 flex items-center justify-center`}><PlusIcon className="w-4 h-4 mr-1"/>Añadir Rango</button>
-                                </div>
-                                 {formData.workDayTimeRanges.length > 0 && (
-                                    <ul className="list-disc list-inside space-y-0.5 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">
-                                        {formData.workDayTimeRanges.map((range, index) => (
-                                            <li key={index} className="text-neutral-700 dark:text-neutral-200 flex justify-between items-center">
-                                                {new Date(range.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' })} de {range.startTime} a {range.endTime}
-                                                <button type="button" onClick={() => handleRemoveWorkDayTimeRange(index)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={`Quitar rango ${index}`}><TrashIconMini/></button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        )}
-                        
-                        {formData.workMode === 'dateRange' && (
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                    <div className="max-h-[55vh] overflow-y-auto pr-2 space-y-4">
+                        {/* Detalles Tab */}
+                        <fieldset className={activeDetailsTab === 'Detalles' ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                    <label htmlFor="workStartDate" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Fecha de Inicio del Trabajo</label>
-                                    <input type="date" name="workStartDate" id="workStartDate" value={formData.workStartDate || ''} onChange={handleChange} className={inputFormStyle}/>
+                                    <label htmlFor="projectName" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Nombre del Proyecto</label>
+                                    <input type="text" name="name" id="projectName" value={formData.name} onChange={handleChange} className={inputFormStyle} required/>
                                 </div>
                                 <div>
-                                    <label htmlFor="workEndDate" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Fecha de Fin del Trabajo</label>
-                                    <input type="date" name="workEndDate" id="workEndDate" value={formData.workEndDate || ''} onChange={handleChange} className={inputFormStyle}/>
+                                    <label htmlFor="clientId" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Cliente</label>
+                                    <select name="clientId" id="clientId" value={formData.clientId} onChange={handleChange} className={inputFormStyle} required>
+                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
+                                        {clients.length === 0 && <option value="" disabled>No hay clientes</option>}
+                                    </select>
                                 </div>
                             </div>
-                        )}
-                    </fieldset>
-
-                    {/* Products & Employees */}
-                    <fieldset className="border dark:border-neutral-600 p-3 rounded" disabled={!canEditDetails}>
-                        <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Recursos y Equipo</legend>
-                        <div className="mb-3">
-                            <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Asignar Productos</label>
-                            <div className="flex items-center gap-2 mb-1">
-                                <select value={currentProduct} onChange={e => setCurrentProduct(e.target.value)} className={inputFormStyle + " flex-grow !text-xs"}>
-                                    <option value="" disabled>Seleccionar producto</option>
-                                    {projectRelevantProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    {projectRelevantProducts.length === 0 && <option value="" disabled>No hay productos</option>}
+                            <div>
+                                <label htmlFor="projectStatus" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Estado</label>
+                                <select name="status" id="projectStatus" value={formData.status} onChange={handleChange} className={inputFormStyle} required>
+                                    {PROJECT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                                <input type="number" value={currentQuantity} onChange={e => setCurrentQuantity(Math.max(1, parseInt(e.target.value) || 1))} className={inputFormStyle + " w-20 !text-xs"} min="1"/>
-                                <button type="button" onClick={handleProductAdd} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>Añadir</button>
                             </div>
-                            {formData.assignedProducts.length > 0 && (
-                                <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">
-                                    {formData.assignedProducts.map(ap => {
-                                        const prod = projectRelevantProducts.find(p => p.id === ap.productId);
-                                        return (
-                                            <li key={ap.productId} className="text-neutral-700 dark:text-neutral-200 flex justify-between items-center">
-                                                {prod?.name || 'Producto Desconocido'} (x{ap.quantity})
-                                                <button type="button" onClick={() => handleProductRemove(ap.productId)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={`Quitar ${prod?.name || 'producto'}`}><TrashIconMini/></button>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Asignar Empleados</label>
-                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">
-                                {allEmployeesHook.map(emp => (
-                                    <label key={emp.id} className="flex items-center space-x-1.5 p-1 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-600">
-                                        <input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500 text-xs"/>
-                                        <span className="text-xs text-neutral-700 dark:text-neutral-200">{emp.name} {emp.lastName}</span>
-                                    </label>
-                                ))}
-                                {allEmployeesHook.length === 0 && <p className="text-xs text-neutral-500 dark:text-neutral-400 col-span-full text-center py-2">No hay empleados disponibles.</p>}
+                            <div>
+                                <label htmlFor="projectDescription" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
+                                <textarea name="description" id="projectDescription" value={formData.description} onChange={handleChange} rows={3} className={inputFormStyle}/>
                             </div>
-                        </div>
-                    </fieldset>
-
-                    {/* Invoice Section */}
-                    {project && (
-                        <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                            <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Facturación</legend>
-                            {project.invoiceGenerated ? (
-                                <div className="space-y-1 text-xs text-neutral-700 dark:text-neutral-300">
-                                    <p><strong>Factura Generada:</strong> Sí</p>
-                                    <p><strong>Nº Factura:</strong> {project.invoiceNumber}</p>
-                                    <p><strong>Fecha Factura:</strong> {project.invoiceDate ? new Date(project.invoiceDate + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
-                                    <p><strong>Monto Facturado:</strong> ${project.invoiceAmount?.toFixed(2) || 'N/A'}</p>
-                                    <p><strong>Vencimiento:</strong> {project.paymentDueDate ? new Date(project.paymentDueDate + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
-                                    {onViewInvoicePDF && (
-                                        <button type="button" onClick={() => onViewInvoicePDF(project)} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs mt-2 flex items-center`}>
-                                            <DocumentArrowDownIcon className="w-3 h-3 mr-1"/>Ver Factura PDF
-                                        </button>
-                                    )}
-                                </div>
-                            ) : (
-                                <div>
-                                    <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2">Aún no se ha generado una factura para este proyecto.</p>
-                                    {project.status === ProjectStatus.COMPLETED && canEditDetails && (
-                                        <button 
-                                            type="button" 
-                                            onClick={handleGenerateInvoiceClick} 
-                                            className={`${BUTTON_PRIMARY_SM_CLASSES} !text-xs flex items-center`}
-                                        >
-                                          <DocumentArrowUpIcon className="w-3 h-3 mr-1"/>  Generar Factura Ahora
-                                        </button>
-                                    )}
-                                     {project.status !== ProjectStatus.COMPLETED && <p className="text-xs text-amber-600 dark:text-amber-400">El proyecto debe estar completado para generar la factura.</p>}
-                                </div>
-                            )}
                         </fieldset>
-                    )}
+
+                        {/* Programación Tab */}
+                        <fieldset className={activeDetailsTab === 'Programación' ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
+                            <div>
+                                <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Visita Inicial</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label htmlFor="visitDate" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Fecha Visita</label>
+                                        <input type="date" name="visitDate" id="visitDate" value={formData.visitDate || ''} onChange={handleChange} className={inputFormStyle}/>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="visitTime" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Hora Visita</label>
+                                        <input type="time" name="visitTime" id="visitTime" value={formData.visitTime || ''} onChange={handleChange} className={inputFormStyle}/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="pt-4 border-t dark:border-neutral-700">
+                                <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Trabajo del Proyecto</h4>
+                                <div className="flex space-x-4 mb-3">
+                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="daysOnly" checked={formData.workMode === 'daysOnly'} onChange={() => handleWorkModeChange('daysOnly')} className="form-radio mr-1"/> Solo Días</label>
+                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="daysAndTimes" checked={formData.workMode === 'daysAndTimes'} onChange={() => handleWorkModeChange('daysAndTimes')} className="form-radio mr-1"/> Días y Horas</label>
+                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="dateRange" checked={formData.workMode === 'dateRange'} onChange={() => handleWorkModeChange('dateRange')} className="form-radio mr-1"/> Rango Continuo</label>
+                                </div>
+                                {formData.workMode === 'daysOnly' && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-end gap-2">
+                                            <div className="flex-grow">
+                                                <label htmlFor="singleWorkDay" className="block text-xs font-medium">Añadir Día de Trabajo</label>
+                                                <input type="date" id="singleWorkDay" value={currentSingleWorkDay} onChange={handleSingleWorkDayChange} className={inputFormStyle} />
+                                            </div>
+                                            <button type="button" onClick={handleAddSingleWorkDay} className={BUTTON_SECONDARY_SM_CLASSES}>Añadir</button>
+                                        </div>
+                                        {formData.workDays.length > 0 && (
+                                            <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">
+                                                {formData.workDays.map(day => (
+                                                    <li key={day} className="flex justify-between items-center">
+                                                        {new Date(day + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                                                        <button type="button" onClick={() => handleRemoveSingleWorkDay(day)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={`Quitar día ${day}`}><TrashIconMini/></button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                                {formData.workMode === 'daysAndTimes' && (
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+                                            <div className="md:col-span-2">
+                                                <label htmlFor="rangeDate" className="block text-xs font-medium">Fecha</label>
+                                                <input type="date" name="date" id="rangeDate" value={currentWorkDayRange.date} onChange={handleWorkDayRangeChange} className={inputFormStyle} />
+                                            </div>
+                                            <div>
+                                                <label htmlFor="rangeStartTime" className="block text-xs font-medium">Hora Inicio</label>
+                                                <input type="time" name="startTime" id="rangeStartTime" value={currentWorkDayRange.startTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} />
+                                            </div>
+                                            <div>
+                                                <label htmlFor="rangeEndTime" className="block text-xs font-medium">Hora Fin</label>
+                                                <input type="time" name="endTime" id="rangeEndTime" value={currentWorkDayRange.endTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} />
+                                            </div>
+                                        </div>
+                                        <button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} w-full`}><PlusIcon className="w-4 h-4 mr-1" />Añadir Rango</button>
+                                        {formData.workDayTimeRanges.length > 0 && (
+                                            <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">
+                                                {formData.workDayTimeRanges.map((range, index) => (
+                                                    <li key={index} className="flex justify-between items-center">
+                                                        <span>{new Date(range.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} de {range.startTime} a {range.endTime}</span>
+                                                        <button type="button" onClick={() => handleRemoveWorkDayTimeRange(index)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={`Quitar rango ${index}`}><TrashIconMini/></button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                                {formData.workMode === 'dateRange' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label htmlFor="workStartDate" className="block text-xs font-medium">Fecha Inicio Rango</label>
+                                            <input type="date" name="workStartDate" id="workStartDate" value={formData.workStartDate || ''} onChange={handleChange} className={inputFormStyle} />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="workEndDate" className="block text-xs font-medium">Fecha Fin Rango</label>
+                                            <input type="date" name="workEndDate" id="workEndDate" value={formData.workEndDate || ''} onChange={handleChange} className={inputFormStyle} />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </fieldset>
+                        
+                        {/* Recursos Tab */}
+                        <fieldset className={activeDetailsTab === 'Recursos' ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
+                            {/* Product and Employee assignment fields */}
+                            <div className="mb-3">
+                                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Asignar Productos</label>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <select value={currentProduct} onChange={e => setCurrentProduct(e.target.value)} className={inputFormStyle + " flex-grow !text-xs"}>{projectRelevantProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                                    <input type="number" value={currentQuantity} onChange={e => setCurrentQuantity(Math.max(1, parseInt(e.target.value) || 1))} className={inputFormStyle + " w-20 !text-xs"} min="1"/>
+                                    <button type="button" onClick={handleProductAdd} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>Añadir</button>
+                                </div>
+                                {formData.assignedProducts.length > 0 && (
+                                    <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">{formData.assignedProducts.map(ap => { const product = projectRelevantProducts.find(p => p.id === ap.productId); return (<li key={ap.productId} className="flex justify-between items-center"><span>{product?.name || 'Producto Desconocido'} (x{ap.quantity})</span><button type="button" onClick={() => handleProductRemove(ap.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={`Quitar ${product?.name}`}><TrashIconMini/></button></li>); })}</ul>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Asignar Empleados</label>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.map(emp => (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>))}</div>
+                            </div>
+                        </fieldset>
+
+                        {/* Facturación Tab */}
+                        {project && (
+                            <div className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}>
+                                {project.invoiceGenerated ? (
+                                    <div className="space-y-1 text-xs text-neutral-700 dark:text-neutral-300">
+                                        <p><strong>Nº Factura:</strong> {project.invoiceNumber}</p>
+                                        <p><strong>Fecha Factura:</strong> {project.invoiceDate ? new Date(project.invoiceDate + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
+                                        <p><strong>Monto:</strong> ${project.invoiceAmount?.toFixed(2) || '0.00'}</p>
+                                        <p><strong>Vencimiento:</strong> {project.paymentDueDate ? new Date(project.paymentDueDate + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
+                                        <button type="button" onClick={() => onViewInvoicePDF && onViewInvoicePDF(project)} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center mt-2`}>
+                                            <DocumentArrowDownIcon className="w-3 h-3 mr-1"/> Ver/Descargar PDF
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2">Aún no se ha generado una factura.</p>
+                                        {project.status === ProjectStatus.COMPLETED && canEditDetails && (
+                                            <button type="button" onClick={handleGenerateInvoiceClick} className={`${BUTTON_PRIMARY_SM_CLASSES} !text-xs flex items-center`}>
+                                                <DocumentArrowUpIcon className="w-3 h-3 mr-1"/> Generar Factura Ahora
+                                            </button>
+                                        )}
+                                        {project.status !== ProjectStatus.COMPLETED && <p className="text-xs text-amber-600 dark:text-amber-400">El proyecto debe estar completado para facturar.</p>}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     
                     {canEditDetails && (
-                        <div className="flex justify-end space-x-2 pt-2">
+                        <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
                             <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
                             <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Guardar Proyecto</button>
                         </div>
                     )}
-                     {!canEditDetails && (
-                        <div className="flex justify-end pt-2">
+                    {!canEditDetails && (
+                        <div className="flex justify-end pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
                             <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar Vista</button>
                         </div>
                     )}
@@ -530,25 +655,34 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             )}
 
             {activeTab === 'chat' && project && currentUser && (
-                <div className="flex-1 flex flex-col h-[65vh]">
-                    <div className="p-2 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between bg-neutral-50 dark:bg-neutral-700/30">
-                        <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 truncate max-w-xs">
-                            Chat: {project.name}
-                        </h4>
-                        <div className="flex items-center space-x-1.5">
+                 <div className="flex-1 flex flex-col h-[65vh]">
+                    <div className="p-3 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-shrink-0">
+                        <div>
+                            <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 flex items-center">
+                                <UserGroupIcon className="w-5 h-5 mr-2" /> Participantes
+                            </h3>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate max-w-xs">
+                                {projectClient?.name}, {projectAssignedEmployeesForCall.map(e => e.name).join(', ')}
+                            </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
                             <button 
                                 onClick={() => handleInitiateCall('audio')} 
-                                className="p-1 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-600 rounded-full"
+                                className="p-1.5 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full"
                                 title="Iniciar llamada de audio"
-                            > <PhoneIcon className="w-4 h-4" /> </button>
+                            >
+                                <PhoneIcon className="w-5 h-5" />
+                            </button>
                             <button 
                                 onClick={() => handleInitiateCall('video')} 
-                                className="p-1 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-600 rounded-full"
+                                className="p-1.5 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full"
                                 title="Iniciar videollamada"
-                            > <VideoCameraIcon className="w-4 h-4" /> </button>
+                            >
+                                <VideoCameraIcon className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
-                    <div className="flex-1 p-3 space-y-3 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
+                    <div className="flex-1 p-3 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
                         {projectMessages.length > 0 ? projectMessages.map(msg => (
                             <ChatMessageItem 
                                 key={msg.id} 
@@ -556,34 +690,45 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                 isCurrentUser={currentUser.id === msg.senderId} 
                             />
                         )) : (
-                            <p className="text-center text-xs text-neutral-400 dark:text-neutral-500 py-8">No hay mensajes aún.</p>
+                            <p className="text-center text-sm text-neutral-400 dark:text-neutral-500 pt-10">No hay mensajes aún. ¡Comienza la conversación!</p>
                         )}
                         <div ref={messagesEndRef} />
                     </div>
-                    <div className="p-2 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+                    <div className="p-3 border-t border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 flex-shrink-0">
                         <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2">
                             {!isEmployeeView && (
                                 <button
                                     type="button"
                                     onClick={handleGenerateAiResponse}
-                                    className={`${BUTTON_SECONDARY_SM_CLASSES} !py-1.5 !px-2 rounded-md`}
+                                    className={`${BUTTON_SECONDARY_SM_CLASSES} !py-2 !px-2.5 rounded-lg`}
                                     disabled={isAiGenerating}
                                     title="Generar respuesta con IA"
-                                > <SparklesIcon className={`w-4 h-4 ${isAiGenerating ? 'animate-pulse' : ''}`} /> </button>
+                                >
+                                    <SparklesIcon className={`${isAiGenerating ? 'animate-pulse' : ''}`} />
+                                </button>
                             )}
                             <textarea
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSendMessage();
+                                    }
                                 }}
-                                placeholder={isAiGenerating ? "Generando..." : "Escribe un mensaje..."}
-                                className={`${inputFormStyle} flex-grow !py-1.5 text-sm resize-none max-h-20`}
+                                placeholder={isAiGenerating ? "Generando respuesta AI..." : "Escribe un mensaje..."}
+                                className={`${inputFormStyle} flex-grow !py-2 resize-none max-h-24`}
                                 rows={1}
+                                aria-label="Escribir mensaje"
                                 disabled={isAiGenerating}
                             />
-                            <button type="submit" className={`${BUTTON_PRIMARY_SM_CLASSES} !py-1.5 rounded-md`} disabled={!newMessage.trim() || isAiGenerating}>
+                            <button 
+                                type="submit" 
+                                className={`${BUTTON_PRIMARY_SM_CLASSES} !py-2 !px-3 rounded-lg flex items-center justify-center`}
+                                disabled={!newMessage.trim() || isAiGenerating}
+                            >
                                 <PaperAirplaneIcon className="w-4 h-4" />
+                                <span className="ml-1.5 hidden sm:inline text-xs">Enviar</span>
                             </button>
                         </form>
                     </div>
@@ -596,6 +741,32 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             callType={callType}
             participants={callParticipants}
         />
+        {isConflictModalOpen && conflictDetails && (
+            <ConfirmationModal
+                isOpen={isConflictModalOpen}
+                onClose={() => handleConflictResolution(false)}
+                onConfirm={() => handleConflictResolution(true)}
+                title="Conflicto de Agendamiento"
+                message={
+                    <div>
+                        <p className="mb-2 text-sm">
+                            El colaborador <strong className="font-semibold">{conflictDetails.conflictingProjects[0].employee.name} {conflictDetails.conflictingProjects[0].employee.lastName}</strong> ya está asignado en la fecha <strong className="font-semibold">{new Date(conflictDetails.date + 'T00:00:00').toLocaleDateString()}</strong>.
+                        </p>
+                        <p className="text-xs mb-2 text-neutral-600 dark:text-neutral-400">Proyectos en conflicto:</p>
+                        <ul className="list-disc list-inside text-xs bg-neutral-100 dark:bg-neutral-700 p-2 rounded-md max-h-24 overflow-y-auto">
+                            {[...new Set(conflictDetails.conflictingProjects.map(c => c.project.name))].map(projectName => (
+                                <li key={projectName}>
+                                    <strong>{projectName}</strong>
+                                </li>
+                            ))}
+                        </ul>
+                        <p className="mt-4 text-sm">¿Desea mover las fechas de estos proyectos al siguiente día para resolver el conflicto?</p>
+                    </div>
+                }
+                confirmButtonText="Sí, Mover Proyectos"
+                cancelButtonText="No, Cancelar"
+            />
+        )}
         </>
     );
 };

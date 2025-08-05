@@ -4,9 +4,10 @@ import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { DataTable, TableColumn } from '../../components/DataTable'; // Adjusted path
 import { ClientFormModal } from './ClientFormModal'; // Adjusted path
 import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
-import { PlusIcon, EditIcon, DeleteIcon, SparklesIcon } from '../../components/icons'; // Adjusted path
+import { PlusIcon, EditIcon, DeleteIcon, SparklesIcon, EyeIcon } from '../../components/icons'; // Adjusted path
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { AIImportModal } from '../../components/AIImportModal'; // Adjusted path
+import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 
 export const ClientsListPage: React.FC = () => {
     const { clients, setClients } = useData();
@@ -17,6 +18,8 @@ export const ClientsListPage: React.FC = () => {
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
     const [showAIImportModal, setShowAIImportModal] = useState(false);
+    const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+    const [selectedClientForAccount, setSelectedClientForAccount] = useState<Client | null>(null);
 
     const openModalForCreate = (initialData?: Partial<ClientFormData>) => { 
         setEditingClient(null); 
@@ -91,6 +94,7 @@ export const ClientsListPage: React.FC = () => {
                 clientNotes: item.notas || item.clientNotes || '',
                 industry: item.industria || item.industry || '',
                 acquisitionSource: item.fuenteAdquisicion || item.acquisitionSource || '',
+                isActive: true,
             };
             newClients.push(newClient);
             importedCount++;
@@ -107,6 +111,11 @@ export const ClientsListPage: React.FC = () => {
         alert(message);
         setShowAIImportModal(false);
     };
+    
+    const openAccountModal = (client: Client) => {
+        setSelectedClientForAccount(client);
+        setIsAccountModalOpen(true);
+    };
 
     const columns: TableColumn<Client>[] = [
         { header: 'Nombre', accessor: 'name' },
@@ -121,7 +130,7 @@ export const ClientsListPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Clientes</h1>
+                <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Clientes</h1>
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
                         <SparklesIcon /> Importar con IA
@@ -131,11 +140,13 @@ export const ClientsListPage: React.FC = () => {
             </div>
             <DataTable<Client> data={clients} columns={columns} actions={(client) => (
                 <>
+                    <button onClick={() => openAccountModal(client)} className="text-gray-500 dark:text-gray-400 p-1" aria-label={`Ver estado de cuenta de ${client.name} ${client.lastName}`}><EyeIcon /></button>
                     <button onClick={() => openModalForEdit(client)} className="text-blue-600 dark:text-blue-400 p-1" aria-label={`Editar ${client.name} ${client.lastName}`}><EditIcon /></button>
                     <button onClick={() => requestDelete(client.id)} className="text-red-600 dark:text-red-400 p-1" aria-label={`Eliminar ${client.name} ${client.lastName}`}><DeleteIcon /></button>
                 </>
             )} />
             <ClientFormModal isOpen={showFormModal} onClose={() => setShowFormModal(false)} client={editingClient} />
+             <ClientAccountModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} client={selectedClientForAccount} />
             <ConfirmationModal
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}

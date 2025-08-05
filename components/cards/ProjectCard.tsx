@@ -46,77 +46,51 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md p-5 flex flex-col justify-between hover:shadow-lg dark:hover:shadow-primary/20 transition-shadow duration-200">
       <div>
         <div className="flex justify-between items-start mb-2">
-          <h3 className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">{project.name}</h3> {/* Increased size */}
-          {showManagementActions && (
-            <div className="relative">
-                <button onClick={() => setActionsOpen(!actionsOpen)} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`project-actions-${project.id}`}>
-                <EllipsisVerticalIcon /> {/* Default size from component */}
-                </button>
-                {actionsOpen && (
-                <div id={`project-actions-${project.id}`}className="absolute right-0 mt-1 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-10 border border-neutral-200 dark:border-neutral-600">
-                    <button onClick={() => { onEdit(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Editar Proyecto</button>
-                    <button onClick={() => { onViewQuotation(project); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Cotización</button>
-                    {project.status === ProjectStatus.COMPLETED && !project.invoiceGenerated && (
-                        <button onClick={() => { onGenerateInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-600/50">Generar Factura</button>
+            <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 pr-2">{project.name}</h3>
+            {showManagementActions && (
+                <div className="relative flex-shrink-0">
+                    <button onClick={() => setActionsOpen(!actionsOpen)} className="p-1 rounded-full text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none">
+                        <EllipsisVerticalIcon />
+                    </button>
+                    {actionsOpen && (
+                        <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-10 border border-neutral-200 dark:border-neutral-600">
+                            <button onClick={() => { onEdit(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Editar Detalles</button>
+                            <button onClick={() => { onViewQuotation(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Cotización</button>
+                             {project.status === ProjectStatus.COMPLETED && !project.invoiceGenerated && (
+                                <button onClick={() => { onGenerateInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Generar Factura</button>
+                            )}
+                            {project.invoiceGenerated && (
+                                <button onClick={() => { onViewInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Factura</button>
+                            )}
+                            <button onClick={() => { onRequestDelete(project.id); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">Eliminar</button>
+                        </div>
                     )}
-                    {project.invoiceGenerated && (
-                         <button onClick={() => { onViewInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-600/50">Ver Factura</button>
-                    )}
-                    <button onClick={() => { onRequestDelete(project.id); setActionsOpen(false); }} className="block w-full text-left px-3 py-1.5 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-600/50">Eliminar</button>
                 </div>
-                )}
-            </div>
-          )}
+            )}
         </div>
-        <span className={`text-sm font-medium px-2.5 py-0.5 rounded-full ${statusColors[project.status]}`}>{project.status}</span> {/* Status text size increased */}
-        <p className="text-base text-neutral-600 dark:text-neutral-300 mt-2 mb-3 min-h-[40px] line-clamp-2">{project.description || 'Sin descripción.'}</p> {/* Increased size */}
-        
-        {project.invoiceGenerated && (
-            <p className="text-xs text-green-600 dark:text-green-400 mb-1">Factura N°: {project.invoiceNumber} ({project.invoiceDate})</p>
-        )}
-
-        <div className="text-sm text-neutral-500 dark:text-neutral-400 space-y-1.5 mb-3"> {/* Date/assignee text size increased */}
-          <div className="flex items-center">
-            <CalendarDaysIcon className="w-5 h-5" /> {/* Adjusted icon size */}
-            <span className="ml-1.5">Programación vía Visitas</span>
-          </div>
-          <div className="flex items-center">
-            <UserGroupIcon className="w-5 h-5" /> {/* Adjusted icon size */}
-            <span className="ml-1.5">{assignedEmployees.length} asignado(s)</span>
-          </div>
-          {client && <p className="text-sm text-neutral-500 dark:text-neutral-400">Cliente: {client.name} {client.lastName}</p>}
-        </div>
+        <p className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block ${statusColors[project.status]}`}>
+            {project.status}
+        </p>
+        <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-2 line-clamp-2 flex-grow">{project.description}</p>
       </div>
-      <div className="flex justify-between items-end pt-3 border-t border-neutral-200 dark:border-neutral-700 mt-auto">
-        <div className="flex -space-x-2">
-          {assignedEmployees.slice(0, 3).map(emp => (
-            <div key={emp.id} title={`${emp.name} ${emp.lastName}`} className="w-8 h-8 rounded-full bg-primary/20 text-primary text-sm flex items-center justify-center ring-2 ring-white dark:ring-neutral-800 font-semibold"> {/* Avatar size increased */}
-              {emp.name.charAt(0)}{emp.lastName.charAt(0)}
-            </div>
-          ))}
-          {assignedEmployees.length > 3 && (
-             <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300 text-sm flex items-center justify-center ring-2 ring-white dark:ring-neutral-800 font-semibold"> {/* Avatar size increased */}
-              +{assignedEmployees.length - 3}
-            </div>
-          )}
+
+      <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+        <div className="flex items-center text-sm text-neutral-500 dark:text-neutral-400 mb-2">
+            <UserGroupIcon className="w-4 h-4 mr-2" />
+            <span>Cliente: {client ? `${client.name} ${client.lastName}` : 'N/A'}</span>
         </div>
-        <div className="flex items-center space-x-3">
-            <button 
-                onClick={() => onEdit(project, 'chat')} 
-                className="text-base text-primary hover:text-secondary font-medium flex items-center" /* Text size increased */
-                title="Abrir chat del proyecto"
-                aria-label={`Abrir chat para ${project.name}`}
-            >
-                <ChatBubbleLeftRightIcon className="w-5 h-5 mr-1" /> Chat {/* Icon size increased */}
+        <div className="text-sm text-neutral-500 dark:text-neutral-400">
+            <p className="flex items-center"><CalendarDaysIcon className="w-4 h-4 mr-2" /> Visita: {project.visitDate ? new Date(project.visitDate + 'T00:00:00').toLocaleDateString() : 'N/P'}</p>
+        </div>
+         <div className="mt-4 flex space-x-2">
+            <button onClick={() => onEdit(project, 'chat')} className="flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
+                <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" /> Chat
             </button>
-            <button 
-                onClick={() => onEdit(project, 'details')} 
-                className="text-base text-primary hover:text-secondary font-medium" /* Text size increased */
-                title="Ver detalles del proyecto"
-                aria-label={`Ver detalles de ${project.name}`}
-            >
-                Ver Detalles
-            </button>
+             {project.invoiceGenerated && (
+                 <button onClick={() => onViewInvoice(project)} className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-700/50 dark:hover:bg-blue-700/80 dark:text-blue-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
+                    <DocumentArrowDownIcon className="w-4 h-4 mr-1.5" /> Ver Factura
+                </button>
+            )}
         </div>
       </div>
     </div>

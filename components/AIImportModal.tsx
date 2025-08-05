@@ -1,4 +1,3 @@
-
 import React, { useState, ChangeEvent } from 'react';
 import { Modal } from './Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../constants';
@@ -139,8 +138,8 @@ export const AIImportModal: React.FC<AIImportModalProps> = ({
             `;
 
             const response: GenerateContentResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-04-17",
-                contents: [{ parts: [{ text: prompt }] }],
+                model: "gemini-2.5-flash",
+                contents: prompt,
                 config: {
                     responseMimeType: "application/json",
                 }

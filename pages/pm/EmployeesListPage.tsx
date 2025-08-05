@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Employee, EmployeeFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
@@ -102,7 +103,7 @@ export const EmployeesListPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Colaboradores</h1>
+                <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Colaboradores</h1>
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
                         <SparklesIcon /> Importar con IA

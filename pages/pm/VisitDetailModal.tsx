@@ -1,18 +1,19 @@
-
 import React from 'react';
 import { Visit, Employee, VisitStatus } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
 import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge'; // Adjusted path
-import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { BriefcaseIcon } from '../../components/icons';
 
 interface VisitDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     visit: Visit | null;
+    onConvertToProject?: (visit: Visit) => void;
 }
 
-export const VisitDetailModal: React.FC<VisitDetailModalProps> = ({ isOpen, onClose, visit }) => {
+export const VisitDetailModal: React.FC<VisitDetailModalProps> = ({ isOpen, onClose, visit, onConvertToProject }) => {
     const { getProjectById, getEmployeeById } = useData();
     if (!isOpen || !visit) return null;
 
@@ -25,6 +26,12 @@ export const VisitDetailModal: React.FC<VisitDetailModalProps> = ({ isOpen, onCl
         const date = new Date();
         date.setHours(parseInt(hours), parseInt(minutes));
         return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true });
+    };
+
+    const handleConvertToProjectClick = () => {
+        if (onConvertToProject && visit) {
+            onConvertToProject(visit);
+        }
     };
 
     return (
@@ -46,6 +53,12 @@ export const VisitDetailModal: React.FC<VisitDetailModalProps> = ({ isOpen, onCl
                 <p><strong className="text-neutral-600 dark:text-neutral-300">Notas:</strong> {visit.notes || "Sin notas."}</p>
                 
                 <div className="flex justify-end pt-3 space-x-2">
+                    {onConvertToProject && !visit.projectId && (
+                        <button onClick={handleConvertToProjectClick} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
+                            <BriefcaseIcon className="w-4 h-4 mr-1.5"/>
+                            Convertir a Proyecto
+                        </button>
+                    )}
                     <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
                 </div>
             </div>

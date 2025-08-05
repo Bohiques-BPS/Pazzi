@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -71,10 +70,13 @@
     "@/components/forms/BranchFormModal": "./components/forms/BranchFormModal.tsx",
     "@/components/forms/CajaFormModal": "./components/forms/CajaFormModal.tsx",
     "@/components/forms/StockAdjustmentModal": "./components/forms/StockAdjustmentModal.tsx",
+    "@/components/forms/BranchStockAdjustmentModal": "./components/forms/BranchStockAdjustmentModal.tsx",
 
     "@/components/ui/ProductAutocomplete": "./components/ui/ProductAutocomplete.tsx",
     "@/components/ui/VisitStatusBadge": "./components/ui/VisitStatusBadge.tsx",
     "@/components/ui/ClientPOSReportModal": "./components/ui/ClientPOSReportModal.tsx",
+    "@/components/ui/ClientAccountModal": "./components/ui/ClientAccountModal.tsx",
+    "@/components/ui/InventoryHistoryModal": "./components/ui/InventoryHistoryModal.tsx",
 
     "@/pages/LandingPage": "./pages/LandingPage.tsx",
     "@/pages/DashboardHomePage": "./pages/DashboardHomePage.tsx",
@@ -86,8 +88,10 @@
     
     "@/pages/admin/BranchesListPage": "./pages/admin/BranchesListPage.tsx",
 
+    "@/pages/pm/ProjectsDashboardPage": "./pages/pm/ProjectsDashboardPage.tsx",
     "@/pages/pm/ProductsListPage": "./pages/pm/ProductsListPage.tsx",
     "@/pages/pm/CategoriesListPage": "./pages/pm/CategoriesListPage.tsx",
+    "@/pages/pm/DepartmentsListPage": "./pages/pm/DepartmentsListPage.tsx",
     "@/pages/pm/ClientsListPage": "./pages/pm/ClientsListPage.tsx",
     "@/pages/pm/EmployeesListPage": "./pages/pm/EmployeesListPage.tsx",
     "@/pages/pm/ProjectsListPage": "./pages/pm/ProjectsListPage.tsx",
@@ -96,6 +100,7 @@
     "@/pages/pm/ProjectReportsPage": "./pages/pm/ProjectReportsPage.tsx",
     "@/pages/pm/ProductFormModal": "./pages/pm/ProductFormModal.tsx",
     "@/pages/pm/CategoryFormModal": "./pages/pm/CategoryFormModal.tsx",
+    "@/pages/pm/DepartmentFormModal": "./pages/pm/DepartmentFormModal.tsx",
     "@/pages/pm/ClientFormModal": "./pages/pm/ClientFormModal.tsx",
     "@/pages/pm/EmployeeFormModal": "./pages/pm/EmployeeFormModal.tsx",
     "@/pages/pm/ProjectFormModal": "./pages/pm/ProjectFormModal.tsx",
@@ -107,6 +112,8 @@
     "@/pages/pos/POSReportsPage": "./pages/pos/POSReportsPage.tsx",
     "@/pages/pos/POSSalesHistoryPage": "./pages/pos/POSSalesHistoryPage.tsx",
     "@/pages/pos/POSInventoryPage": "./pages/pos/POSInventoryPage.tsx",
+    "@/pages/pos/EstimatesListPage": "./pages/pos/EstimatesListPage.tsx",
+    "@/pages/pos/EstimateFormModal": "./pages/pos/EstimateFormModal.tsx",
     "@/pages/pos/AccountsPayablePage": "./pages/pos/AccountsPayablePage.tsx",
     "@/pages/pos/AccountsReceivablePage": "./pages/pos/AccountsReceivablePage.tsx",
     "@/pages/pos/POSCajasPage": "./pages/pos/POSCajasPage.tsx",
@@ -138,7 +145,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-neutral-100 dark:bg-neutral-900 text-sm md:text-base">
+<body class="bg-neutral-100 dark:bg-neutral-900 text-base md:text-lg">
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

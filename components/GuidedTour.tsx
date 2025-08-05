@@ -135,7 +135,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
             <div
                 ref={popoverRef}
                 style={getPopoverPosition()}
-                className="w-80 sm:w-96 bg-white dark:bg-neutral-800 rounded-lg shadow-2xl z-50 flex flex-col"
+                className="w-80 sm:w-96 bg-white dark:bg-neutral-800 rounded-lg shadow-2xl z-[60] flex flex-col"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="tour-step-title"

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { useAuth } from '../../contexts/AuthContext'; // Adjusted path
@@ -89,8 +88,8 @@ La respuesta debe ser solo el texto para enviar al cliente, sin introducciones c
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
             const response: GenerateContentResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-04-17",
-                contents: [{ parts: [{ text: prompt }] }],
+                model: "gemini-2.5-flash",
+                contents: prompt,
             });
             
             const aiText = response.text;

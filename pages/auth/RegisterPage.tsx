@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
@@ -34,30 +35,30 @@ export const RegisterPage: React.FC = () => {
   return (
     <LandingLayout>
       <div className="bg-white dark:bg-neutral-800 p-8 sm:p-10 rounded-xl shadow-2xl w-full max-w-md text-neutral-800 dark:text-neutral-100">
-        <h2 className="text-2xl font-semibold text-center text-neutral-700 dark:text-neutral-200 mb-8">Crear Cuenta</h2>
+        <h2 className="text-3xl font-semibold text-center text-neutral-700 dark:text-neutral-200 mb-8">Crear Cuenta</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">Nombre</label>
+            <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Nombre</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={authInputStyle} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">Apellido</label>
+            <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Apellido</label>
             <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={authInputStyle} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">Email</label>
+            <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Email</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={authInputStyle} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">Contraseña</label>
+            <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Contraseña</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={authInputStyle} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">Confirmar Contraseña</label>
+            <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Confirmar Contraseña</label>
             <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={authInputStyle} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">Tipo de Cuenta</label>
+            <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Tipo de Cuenta</label>
             <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className={authInputStyle} required>
               <option value={UserRole.CLIENT_ECOMMERCE}>Cliente E-commerce (Comprador)</option>
               <option value={UserRole.CLIENT_PROJECT}>Cliente de Proyecto</option>

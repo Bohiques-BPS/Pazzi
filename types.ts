@@ -1,3 +1,6 @@
+
+
+
 export enum UserRole {
   MANAGER = 'Gerente',
   EMPLOYEE = 'Empleado',
@@ -22,6 +25,12 @@ export interface Category {
   storeOwnerId?: string;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  storeOwnerId?: string;
+}
+
 export interface Branch {
   id: string;
   name: string;
@@ -36,6 +45,19 @@ export interface Caja {
   branchId: string;
   isActive: boolean;
   applyIVA: boolean; // If sales from this POS terminal should apply IVA
+}
+
+export interface ProductPriceLevel {
+  id: string;
+  levelName: string; 
+  price: number;
+}
+
+export interface ProductVariation {
+  id: string;
+  name: string; // e.g., "Metro", "Medio Metro", "Caja (1.5 m²)"
+  sku?: string;
+  unitPrice: number;
 }
 
 export interface Product {
@@ -59,9 +81,10 @@ export interface Product {
   manufacturer?: string;
   supplierId?: string;
   costPrice?: number;
+  profit?: number;
   supplierProductCode?: string;
 
-  department?: string;
+  departmentId?: string;
   family?: string;
   physicalLocation?: string;
 
@@ -72,8 +95,12 @@ export interface Product {
   useKitchenPrinter?: boolean;
   useBarcodePrinter?: boolean;
 
-  availableStock?: number; // This might represent total stock or stock for a default/primary location
+  availableStock?: number; // This might represent total stock or for a default/primary location
   isEmergencyTaxExempt?: boolean; // New field for emergency tax exemption
+  hasVariations?: boolean;
+  variations?: ProductVariation[];
+  hasPriceLevels?: boolean;
+  priceLevels?: ProductPriceLevel[];
 }
 
 export interface ProductStockInfo extends Product {
@@ -89,15 +116,58 @@ export interface Client {
   phone: string;
   address?: string;
   billingAddress?: string;
-  // New fields for enhanced client information
   clientType?: 'Particular' | 'Empresa';
   companyName?: string;
-  taxId?: string; // For RFC, NIF, CUIT, etc.
-  contactPersonName?: string; // If clientType is 'Empresa'
+  taxId?: string; 
+  contactPersonName?: string; 
   preferredCommunication?: 'Email' | 'Teléfono' | 'WhatsApp' | 'Otro';
   clientNotes?: string;
-  industry?: string; // e.g., "Restauración", "Retail", "Servicios Profesionales"
-  acquisitionSource?: string; // e.g., "Referido por X", "Búsqueda Web", "Redes Sociales"
+  industry?: string; 
+  acquisitionSource?: string; 
+
+  // New fields from the video
+  city?: string;
+  country?: string;
+  zip?: string;
+  phone2?: string;
+  fax?: string;
+  socialSecurity?: string; // Sensitive
+  dateOfBirth?: string; // YYYY-MM-DD
+  isActive: boolean;
+  balance?: number;
+  creditLimit?: number;
+  paymentTerms?: string; // e.g., 'Neto 30', 'Contado'
+  category?: string; // e.g., 'Cliente General'
+  salesperson?: string; // Salesperson ID or name
+  priceLevel?: string; // e.g., 'Precio Venta'
+  businessType?: string;
+  zone?: string;
+  lastSaleDate?: string; // YYYY-MM-DD
+  createdDate?: string; // YYYY-MM-DD
+  showBalance?: boolean;
+  stateTaxRate?: number; // e.g., 10.5 for 10.5%
+  municipalTaxRate?: number; // e.g., 1.0 for 1.0%
+  municipalTaxExemptionUntil?: string; // YYYY-MM-DD
+
+  // Facturacion Tab
+  specialInvoiceMessageEnabled?: boolean;
+  chargeType?: 'discountOnPrice' | 'markupOnCost';
+  chargeValueType?: 'percentage' | 'fixed';
+  chargeValue?: number;
+  chargeCode?: string;
+
+  // Foto Tab
+  images?: string[];
+
+  // Loyalty Tab
+  loyaltyPoints?: number;
+  loyaltyLevel?: string;
+
+  // Envio Tab
+  shippingAddress?: string;
+  shippingContactName?: string;
+  shippingContactPhone?: string;
+  preferredCarrier?: string;
 }
 
 export interface EmployeePermissions {
@@ -174,6 +244,7 @@ export interface Project {
 
 export interface CartItem extends Product {
   quantity: number;
+  selectedVariation?: ProductVariation;
 }
 
 export interface Sale {
@@ -181,11 +252,13 @@ export interface Sale {
   date: string;
   totalAmount: number;
   items: CartItem[];
-  paymentMethod: string;
+  paymentMethod: string; // e.g., 'Efectivo', 'Tarjeta', or 'Mixto'
+  payments?: { method: string; amount: number }[]; // For split payments breakdown
   cajaId: string;
   employeeId: string;
   clientId?: string;
   branchId: string;
+  projectId?: string;
   paymentStatus?: 'Pagado' | 'Pendiente de Pago' | 'Anulado'; // Added 'Anulado'
   dueDate?: string; // New: For accounts receivable due date
   receivableNotes?: string; // New: For notes on the receivable
@@ -215,11 +288,12 @@ export interface Order {
 }
 
 export enum AppModule {
+  TIENDA = "General",
   PROJECT_MANAGEMENT = "Gestión de Proyectos",
   POS = "POS",
   ECOMMERCE = "E-commerce Admin",
   PROJECT_CLIENT_DASHBOARD = "Portal de Cliente de Proyecto"
-  // CLIENT_ECOMMERCE is not a module, it's a user type accessing public store
+  // CLIENT_ECOMMERCE is not a user type accessing public store
 }
 
 export enum VisitStatus {
@@ -288,7 +362,54 @@ export interface SupplierOrder {
     paymentStatus?: 'No Pagado' | 'Pagado Parcialmente' | 'Pagado Completo';
 }
 
+export enum EstimateStatus {
+  BORRADOR = 'Borrador',
+  ENVIADO = 'Enviado',
+  ACEPTADO = 'Aceptado',
+  RECHAZADO = 'Rechazado',
+  EXPIRADO = 'Expirado',
+}
+
+export interface Estimate {
+  id: string;
+  date: string;
+  expiryDate?: string;
+  clientId: string;
+  items: CartItem[];
+  totalAmount: number;
+  status: EstimateStatus;
+  notes?: string;
+  employeeId: string;
+  branchId: string;
+}
+
+export enum InventoryLogType {
+    SALE_POS = 'Venta POS',
+    ADJUSTMENT_MANUAL = 'Ajuste Manual',
+    SUPPLIER_RECEPTION = 'Recepción de Proveedor',
+    INITIAL_STOCK = 'Stock Inicial',
+}
+
+export interface InventoryLog {
+    id: string;
+    productId: string;
+    branchId: string;
+    date: string; // ISO date string
+    type: InventoryLogType;
+    quantityChange: number; // e.g., -2 for a sale, +10 for reception
+    stockBefore: number;
+    stockAfter: number;
+    referenceId?: string; // e.g., Sale ID, Supplier Order ID
+    employeeId: string;
+    notes?: string;
+}
+
 export interface CategoryFormData {
+  name: string;
+  storeOwnerId?: string;
+}
+
+export interface DepartmentFormData {
   name: string;
   storeOwnerId?: string;
 }
@@ -325,8 +446,9 @@ export interface ProductFormData {
   manufacturer?: string;
   supplierId?: string;
   costPrice?: number;
+  profit?: number;
   supplierProductCode?: string;
-  department?: string;
+  departmentId?: string;
   family?: string;
   physicalLocation?: string;
   displayOnScreen?: boolean;
@@ -336,6 +458,10 @@ export interface ProductFormData {
   useBarcodePrinter?: boolean;
   availableStock?: number; // Represents initial total stock or for default location
   isEmergencyTaxExempt?: boolean; // New field
+  hasVariations?: boolean;
+  variations?: ProductVariation[];
+  hasPriceLevels?: boolean;
+  priceLevels?: ProductPriceLevel[];
 }
 
 export interface ClientFormData {
@@ -345,7 +471,6 @@ export interface ClientFormData {
   phone: string;
   address?: string;
   billingAddress?: string;
-  // New fields for enhanced client information
   clientType?: 'Particular' | 'Empresa';
   companyName?: string;
   taxId?: string;
@@ -354,6 +479,42 @@ export interface ClientFormData {
   clientNotes?: string;
   industry?: string;
   acquisitionSource?: string;
+
+  // Video fields
+  city?: string;
+  country?: string;
+  zip?: string;
+  phone2?: string;
+  fax?: string;
+  socialSecurity?: string;
+  dateOfBirth?: string;
+  isActive: boolean;
+  balance?: number;
+  creditLimit?: number;
+  paymentTerms?: string;
+  category?: string;
+  salesperson?: string;
+  priceLevel?: string;
+  businessType?: string;
+  zone?: string;
+  showBalance?: boolean;
+  stateTaxRate?: number;
+  municipalTaxRate?: number;
+  municipalTaxExemptionUntil?: string;
+  
+  // New Tab fields
+  specialInvoiceMessageEnabled?: boolean;
+  chargeType?: 'discountOnPrice' | 'markupOnCost';
+  chargeValueType?: 'percentage' | 'fixed';
+  chargeValue?: number;
+  chargeCode?: string;
+  images?: string[];
+  loyaltyPoints?: number;
+  loyaltyLevel?: string;
+  shippingAddress?: string;
+  shippingContactName?: string;
+  shippingContactPhone?: string;
+  preferredCarrier?: string;
 }
 
 export interface EmployeeFormData {
@@ -408,6 +569,15 @@ export interface VisitFormData {
     assignedEmployeeIds: string[];
     notes?: string;
     status: VisitStatus;
+}
+
+export interface EstimateFormData {
+  clientId: string;
+  items: CartItem[];
+  status: EstimateStatus;
+  notes?: string;
+  expiryDate?: string;
+  // employeeId and branchId will be added from context
 }
 
 export interface ECommerceSettings {

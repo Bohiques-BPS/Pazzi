@@ -1,6 +1,7 @@
 
+
 import React from 'react'; 
-import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja } from './types'; // Added Caja, Notification, NotificationType
+import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department
 import { 
     BriefcaseIcon, 
     Squares2X2Icon, 
@@ -29,7 +30,10 @@ import {
     ExclamationTriangleIcon as EmergencyIcon,
     CreditCardIcon as CardIcon, // Added
     UserPlusIcon, // Added for client add
-} from './components/icons'; 
+    ClipboardDocumentListIcon, // Added for Estimates
+    AthMovilIcon, // Added for ATH Movil
+    FolderIcon, // Added for Departments
+} from '@/components/icons'; 
 
 export const ADMIN_EMAIL = 'admin@admin.com';
 export const ADMIN_PASSWORD = 'admin';
@@ -78,7 +82,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   { id: 'prod-cement-bag-demo', name: 'Bolsa de Cemento Gris (Tienda Cliente Ecommerce)', unitPrice: 12, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 80 }], description: 'Bolsa de cemento Portland gris de 42.5kg.', imageUrl: 'https://picsum.photos/seed/cementbag/300/300', skus: ['CMT-GRS-42KG'], category: 'Construcción', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
 
   
-  { id: 'prod-cabinets-modern', name: 'Juego de Gabinetes Modernos (Tienda Admin)', unitPrice: 2500, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 15 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 5 }], description: 'Set completo de gabinetes de melamina blanca, estilo minimalista.', imageUrl: 'https://picsum.photos/seed/kitchencabinets/300/300', skus: ['GAB-COC-MOD-03'], category: 'Gabinetes', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false },
+  { id: 'prod-cabinets-modern', name: 'Juego de Gabinetes Modernos (General)', unitPrice: 2500, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 15 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 5 }], description: 'Set completo de gabinetes de melamina blanca, estilo minimalista.', imageUrl: 'https://picsum.photos/seed/kitchencabinets/300/300', skus: ['GAB-COC-MOD-03'], category: 'Gabinetes', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false },
   { id: 'prod-paint-interior', name: 'Servicio de Pintura Interior (Global Pazzi)', unitPrice: 300, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 99 }], description: 'Pintura interior de alta calidad (materiales). Precio por habitación estándar.', imageUrl: 'https://picsum.photos/seed/interiorpaint/300/300', skus: ['SRV-PNT-INT-10'], category: 'Servicios de Pintura', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-pinturas-max', isService: true, isEmergencyTaxExempt: false },
   { id: 'prod-shower-set', name: 'Set de Ducha Lujosa (Global Pazzi)', unitPrice: 450, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 30 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 10 }], description: 'Incluye cabezal de ducha tipo lluvia, teleducha y grifería termostática.', imageUrl: 'https://picsum.photos/seed/showerset/300/300', skus: ['GRI-DUC-LUX-07'], category: 'Grifería y Sanitarios', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-herrajes-sur', isEmergencyTaxExempt: false },
   { id: 'prod-vanity-bath', name: 'Mueble de Baño con Lavabo (Global Pazzi)', unitPrice: 350, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 25 }], description: 'Mueble de baño suspendido con lavabo de cerámica y espejo.', imageUrl: 'https://picsum.photos/seed/bathvanity/300/300', skus: ['MBL-BAN-LAV-08'], category: 'Muebles de Baño', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false },
@@ -86,7 +90,25 @@ export const INITIAL_PRODUCTS: Product[] = [
   { id: 'prod-smart-thermostat', name: 'Termostato Inteligente WiFi (Global Pazzi)', unitPrice: 120, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 60 }], description: 'Controla la temperatura de tu hogar desde cualquier lugar.', imageUrl: 'https://picsum.photos/seed/smartthermostat/300/300', skus: ['DOM-TER-WIFI-01'], category: 'Domótica', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-aluminios-global', isEmergencyTaxExempt: false },
   { id: 'prod-security-camera-admin', name: 'Cámara de Seguridad WiFi (Global Pazzi)', unitPrice: 85, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 40 }], description: 'Cámara de seguridad Full HD con visión nocturna y detección de movimiento.', imageUrl: 'https://picsum.photos/seed/securitycamera/300/300', skus: ['SEC-CAM-WIFI-01'], category: 'Seguridad', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-aluminios-global', isEmergencyTaxExempt: false },
   { id: 'prod-door-lock-admin', name: 'Cerradura Inteligente (Global Pazzi)', unitPrice: 190, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 22 }], description: 'Cerradura inteligente con teclado numérico y acceso vía app.', imageUrl: '', skus: ['SEC-LCK-SMRT-02'], category: 'Seguridad', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-herrajes-sur', isEmergencyTaxExempt: false },
-
+  { 
+    id: 'prod-cable-electric', 
+    name: 'Cable Eléctrico THHN #12', 
+    unitPrice: 1.5, // Price per meter
+    stockByBranch: [{ branchId: firstActiveBranchId, quantity: 500 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 200 }], 
+    description: 'Cable de cobre THHN calibre 12, para instalaciones eléctricas.', 
+    imageUrl: 'https://picsum.photos/seed/electricwire/300/300', 
+    skus: ['CAB-THHN-12'], 
+    category: 'Electricidad', 
+    ivaRate: 0.16, 
+    storeOwnerId: ADMIN_USER_ID,
+    isEmergencyTaxExempt: false,
+    hasVariations: true,
+    variations: [
+      { id: 'var-cable-m', name: 'Por Metro', unitPrice: 1.5, sku: 'CAB-THHN-12-M' },
+      { id: 'var-cable-hm', name: 'Medio Metro', unitPrice: 0.80, sku: 'CAB-THHN-12-HM' },
+      { id: 'var-cable-roll', name: 'Rollo (100m)', unitPrice: 140, sku: 'CAB-THHN-12-ROLL' },
+    ]
+  },
   
   { id: 'prod-garden-tools-another', name: 'Set Herramientas Jardín (Tienda Otro Cliente Ecommerce)', unitPrice: 75, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 50 }], description: 'Set completo para jardinería, palas, rastrillo, tijeras.', imageUrl: 'https://picsum.photos/seed/gardentools/300/300', skus: ['JAR-TLS-SET-01'], category: 'Jardinería', ivaRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
   { id: 'prod-outdoor-lighting-another', name: 'Lámpara Solar Exterior (Tienda Otro Cliente Ecommerce)', unitPrice: 30, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 120 }], description: 'Lámpara solar LED para jardín, resistente al agua.', imageUrl: 'https://picsum.photos/seed/outdoorlight/300/300', skus: ['EXT-SOL-LMP-05'], category: 'Iluminación Exterior', ivaRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
@@ -110,8 +132,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     manufacturer: 'MIPAD DE PR, INC.',
     supplierId: 'sup-mipad-pr', 
     costPrice: 1.22,
+    profit: 1.77,
     supplierProductCode: '675451027653', 
-    department: 'MISCELANEO', 
+    departmentId: 'dept-misc', 
     family: 'Cocina Exterior', 
     physicalLocation: 'Pasillo 5, Estante B', 
     displayOnScreen: true,
@@ -134,16 +157,24 @@ export const INITIAL_CATEGORIES: Category[] = Array.from(new Set(INITIAL_PRODUCT
         };
     });
 
+export const INITIAL_DEPARTMENTS: Department[] = [
+    { id: 'dept-misc', name: 'MISCELANEO', storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID },
+    { id: 'dept-cocina', name: 'Cocina', storeOwnerId: ADMIN_USER_ID },
+    { id: 'dept-banos', name: 'Baños', storeOwnerId: ADMIN_USER_ID },
+    { id: 'dept-pisos', name: 'Pisos y Revestimientos', storeOwnerId: ADMIN_USER_ID },
+];
+
 export const INITIAL_CLIENTS: Client[] = [
-  { id: 'client-1', name: 'Roberto', lastName: 'Gómez', email: 'roberto.gomez@example.com', phone: '555-1234', address: 'Calle Falsa 123, Ciudad Ejemplo', clientType: 'Particular', acquisitionSource: 'Referido' },
-  { id: 'client-2', name: 'Lucía', lastName: 'Fernández', email: 'lucia.fernandez@example.com', phone: '555-5678', address: 'Avenida Siempre Viva 742, Ciudad Ejemplo', clientType: 'Particular', acquisitionSource: 'Búsqueda Web' },
-  { id: 'client-3', name: 'Construcciones ABC', lastName: '', email: 'contacto@construabc.com', phone: '555-8765', address: 'Parque Industrial X, Nave 5', clientType: 'Empresa', companyName: 'Construcciones ABC S.A. de C.V.', taxId: 'CABC123456XYZ', contactPersonName: 'Ing. Carlos Torres', industry: 'Construcción', preferredCommunication: 'Email' },
-  { id: ECOMMERCE_CLIENT_ID, name: 'Cliente', lastName: 'Shopper', email: ECOMMERCE_CLIENT_EMAIL, phone: '555-1111', address: 'Online Order Address 1', clientType: 'Particular' }, // E-commerce client
-  { id: PROJECT_CLIENT_ID, name: 'Roberto', lastName: 'Gómez (Proyecto)', email: PROJECT_CLIENT_EMAIL, phone: '555-2222', address: 'Project Site Address 1', clientType: 'Particular' }, // Project client
-  { id: ANOTHER_ECOMMERCE_CLIENT_ID, name: 'Otro', lastName: 'Comprador', email: 'otrocliente.ecommerce@example.com', phone: '555-3333', address: 'Online Order Address 2', clientType: 'Particular' }, // Another e-commerce client for testing
+  { id: 'client-1', name: 'Roberto', lastName: 'Gómez', email: 'roberto.gomez@example.com', phone: '555-1234', address: 'Calle Falsa 123, Ciudad Ejemplo', clientType: 'Particular', acquisitionSource: 'Referido', isActive: true, creditLimit: 500, paymentTerms: 'Neto 30', category: 'Cliente General', loyaltyLevel: 'Bronce' },
+  { id: 'client-2', name: 'Lucía', lastName: 'Fernández', email: 'lucia.fernandez@example.com', phone: '555-5678', address: 'Avenida Siempre Viva 742, Ciudad Ejemplo', clientType: 'Particular', acquisitionSource: 'Búsqueda Web', isActive: true, creditLimit: 1000, paymentTerms: 'Contado', category: 'Cliente VIP', loyaltyLevel: 'Oro' },
+  { id: 'client-3', name: 'Construcciones ABC', lastName: '', email: 'contacto@construabc.com', phone: '555-8765', address: 'Parque Industrial X, Nave 5', clientType: 'Empresa', companyName: 'Construcciones ABC S.A. de C.V.', taxId: 'CABC123456XYZ', contactPersonName: 'Ing. Carlos Torres', industry: 'Construcción', preferredCommunication: 'Email', isActive: true, creditLimit: 25000, paymentTerms: 'Neto 60', category: 'Contratista' },
+  { id: ECOMMERCE_CLIENT_ID, name: 'Cliente', lastName: 'Shopper', email: ECOMMERCE_CLIENT_EMAIL, phone: '555-1111', address: 'Online Order Address 1', clientType: 'Particular', isActive: true },
+  { id: PROJECT_CLIENT_ID, name: 'Roberto', lastName: 'Gómez (Proyecto)', email: PROJECT_CLIENT_EMAIL, phone: '555-2222', address: 'Project Site Address 1', clientType: 'Particular', isActive: true },
+  { id: ANOTHER_ECOMMERCE_CLIENT_ID, name: 'Otro', lastName: 'Comprador', email: 'otrocliente.ecommerce@example.com', phone: '555-3333', address: 'Online Order Address 2', clientType: 'Particular', isActive: true },
 ];
 
 export const EMPLOYEE_ROLES = ['Gerente de Proyectos', 'Diseñador', 'Contratista General', 'Especialista en Acabados', 'Vendedor POS', 'Administrativo'];
+export const CLIENT_PRICE_LEVEL_OPTIONS = ['Precio Venta', 'Precio Nivel 1', 'Precio Nivel 2', 'Contratista', 'Mayorista'];
 
 export const INITIAL_EMPLOYEES: Employee[] = [
   { id: 'emp-1', name: 'Ana', lastName: 'Juárez', email: 'ana.juarez@pazzi.com', role: EMPLOYEE_ROLES[0], hireDate: '2022-03-15' },
@@ -192,6 +223,37 @@ export const INITIAL_SALES: Sale[] = [
   { id: 'sale-1', date: `${currentYear}-01-05T10:30:00Z`, totalAmount: 150.75, items: [{...INITIAL_PRODUCTS[0], quantity: 2}, {...INITIAL_PRODUCTS[2], quantity: 1}], paymentMethod: 'Efectivo', cajaId: '0008', employeeId: 'employee-user-predefined', branchId: firstActiveBranchId, paymentStatus: 'Pagado' },
   { id: 'sale-2', date: `${currentYear}-01-05T14:45:00Z`, totalAmount: 88.20, items: [{...INITIAL_PRODUCTS[1], quantity: 3}], paymentMethod: 'Tarjeta', cajaId: '0008', employeeId: 'employee-user-predefined', branchId: firstActiveBranchId, paymentStatus: 'Pagado' },
 ];
+
+export const INITIAL_ESTIMATES: Estimate[] = [
+    {
+        id: 'est-1',
+        date: new Date(new Date().setDate(new Date().getDate() - 10)).toISOString(),
+        clientId: 'client-3', // Construcciones ABC
+        items: [
+            { ...INITIAL_PRODUCTS.find(p => p.id === 'prod-paint-interior')!, quantity: 5 },
+            { ...INITIAL_PRODUCTS.find(p => p.id === 'prod-design-consultation')!, quantity: 2 },
+        ],
+        totalAmount: ((300 * 5) + (150 * 2)) * 1.16, // Assuming 16% tax
+        status: EstimateStatus.ENVIADO,
+        notes: 'Estimación para oficinas nuevas.',
+        employeeId: 'emp-1',
+        branchId: firstActiveBranchId
+    },
+    {
+        id: 'est-2',
+        date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(),
+        clientId: 'client-1', // Roberto Gómez
+        items: [
+            { ...INITIAL_PRODUCTS.find(p => p.id === 'prod-shower-set')!, quantity: 1 },
+        ],
+        totalAmount: 450 * 1.16, // Assuming 16% tax
+        status: EstimateStatus.BORRADOR,
+        employeeId: 'employee-user-predefined',
+        branchId: firstActiveBranchId
+    }
+];
+
+export const INITIAL_INVENTORY_LOGS: InventoryLog[] = [];
 
 export const INITIAL_ORDERS: Order[] = [
   { id: 'order-1', date: `${currentYear}-01-03T11:00:00Z`, clientName: 'Cliente Shopper', clientEmail: ECOMMERCE_CLIENT_EMAIL, shippingAddress: 'Calle Inventada 456, Ciudad Web', totalAmount: 205.50, items: [{...INITIAL_PRODUCTS[0], quantity: 1}, {...INITIAL_PRODUCTS[1], quantity: 1}], status: 'Completado', storeOwnerId: ECOMMERCE_CLIENT_ID, paymentMethod: "Tarjeta" },
@@ -279,14 +341,14 @@ export const INITIAL_NOTIFICATIONS: Notification[] = [
 ];
 
 
-export const inputFormStyle = "block w-full px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
-export const INPUT_SM_CLASSES = "px-2.5 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
+export const inputFormStyle = "block w-full px-3 py-1.5 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
+export const INPUT_SM_CLASSES = "px-2.5 py-1.5 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
 
-export const BUTTON_PRIMARY_CLASSES = "bg-primary hover:bg-secondary text-white font-semibold text-base py-2 px-4 rounded-md shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-neutral-900";
-export const BUTTON_PRIMARY_SM_CLASSES = "bg-primary hover:bg-secondary text-white font-semibold text-sm py-2 px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 dark:focus:ring-offset-neutral-800";
+export const BUTTON_PRIMARY_CLASSES = "bg-primary hover:bg-secondary text-white font-semibold text-lg py-2 px-4 rounded-md shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-neutral-900";
+export const BUTTON_PRIMARY_SM_CLASSES = "bg-primary hover:bg-secondary text-white font-semibold text-base py-2 px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 dark:focus:ring-offset-neutral-800";
 
-export const BUTTON_SECONDARY_CLASSES = "bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-base py-2 px-4 rounded-md shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 dark:focus:ring-neutral-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900";
-export const BUTTON_SECONDARY_SM_CLASSES = "bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-sm py-2 px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500 focus:ring-offset-1 dark:focus:ring-offset-neutral-800";
+export const BUTTON_SECONDARY_CLASSES = "bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-lg py-2 px-4 rounded-md shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 dark:focus:ring-neutral-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900";
+export const BUTTON_SECONDARY_SM_CLASSES = "bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-base py-2 px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500 focus:ring-offset-1 dark:focus:ring-offset-neutral-800";
 
 
 // POS Specific Button Styles
@@ -302,13 +364,14 @@ export const POS_BUTTON_TEAL_CLASSES = "bg-teal-600 hover:bg-teal-700 text-white
 export const POS_BUTTON_ORANGE_CLASSES = "bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_INDIGO_CLASSES = "bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_CREDIT_CLASSES = "bg-sky-600 hover:bg-sky-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
+export const POS_BUTTON_PINK_CLASSES = "bg-pink-600 hover:bg-pink-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 
 
 // Auth Page Styles
-export const authInputStyle = "block w-full px-4 py-2.5 text-base text-neutral-900 dark:text-neutral-50 bg-neutral-50 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
-export const authButtonPrimary = "w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-primary hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-neutral-800 focus:ring-primary transition-colors";
+export const authInputStyle = "block w-full px-4 py-2.5 text-lg text-neutral-900 dark:text-neutral-50 bg-neutral-50 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
+export const authButtonPrimary = "w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-primary hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-neutral-800 focus:ring-primary transition-colors";
 export const authLinkStyle = "font-medium text-primary hover:text-secondary dark:text-teal-400 dark:hover:text-teal-300";
-export const authSecondaryLinkStyle = "inline-flex items-center px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 shadow-sm text-sm leading-4 font-medium rounded-md text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary";
+export const authSecondaryLinkStyle = "inline-flex items-center px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 shadow-sm text-base leading-4 font-medium rounded-md text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary";
 
 
 export type SidebarItemConfig = SubModuleLink | SubModuleGroup;
@@ -327,70 +390,91 @@ export interface SubModuleGroup {
 
 export const APP_MODULES_CONFIG = [
   { 
+    name: AppModule.TIENDA, 
+    path: '/tienda', 
+    icon: React.createElement(Cog6ToothIcon),
+    subModulesProject: [] as SidebarItemConfig[],
+    subModulesPOS: [] as SidebarItemConfig[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [
+      { type: 'link', name: 'Productos', path: '/tienda/products', icon: React.createElement(Squares2X2Icon, { className: "w-5 h-5" }) },
+      { type: 'link', name: 'Inventario', path: '/tienda/inventory', icon: React.createElement(CubeIcon, { className: "w-5 h-5" }) },
+      { type: 'link', name: 'Categorías', path: '/tienda/categories', icon: React.createElement(ListBulletIcon, { className: "w-5 h-5" }) },
+      { type: 'link', name: 'Departamentos', path: '/tienda/departments', icon: React.createElement(FolderIcon, { className: "w-5 h-5" }) },
+      { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: React.createElement(UserGroupIcon, { className: "w-5 h-5" }) },
+      { type: 'link', name: 'Colaboradores', path: '/tienda/employees', icon: React.createElement(UsersIcon, { className: "w-5 h-5" }) },
+      { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: React.createElement(BuildingStorefrontIcon, { className: "w-5 h-5" }) },
+    ] as SidebarItemConfig[],
+  },
+  { 
     name: AppModule.PROJECT_MANAGEMENT, 
-    path: '/pm', 
+    path: '/pm/dashboard', 
     icon: React.createElement(BriefcaseIcon),
     subModulesProject: [
+        { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: React.createElement(HomeIcon) },
         { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: React.createElement(BriefcaseIcon) },
         { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: React.createElement(ChatBubbleLeftRightIcon) },
         { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: React.createElement(CalendarDaysIcon) },
         { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: React.createElement(ChartBarIcon) },
-        { type: 'link', name: 'Sucursales', path: '/pm/branches', icon: React.createElement(BuildingStorefrontIcon) },
-    ] as SubModuleLink[],
-    subModulesPOS: [] as SubModuleLink[],
-    subModulesEcommerce: [] as SubModuleLink[],
-    subModulesProjectClient: [] as SubModuleLink[], // Not for client's main nav, but for mapping
+    ] as SidebarItemConfig[],
+    subModulesPOS: [] as SidebarItemConfig[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
   },
   { 
     name: AppModule.POS, 
     path: '/pos', 
     icon: React.createElement(CashBillIcon),
-    subModulesProject: [] as SubModuleLink[],
+    subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [
         { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: React.createElement(CashBillIcon) },
-        { type: 'group', name: 'Administración POS', icon: React.createElement(Cog6ToothIcon), children: [
-            { type: 'link', name: 'Reportes POS', path: '/pos/reports', icon: React.createElement(ChartPieIcon) },
-            { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: React.createElement(ListBulletIcon) },
-            { type: 'link', name: 'Inventario POS', path: '/pos/inventory', icon: React.createElement(Squares2X2Icon) },
-            { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: React.createElement(DocumentArrowUpIcon) },
-            { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: React.createElement(BanknotesIcon) },
-            { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: React.createElement(CubeIcon) },
-        ]},
+        { type: 'link', name: 'Reportes POS', path: '/pos/reports', icon: React.createElement(ChartPieIcon) },
+        { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: React.createElement(ListBulletIcon) },
+        { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: React.createElement(ClipboardDocumentListIcon) },
+        { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: React.createElement(DocumentArrowUpIcon) },
+        { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: React.createElement(BanknotesIcon) },
+        { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: React.createElement(CubeIcon) },
     ] as SidebarItemConfig[],
-    subModulesEcommerce: [] as SubModuleLink[],
-    subModulesProjectClient: [] as SubModuleLink[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
   },
   { 
     name: AppModule.ECOMMERCE, 
     path: '/ecommerce', 
     icon: React.createElement(ShoppingCartIcon, {className: ""}),
-    subModulesProject: [] as SubModuleLink[],
-    subModulesPOS: [] as SubModuleLink[],
+    subModulesProject: [] as SidebarItemConfig[],
+    subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [
         { type: 'link', name: 'Dashboard E-commerce', path: '/ecommerce/dashboard', icon: React.createElement(HomeIcon) },
         { type: 'link', name: 'Pedidos Online', path: '/ecommerce/orders', icon: React.createElement(TruckIcon) },
         { type: 'link', name: 'Proveedores', path: '/ecommerce/suppliers', icon: React.createElement(UserGroupIcon) },
         { type: 'link', name: 'Pedidos a Proveedor', path: '/ecommerce/supplier-orders', icon: React.createElement(DocumentArrowUpIcon) },
         { type: 'link', name: 'Mi Tienda (Vista Previa)', path: `/store/${ADMIN_USER_ID}`, icon: React.createElement(BuildingStorefrontIcon) },
-    ] as SubModuleLink[],
-    subModulesProjectClient: [] as SubModuleLink[],
+    ] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
   },
   { 
     name: AppModule.PROJECT_CLIENT_DASHBOARD, 
     path: '/project-client', 
     icon: React.createElement(HomeIcon), // Example, not directly used in sidebar if client has its own layout
-    subModulesProject: [] as SubModuleLink[],
-    subModulesPOS: [] as SubModuleLink[],
-    subModulesEcommerce: [] as SubModuleLink[],
+    subModulesProject: [] as SidebarItemConfig[],
+    subModulesPOS: [] as SidebarItemConfig[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [ // These are for client's view
         { type: 'link', name: 'Dashboard Cliente', path: '/project-client/dashboard', icon: React.createElement(Squares2X2Icon) },
         { type: 'link', name: 'Calendario Proyecto', path: '/project-client/calendar', icon: React.createElement(CalendarDaysIcon) },
         { type: 'link', name: 'Chat del Proyecto', path: '/project-client/chat', icon: React.createElement(ChatBubbleLeftRightIcon) }, // Path will be dynamic with projectId
-    ] as SubModuleLink[],
+    ] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
   },
 ];
 
 export const VISIT_STATUS_OPTIONS = Object.values(VisitStatus);
 export const SUPPLIER_ORDER_STATUS_OPTIONS = Object.values(SupplierOrderStatus);
 export const PROJECT_STATUS_OPTIONS = Object.values(ProjectStatus);
+export const ESTIMATE_STATUS_OPTIONS = Object.values(EstimateStatus);
 // End of constants.ts

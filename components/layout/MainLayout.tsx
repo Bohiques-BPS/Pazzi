@@ -1,18 +1,14 @@
 
 
 import React, { useState, useEffect, useContext } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar'; // Adjusted path
 import { Sidebar } from './Sidebar'; // Adjusted path
 import { AppContext, useAppContext } from '../../contexts/AppContext'; // Adjusted path
 import { AppModule } from '../../types'; // Adjusted path
 import { APP_MODULES_CONFIG } from '../../constants'; // Adjusted path
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
+export const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const appContextValue = useAppContext(); 
   
@@ -27,16 +23,9 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     const currentPath = location.pathname;
     const matchedModule = APP_MODULES_CONFIG.find(m => currentPath.startsWith(m.path));
-
-    // Paths that are part of PM module but can be accessed from POS sidebar's "Tienda" group
-    // and should not switch the module context away from POS if currentModule is POS.
-    const SHARED_PM_PATHS_FROM_POS = ['/pm/products', '/pm/categories', '/pm/clients', '/pm/employees'];
-
+    
     if (matchedModule) {
-        // If current module is POS and we are navigating to a shared PM path, DON'T switch module context.
-        if (currentModule === AppModule.POS && SHARED_PM_PATHS_FROM_POS.some(sharedPath => currentPath.startsWith(sharedPath))) {
-            // Do nothing, keep currentModule as POS
-        } else if (matchedModule.name !== currentModule) {
+        if (matchedModule.name !== currentModule) {
             setCurrentModule(matchedModule.name);
         }
     }
@@ -81,7 +70,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
       <div className={`flex flex-1 ${!isPOSCashierPage ? 'pt-[65px]' : ''}`}>
         {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} currentModule={currentModule} setSidebarOpen={setSidebarOpen} />}
         <main className={`flex-1 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 overflow-y-auto ${!isPOSCashierPage ? 'lg:ml-64' : ''} ${isPOSCashierPage ? '' : 'p-6'}`}>
-          {children} 
+          <Outlet /> 
         </main>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
-import { Product, Client, Employee, Project, Sale, Order, Visit, Category, ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, Notification, NotificationType, Caja, ProjectStatus, HeldCart, CartItem, SalePayment, Estimate, InventoryLog, InventoryLogType, Department } from '../types'; // Added SalePayment, Estimate, Department
-import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES, INITIAL_INVENTORY_LOGS, INITIAL_DEPARTMENTS } from '../constants'; // Added INITIAL_CAJAS, INITIAL_NOTIFICATIONS, INITIAL_ESTIMATES, INITIAL_DEPARTMENTS
+import { Product, Client, Employee, Project, Sale, Order, Visit, Category, ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, Notification, NotificationType, Caja, ProjectStatus, HeldCart, CartItem, SalePayment, Estimate } from '../types'; // Added SalePayment, Estimate
+import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES } from '../constants'; // Added INITIAL_CAJAS, INITIAL_NOTIFICATIONS, INITIAL_ESTIMATES
 import { useAuth } from './AuthContext'; 
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons'; // Example icons for notifications
 
@@ -32,9 +32,6 @@ export interface DataContextType {
   estimates: Estimate[];
   setEstimates: React.Dispatch<React.SetStateAction<Estimate[]>>;
 
-  inventoryLogs: InventoryLog[];
-  addInventoryLog: (logData: Omit<InventoryLog, 'id'>) => void;
-
   orders: Order[]; 
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   addOrder: (orderData: Omit<Order, 'id' | 'date' | 'storeOwnerId'>, storeOwnerId: string) => string; 
@@ -48,9 +45,6 @@ export interface DataContextType {
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   getCategoriesByStoreOwner: (ownerId: string) => Category[];
-
-  departments: Department[];
-  setDepartments: React.Dispatch<React.SetStateAction<Department[]>>;
 
   chatMessages: ChatMessage[];
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
@@ -113,11 +107,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [sales, setSalesInternal] = useState<Sale[]>(() => JSON.parse(localStorage.getItem('pazziSales') || JSON.stringify(INITIAL_SALES)));
     const [salePayments, setSalePayments] = useState<SalePayment[]>(() => JSON.parse(localStorage.getItem('pazziSalePayments') || '[]'));
     const [estimates, setEstimates] = useState<Estimate[]>(() => JSON.parse(localStorage.getItem('pazziEstimates') || JSON.stringify(INITIAL_ESTIMATES)));
-    const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>(() => JSON.parse(localStorage.getItem('pazziInventoryLogs') || JSON.stringify(INITIAL_INVENTORY_LOGS)));
     const [orders, setOrders] = useState<Order[]>(() => JSON.parse(localStorage.getItem('pazziOrders') || JSON.stringify(INITIAL_ORDERS)));
     const [visits, setVisits] = useState<Visit[]>(() => JSON.parse(localStorage.getItem('pazziVisits') || JSON.stringify(INITIAL_VISITS)));
     const [categories, setCategories] = useState<Category[]>(() => JSON.parse(localStorage.getItem('pazziCategories') || JSON.stringify(INITIAL_CATEGORIES)));
-    const [departments, setDepartments] = useState<Department[]>(() => JSON.parse(localStorage.getItem('pazziDepartments') || JSON.stringify(INITIAL_DEPARTMENTS)));
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => JSON.parse(localStorage.getItem('pazziChatMessages') || JSON.stringify(INITIAL_CHAT_MESSAGES)));
     const [suppliers, setSuppliers] = useState<Supplier[]>(() => JSON.parse(localStorage.getItem('pazziSuppliers') || JSON.stringify(INITIAL_SUPPLIERS)));
     const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>(() => JSON.parse(localStorage.getItem('pazziSupplierOrders') || JSON.stringify(INITIAL_SUPPLIER_ORDERS)));
@@ -135,11 +127,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => { localStorage.setItem('pazziSales', JSON.stringify(sales)); }, [sales]);
     useEffect(() => { localStorage.setItem('pazziSalePayments', JSON.stringify(salePayments)); }, [salePayments]);
     useEffect(() => { localStorage.setItem('pazziEstimates', JSON.stringify(estimates)); }, [estimates]);
-    useEffect(() => { localStorage.setItem('pazziInventoryLogs', JSON.stringify(inventoryLogs)); }, [inventoryLogs]);
     useEffect(() => { localStorage.setItem('pazziOrders', JSON.stringify(orders)); }, [orders]);
     useEffect(() => { localStorage.setItem('pazziVisits', JSON.stringify(visits)); }, [visits]);
     useEffect(() => { localStorage.setItem('pazziCategories', JSON.stringify(categories)); }, [categories]);
-    useEffect(() => { localStorage.setItem('pazziDepartments', JSON.stringify(departments)); }, [departments]);
     useEffect(() => { localStorage.setItem('pazziChatMessages', JSON.stringify(chatMessages)); }, [chatMessages]);
     useEffect(() => { localStorage.setItem('pazziSuppliers', JSON.stringify(suppliers)); }, [suppliers]);
     useEffect(() => { localStorage.setItem('pazziSupplierOrders', JSON.stringify(supplierOrders)); }, [supplierOrders]);
@@ -170,14 +160,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             icon: icon,
         };
         setNotifications(prev => [newNotification, ...prev]); 
-    }, []);
-
-    const addInventoryLog = useCallback((logData: Omit<InventoryLog, 'id'>) => {
-        const newLog: InventoryLog = {
-            id: `invlog-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            ...logData
-        };
-        setInventoryLogs(prev => [newLog, ...prev]);
     }, []);
 
     const generateInvoiceForProject = useCallback((projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }): boolean => {
@@ -365,23 +347,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setLastCompletedSale(newSale); 
         
         newSale.items.forEach(cartItem => {
-            if (currentUser && !cartItem.isService) {
-                const stockBefore = getProductStockForBranch(cartItem.id, branchId);
-                const stockAfter = stockBefore - cartItem.quantity;
-                updateProductStockForBranch(cartItem.id, branchId, stockAfter);
-                addInventoryLog({
-                    productId: cartItem.id,
-                    branchId: branchId,
-                    date: newSale.date,
-                    type: InventoryLogType.SALE_POS,
-                    quantityChange: -cartItem.quantity,
-                    stockBefore: stockBefore,
-                    stockAfter: stockAfter,
-                    referenceId: newSale.id,
-                    employeeId: currentUser.id,
-                    notes: `Venta #${newSale.id.slice(-6)}`
-                });
-            }
+            const currentStock = getProductStockForBranch(cartItem.id, branchId);
+            updateProductStockForBranch(cartItem.id, branchId, currentStock - cartItem.quantity);
         });
          addNotification({
             title: `Nueva Venta POS #${newSale.id.substring(0,6)}`,
@@ -389,7 +356,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             type: 'new_order', 
             link: `/pos/sales-history`
         });
-    }, [getProductStockForBranch, updateProductStockForBranch, addNotification, setLastCompletedSale, addInventoryLog, currentUser]);
+    }, [getProductStockForBranch, updateProductStockForBranch, addNotification, setLastCompletedSale]);
 
     const addSalePayment = useCallback((paymentData: Omit<SalePayment, 'id'>) => {
         const newPayment: SalePayment = {
@@ -487,28 +454,13 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     const updatedOrder = { ...order, status: newStatus };
                     if (newStatus === 'Recibido Completo' && (order.storeOwnerId === ADMIN_USER_ID || !order.storeOwnerId)) { 
                         const targetBranchId = receivedToBranchId || (branches.find(b => b.isActive)?.id || '');
-                        if (targetBranchId && currentUser) {
+                        if (targetBranchId) {
                             updatedOrder.items.forEach((item: SupplierOrderItem) => {
-                                if (!getProductById(item.productId)?.isService) {
-                                    const stockBefore = getProductStockForBranch(item.productId, targetBranchId);
-                                    const stockAfter = stockBefore + item.quantityOrdered;
-                                    updateProductStockForBranch(item.productId, targetBranchId, stockAfter);
-                                    addInventoryLog({
-                                        productId: item.productId,
-                                        branchId: targetBranchId,
-                                        date: new Date().toISOString(),
-                                        type: InventoryLogType.SUPPLIER_RECEPTION,
-                                        quantityChange: item.quantityOrdered,
-                                        stockBefore: stockBefore,
-                                        stockAfter: stockAfter,
-                                        referenceId: order.id,
-                                        employeeId: currentUser.id,
-                                        notes: `Pedido a ${getSupplierById(order.supplierId)?.name || 'proveedor'} #${order.id.slice(-6)}`
-                                    });
-                                }
+                                const currentStock = getProductStockForBranch(item.productId, targetBranchId);
+                                updateProductStockForBranch(item.productId, targetBranchId, currentStock + item.quantityOrdered);
                             });
                         } else {
-                            console.warn("No active branch or current user found to receive supplier order items for order:", orderId);
+                            console.warn("No active branch found to receive supplier order items for order:", orderId);
                         }
                     }
                     return updatedOrder;
@@ -516,7 +468,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 return order;
             })
         );
-    }, [branches, getProductStockForBranch, updateProductStockForBranch, addInventoryLog, currentUser, getProductById, getSupplierById]); 
+    }, [branches, getProductStockForBranch, updateProductStockForBranch]); 
 
     const getSupplierOrderById = useCallback((id: string) => supplierOrders.find(so => so.id === id), [supplierOrders]);
     
@@ -601,13 +553,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             products, setProducts, getProductsByStoreOwner, getProductStockForBranch, updateProductStockForBranch, addProduct, updateProduct, getProductsWithStockForBranch,
             clients, setClients, employees, setEmployees, projects, setProjects, generateInvoiceForProject,
             sales, setSales, addSale, recordSalePayment, lastCompletedSale,
-            salePayments, addSalePayment,
+            salePayments, addSalePayment, 
             estimates, setEstimates,
-            inventoryLogs, addInventoryLog,
             orders, setOrders, addOrder, updateOrderStatus, getOrdersByStoreOwner, getOrderById, 
             visits, setVisits, 
             categories, setCategories, getCategoriesByStoreOwner,
-            departments, setDepartments,
             chatMessages, setChatMessages, addChatMessage, getChatMessagesForProject,
             suppliers, setSuppliers, getSupplierById, getSuppliersByStoreOwner,
             supplierOrders, setSupplierOrders, addSupplierOrder, updateSupplierOrderStatus, getSupplierOrderById, getSupplierOrdersByStoreOwner, recordSupplierOrderPayment,

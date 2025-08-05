@@ -1,9 +1,10 @@
 
+
 import React from 'react';
 import { Order, CartItem } from '../../types'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
 import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
-import { CreditCardIcon, BanknotesIcon } from '../../components/icons'; // Added icons
+import { CreditCardIcon, BanknotesIcon, AthMovilIcon } from '../../components/icons'; // Added icons
 
 interface OrderDetailModalProps {
     isOpen: boolean;
@@ -18,7 +19,8 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ isOpen, onCl
 
     const getPaymentMethodIcon = (method: string) => {
         if (method?.toLowerCase().includes('tarjeta')) return <CreditCardIcon className="inline mr-1.5"/>;
-        // Could add more specific icons for PayPal, ATH Móvil
+        if (method?.toLowerCase().includes('ath móvil')) return <AthMovilIcon className="inline mr-1.5"/>;
+        // Could add more specific icons for PayPal
         return <BanknotesIcon className="inline mr-1.5"/>; // Generic for others
     }
 
