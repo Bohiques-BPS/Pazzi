@@ -1,5 +1,5 @@
 import React from 'react'; 
-import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department, Task, TaskStatus, TaskComment } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department
+import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department, Task, TaskStatus, TaskComment, ProjectPriority } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department
 import { 
     BriefcaseIcon, 
     Squares2X2Icon, 
@@ -204,7 +204,10 @@ export const INITIAL_PROJECTS: Project[] = [
     workDayTimeRanges: [
         { date: `${currentYear}-02-15`, startTime: '09:00', endTime: '17:00'},
         { date: `${currentYear}-02-16`, startTime: '09:00', endTime: '17:00'},
-    ]
+    ],
+    priority: ProjectPriority.MEDIUM,
+    purchaseOrder: 'PO-2024-GOMEZ-01',
+    projectKey: 'GOMEZ-KITCH'
   },
   { 
     id: 'proj-bathroom-addition', name: 'Ampliación Baño Fernández', clientId: 'client-2', status: ProjectStatus.ACTIVE, 

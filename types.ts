@@ -224,6 +224,19 @@ export interface ProjectResource {
     quantity: number;
 }
 
+export interface CustomProjectResource {
+    id: string; // for key prop in UI
+    name: string;
+    quantity: number;
+    unitPrice?: number;
+}
+
+export enum ProjectPriority {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+}
+
 export interface Project {
     id: string;
     name: string;
@@ -231,6 +244,7 @@ export interface Project {
     status: ProjectStatus;
     description?: string;
     assignedProducts: ProjectResource[];
+    customProducts?: CustomProjectResource[];
     assignedEmployeeIds: string[];
     visitDate?: string;
     visitTime?: string;
@@ -239,6 +253,10 @@ export interface Project {
     workDayTimeRanges: WorkDayTimeRange[];
     workStartDate?: string;
     workEndDate?: string;
+    // New fields
+    purchaseOrder?: string;
+    projectKey?: string;
+    priority?: ProjectPriority;
     // For invoicing
     invoiceGenerated?: boolean;
     invoiceNumber?: string;

@@ -377,7 +377,7 @@ export const ProjectsListPage: React.FC = () => {
     const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>('Todos');
     const [selectedProductFilter, setSelectedProductFilter] = useState<string>('Todos');
     const [sortOption, setSortOption] = useState<string>('default');
-    
+
     const allEmployees = getAllEmployees();
     const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
     const globalProducts = useMemo(() => allProductsFromHook.filter(p => p.storeOwnerId === ADMIN_USER_ID || !p.storeOwnerId), [allProductsFromHook]);
@@ -393,7 +393,7 @@ export const ProjectsListPage: React.FC = () => {
     const handleViewProject = (project: Project, initialTab: 'details' | 'chat' | 'tasks' = 'details') => {
         navigate(`/pm/projects/${project.id}?tab=${initialTab}`);
     };
-    
+
     const requestDelete = (projId: string) => {
         if (isEmployeeView) return; 
         setItemToDeleteId(projId);
@@ -577,9 +577,9 @@ export const ProjectsListPage: React.FC = () => {
                             <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
                                 <SparklesIcon /> Importar con IA
                             </button>
-                            <Link to="/pm/projects/new" className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
+                            <button onClick={() => navigate('/pm/projects/new')} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
                                 <PlusIcon /> Crear Proyecto
-                            </Link>
+                            </button>
                         </>
                     )}
                 </div>
