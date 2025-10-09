@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Department, DepartmentFormData } from '@/types';
-import { useData } from '@/contexts/DataContext';
-import { Modal } from '@/components/Modal';
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '@/constants';
+import { Department, DepartmentFormData } from '../../types';
+import { useData } from '../../contexts/DataContext';
+import { Modal } from '../../components/Modal';
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 
 interface DepartmentFormModalProps {
     isOpen: boolean;
@@ -39,9 +39,9 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
         }
 
         if (department) { 
-            setDepartments(prev => prev.map(d => d.id === department.id ? { ...department, ...formData } : d));
+            setDepartments(prev => prev.map(d => d.id === department.id ? { ...department, ...formData, storeOwnerId: department.storeOwnerId } : d));
         } else { 
-            const newDepartment: Department = { id: `dept-${Date.now()}-${formData.name.toLowerCase().replace(/\s+/g, '-')}`, ...formData };
+            const newDepartment: Department = { id: `dept-${Date.now()}-${formData.name.toLowerCase().replace(/\s+/g, '-')}`, storeOwnerId: 'admin-user', ...formData }; // Assume admin user for now
             setDepartments(prev => [...prev, newDepartment]);
         }
         onClose();

@@ -32,25 +32,32 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
     }, [isOpen]);
 
     const handleAdjustmentChange = (branchId: string, value: string) => {
-        setAdjustments(prev => ({
-            ...prev,
-            [branchId]: { ...(prev[branchId] || { adjustment: '', notes: '' }), adjustment: value },
-        }));
+        setAdjustments(prev => {
+            const existing = prev[branchId] || { adjustment: '', notes: '' };
+            return {
+                ...prev,
+                [branchId]: { ...existing, adjustment: value },
+            };
+        });
     };
 
     const handleNotesChange = (branchId: string, value: string) => {
-        setAdjustments(prev => ({
-            ...prev,
-            [branchId]: { ...(prev[branchId] || { adjustment: '', notes: '' }), notes: value },
-        }));
+        setAdjustments(prev => {
+            const existing = prev[branchId] || { adjustment: '', notes: '' };
+            return {
+                ...prev,
+                [branchId]: { ...existing, notes: value },
+            };
+        });
     };
 
     const handleSubmit = () => {
         if (!product || !currentUser) return;
 
-        const changesToProcess = Object.entries(adjustments).filter(
-            ([_, value]) => value.adjustment && value.adjustment.trim() !== '' && value.adjustment.trim() !== '0'
-        );
+        const changesToProcess = Object.keys(adjustments).filter(branchId => {
+            const value = adjustments[branchId];
+            return value && value.adjustment && value.adjustment.trim() !== '' && value.adjustment.trim() !== '0';
+        });
 
         if (changesToProcess.length === 0) {
             onClose();
@@ -58,7 +65,8 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
         }
 
         // Validation first
-        for (const [branchId, { adjustment }] of changesToProcess) {
+        for (const branchId of changesToProcess) {
+            const { adjustment } = adjustments[branchId];
             const adjValue = parseInt(adjustment.replace(/\s/g, ''), 10) || 0;
             const stockBefore = product.stockByBranch.find(sb => sb.branchId === branchId)?.quantity ?? 0;
             const newQuantity = stockBefore + adjValue;
@@ -70,7 +78,8 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
         }
         
         // Process changes
-        changesToProcess.forEach(([branchId, { adjustment, notes }]) => {
+        changesToProcess.forEach(branchId => {
+            const { adjustment, notes } = adjustments[branchId];
             const adjValue = parseInt(adjustment.replace(/\s/g, ''), 10) || 0;
             if (adjValue === 0) return;
 

@@ -1,16 +1,18 @@
 
+
 import React, { useState, createContext, useContext, useEffect } from 'react';
-import { User, UserRole } from '../types';
+import { User, UserRole, EmployeePermissions, AlertSettings } from '../types';
 import { DEFAULT_USERS, ADMIN_EMAIL, ADMIN_PASSWORD } from '../constants';
 
 export interface AuthContextType {
   currentUser: User | null;
   login: (email: string, pass: string) => Promise<boolean>;
-  register: (name: string, lastName: string, email: string, pass: string, role: UserRole) => Promise<boolean>;
+  register: (name: string, lastName: string, email: string, pass: string, role: UserRole, options?: { profilePictureUrl?: string; permissions?: EmployeePermissions }) => Promise<boolean>;
   logout: () => void;
   allUsers: (User & { password?: string })[];
   updateUserPassword: (userId: string, currentPasswordPlain: string, newPasswordPlain: string) => Promise<{success: boolean, message: string}>;
-  toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>; // New function
+  toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>; 
+  updateUserAlertSettings: (userId: string, newSettings: AlertSettings) => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -40,35 +42,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, pass: string): Promise<boolean> => {
     let userToLogin: User | null = null;
-    let determinedRole: UserRole | null = null;
 
     const existingUser = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pass);
     if (existingUser) {
         userToLogin = existingUser;
-        determinedRole = existingUser.role;
-    } else if (email.toLowerCase() === ADMIN_EMAIL && pass === ADMIN_PASSWORD) { 
-        determinedRole = UserRole.MANAGER;
-        userToLogin = { id: 'admin-user', email: ADMIN_EMAIL, role: determinedRole, name: 'Admin', lastName: 'Pazzi', isEmergencyOrderActive: false };
-    } 
+    }
 
-    if (userToLogin && determinedRole) {
-        // Ensure roles like CLIENT_ECOMMERCE and CLIENT_PROJECT are correctly set
-        if (determinedRole === UserRole.CLIENT_ECOMMERCE || determinedRole === UserRole.CLIENT_PROJECT || determinedRole === UserRole.EMPLOYEE || determinedRole === UserRole.MANAGER) {
-            setCurrentUser({ ...userToLogin, role: determinedRole }); 
-            return true;
-        } else {
-            // Handle potential old "CLIENT" role or other invalid roles if necessary
-            // For now, we assume roles are one of the above valid ones.
-             alert('Rol de usuario no reconocido.');
-             return false;
-        }
+    if (userToLogin) {
+        setCurrentUser(userToLogin);
+        return true;
     }
     
     alert('Credenciales incorrectas.');
     return false;
   };
 
-  const register = async (name: string, lastName: string, email: string, pass: string, role: UserRole): Promise<boolean> => {
+  const register = async (name: string, lastName: string, email: string, pass: string, role: UserRole, options?: { profilePictureUrl?: string; permissions?: EmployeePermissions }): Promise<boolean> => {
     if (allUsers.find(u => u.email.toLowerCase() === email.toLowerCase())) {
       alert('El email ya está registrado.');
       return false;
@@ -85,7 +74,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastName, 
         role, 
         password: pass, 
-        isEmergencyOrderActive: false // Default for new users
+        isEmergencyOrderActive: false, // Default for new users
+        profilePictureUrl: options?.profilePictureUrl || '',
+        permissions: options?.permissions,
     };
     setAllUsers(prev => [...prev, newUser]);
     alert('Registro exitoso. Por favor, inicie sesión.');
@@ -135,9 +126,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
+  const updateUserAlertSettings = async (userId: string, newSettings: AlertSettings): Promise<boolean> => {
+    const userIndex = allUsers.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        console.error("User not found for updating alert settings");
+        return false;
+    }
+    
+    const updatedUsers = [...allUsers];
+    updatedUsers[userIndex] = { ...updatedUsers[userIndex], alertSettings: newSettings };
+    setAllUsers(updatedUsers);
+    
+    if (currentUser && currentUser.id === userId) {
+        setCurrentUser(prev => prev ? { ...prev, alertSettings: newSettings } : null);
+    }
+    return true;
+  };
+
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode }}>
+    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings }}>
       {children}
     </AuthContext.Provider>
   );

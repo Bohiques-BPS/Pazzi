@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { Product } from '../../types'; // Adjusted path
 import { EllipsisVerticalIcon, ListBulletIcon as HistoryIcon, Cog6ToothIcon as AdjustIcon, EditIcon, DeleteIcon } from '../icons'; // Adjusted path
@@ -47,7 +45,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
                         )}
                     </div>
                 </div>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-2 line-clamp-2 flex-grow">{product.description || 'Sin descripción.'}</p>
+                <div className="text-sm prose dark:prose-invert max-w-none text-neutral-500 dark:text-neutral-400 mb-2 line-clamp-2 flex-grow" dangerouslySetInnerHTML={{ __html: product.description || 'Sin descripción.' }}></div>
                 <div className="text-sm text-neutral-600 dark:text-neutral-300 mt-auto pt-2 border-t border-neutral-100 dark:border-neutral-700 space-y-1">
                     <p><strong>Precio Base:</strong> <span className="text-primary font-medium">${product.unitPrice.toFixed(2)}</span></p>
                     
@@ -87,6 +85,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
 
                     <p><strong>SKUs:</strong> {product.skus?.join(', ') || 'N/A'}</p>
                     <p><strong>Categoría:</strong> {product.category || 'N/A'}</p>
+                    {product.material && <p><strong>Material:</strong> {product.material}</p>}
                     <p><strong>IVA:</strong> {product.ivaRate ? `${(product.ivaRate * 100).toFixed(0)}%` : 'N/A'}</p>
                 </div>
             </div>

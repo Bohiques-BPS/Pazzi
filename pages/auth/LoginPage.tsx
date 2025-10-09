@@ -1,9 +1,7 @@
-
-
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { AppContext, useAppContext } from '@/contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { AppContext, useAppContext } from '../../contexts/AppContext';
 import { UserRole, AppModule } from '../../types';
 import { 
     APP_MODULES_CONFIG, 
@@ -15,8 +13,8 @@ import {
     ECOMMERCE_CLIENT_EMAIL, ECOMMERCE_CLIENT_PASSWORD,
     PROJECT_CLIENT_EMAIL, PROJECT_CLIENT_PASSWORD,
     EMPLOYEE_EMAIL, EMPLOYEE_PASSWORD
-} from '@/constants';
-import { ArrowUturnLeftIcon, EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini } from '@/components/icons';
+} from '../../constants';
+import { ArrowUturnLeftIcon, EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini } from '../../components/icons';
 
 const logoUrl = "https://picsum.photos/seed/pazziapplogo/120/40";
 const rightPanelImageUrl = "https://picsum.photos/seed/businessgrowth/400/300";
@@ -63,7 +61,7 @@ export const LoginPage: React.FC = () => {
             try {
                 const parsedModule = JSON.parse(lastStoredModuleString) as AppModule;
                 // Ensure the stored module is valid for a manager
-                if ([AppModule.PROJECT_MANAGEMENT, AppModule.POS, AppModule.ECOMMERCE].includes(parsedModule)) {
+                if ([AppModule.PROJECT_MANAGEMENT, AppModule.POS, AppModule.ECOMMERCE, AppModule.TIENDA].includes(parsedModule)) {
                     initialModuleForManager = parsedModule;
                 }
             } catch (e) {
@@ -73,18 +71,7 @@ export const LoginPage: React.FC = () => {
         
         setCurrentModule(initialModuleForManager);
         const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === initialModuleForManager);
-        let firstSubModulePath = moduleConfig?.path || '/pm/projects';
-
-        if (moduleConfig) { // Determine the first actual linkable sub-module path
-            if (moduleConfig.name === AppModule.PROJECT_MANAGEMENT && moduleConfig.subModulesProject && moduleConfig.subModulesProject.length > 0 && moduleConfig.subModulesProject[0].type === 'link') {
-                firstSubModulePath = moduleConfig.subModulesProject[0].path;
-            } else if (moduleConfig.name === AppModule.POS) {
-                firstSubModulePath = '/pos/reports'; // Corrected: Managers default to reports for POS
-            } else if (moduleConfig.name === AppModule.ECOMMERCE && moduleConfig.subModulesEcommerce && moduleConfig.subModulesEcommerce.length > 0 && moduleConfig.subModulesEcommerce[0].type === 'link') {
-                firstSubModulePath = moduleConfig.subModulesEcommerce[0].path;
-            }
-        }
-        navigate(firstSubModulePath, { replace: true });
+        navigate(moduleConfig?.path || '/', { replace: true });
       }
     }
   }, [currentUser, navigate, appContextValue]);
@@ -95,11 +82,16 @@ export const LoginPage: React.FC = () => {
     await login(email, password);
     setLoading(false);
   };
+  
+  const handleDemoLogin = (demoUser: typeof demoUsers[0]) => {
+      setEmail(demoUser.email);
+      setPassword(demoUser.pass);
+  }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-white dark:bg-neutral-800">
       {/* Form Panel */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 bg-white dark:bg-neutral-800 overflow-y-auto">
+      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-md">
           <div className="flex justify-center mb-6">
             <img src={logoUrl} alt="Pazzi Logo" className="h-10" />
@@ -154,30 +146,30 @@ export const LoginPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-center text-neutral-700 dark:text-neutral-300 mb-3">Cuentas de Demostración</h3>
             <div className="flex space-x-3 overflow-x-auto py-2"> {/* Horizontal scroll container */}
                 {demoUsers.map(user => (
-                    <div key={user.email} className="flex-shrink-0 w-60 p-2.5 bg-neutral-50 dark:bg-neutral-700 rounded-md border border-neutral-200 dark:border-neutral-600">
-                        <p className="font-medium text-neutral-700 dark:text-neutral-200 flex items-center text-base mb-0.5"> {/* Ensure name is text-base if other text becomes xs */}
+                    <button key={user.email} onClick={() => handleDemoLogin(user)} className="flex-shrink-0 w-60 p-2.5 bg-neutral-50 dark:bg-neutral-700 rounded-md border border-neutral-200 dark:border-neutral-600 text-left hover:border-primary dark:hover:border-primary transition-colors">
+                        <p className="font-medium text-neutral-700 dark:text-neutral-200 flex items-center text-base mb-0.5">
                             <UserIconMini />{user.name}
                         </p>
-                        <p className="text-sm text-neutral-600 dark:text-neutral-300"> {/* Reduced font size */}
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300">
                             Email: <code className="bg-neutral-200 dark:bg-neutral-600 px-1 py-0.5 rounded text-sm">{user.email}</code>
                         </p>
-                        <p className="text-sm text-neutral-600 dark:text-neutral-300"> {/* Reduced font size */}
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300">
                             Pass: <code className="bg-neutral-200 dark:bg-neutral-600 px-1 py-0.5 rounded text-sm">{user.pass}</code>
                         </p>
-                    </div>
+                    </button>
                 ))}
             </div>
           </div>
           
           <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700 text-center">
-              <Link to="/" className={`${authSecondaryLinkStyle} flex items-center justify-center`}>
+              <Link to="/" className={`${authSecondaryLinkStyle} inline-flex items-center justify-center`}>
                 <ArrowUturnLeftIcon /> Volver al Inicio
               </Link>
             </div>
         </div>
       </div>
       {/* Decorative Panel */}
-      <div className="hidden md:flex md:w-1/2 bg-iconCustomBlue items-center justify-center p-10 flex-col">
+      <div className="hidden md:flex md:w-1/2 bg-slate-700 items-center justify-center p-10 flex-col">
         <img src={rightPanelImageUrl} alt="Facilidad de Negocio" className="max-w-xs lg:max-w-sm rounded-lg shadow-2xl mb-8" />
         <p className="text-2xl lg:text-3xl text-white text-center font-semibold leading-relaxed max-w-md">
           Simplificamos la gestión de tu negocio para que te enfoques en crecer.

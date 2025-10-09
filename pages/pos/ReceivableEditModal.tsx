@@ -3,6 +3,7 @@ import { Modal } from '../../components/Modal';
 import { Sale } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface ReceivableEditModalProps {
     isOpen: boolean;
@@ -62,12 +63,9 @@ export const ReceivableEditModal: React.FC<ReceivableEditModalProps> = ({ isOpen
                 </div>
                 <div>
                     <label htmlFor="receivableNotes" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Notas de Cobranza</label>
-                    <textarea
-                        id="receivableNotes"
+                    <RichTextEditor
                         value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        rows={3}
-                        className={inputFormStyle + " w-full mt-1"}
+                        onChange={setNotes}
                         placeholder="Notas internas sobre esta cuenta por cobrar..."
                     />
                 </div>

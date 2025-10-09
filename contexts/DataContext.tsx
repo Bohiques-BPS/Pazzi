@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
-import { Product, Client, Employee, Project, Sale, Order, Visit, Category, ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, Notification, NotificationType, Caja, ProjectStatus, HeldCart, CartItem, SalePayment, Estimate, InventoryLog, InventoryLogType, Department } from '../types'; // Added SalePayment, Estimate, Department
-import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES, INITIAL_INVENTORY_LOGS, INITIAL_DEPARTMENTS } from '../constants'; // Added INITIAL_CAJAS, INITIAL_NOTIFICATIONS, INITIAL_ESTIMATES, INITIAL_DEPARTMENTS
+import { Product, Client, Employee, Project, Sale, Order, Visit, Category, ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, Notification, NotificationType, Caja, ProjectStatus, HeldCart, CartItem, SalePayment, Estimate, InventoryLog, InventoryLogType, Department, Layaway, LayawayStatus, ProjectFormData, Task, TaskComment, TaskStatus } from '../types';
+import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES, INITIAL_INVENTORY_LOGS, INITIAL_DEPARTMENTS, INITIAL_TASKS, INITIAL_TASK_COMMENTS } from '../constants';
 import { useAuth } from './AuthContext'; 
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons'; // Example icons for notifications
 
@@ -18,6 +18,7 @@ export interface DataContextType {
   setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
+  addProject: (projectData: ProjectFormData) => Project;
   generateInvoiceForProject: (projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }) => boolean;
   
   sales: Sale[]; 
@@ -31,6 +32,7 @@ export interface DataContextType {
 
   estimates: Estimate[];
   setEstimates: React.Dispatch<React.SetStateAction<Estimate[]>>;
+  addEstimate: (estimateData: Omit<Estimate, 'id'>) => Estimate;
 
   inventoryLogs: InventoryLog[];
   addInventoryLog: (logData: Omit<InventoryLog, 'id'>) => void;
@@ -100,6 +102,18 @@ export interface DataContextType {
   holdCurrentCart: (items: CartItem[], name?: string) => string; 
   recallCart: (cartId: string) => CartItem[] | null;
   deleteHeldCart: (cartId: string) => void;
+
+  layaways: Layaway[];
+  setLayaways: React.Dispatch<React.SetStateAction<Layaway[]>>;
+  addLayaway: (layawayData: Omit<Layaway, 'id' | 'date'>, initialPayment: { amount: number; method: string }) => void;
+
+  tasks: Task[];
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  updateTask: (taskId: string, updates: Partial<Omit<Task, 'id'>>) => void;
+  addTask: (taskData: Omit<Task, 'id' | 'archived' | 'order'>) => Task;
+  taskComments: TaskComment[];
+  setTaskComments: React.Dispatch<React.SetStateAction<TaskComment[]>>;
+  addTaskComment: (commentData: Omit<TaskComment, 'id' | 'timestamp' | 'senderName'>) => void;
 }
 
 export const DataContext = createContext<DataContextType | null>(null);
@@ -126,6 +140,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [notifications, setNotifications] = useState<Notification[]>(() => JSON.parse(localStorage.getItem('pazziNotifications') || JSON.stringify(INITIAL_NOTIFICATIONS)));
     const [lastCompletedSale, setLastCompletedSale] = useState<Sale | null>(() => JSON.parse(localStorage.getItem('pazziLastSale') || 'null'));
     const [heldCarts, setHeldCarts] = useState<HeldCart[]>(() => JSON.parse(localStorage.getItem('pazziHeldCarts') || '[]'));
+    const [layaways, setLayaways] = useState<Layaway[]>(() => JSON.parse(localStorage.getItem('pazziLayaways') || '[]'));
+    const [tasks, setTasks] = useState<Task[]>(() => JSON.parse(localStorage.getItem('pazziTasks') || JSON.stringify(INITIAL_TASKS)));
+    const [taskComments, setTaskComments] = useState<TaskComment[]>(() => JSON.parse(localStorage.getItem('pazziTaskComments') || JSON.stringify(INITIAL_TASK_COMMENTS)));
 
 
     useEffect(() => { localStorage.setItem('pazziProducts', JSON.stringify(products)); }, [products]);
@@ -148,6 +165,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => { localStorage.setItem('pazziNotifications', JSON.stringify(notifications)); }, [notifications]);
     useEffect(() => { localStorage.setItem('pazziLastSale', JSON.stringify(lastCompletedSale)); }, [lastCompletedSale]);
     useEffect(() => { localStorage.setItem('pazziHeldCarts', JSON.stringify(heldCarts)); }, [heldCarts]);
+    useEffect(() => { localStorage.setItem('pazziLayaways', JSON.stringify(layaways)); }, [layaways]);
+    useEffect(() => { localStorage.setItem('pazziTasks', JSON.stringify(tasks)); }, [tasks]);
+    useEffect(() => { localStorage.setItem('pazziTaskComments', JSON.stringify(taskComments)); }, [taskComments]);
 
     const setSales = useCallback((updater: React.SetStateAction<Sale[]>) => {
         setSalesInternal(updater);
@@ -179,6 +199,38 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         };
         setInventoryLogs(prev => [newLog, ...prev]);
     }, []);
+
+    const addEstimate = useCallback((estimateData: Omit<Estimate, 'id'>): Estimate => {
+        const newEstimate: Estimate = {
+            ...estimateData,
+            id: `est-${Date.now()}`,
+        };
+        setEstimates(prev => [newEstimate, ...prev]);
+        addNotification({
+            title: `Nuevo Estimado #${newEstimate.id.slice(-6)}`,
+            message: `Creado. Total: $${newEstimate.totalAmount.toFixed(2)}`,
+            type: 'generic',
+            link: '/pos/estimates'
+        });
+        return newEstimate;
+    }, [addNotification]);
+    
+    const addProject = useCallback((projectData: ProjectFormData): Project => {
+        const newProject: Project = {
+            id: `proj-${Date.now()}`,
+            ...projectData,
+            invoiceGenerated: false, // Ensure defaults are set
+        };
+        setProjects(prev => [...prev, newProject]);
+        addNotification({
+            title: `Nuevo Proyecto Creado: ${newProject.name}`,
+            message: `El proyecto ha sido creado y asignado al cliente.`,
+            type: 'generic',
+            link: '/pm/projects'
+        });
+        return newProject;
+    }, [setProjects, addNotification]);
+
 
     const generateInvoiceForProject = useCallback((projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }): boolean => {
         setProjects(prevProjects => {
@@ -413,6 +465,53 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
     }, [sales, salePayments]);
 
+    const getClientById = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
+
+    const addLayaway = useCallback((layawayData: Omit<Layaway, 'id' | 'date'>, initialPayment: { amount: number; method: string }) => {
+        const newLayaway: Layaway = {
+            ...layawayData,
+            id: `lay-${Date.now()}`,
+            date: new Date().toISOString(),
+        };
+        setLayaways(prev => [...prev, newLayaway]);
+        
+        addSalePayment({
+            layawayId: newLayaway.id,
+            paymentDate: newLayaway.date,
+            amountPaid: initialPayment.amount,
+            paymentMethodUsed: initialPayment.method,
+            notes: 'Abono inicial de apartado.'
+        });
+
+        newLayaway.items.forEach(cartItem => {
+            if (currentUser && !cartItem.isService) {
+                const stockBefore = getProductStockForBranch(cartItem.id, newLayaway.branchId);
+                const stockAfter = stockBefore - cartItem.quantity;
+                updateProductStockForBranch(cartItem.id, newLayaway.branchId, stockAfter);
+                addInventoryLog({
+                    productId: cartItem.id,
+                    branchId: newLayaway.branchId,
+                    date: newLayaway.date,
+                    type: InventoryLogType.SALE_POS,
+                    quantityChange: -cartItem.quantity,
+                    stockBefore: stockBefore,
+                    stockAfter: stockAfter,
+                    referenceId: newLayaway.id,
+                    employeeId: currentUser.id,
+                    notes: `Apartado #${newLayaway.id.slice(-6)}`
+                });
+            }
+        });
+
+        addNotification({
+            title: `Nuevo Apartado #${newLayaway.id.slice(-6)}`,
+            message: `Total: $${newLayaway.totalAmount.toFixed(2)}, Cliente: ${getClientById(newLayaway.clientId)?.name}`,
+            type: 'generic',
+            link: '/pos/layaways'
+        });
+    }, [addSalePayment, currentUser, getProductStockForBranch, updateProductStockForBranch, addInventoryLog, addNotification, getClientById]);
+
+
     
     const addOrder = useCallback((orderData: Omit<Order, 'id' | 'date' | 'storeOwnerId'>, storeOwnerId: string): string => {
         const newOrder: Order = {
@@ -520,7 +619,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     const getSupplierOrderById = useCallback((id: string) => supplierOrders.find(so => so.id === id), [supplierOrders]);
     
-    const getClientById = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
     const getEmployeeById = useCallback((id: string) => employees.find(e => e.id === id), [employees]);
     const getAllEmployees = useCallback(() => employees, [employees]);
     
@@ -595,14 +693,45 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setHeldCarts(prev => prev.filter(hc => hc.id !== cartId));
     }, []);
 
+    const addTask = useCallback((taskData: Omit<Task, 'id' | 'archived' | 'order'>): Task => {
+        const tasksInStatus = tasks.filter(t => t.projectId === taskData.projectId && t.status === taskData.status);
+        const newOrder = tasksInStatus.length;
+        const newTask: Task = {
+            ...taskData,
+            id: `task-${Date.now()}`,
+            archived: false,
+            order: newOrder
+        };
+        setTasks(prev => [...prev, newTask]);
+        return newTask;
+    }, [tasks]);
+
+    const updateTask = useCallback((taskId: string, updates: Partial<Omit<Task, 'id'>>) => {
+        setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updates } : t)));
+    }, []);
+
+    const addTaskComment = useCallback((commentData: Omit<TaskComment, 'id' | 'timestamp' | 'senderName'>) => {
+        if (!currentUser) {
+            console.error("No user logged in to add a comment");
+            return;
+        }
+        const newComment: TaskComment = {
+            ...commentData,
+            id: `taskcomm-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            senderName: `${currentUser.name} ${currentUser.lastName}`.trim() || currentUser.email
+        };
+        setTaskComments(prev => [...prev, newComment]);
+    }, [currentUser]);
+
 
     return (
         <DataContext.Provider value={{ 
             products, setProducts, getProductsByStoreOwner, getProductStockForBranch, updateProductStockForBranch, addProduct, updateProduct, getProductsWithStockForBranch,
-            clients, setClients, employees, setEmployees, projects, setProjects, generateInvoiceForProject,
+            clients, setClients, employees, setEmployees, projects, setProjects, addProject, generateInvoiceForProject,
             sales, setSales, addSale, recordSalePayment, lastCompletedSale,
             salePayments, addSalePayment,
-            estimates, setEstimates,
+            estimates, setEstimates, addEstimate,
             inventoryLogs, addInventoryLog,
             orders, setOrders, addOrder, updateOrderStatus, getOrdersByStoreOwner, getOrderById, 
             visits, setVisits, 
@@ -616,7 +745,10 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             branches, setBranches, getBranchById, getAllBranches,
             cajas, setCajas, getCajaById,
             notifications, addNotification, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead,
-            heldCarts, holdCurrentCart, recallCart, deleteHeldCart
+            heldCarts, holdCurrentCart, recallCart, deleteHeldCart,
+            layaways, setLayaways, addLayaway,
+            tasks, setTasks, updateTask, addTask,
+            taskComments, setTaskComments, addTaskComment
         }}>
             {children}
         </DataContext.Provider>

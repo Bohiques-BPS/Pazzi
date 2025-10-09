@@ -1,19 +1,18 @@
-
-
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
 import { AppModule } from '../../types';
+// FIX: Corrected import path for icons from `../../components/icons` to `../icons` to match sibling components in the same directory.
 import { 
     HomeIcon as DashboardIcon, // Using HomeIcon as a generic dashboard icon
     WrenchScrewdriverIcon as ProjectsIcon, // Placeholder for projects
     ShoppingCartIcon as StoreIcon, 
     Cog6ToothIcon as SettingsIcon, 
-    BriefcaseIcon as ProductsIcon, // Using Briefcase for products inventory
+    BriefcaseIcon as ProductsIcon, // Using Briefcase as products inventory
     ListBulletIcon as OrdersIcon, // Using List for orders
     ChatBubbleLeftRightIcon,
     MenuIcon, XMarkIcon
-} from '../../components/icons';
+} from '../icons';
 
 interface LayoutProps {
   children: React.ReactNode;

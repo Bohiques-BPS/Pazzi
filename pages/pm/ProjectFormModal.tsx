@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project, ProjectFormData, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, UserRole, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -9,6 +8,7 @@ import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraI
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface ProjectFormModalProps {
     isOpen: boolean;
@@ -501,7 +501,11 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                             </div>
                             <div>
                                 <label htmlFor="projectDescription" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
-                                <textarea name="description" id="projectDescription" value={formData.description} onChange={handleChange} rows={3} className={inputFormStyle}/>
+                                <RichTextEditor 
+                                    value={formData.description} 
+                                    onChange={(value) => setFormData(prev => ({...prev, description: value}))} 
+                                    placeholder="Descripción detallada del proyecto..."
+                                />
                             </div>
                         </fieldset>
 

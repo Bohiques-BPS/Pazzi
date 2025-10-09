@@ -1,152 +1,48 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pazzi</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pazzi - Integrated Business Platform</title>
+    <style>
+        html { font-size: 19px; }
+        body { margin: 0; font-family: sans-serif; }
+        #root { display: flex; flex-direction: column; min-height: 100vh; }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
     tailwind.config = {
-      darkMode: 'class', // Added for dark mode
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            primary: '#0D9488', // Teal-600
-            secondary: '#0F766E', // Teal-700
-            accent: '#F59E0B', // Amber-500
-            iconCustomBlue: '#2F4560', // New custom color for icons
-            neutral: {
-              100: '#F3F4F6', // Gray-100
-              200: '#E5E7EB', // Gray-200
-              300: '#D1D5DB', // Gray-300
-              700: '#374151', // Gray-700
-              800: '#1F2937', // Gray-800
-              900: '#111827', // Gray-900
-            }
+            primary: '#0D9488', // teal-600
+            secondary: '#0F766E', // teal-700
+            accent: '#F59E0B' // amber-500
           }
         }
       }
     }
-  </script>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.1.0/",
-    "react": "https://esm.sh/react@^19.1.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.6.1",
-    "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
-    "@google/genai": "https://esm.sh/@google/genai@^1.3.0",
-    "xlsx": "https://esm.sh/xlsx@0.18.5",
-
-    "@/App": "./App.tsx",
-    "@/constants": "./constants.ts",
-
-    "@/contexts/AuthContext": "./contexts/AuthContext.tsx",
-    "@/contexts/DataContext": "./contexts/DataContext.tsx",
-    "@/contexts/ECommerceSettingsContext": "./contexts/ECommerceSettingsContext.tsx",
-    "@/contexts/ThemeContext": "./contexts/ThemeContext.tsx",
-    "@/contexts/AppContext": "./contexts/AppContext.tsx",
-
-    "@/components/icons": "./components/icons.tsx",
-    "@/components/Modal": "./components/Modal.tsx",
-    "@/components/DataTable": "./components/DataTable.tsx",
-    "@/components/AIImportModal": "./components/AIImportModal.tsx",
-    "@/components/CallModal": "./components/CallModal.tsx",
-    "@/components/ClientSearchModal": "./components/ClientSearchModal.tsx",
-    "@/components/VirtualAssistant": "./components/VirtualAssistant.tsx",
-    "@/components/GuidedTour": "./components/GuidedTour.tsx",
-    
-    "@/components/layout/LandingLayout": "./components/layout/LandingLayout.tsx",
-    "@/components/layout/MainLayout": "./components/layout/MainLayout.tsx",
-    "@/components/layout/Navbar": "./components/layout/Navbar.tsx",
-    "@/components/layout/Sidebar": "./components/layout/Sidebar.tsx",
-    "@/components/layout/ClientLayout": "./components/layout/ClientLayout.tsx",
-    
-    "@/components/cards/ProductCard": "./components/cards/ProductCard.tsx",
-    "@/components/cards/ProjectCard": "./components/cards/ProjectCard.tsx",
-    
-    "@/components/forms/BranchFormModal": "./components/forms/BranchFormModal.tsx",
-    "@/components/forms/CajaFormModal": "./components/forms/CajaFormModal.tsx",
-    "@/components/forms/StockAdjustmentModal": "./components/forms/StockAdjustmentModal.tsx",
-    "@/components/forms/BranchStockAdjustmentModal": "./components/forms/BranchStockAdjustmentModal.tsx",
-
-    "@/components/ui/ProductAutocomplete": "./components/ui/ProductAutocomplete.tsx",
-    "@/components/ui/VisitStatusBadge": "./components/ui/VisitStatusBadge.tsx",
-    "@/components/ui/ClientPOSReportModal": "./components/ui/ClientPOSReportModal.tsx",
-    "@/components/ui/ClientAccountModal": "./components/ui/ClientAccountModal.tsx",
-    "@/components/ui/InventoryHistoryModal": "./components/ui/InventoryHistoryModal.tsx",
-
-    "@/pages/LandingPage": "./pages/LandingPage.tsx",
-    "@/pages/DashboardHomePage": "./pages/DashboardHomePage.tsx",
-    "@/pages/ClientDashboardPage": "./pages/ClientDashboardPage.tsx",
-
-    "@/pages/auth/LoginPage": "./pages/auth/LoginPage.tsx",
-    "@/pages/auth/RegisterPage": "./pages/auth/RegisterPage.tsx",
-    "@/pages/auth/ForgotPasswordPage": "./pages/auth/ForgotPasswordPage.tsx",
-    
-    "@/pages/admin/BranchesListPage": "./pages/admin/BranchesListPage.tsx",
-
-    "@/pages/pm/ProjectsDashboardPage": "./pages/pm/ProjectsDashboardPage.tsx",
-    "@/pages/pm/ProductsListPage": "./pages/pm/ProductsListPage.tsx",
-    "@/pages/pm/CategoriesListPage": "./pages/pm/CategoriesListPage.tsx",
-    "@/pages/pm/DepartmentsListPage": "./pages/pm/DepartmentsListPage.tsx",
-    "@/pages/pm/ClientsListPage": "./pages/pm/ClientsListPage.tsx",
-    "@/pages/pm/EmployeesListPage": "./pages/pm/EmployeesListPage.tsx",
-    "@/pages/pm/ProjectsListPage": "./pages/pm/ProjectsListPage.tsx",
-    "@/pages/pm/ProjectCalendarPage": "./pages/pm/ProjectCalendarPage.tsx",
-    "@/pages/pm/ProjectChatPage": "./pages/pm/ProjectChatPage.tsx",
-    "@/pages/pm/ProjectReportsPage": "./pages/pm/ProjectReportsPage.tsx",
-    "@/pages/pm/ProductFormModal": "./pages/pm/ProductFormModal.tsx",
-    "@/pages/pm/CategoryFormModal": "./pages/pm/CategoryFormModal.tsx",
-    "@/pages/pm/DepartmentFormModal": "./pages/pm/DepartmentFormModal.tsx",
-    "@/pages/pm/ClientFormModal": "./pages/pm/ClientFormModal.tsx",
-    "@/pages/pm/EmployeeFormModal": "./pages/pm/EmployeeFormModal.tsx",
-    "@/pages/pm/ProjectFormModal": "./pages/pm/ProjectFormModal.tsx",
-    "@/pages/pm/ScheduleVisitModal": "./pages/pm/ScheduleVisitModal.tsx",
-    "@/pages/pm/VisitDetailModal": "./pages/pm/VisitDetailModal.tsx",
-    "@/pages/pm/ChatMessageItem": "./pages/pm/ChatMessageItem.tsx",
-    
-    "@/pages/pos/POSCashierPage": "./pages/pos/POSCashierPage.tsx",
-    "@/pages/pos/POSReportsPage": "./pages/pos/POSReportsPage.tsx",
-    "@/pages/pos/POSSalesHistoryPage": "./pages/pos/POSSalesHistoryPage.tsx",
-    "@/pages/pos/POSInventoryPage": "./pages/pos/POSInventoryPage.tsx",
-    "@/pages/pos/EstimatesListPage": "./pages/pos/EstimatesListPage.tsx",
-    "@/pages/pos/EstimateFormModal": "./pages/pos/EstimateFormModal.tsx",
-    "@/pages/pos/AccountsPayablePage": "./pages/pos/AccountsPayablePage.tsx",
-    "@/pages/pos/AccountsReceivablePage": "./pages/pos/AccountsReceivablePage.tsx",
-    "@/pages/pos/POSCajasPage": "./pages/pos/POSCajasPage.tsx",
-    "@/pages/pos/ReceivableEditModal": "./pages/pos/ReceivableEditModal.tsx",
-
-
-    "@/pages/ecommerce/ECommerceDashboardPage": "./pages/ecommerce/ECommerceDashboardPage.tsx",
-    "@/pages/ecommerce/EcommerceStorePage": "./pages/ecommerce/EcommerceStorePage.tsx",
-    "@/pages/ecommerce/EcommerceOrdersPage": "./pages/ecommerce/EcommerceOrdersPage.tsx",
-    "@/pages/ecommerce/SuppliersListPage": "./pages/ecommerce/SuppliersListPage.tsx",
-    "@/pages/ecommerce/SupplierOrdersListPage": "./pages/ecommerce/SupplierOrdersListPage.tsx",
-    "@/pages/ecommerce/CheckoutPage": "./pages/ecommerce/CheckoutPage.tsx",
-    "@/pages/ecommerce/OrderConfirmationPage": "./pages/ecommerce/OrderConfirmationPage.tsx",
-    "@/pages/ecommerce/MyOrdersPage": "./pages/ecommerce/MyOrdersPage.tsx",
-    "@/pages/ecommerce/OrderDetailModal": "./pages/ecommerce/OrderDetailModal.tsx",
-    "@/pages/ecommerce/OrderStatusUpdateModal": "./pages/ecommerce/OrderStatusUpdateModal.tsx",
-    "@/pages/ecommerce/SupplierFormModal": "./pages/ecommerce/SupplierFormModal.tsx",
-    "@/pages/ecommerce/SupplierOrderFormModal": "./pages/ecommerce/SupplierOrderFormModal.tsx",
-
-    "@/pages/project_client/ProjectClientDashboardPage": "./pages/project_client/ProjectClientDashboardPage.tsx",
-    "@/pages/project_client/ProjectClientCalendarPage": "./pages/project_client/ProjectClientCalendarPage.tsx",
-    "@/pages/project_client/ProjectClientChatPage": "./pages/project_client/ProjectClientChatPage.tsx",
-    
-    "@/pages/client/ClientEcommerceSettingsPage": "./pages/client/ClientEcommerceSettingsPage.tsx",
-    "@/pages/client/ClientProductsPage": "./pages/client/ClientProductsPage.tsx",
-    "@/pages/client/ClientOrdersPage": "./pages/client/ClientOrdersPage.tsx"
-  }
-}
-</script>
+    </script>
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
+        "jspdf": "https://aistudiocdn.com/jspdf@^3.0.3",
+        "xlsx": "https://aistudiocdn.com/xlsx@^0.18.5",
+        "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.3",
+        "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^5.0.2"
+      }
+    }
+    </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-neutral-100 dark:bg-neutral-900 text-base md:text-lg">
-  <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>

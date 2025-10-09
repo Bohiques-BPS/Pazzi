@@ -37,7 +37,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ isOp
 
     const branchName = branchId ? getBranchById(branchId)?.name : 'Desconocida';
 
-    const parsedAdjustment = parseInt(adjustment, 10) || 0;
+    const parsedAdjustment = parseInt(adjustment.replace(/\s/g,''), 10) || 0;
     const newCalculatedStock = currentStockAtBranch + parsedAdjustment;
 
     const handleSubmit = (e: React.FormEvent) => {

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Visit, VisitFormData, VisitStatus } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
 import { VISIT_STATUS_OPTIONS, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface ScheduleVisitModalProps {
     isOpen: boolean;
@@ -112,7 +112,7 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                 </fieldset>
                 <div>
                     <label htmlFor="notes" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Notas (Opcional)</label>
-                    <textarea name="notes" id="notes" value={formData.notes} onChange={handleChange} rows={3} className={inputFormStyle} />
+                    <RichTextEditor value={formData.notes || ''} onChange={(value) => setFormData(prev => ({...prev, notes: value}))} placeholder="Añada detalles o instrucciones para la visita..." />
                 </div>
                 <div>
                     <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Estado</label>

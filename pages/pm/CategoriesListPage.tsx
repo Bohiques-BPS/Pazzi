@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Category, CategoryFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
@@ -22,7 +21,7 @@ export const CategoriesListPage: React.FC = () => {
     const openModalForCreate = (initialData?: Partial<CategoryFormData>) => {
         setEditingCategory(null);
         if (initialData) {
-            setEditingCategory({ id: '', ...initialData } as Category); 
+            setEditingCategory({ id: '', storeOwnerId: '', ...initialData } as Category); 
         }
         setShowFormModal(true);
     };
@@ -76,6 +75,7 @@ export const CategoriesListPage: React.FC = () => {
             const newCategory: Category = {
                 id: `cat-ai-${Date.now()}-${index}`,
                 name: name,
+                storeOwnerId: 'admin-user',
             };
             newCategories.push(newCategory);
             importedCount++;

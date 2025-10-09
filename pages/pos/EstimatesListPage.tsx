@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
-import { Estimate, EstimateStatus, Client, Product } from '../../types';
+import { Estimate, EstimateStatus, Client, Product, CartItem, EstimateFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { EstimateFormModal } from './EstimateFormModal';
 import { ConfirmationModal } from '../../components/Modal';
@@ -17,32 +17,38 @@ const generateEstimatePDF = (estimate: Estimate, client: Client | undefined, get
     const margin = 15;
     let y = margin;
 
+    // Header
     doc.setFontSize(18);
     doc.setTextColor(storeSettings.primaryColor || '#0D9488');
     doc.setFont("helvetica", "bold");
-    doc.text(storeSettings.storeName || "Pazzi", margin, y);
+    doc.text(storeSettings.storeName || "Pazzi Tienda Por Defecto", margin, y);
     y += 10;
     
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
-    doc.text(`Estimado #${estimate.id.slice(-6).toUpperCase()}`, pageWidth - margin, y, { align: 'right' });
-    y += 5;
-    doc.text(`Fecha: ${new Date(estimate.date).toLocaleDateString()}`, pageWidth - margin, y, { align: 'right' });
-    y += 5;
-    if (estimate.expiryDate) {
-        doc.text(`Válido hasta: ${new Date(estimate.expiryDate  + 'T00:00:00').toLocaleDateString()}`, pageWidth - margin, y, { align: 'right' });
-    }
+    doc.text("Sucursal: Sucursal Central", margin, y); // Hardcoded for now
+    doc.text("Tel: (555) 123-PAZZI", pageWidth - margin, y, { align: 'right' });
     y += 10;
+    
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("Estimación de Costos", pageWidth / 2, y, { align: 'center' });
+    y += 15;
 
-    doc.text("Para:", margin, y); y += 5;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
     if (client) {
-        doc.setFont("helvetica", "bold");
-        doc.text(`${client.name} ${client.lastName}`, margin, y); y += 5;
-        doc.setFont("helvetica", "normal");
-        doc.text(client.email, margin, y);
+        doc.text(`Estimación para: ${client.name} ${client.lastName}`, margin, y);
     }
+    doc.text(`Fecha: ${new Date(estimate.date).toLocaleDateString()}`, pageWidth - margin, y, { align: 'right' });
+    y += 8;
+
+    doc.text("Agradecemos la oportunidad de presentarle esta estimación para su consideración.", margin, y);
     y += 10;
+    
+    doc.setLineWidth(0.2);
+    doc.line(margin, y - 2, pageWidth - margin, y - 2);
 
     const tableHead = [['Cant.', 'Descripción', 'P. Unitario', 'Total']];
     const tableBody = estimate.items.map(item => [
@@ -52,32 +58,52 @@ const generateEstimatePDF = (estimate: Estimate, client: Client | undefined, get
         `$${(item.unitPrice * item.quantity).toFixed(2)}`
     ]);
 
+    const subtotal = estimate.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    const iva = estimate.totalAmount - subtotal;
+
     autoTable(doc, {
         head: tableHead,
         body: tableBody,
         startY: y,
         theme: 'striped',
-        headStyles: { fillColor: [parseInt(storeSettings.primaryColor.slice(1, 3), 16), parseInt(storeSettings.primaryColor.slice(3, 5), 16), parseInt(storeSettings.primaryColor.slice(5, 7), 16)] }
+        headStyles: { fillColor: [13, 148, 136] }, // teal-600
+        didDrawPage: (data) => {
+            y = data.cursor?.y || y;
+        }
     });
 
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    const subtotal = estimate.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-    const iva = estimate.totalAmount - subtotal;
-    
-    doc.text(`Subtotal: $${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' }); y += 7;
-    doc.text(`IVA: $${iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' }); y += 7;
-    doc.setFontSize(12);
+    // Totals section
+    const totalsX = pageWidth - margin - 60;
+    doc.setFontSize(11);
+    doc.text("Subtotal:", totalsX, y, { align: 'left' });
+    doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+    y += 7;
+    doc.text("IVA:", totalsX, y, { align: 'left' });
+    doc.text(`$${iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+    y += 7;
     doc.setFont("helvetica", "bold");
-    doc.text(`Total Estimado: $${estimate.totalAmount.toFixed(2)}`, pageWidth - margin, y, { align: 'right' }); y += 10;
+    doc.text("TOTAL ESTIMADO:", totalsX, y, { align: 'left' });
+    doc.text(`$${estimate.totalAmount.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+    y += 15;
     
-    if (estimate.notes) {
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text("Notas:", margin, y); y += 5;
-        const notesLines = doc.splitTextToSize(estimate.notes, pageWidth - (margin * 2));
-        doc.text(notesLines, margin, y);
-    }
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Términos:", margin, y); y += 5;
+    const terms = [
+        "- Esta estimación es válida por 30 días.",
+        "- Los precios no incluyen costos de instalación o envío a menos que se indique explícitamente.",
+        "- Los precios pueden variar según la disponibilidad de los productos."
+    ];
+    terms.forEach(term => {
+        doc.text(term, margin, y);
+        y += 4;
+    });
+
+    y += 5;
+    doc.setFont("helvetica", "italic");
+    doc.text("¡Esperamos poder servirle!", pageWidth / 2, y, { align: 'center' });
 
     doc.save(`Estimado_${estimate.id.slice(-6)}.pdf`);
 };
@@ -85,12 +111,16 @@ const generateEstimatePDF = (estimate: Estimate, client: Client | undefined, get
 
 export const EstimatesListPage: React.FC = () => {
     const { estimates, setEstimates, getClientById, getProductById } = useData();
+    const { currentUser } = useAuth();
     const { getDefaultSettings } = useECommerceSettings();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+
+    const [selectedEstimateIds, setSelectedEstimateIds] = useState<string[]>([]);
+    const [showCombineConfirm, setShowCombineConfirm] = useState(false);
 
     const sortedEstimates = useMemo(() => 
         [...estimates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
@@ -125,6 +155,72 @@ export const EstimatesListPage: React.FC = () => {
         generateEstimatePDF(estimate, client, getProductById, settings);
     };
 
+    const handleCombine = () => {
+        if (selectedEstimateIds.length < 2) {
+            alert("Seleccione al menos dos estimados para combinar.");
+            return;
+        }
+
+        const selected = sortedEstimates.filter(e => selectedEstimateIds.includes(e.id));
+        const firstClientId = selected[0].clientId;
+        if (!selected.every(e => e.clientId === firstClientId)) {
+            alert("Solo se pueden combinar estimados del mismo cliente.");
+            return;
+        }
+
+        setShowCombineConfirm(true);
+    };
+
+    const confirmCombine = () => {
+        if (!currentUser) {
+            alert("Error de autenticación.");
+            return;
+        }
+        const selected = estimates.filter(e => selectedEstimateIds.includes(e.id));
+        const firstClient = getClientById(selected[0].clientId);
+        if (!firstClient) return;
+
+        const combinedItems: CartItem[] = [];
+        selected.forEach(est => {
+            est.items.forEach(item => {
+                const existingItem = combinedItems.find(ci => ci.id === item.id);
+                if (existingItem) {
+                    existingItem.quantity += item.quantity;
+                } else {
+                    combinedItems.push({ ...item });
+                }
+            });
+        });
+
+        const newTotalAmount = combinedItems.reduce((sum, item) => {
+            const product = getProductById(item.id);
+            const ivaRate = product?.ivaRate ?? 0.16;
+            return sum + (item.unitPrice * item.quantity * (1 + ivaRate));
+        }, 0);
+        
+        const originalIds = selected.map(e => `#${e.id.slice(-6)}`).join(', ');
+
+        const newEstimate: Estimate = {
+            id: `est-${Date.now()}`,
+            date: new Date().toISOString(),
+            clientId: firstClient.id,
+            items: combinedItems,
+            totalAmount: newTotalAmount,
+            status: EstimateStatus.BORRADOR,
+            notes: `Combinado de estimados: ${originalIds}.\n\n--- NOTAS ORIGINALES ---\n${selected.map(e => e.notes).filter(Boolean).join('\n---\n')}`,
+            employeeId: currentUser.id,
+            branchId: selected[0].branchId,
+        };
+
+        setEstimates(prev => [
+            ...prev.map(e => selectedEstimateIds.includes(e.id) ? { ...e, status: EstimateStatus.COMBINADO } : e),
+            newEstimate
+        ]);
+
+        setSelectedEstimateIds([]);
+        setShowCombineConfirm(false);
+    };
+
     const columns: TableColumn<Estimate>[] = [
         { header: 'ID Estimado', accessor: (e) => e.id.substring(0, 8).toUpperCase() },
         { header: 'Fecha', accessor: (e) => new Date(e.date).toLocaleDateString() },
@@ -137,6 +233,7 @@ export const EstimatesListPage: React.FC = () => {
                     e.status === EstimateStatus.ENVIADO ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' :
                     e.status === EstimateStatus.ACEPTADO ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' :
                     e.status === EstimateStatus.RECHAZADO || e.status === EstimateStatus.EXPIRADO ? 'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100' :
+                    e.status === EstimateStatus.COMBINADO ? 'bg-purple-100 text-purple-700 dark:bg-purple-700 dark:text-purple-200' :
                     'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200' // Borrador
                 }`}>{e.status}</span>
             )
@@ -147,9 +244,16 @@ export const EstimatesListPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Estimados</h1>
-                <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
-                    <PlusIcon /> Crear Estimado
-                </button>
+                <div className="flex items-center gap-2">
+                    {selectedEstimateIds.length >= 2 && (
+                        <button onClick={handleCombine} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
+                            <PlusIcon /> Combinar ({selectedEstimateIds.length})
+                        </button>
+                    )}
+                    <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
+                        <PlusIcon /> Crear Estimado
+                    </button>
+                </div>
             </div>
             <DataTable<Estimate>
                 data={sortedEstimates}
@@ -161,6 +265,8 @@ export const EstimatesListPage: React.FC = () => {
                         <button onClick={() => requestDelete(estimate.id)} className="text-red-600 dark:text-red-400 p-1" title="Eliminar"><DeleteIcon /></button>
                     </div>
                 )}
+                selectedIds={selectedEstimateIds}
+                onSelectionChange={setSelectedEstimateIds}
             />
             <EstimateFormModal 
                 isOpen={showFormModal} 
@@ -174,6 +280,14 @@ export const EstimatesListPage: React.FC = () => {
                 title="Confirmar Eliminación"
                 message="¿Estás seguro de que quieres eliminar este estimado? Esta acción no se puede deshacer."
                 confirmButtonText="Sí, Eliminar"
+            />
+            <ConfirmationModal
+                isOpen={showCombineConfirm}
+                onClose={() => setShowCombineConfirm(false)}
+                onConfirm={confirmCombine}
+                title="Confirmar Combinación de Estimados"
+                message={`¿Está seguro de que desea combinar ${selectedEstimateIds.length} estimados en uno nuevo? Los estimados originales se marcarán como 'Combinado'.`}
+                confirmButtonText="Sí, Combinar"
             />
         </div>
     );

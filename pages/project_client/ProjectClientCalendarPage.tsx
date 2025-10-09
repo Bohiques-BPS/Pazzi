@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Project, UserRole, ProjectStatus, Visit, VisitStatus } from '../../types'; 
 import { useData } from '../../contexts/DataContext'; 
@@ -9,14 +8,16 @@ import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge';
 import { VisitDetailModal } from '../pm/VisitDetailModal'; // Re-use admin's detail modal for viewing
 
 interface CalendarDayWithVisits { 
-    date: Date | undefined; 
+    date: Date; 
     isCurrentMonth: boolean;
     isToday: boolean;
     visits: Visit[]; 
 }
 
+const isValidDate = (d: any): d is Date => d instanceof Date && !isNaN(d.getTime());
+
 const isSameDate = (date1?: Date, date2?: Date): boolean => {
-    if (!date1 || !date2 || !(date1 instanceof Date) || !(date2 instanceof Date) || isNaN(date1.getTime()) || isNaN(date2.getTime())) {
+    if (!date1 || !date2 || !isValidDate(date1) || !isValidDate(date2)) {
         return false;
     }
     return date1.getFullYear() === date2.getFullYear() &&
@@ -25,7 +26,7 @@ const isSameDate = (date1?: Date, date2?: Date): boolean => {
 }
 
 const getDaysArrayForMonthWithClientVisits = (dateInMonth: Date, allClientVisits: Visit[]): CalendarDayWithVisits[] => {
-    if (!(dateInMonth instanceof Date) || isNaN(dateInMonth.getTime())) {
+    if (!isValidDate(dateInMonth)) {
         console.error("getDaysArrayForMonthWithClientVisits received invalid dateInMonth:", dateInMonth);
         dateInMonth = new Date();
     }
@@ -41,7 +42,8 @@ const getDaysArrayForMonthWithClientVisits = (dateInMonth: Date, allClientVisits
 
     const prevMonthLastDay = new Date(year, month, 0);
     for (let i = 0; i < startDayOfWeekMondayFirst; i++) {
-        const day = new Date(year, month -1 , prevMonthLastDay.getDate() - startDayOfWeekMondayFirst + 1 + i);
+        const day = new Date(year, month - 1, prevMonthLastDay.getDate() - startDayOfWeekMondayFirst + 1 + i);
+        if (!isValidDate(day)) continue;
         const dayStr = day.toISOString().split('T')[0];
         daysArray.push({
             date: day,
@@ -53,6 +55,7 @@ const getDaysArrayForMonthWithClientVisits = (dateInMonth: Date, allClientVisits
 
     for (let i = 1; i <= daysInMonth; i++) {
         const day = new Date(year, month, i);
+        if (!isValidDate(day)) continue;
         const dayStr = day.toISOString().split('T')[0];
          daysArray.push({
             date: day,
@@ -67,6 +70,7 @@ const getDaysArrayForMonthWithClientVisits = (dateInMonth: Date, allClientVisits
 
     for (let i = 1; i <= remainingCells; i++) {
         const day = new Date(year, month + 1, i);
+        if (!isValidDate(day)) continue;
         const dayStr = day.toISOString().split('T')[0];
         daysArray.push({
             date: day,
@@ -88,10 +92,10 @@ export const ProjectClientCalendarPage: React.FC = () => {
     const [isVisitDetailModalOpen, setIsVisitDetailModalOpen] = useState(false);
     
     useEffect(() => {
-        if (!(currentDisplayDate instanceof Date) || isNaN(currentDisplayDate.getTime())) {
+        if (!isValidDate(currentDisplayDate)) {
             setCurrentDisplayDate(new Date());
         }
-        if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+        if (!isValidDate(selectedDate)) {
             setSelectedDate(new Date());
         }
     }, [currentDisplayDate, selectedDate]);
@@ -112,7 +116,7 @@ export const ProjectClientCalendarPage: React.FC = () => {
     const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
     const visitsForSelectedDay = useMemo(() => {
-        if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) return [];
+        if (!isValidDate(selectedDate)) return [];
         const selectedDateStr = selectedDate.toISOString().split('T')[0];
         return clientVisits.filter(v => v.date === selectedDateStr)
                            .sort((a,b) => a.startTime.localeCompare(b.startTime));
@@ -126,8 +130,8 @@ export const ProjectClientCalendarPage: React.FC = () => {
         setSelectedDate(today);
     };
     
-    const handleDayClick = (date: Date | undefined) => {
-        if (date instanceof Date && !isNaN(date.getTime())) {
+    const handleDayClick = (date: Date) => {
+        if (isValidDate(date)) {
             setSelectedDate(date);
         }
     };
@@ -136,8 +140,6 @@ export const ProjectClientCalendarPage: React.FC = () => {
         setVisitToView(visit);
         setIsVisitDetailModalOpen(true);
     };
-
-    const isValidDate = (d: any): d is Date => d instanceof Date && !isNaN(d.getTime());
 
     if (!currentUser || currentUser.role !== UserRole.CLIENT_PROJECT) {
         return <p className="p-6 text-center">Acceso denegado. Este calendario es solo para clientes de proyecto.</p>;

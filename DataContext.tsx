@@ -1,6 +1,8 @@
+
+
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
-import { Product, Client, Employee, Project, Sale, Order, Visit, Category, ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, Notification, NotificationType, Caja, ProjectStatus, HeldCart, CartItem, SalePayment, Estimate } from '../types'; // Added SalePayment, Estimate
-import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES } from '../constants'; // Added INITIAL_CAJAS, INITIAL_NOTIFICATIONS, INITIAL_ESTIMATES
+import { Product, Client, Employee, Project, Sale, Order, Visit, Category, ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, Notification, NotificationType, Caja, ProjectStatus, HeldCart, CartItem, SalePayment, Estimate, InventoryLog, InventoryLogType, Department, Layaway, LayawayStatus, ProjectFormData } from '../types';
+import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES, INITIAL_INVENTORY_LOGS, INITIAL_DEPARTMENTS } from '../constants';
 import { useAuth } from './AuthContext'; 
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons'; // Example icons for notifications
 
@@ -18,11 +20,13 @@ export interface DataContextType {
   setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
+  addProject: (projectData: ProjectFormData) => Project;
   generateInvoiceForProject: (projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }) => boolean;
   
   sales: Sale[]; 
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>; // Added setSales
   addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string}, branchId: string) => void;
+  processReturn: (originalSale: Sale, itemsToReturn: CartItem[], employeeId: string, cajaId: string, branchId: string, reason: string) => void;
   recordSalePayment: (saleId: string) => void; 
   lastCompletedSale: Sale | null; 
   
@@ -31,6 +35,10 @@ export interface DataContextType {
 
   estimates: Estimate[];
   setEstimates: React.Dispatch<React.SetStateAction<Estimate[]>>;
+  addEstimate: (estimateData: Omit<Estimate, 'id'>) => Estimate;
+
+  inventoryLogs: InventoryLog[];
+  addInventoryLog: (logData: Omit<InventoryLog, 'id'>) => void;
 
   orders: Order[]; 
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
@@ -45,6 +53,9 @@ export interface DataContextType {
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   getCategoriesByStoreOwner: (ownerId: string) => Category[];
+
+  departments: Department[];
+  setDepartments: React.Dispatch<React.SetStateAction<Department[]>>;
 
   chatMessages: ChatMessage[];
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
@@ -94,6 +105,10 @@ export interface DataContextType {
   holdCurrentCart: (items: CartItem[], name?: string) => string; 
   recallCart: (cartId: string) => CartItem[] | null;
   deleteHeldCart: (cartId: string) => void;
+
+  layaways: Layaway[];
+  setLayaways: React.Dispatch<React.SetStateAction<Layaway[]>>;
+  addLayaway: (layawayData: Omit<Layaway, 'id' | 'date'>, initialPayment: { amount: number; method: string }) => void;
 }
 
 export const DataContext = createContext<DataContextType | null>(null);
@@ -107,9 +122,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [sales, setSalesInternal] = useState<Sale[]>(() => JSON.parse(localStorage.getItem('pazziSales') || JSON.stringify(INITIAL_SALES)));
     const [salePayments, setSalePayments] = useState<SalePayment[]>(() => JSON.parse(localStorage.getItem('pazziSalePayments') || '[]'));
     const [estimates, setEstimates] = useState<Estimate[]>(() => JSON.parse(localStorage.getItem('pazziEstimates') || JSON.stringify(INITIAL_ESTIMATES)));
+    const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>(() => JSON.parse(localStorage.getItem('pazziInventoryLogs') || JSON.stringify(INITIAL_INVENTORY_LOGS)));
     const [orders, setOrders] = useState<Order[]>(() => JSON.parse(localStorage.getItem('pazziOrders') || JSON.stringify(INITIAL_ORDERS)));
     const [visits, setVisits] = useState<Visit[]>(() => JSON.parse(localStorage.getItem('pazziVisits') || JSON.stringify(INITIAL_VISITS)));
     const [categories, setCategories] = useState<Category[]>(() => JSON.parse(localStorage.getItem('pazziCategories') || JSON.stringify(INITIAL_CATEGORIES)));
+    const [departments, setDepartments] = useState<Department[]>(() => JSON.parse(localStorage.getItem('pazziDepartments') || JSON.stringify(INITIAL_DEPARTMENTS)));
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => JSON.parse(localStorage.getItem('pazziChatMessages') || JSON.stringify(INITIAL_CHAT_MESSAGES)));
     const [suppliers, setSuppliers] = useState<Supplier[]>(() => JSON.parse(localStorage.getItem('pazziSuppliers') || JSON.stringify(INITIAL_SUPPLIERS)));
     const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>(() => JSON.parse(localStorage.getItem('pazziSupplierOrders') || JSON.stringify(INITIAL_SUPPLIER_ORDERS)));
@@ -118,6 +135,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [notifications, setNotifications] = useState<Notification[]>(() => JSON.parse(localStorage.getItem('pazziNotifications') || JSON.stringify(INITIAL_NOTIFICATIONS)));
     const [lastCompletedSale, setLastCompletedSale] = useState<Sale | null>(() => JSON.parse(localStorage.getItem('pazziLastSale') || 'null'));
     const [heldCarts, setHeldCarts] = useState<HeldCart[]>(() => JSON.parse(localStorage.getItem('pazziHeldCarts') || '[]'));
+    const [layaways, setLayaways] = useState<Layaway[]>(() => JSON.parse(localStorage.getItem('pazziLayaways') || '[]'));
 
 
     useEffect(() => { localStorage.setItem('pazziProducts', JSON.stringify(products)); }, [products]);
@@ -127,9 +145,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => { localStorage.setItem('pazziSales', JSON.stringify(sales)); }, [sales]);
     useEffect(() => { localStorage.setItem('pazziSalePayments', JSON.stringify(salePayments)); }, [salePayments]);
     useEffect(() => { localStorage.setItem('pazziEstimates', JSON.stringify(estimates)); }, [estimates]);
+    useEffect(() => { localStorage.setItem('pazziInventoryLogs', JSON.stringify(inventoryLogs)); }, [inventoryLogs]);
     useEffect(() => { localStorage.setItem('pazziOrders', JSON.stringify(orders)); }, [orders]);
     useEffect(() => { localStorage.setItem('pazziVisits', JSON.stringify(visits)); }, [visits]);
     useEffect(() => { localStorage.setItem('pazziCategories', JSON.stringify(categories)); }, [categories]);
+    useEffect(() => { localStorage.setItem('pazziDepartments', JSON.stringify(departments)); }, [departments]);
     useEffect(() => { localStorage.setItem('pazziChatMessages', JSON.stringify(chatMessages)); }, [chatMessages]);
     useEffect(() => { localStorage.setItem('pazziSuppliers', JSON.stringify(suppliers)); }, [suppliers]);
     useEffect(() => { localStorage.setItem('pazziSupplierOrders', JSON.stringify(supplierOrders)); }, [supplierOrders]);
@@ -138,6 +158,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => { localStorage.setItem('pazziNotifications', JSON.stringify(notifications)); }, [notifications]);
     useEffect(() => { localStorage.setItem('pazziLastSale', JSON.stringify(lastCompletedSale)); }, [lastCompletedSale]);
     useEffect(() => { localStorage.setItem('pazziHeldCarts', JSON.stringify(heldCarts)); }, [heldCarts]);
+    useEffect(() => { localStorage.setItem('pazziLayaways', JSON.stringify(layaways)); }, [layaways]);
 
     const setSales = useCallback((updater: React.SetStateAction<Sale[]>) => {
         setSalesInternal(updater);
@@ -161,6 +182,46 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         };
         setNotifications(prev => [newNotification, ...prev]); 
     }, []);
+
+    const addInventoryLog = useCallback((logData: Omit<InventoryLog, 'id'>) => {
+        const newLog: InventoryLog = {
+            id: `invlog-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            ...logData
+        };
+        setInventoryLogs(prev => [newLog, ...prev]);
+    }, []);
+
+    const addEstimate = useCallback((estimateData: Omit<Estimate, 'id'>): Estimate => {
+        const newEstimate: Estimate = {
+            ...estimateData,
+            id: `est-${Date.now()}`,
+        };
+        setEstimates(prev => [newEstimate, ...prev]);
+        addNotification({
+            title: `Nuevo Estimado #${newEstimate.id.slice(-6)}`,
+            message: `Creado. Total: $${newEstimate.totalAmount.toFixed(2)}`,
+            type: 'generic',
+            link: '/pos/estimates'
+        });
+        return newEstimate;
+    }, [addNotification]);
+    
+    const addProject = useCallback((projectData: ProjectFormData): Project => {
+        const newProject: Project = {
+            id: `proj-${Date.now()}`,
+            ...projectData,
+            invoiceGenerated: false, // Ensure defaults are set
+        };
+        setProjects(prev => [...prev, newProject]);
+        addNotification({
+            title: `Nuevo Proyecto Creado: ${newProject.name}`,
+            message: `El proyecto ha sido creado y asignado al cliente.`,
+            type: 'generic',
+            link: '/pm/projects'
+        });
+        return newProject;
+    }, [setProjects, addNotification]);
+
 
     const generateInvoiceForProject = useCallback((projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }): boolean => {
         setProjects(prevProjects => {
@@ -346,9 +407,26 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setSalesInternal(prev => [...prev, newSale]);
         setLastCompletedSale(newSale); 
         
+        // TODO: Here, check admin alert settings for payment threshold and trigger email if needed.
+        
         newSale.items.forEach(cartItem => {
-            const currentStock = getProductStockForBranch(cartItem.id, branchId);
-            updateProductStockForBranch(cartItem.id, branchId, currentStock - cartItem.quantity);
+            if (currentUser && !cartItem.isService) {
+                const stockBefore = getProductStockForBranch(cartItem.id, branchId);
+                const stockAfter = stockBefore - cartItem.quantity;
+                updateProductStockForBranch(cartItem.id, branchId, stockAfter);
+                addInventoryLog({
+                    productId: cartItem.id,
+                    branchId: branchId,
+                    date: newSale.date,
+                    type: InventoryLogType.SALE_POS,
+                    quantityChange: -cartItem.quantity,
+                    stockBefore: stockBefore,
+                    stockAfter: stockAfter,
+                    referenceId: newSale.id,
+                    employeeId: currentUser.id,
+                    notes: `Venta #${newSale.id.slice(-6)}`
+                });
+            }
         });
          addNotification({
             title: `Nueva Venta POS #${newSale.id.substring(0,6)}`,
@@ -356,7 +434,75 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             type: 'new_order', 
             link: `/pos/sales-history`
         });
-    }, [getProductStockForBranch, updateProductStockForBranch, addNotification, setLastCompletedSale]);
+    }, [getProductStockForBranch, updateProductStockForBranch, addNotification, setLastCompletedSale, addInventoryLog, currentUser]);
+
+    const processReturn = useCallback((originalSale: Sale, itemsToReturn: CartItem[], employeeId: string, cajaId: string, branchId: string, reason: string) => {
+        if (itemsToReturn.length === 0) return;
+    
+        const returnTotal = itemsToReturn.reduce((sum, item) => {
+            // Simplified: refund is based on the item's unit price at time of return data model.
+            // A real system would fetch the price from the original sale record.
+            // For now, the CartItem passed in *is* from the original sale, so its unitPrice is correct.
+            let itemPrice = item.unitPrice;
+            if (item.discount) {
+                if (item.discount.type === 'percentage') {
+                    itemPrice *= (1 - item.discount.value / 100);
+                } else {
+                    itemPrice = Math.max(0, itemPrice - item.discount.value);
+                }
+            }
+            return sum + (itemPrice * item.quantity);
+        }, 0);
+        
+        const newReturnSale: Sale = {
+            id: `return-${Date.now()}`,
+            date: new Date().toISOString(),
+            totalAmount: -returnTotal,
+            items: itemsToReturn,
+            paymentMethod: 'Devolución',
+            cajaId,
+            branchId,
+            employeeId,
+            paymentStatus: 'Pagado',
+            clientId: originalSale.clientId,
+            isReturn: true,
+            originalSaleId: originalSale.id,
+        };
+    
+        setSalesInternal(prev => [...prev, newReturnSale]);
+    
+        const isFullReturn = itemsToReturn.length === originalSale.items.length && itemsToReturn.every(returnedItem => {
+            const originalItem = originalSale.items.find(oi => oi.id === returnedItem.id);
+            return originalItem && originalItem.quantity === returnedItem.quantity;
+        });
+    
+        const newStatus = isFullReturn ? 'Devolución Completa' : 'Devolución Parcial';
+    
+        setSalesInternal(prev => prev.map(s => s.id === originalSale.id ? { ...s, paymentStatus: newStatus } : s));
+    
+        // TODO: Here, check admin alert settings for returns and trigger email.
+    
+        itemsToReturn.forEach(item => {
+            if (!item.isService) {
+                const stockBefore = getProductStockForBranch(item.id, branchId);
+                const stockAfter = stockBefore + item.quantity;
+                updateProductStockForBranch(item.id, branchId, stockAfter);
+                addInventoryLog({
+                    productId: item.id,
+                    branchId: branchId,
+                    date: newReturnSale.date,
+                    type: InventoryLogType.RETURN,
+                    quantityChange: item.quantity,
+                    stockBefore: stockBefore,
+                    stockAfter: stockAfter,
+                    referenceId: newReturnSale.id,
+                    employeeId,
+                    notes: `Devolución de Venta #${originalSale.id.slice(-6)}. Razón: ${reason}`
+                });
+            }
+        });
+    
+    }, [getProductStockForBranch, updateProductStockForBranch, addInventoryLog, setSalesInternal]);
 
     const addSalePayment = useCallback((paymentData: Omit<SalePayment, 'id'>) => {
         const newPayment: SalePayment = {
@@ -379,6 +525,53 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
         }
     }, [sales, salePayments]);
+
+    const getClientById = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
+
+    const addLayaway = useCallback((layawayData: Omit<Layaway, 'id' | 'date'>, initialPayment: { amount: number; method: string }) => {
+        const newLayaway: Layaway = {
+            ...layawayData,
+            id: `lay-${Date.now()}`,
+            date: new Date().toISOString(),
+        };
+        setLayaways(prev => [...prev, newLayaway]);
+        
+        addSalePayment({
+            layawayId: newLayaway.id,
+            paymentDate: newLayaway.date,
+            amountPaid: initialPayment.amount,
+            paymentMethodUsed: initialPayment.method,
+            notes: 'Abono inicial de apartado.'
+        });
+
+        newLayaway.items.forEach(cartItem => {
+            if (currentUser && !cartItem.isService) {
+                const stockBefore = getProductStockForBranch(cartItem.id, newLayaway.branchId);
+                const stockAfter = stockBefore - cartItem.quantity;
+                updateProductStockForBranch(cartItem.id, newLayaway.branchId, stockAfter);
+                addInventoryLog({
+                    productId: cartItem.id,
+                    branchId: newLayaway.branchId,
+                    date: newLayaway.date,
+                    type: InventoryLogType.SALE_POS,
+                    quantityChange: -cartItem.quantity,
+                    stockBefore: stockBefore,
+                    stockAfter: stockAfter,
+                    referenceId: newLayaway.id,
+                    employeeId: currentUser.id,
+                    notes: `Apartado #${newLayaway.id.slice(-6)}`
+                });
+            }
+        });
+
+        addNotification({
+            title: `Nuevo Apartado #${newLayaway.id.slice(-6)}`,
+            message: `Total: $${newLayaway.totalAmount.toFixed(2)}, Cliente: ${getClientById(newLayaway.clientId)?.name}`,
+            type: 'generic',
+            link: '/pos/layaways'
+        });
+    }, [addSalePayment, currentUser, getProductStockForBranch, updateProductStockForBranch, addInventoryLog, addNotification, getClientById]);
+
 
     
     const addOrder = useCallback((orderData: Omit<Order, 'id' | 'date' | 'storeOwnerId'>, storeOwnerId: string): string => {
@@ -454,13 +647,28 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     const updatedOrder = { ...order, status: newStatus };
                     if (newStatus === 'Recibido Completo' && (order.storeOwnerId === ADMIN_USER_ID || !order.storeOwnerId)) { 
                         const targetBranchId = receivedToBranchId || (branches.find(b => b.isActive)?.id || '');
-                        if (targetBranchId) {
+                        if (targetBranchId && currentUser) {
                             updatedOrder.items.forEach((item: SupplierOrderItem) => {
-                                const currentStock = getProductStockForBranch(item.productId, targetBranchId);
-                                updateProductStockForBranch(item.productId, targetBranchId, currentStock + item.quantityOrdered);
+                                if (!getProductById(item.productId)?.isService) {
+                                    const stockBefore = getProductStockForBranch(item.productId, targetBranchId);
+                                    const stockAfter = stockBefore + item.quantityOrdered;
+                                    updateProductStockForBranch(item.productId, targetBranchId, stockAfter);
+                                    addInventoryLog({
+                                        productId: item.productId,
+                                        branchId: targetBranchId,
+                                        date: new Date().toISOString(),
+                                        type: InventoryLogType.SUPPLIER_RECEPTION,
+                                        quantityChange: item.quantityOrdered,
+                                        stockBefore: stockBefore,
+                                        stockAfter: stockAfter,
+                                        referenceId: order.id,
+                                        employeeId: currentUser.id,
+                                        notes: `Pedido a ${getSupplierById(order.supplierId)?.name || 'proveedor'} #${order.id.slice(-6)}`
+                                    });
+                                }
                             });
                         } else {
-                            console.warn("No active branch found to receive supplier order items for order:", orderId);
+                            console.warn("No active branch or current user found to receive supplier order items for order:", orderId);
                         }
                     }
                     return updatedOrder;
@@ -468,11 +676,10 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 return order;
             })
         );
-    }, [branches, getProductStockForBranch, updateProductStockForBranch]); 
+    }, [branches, getProductStockForBranch, updateProductStockForBranch, addInventoryLog, currentUser, getProductById, getSupplierById]); 
 
     const getSupplierOrderById = useCallback((id: string) => supplierOrders.find(so => so.id === id), [supplierOrders]);
     
-    const getClientById = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
     const getEmployeeById = useCallback((id: string) => employees.find(e => e.id === id), [employees]);
     const getAllEmployees = useCallback(() => employees, [employees]);
     
@@ -551,13 +758,15 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     return (
         <DataContext.Provider value={{ 
             products, setProducts, getProductsByStoreOwner, getProductStockForBranch, updateProductStockForBranch, addProduct, updateProduct, getProductsWithStockForBranch,
-            clients, setClients, employees, setEmployees, projects, setProjects, generateInvoiceForProject,
-            sales, setSales, addSale, recordSalePayment, lastCompletedSale,
-            salePayments, addSalePayment, 
-            estimates, setEstimates,
+            clients, setClients, employees, setEmployees, projects, setProjects, addProject, generateInvoiceForProject,
+            sales, setSales, addSale, processReturn, recordSalePayment, lastCompletedSale,
+            salePayments, addSalePayment,
+            estimates, setEstimates, addEstimate,
+            inventoryLogs, addInventoryLog,
             orders, setOrders, addOrder, updateOrderStatus, getOrdersByStoreOwner, getOrderById, 
             visits, setVisits, 
             categories, setCategories, getCategoriesByStoreOwner,
+            departments, setDepartments,
             chatMessages, setChatMessages, addChatMessage, getChatMessagesForProject,
             suppliers, setSuppliers, getSupplierById, getSuppliersByStoreOwner,
             supplierOrders, setSupplierOrders, addSupplierOrder, updateSupplierOrderStatus, getSupplierOrderById, getSupplierOrdersByStoreOwner, recordSupplierOrderPayment,
@@ -566,7 +775,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             branches, setBranches, getBranchById, getAllBranches,
             cajas, setCajas, getCajaById,
             notifications, addNotification, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead,
-            heldCarts, holdCurrentCart, recallCart, deleteHeldCart
+            heldCarts, holdCurrentCart, recallCart, deleteHeldCart,
+            layaways, setLayaways, addLayaway
         }}>
             {children}
         </DataContext.Provider>

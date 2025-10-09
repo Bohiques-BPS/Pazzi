@@ -21,39 +21,43 @@ interface CalendarEvent {
     isAllDay: boolean;
 }
 
+const isValidDate = (d: any): d is Date => d instanceof Date && !isNaN(d.getTime());
+
 const isSameDate = (date1?: Date, date2?: Date): boolean => {
-    if (!date1 || !date2 || !(date1 instanceof Date) || !(date2 instanceof Date) || isNaN(date1.getTime()) || isNaN(date2.getTime())) return false;
+    if (!date1 || !date2 || !isValidDate(date1) || !isValidDate(date2)) return false;
     return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate();
 };
-
-const isValidDate = (d: any): d is Date => d instanceof Date && !isNaN(d.getTime());
 
 const getEventsForRange = (projects: Project[], visits: Visit[]): CalendarEvent[] => {
     const events: CalendarEvent[] = [];
     
     // Process Visits
     visits.forEach(visit => {
-        events.push({
-            id: `visit-${visit.id}`,
-            title: visit.title,
-            start: new Date(`${visit.date}T${visit.startTime}`),
-            end: new Date(`${visit.date}T${visit.endTime}`),
-            type: 'visit',
-            originalData: visit,
-            status: visit.status,
-            isAllDay: false,
-        });
+        const start = new Date(`${visit.date}T${visit.startTime}`);
+        const end = new Date(`${visit.date}T${visit.endTime}`);
+        if(isValidDate(start) && isValidDate(end)) {
+            events.push({
+                id: `visit-${visit.id}`,
+                title: visit.title,
+                start: start,
+                end: end,
+                type: 'visit',
+                originalData: visit,
+                status: visit.status,
+                isAllDay: false,
+            });
+        }
     });
 
     // Process Projects
     projects.forEach(project => {
         const addProjectEvent = (dateStr: string) => {
-            // Avoid duplicate project events on the same day from different work modes
-            if (!events.some(e => e.type === 'project' && e.originalData.id === project.id && isSameDate(e.start, new Date(dateStr + 'T00:00:00')))) {
+            const date = new Date(dateStr + 'T00:00:00');
+            if (isValidDate(date) && !events.some(e => e.type === 'project' && e.originalData.id === project.id && isSameDate(e.start, date))) {
                 events.push({
                     id: `project-${project.id}-${dateStr}`,
                     title: project.name,
-                    start: new Date(dateStr + 'T00:00:00'),
+                    start: date,
                     end: new Date(dateStr + 'T23:59:59'), // All-day event
                     type: 'project',
                     originalData: project,
@@ -72,9 +76,11 @@ const getEventsForRange = (projects: Project[], visits: Visit[]): CalendarEvent[
         } else if (project.workMode === 'dateRange' && project.workStartDate && project.workEndDate) {
             let current = new Date(project.workStartDate + 'T00:00:00');
             const end = new Date(project.workEndDate + 'T00:00:00');
-            while (current <= end) {
-                addProjectEvent(current.toISOString().split('T')[0]);
-                current.setDate(current.getDate() + 1);
+            if (isValidDate(current) && isValidDate(end)) {
+                while (current <= end) {
+                    addProjectEvent(current.toISOString().split('T')[0]);
+                    current.setDate(current.getDate() + 1);
+                }
             }
         }
     });

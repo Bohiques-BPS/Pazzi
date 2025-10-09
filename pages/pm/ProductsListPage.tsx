@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Product, ProductFormData, Category, UserRole } from '../../types'; 
 import { useData } from '../../contexts/DataContext'; 
@@ -115,7 +114,8 @@ export const ProductsListPage: React.FC = () => {
                 category: item.categoria || item.category || (availableCategories.length > 0 ? availableCategories[0].name : ''),
                 ivaRate: typeof item.ivaRate === 'number' ? item.ivaRate : (typeof item.tasaIVA === 'number' ? item.tasaIVA : 0.16),
                 imageUrl: item.imageUrl || `https://picsum.photos/seed/ai-prod-${Date.now()}-${importedCount}/200/200`,
-                storeOwnerId: ADMIN_USER_ID, 
+                storeOwnerId: ADMIN_USER_ID,
+                isEmergencyTaxExempt: false, 
             };
             addProduct(productFormData); // Use new addProduct function
             importedCount++;

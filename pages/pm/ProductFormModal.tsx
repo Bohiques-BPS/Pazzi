@@ -7,6 +7,7 @@ import { TrashIconMini, EditIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, ADMIN_USER_ID, CLIENT_PRICE_LEVEL_OPTIONS } from '../../constants'; 
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { BranchStockAdjustmentModal } from '../../components/forms/BranchStockAdjustmentModal';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface ProductFormModalProps {
     isOpen: boolean;
@@ -21,7 +22,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     
     const [modalCategories, setModalCategories] = useState<Category[]>([]);
     const [activeTab, setActiveTab] = useState('Principal');
-    const tabs = ['Principal', 'Inventario y Precios', 'Identificación', 'Clasificación', 'Niveles de Precio', 'Variaciones', 'Configuración POS'];
+    const tabs = ['Principal', 'Inventario y Precios', 'Identificación', 'Clasificación', 'Especificaciones', 'Niveles de Precio', 'Variaciones', 'Configuración POS'];
 
     const determineOwnerId = () => {
         if (productToEdit) return productToEdit.storeOwnerId;
@@ -77,6 +78,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             departmentId: productToEdit?.departmentId || '',
             family: productToEdit?.family || '',
             physicalLocation: productToEdit?.physicalLocation || '',
+            weight: productToEdit?.weight || 0,
+            height: productToEdit?.height || 0,
+            length: productToEdit?.length || 0,
+            width: productToEdit?.width || 0,
+            quality: productToEdit?.quality || '',
+            compatibility: productToEdit?.compatibility || '',
+            material: productToEdit?.material || '',
             displayOnScreen: productToEdit?.displayOnScreen === undefined ? true : productToEdit.displayOnScreen,
             requiresSerialNumber: productToEdit?.requiresSerialNumber || false,
             creationDate: productToEdit?.creationDate || new Date().toISOString().split('T')[0],
@@ -326,70 +334,77 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
 
                     <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2">
                         {/* Principal Tab */}
-                        <div className={activeTab === 'Principal' ? 'space-y-3' : 'hidden'}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                {/* Left Side Panel */}
-                                <div className="space-y-3">
+                        <div className={activeTab === 'Principal' ? 'flex flex-col gap-y-6' : 'hidden'}>
+                            {/* Image section moved to top */}
+                            <div className="space-y-3 md:w-1/2 mx-auto">
+                                 <div className="h-48 bg-neutral-100 dark:bg-neutral-700/50 rounded-md flex items-center justify-center">
+                                    {formData.imageUrl ? 
+                                        <img key={formData.imageUrl} src={formData.imageUrl} alt="Vista previa" className="w-full h-full object-contain rounded"/>
+                                        : <span className="text-sm text-neutral-500">Sin imagen</span>
+                                    }
+                                 </div>
+                                  <div className="flex items-center space-x-2">
+                                    <button type="button" className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm`}>Archivo</button>
+                                    <button type="button" className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm`}>Sacar Foto</button>
+                                </div>
+                            </div>
+                            
+                            {/* Form fields below */}
+                            <div className="space-y-3">
+                                <div>
+                                    <label htmlFor="referencia" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Referencia</label>
+                                    <input type="text" id="referencia" value={formData.skus[0] || ''} onChange={(e) => setFormData(prev => ({...prev, skus: [e.target.value, ...prev.skus.slice(1)]})) } placeholder="SKU Principal" className={inputFormStyle}/>
+                                </div>
+                                <div>
+                                    <label htmlFor="productName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre</label>
+                                    <input type="text" name="name" id="productName" value={formData.name} onChange={handleChange} className={inputFormStyle} required />
+                                </div>
+                                 <div>
+                                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
+                                    <RichTextEditor
+                                        value={formData.description}
+                                        onChange={(value) => setFormData(prev => ({ ...prev, description: value }))}
+                                        placeholder="Descripción detallada del producto..."
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <label htmlFor="referencia" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Referencia</label>
-                                        <input type="text" id="referencia" value={formData.skus[0] || ''} onChange={(e) => setFormData(prev => ({...prev, skus: [e.target.value, ...prev.skus.slice(1)]})) } placeholder="SKU Principal" className={inputFormStyle}/>
+                                        <label htmlFor="barcode13Digits" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Código Barras</label>
+                                        <input type="text" name="barcode13Digits" id="barcode13Digits" value={formData.barcode13Digits} onChange={handleChange} className={inputFormStyle} />
                                     </div>
                                     <div>
-                                        <label htmlFor="productName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
-                                        <input type="text" name="name" id="productName" value={formData.name} onChange={handleChange} className={inputFormStyle} required />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label htmlFor="barcode13Digits" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Código Barras</label>
-                                            <input type="text" name="barcode13Digits" id="barcode13Digits" value={formData.barcode13Digits} onChange={handleChange} className={inputFormStyle} />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="barcode2" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Código Barras 2</label>
-                                            <input type="text" name="barcode2" id="barcode2" value={formData.barcode2} onChange={handleChange} className={inputFormStyle} />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 pt-1">
-                                        <div>
-                                            <label htmlFor="unitPricePrincipal" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Precio Base</label>
-                                            <input type="number" name="unitPrice" id="unitPricePrincipal" value={formData.unitPrice} onChange={handlePricingChange} className={inputFormStyle} min="0" step="0.01"/>
-                                        </div>
-                                        <div>
-                                            <label htmlFor="inventario" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Inventario</label>
-                                            <input type="number" id="inventario" value={formData.availableStock} className={inputFormStyle + " bg-neutral-100 dark:bg-neutral-700"} readOnly />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="disponible" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Disponible</label>
-                                            <input type="number" id="disponible" value={formData.availableStock} className={inputFormStyle + " bg-neutral-100 dark:bg-neutral-700"} readOnly />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-6 pt-2">
-                                        <div>
-                                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Activo</label>
-                                            <div className="flex items-center space-x-2">
-                                                <label className="flex items-center text-sm"><input type="radio" name="isActive" checked={!!formData.isActive} onChange={() => setFormData(prev => ({...prev, isActive: true}))} className="form-radio mr-1"/> Si</label>
-                                                <label className="flex items-center text-sm"><input type="radio" name="isActive" checked={!formData.isActive} onChange={() => setFormData(prev => ({...prev, isActive: false}))} className="form-radio mr-1"/> No</label>
-                                            </div>
-                                        </div>
-                                        <label className="flex items-center text-sm pt-4"><input type="checkbox" name="isService" checked={!!formData.isService} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> Servicio</label>
-                                    </div>
-                                    <div className="flex items-center space-x-2 pt-2 border-t dark:border-neutral-700">
-                                        <button type="button" onClick={handleOpenBranchStock} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm disabled:opacity-50 disabled:cursor-not-allowed`} disabled={!productToEdit}>Unidades</button>
-                                        <button type="button" onClick={() => setActiveTab('Niveles de Precio')} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm disabled:opacity-50 disabled:cursor-not-allowed`} disabled={!productToEdit}>Niveles de Precios</button>
-                                        <button type="button" onClick={handleOpenHistory} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm disabled:opacity-50 disabled:cursor-not-allowed`} disabled={!productToEdit}>Ver Movimiento</button>
+                                        <label htmlFor="barcode2" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Código Barras 2</label>
+                                        <input type="text" name="barcode2" id="barcode2" value={formData.barcode2} onChange={handleChange} className={inputFormStyle} />
                                     </div>
                                 </div>
-                                {/* Right side for image / description */}
-                                <div className="space-y-3">
-                                     <div className="h-48 bg-neutral-100 dark:bg-neutral-700/50 rounded-md flex items-center justify-center">
-                                        {formData.imageUrl ? 
-                                            <img key={formData.imageUrl} src={formData.imageUrl} alt="Vista previa" className="w-full h-full object-contain rounded"/>
-                                            : <span className="text-sm text-neutral-500">Sin imagen</span>
-                                        }
-                                     </div>
-                                      <div className="flex items-center space-x-2">
-                                        <button type="button" className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm`}>Archivo</button>
-                                        <button type="button" className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm`}>Sacar Foto</button>
+                                <div className="grid grid-cols-3 gap-2 pt-1">
+                                    <div>
+                                        <label htmlFor="unitPricePrincipal" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Precio Base</label>
+                                        <input type="number" name="unitPrice" id="unitPricePrincipal" value={formData.unitPrice} onChange={handlePricingChange} className={inputFormStyle} min="0" step="0.01"/>
                                     </div>
+                                    <div>
+                                        <label htmlFor="inventario" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Inventario</label>
+                                        <input type="number" id="inventario" value={formData.availableStock} className={inputFormStyle + " bg-neutral-100 dark:bg-neutral-700"} readOnly />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="disponible" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Disponible</label>
+                                        <input type="number" id="disponible" value={formData.availableStock} className={inputFormStyle + " bg-neutral-100 dark:bg-neutral-700"} readOnly />
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-6 pt-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Activo</label>
+                                        <div className="flex items-center space-x-2">
+                                            <label className="flex items-center text-sm"><input type="radio" name="isActive" checked={!!formData.isActive} onChange={() => setFormData(prev => ({...prev, isActive: true}))} className="form-radio mr-1"/> Si</label>
+                                            <label className="flex items-center text-sm"><input type="radio" name="isActive" checked={!formData.isActive} onChange={() => setFormData(prev => ({...prev, isActive: false}))} className="form-radio mr-1"/> No</label>
+                                        </div>
+                                    </div>
+                                    <label className="flex items-center text-sm pt-4"><input type="checkbox" name="isService" checked={!!formData.isService} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> Servicio</label>
+                                </div>
+                                <div className="flex items-center space-x-2 pt-2 border-t dark:border-neutral-700">
+                                    <button type="button" onClick={handleOpenBranchStock} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm disabled:opacity-50 disabled:cursor-not-allowed`} disabled={!productToEdit}>Unidades</button>
+                                    <button type="button" onClick={() => setActiveTab('Niveles de Precio')} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm disabled:opacity-50 disabled:cursor-not-allowed`} disabled={!productToEdit}>Niveles de Precios</button>
+                                    <button type="button" onClick={handleOpenHistory} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-sm disabled:opacity-50 disabled:cursor-not-allowed`} disabled={!productToEdit}>Ver Movimiento</button>
                                 </div>
                             </div>
                         </div>
@@ -515,6 +530,45 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                              <div>
                                 <label htmlFor="creationDate" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha Creación</label>
                                 <input type="date" name="creationDate" id="creationDate" value={formData.creationDate} onChange={handleChange} className={inputFormStyle} />
+                            </div>
+                        </div>
+
+                        {/* Especificaciones Tab */}
+                        <div className={activeTab === 'Especificaciones' ? 'space-y-4' : 'hidden'}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="material" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Material</label>
+                                    <input type="text" name="material" id="material" value={formData.material} onChange={handleChange} className={inputFormStyle} />
+                                </div>
+                                <div>
+                                    <label htmlFor="quality" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Calidad</label>
+                                    <input type="text" name="quality" id="quality" value={formData.quality} onChange={handleChange} className={inputFormStyle} placeholder="Ej: Grado Comercial, Premium"/>
+                                </div>
+                            </div>
+                            <fieldset className="border p-3 rounded-md dark:border-neutral-600">
+                                <legend className="text-sm font-medium px-1">Dimensiones y Peso</legend>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                                    <div>
+                                        <label htmlFor="length" className="block text-xs font-medium">Largo (cm)</label>
+                                        <input type="number" name="length" id="length" value={formData.length} onChange={handleChange} className={inputFormStyle} step="0.01" min="0"/>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="width" className="block text-xs font-medium">Ancho (cm)</label>
+                                        <input type="number" name="width" id="width" value={formData.width} onChange={handleChange} className={inputFormStyle} step="0.01" min="0"/>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="height" className="block text-xs font-medium">Alto (cm)</label>
+                                        <input type="number" name="height" id="height" value={formData.height} onChange={handleChange} className={inputFormStyle} step="0.01" min="0"/>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="weight" className="block text-xs font-medium">Peso (kg)</label>
+                                        <input type="number" name="weight" id="weight" value={formData.weight} onChange={handleChange} className={inputFormStyle} step="0.01" min="0"/>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            <div>
+                                <label htmlFor="compatibility" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Compatibilidad</label>
+                                <textarea name="compatibility" id="compatibility" value={formData.compatibility} onChange={handleChange} rows={3} className={inputFormStyle} placeholder="Ej: Compatible con modelos X, Y, Z. Requiere accesorio A."></textarea>
                             </div>
                         </div>
 

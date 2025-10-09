@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useData } from '@/contexts/DataContext';
-import { Project, ProjectStatus, VisitStatus } from '@/types';
-import { BriefcaseIcon, CalendarDaysIcon, ClockIcon, UsersIcon, ChatBubbleLeftRightIcon, BanknotesIcon } from '@/components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '@/constants';
-import { VisitStatusBadge } from '@/components/ui/VisitStatusBadge';
+import { useData } from '../../contexts/DataContext';
+import { Project, ProjectStatus, VisitStatus } from '../../types';
+import { BriefcaseIcon, CalendarDaysIcon, ClockIcon, UsersIcon, ChatBubbleLeftRightIcon, BanknotesIcon } from '../../components/icons';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge';
 import { ProjectFormModal } from './ProjectFormModal'; // Import the modal
 
 export const ProjectsDashboardPage: React.FC = () => {

@@ -1,81 +1,84 @@
-
-
 import React, { useState, createContext, useContext, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, useParams, Outlet } from 'react-router-dom';
 
 import { User, UserRole, Product, Client, Employee, Project, Sale, Order, AppModule, ProductFormData, ClientFormData, EmployeeFormData, ProjectFormData, ProjectStatus, CartItem, ProjectResource, Visit, VisitStatus, VisitFormData, ECommerceSettings, Category, CategoryFormData, Theme, ChatMessage, Caja } from './types';
-import { APP_MODULES_CONFIG, ADMIN_USER_ID, PROJECT_CLIENT_ID, ECOMMERCE_CLIENT_ID, inputFormStyle as sharedInputFormStyle } from '@/constants'; 
+import { APP_MODULES_CONFIG, ADMIN_USER_ID, PROJECT_CLIENT_ID, ECOMMERCE_CLIENT_ID, inputFormStyle as sharedInputFormStyle } from './constants'; 
 
 // Contexts
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { DataProvider, useData } from '@/contexts/DataContext';
-import { ECommerceSettingsProvider, useECommerceSettings } from '@/contexts/ECommerceSettingsContext';
-import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import { AppContextProvider, useAppContext } from '@/contexts/AppContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { DataProvider, useData } from './contexts/DataContext';
+import { ECommerceSettingsProvider, useECommerceSettings } from './contexts/ECommerceSettingsContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { AppContextProvider, useAppContext } from './contexts/AppContext';
 
 
 // Layout Components
-import { MainLayout } from '@/components/layout/MainLayout';
+import { MainLayout } from './components/layout/MainLayout';
 
 // Auth Pages
-import { LoginPage } from '@/pages/auth/LoginPage';
-import { RegisterPage } from '@/pages/auth/RegisterPage';
-import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
+import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 
 // General Pages
-import { LandingPage } from '@/pages/LandingPage';
-import { DashboardHomePage } from '@/pages/DashboardHomePage'; 
+import { LandingPage } from './pages/LandingPage';
+import { DashboardHomePage } from './pages/DashboardHomePage'; 
 
 // PM Client Pages
-import { ProjectClientDashboardPage } from '@/pages/project_client/ProjectClientDashboardPage';
-import { ProjectClientCalendarPage } from '@/pages/project_client/ProjectClientCalendarPage';
-import { ProjectClientChatPage } from '@/pages/project_client/ProjectClientChatPage';
+import { ProjectClientDashboardPage } from './pages/project_client/ProjectClientDashboardPage';
+import { ProjectClientCalendarPage } from './pages/project_client/ProjectClientCalendarPage';
+import { ProjectClientChatPage } from './pages/project_client/ProjectClientChatPage';
 
 // E-commerce Client (Shopper) specific view for their orders
-import { MyOrdersPage } from '@/pages/ecommerce/MyOrdersPage'; 
+import { MyOrdersPage } from './pages/ecommerce/MyOrdersPage'; 
 
 
 // PM Pages (Manager & PM Employee)
-import { ProjectsDashboardPage } from '@/pages/pm/ProjectsDashboardPage';
-import { ProductsListPage } from '@/pages/pm/ProductsListPage';
-import { CategoriesListPage } from '@/pages/pm/CategoriesListPage';
-import { DepartmentsListPage } from '@/pages/pm/DepartmentsListPage';
-import { ClientsListPage } from '@/pages/pm/ClientsListPage';
-import { EmployeesListPage } from '@/pages/pm/EmployeesListPage';
-import { ProjectsListPage } from '@/pages/pm/ProjectsListPage';
-import { ProjectCalendarPage } from '@/pages/pm/ProjectCalendarPage';
-import { ProjectChatPage } from '@/pages/pm/ProjectChatPage';
-import { BranchesListPage } from '@/pages/admin/BranchesListPage'; 
-import { ProjectReportsPage } from '@/pages/pm/ProjectReportsPage';
+import { ProjectsDashboardPage } from './pages/pm/ProjectsDashboardPage';
+import { ProductsListPage } from './pages/pm/ProductsListPage';
+import { CategoriesListPage } from './pages/pm/CategoriesListPage';
+import { DepartmentsListPage } from './pages/pm/DepartmentsListPage';
+import { ClientsListPage } from './pages/pm/ClientsListPage';
+import { EmployeesListPage } from './pages/pm/EmployeesListPage';
+import { ProjectsListPage } from './pages/pm/ProjectsListPage';
+import { ProjectDetailPage } from './pages/pm/ProjectDetailPage';
+import { ProjectCalendarPage } from './pages/pm/ProjectCalendarPage';
+import { ProjectChatPage } from './pages/pm/ProjectChatPage';
+import { BranchesListPage } from './pages/admin/BranchesListPage'; 
+import { ProjectReportsPage } from './pages/pm/ProjectReportsPage';
 
 // POS Pages (Manager & POS Employee)
-import { POSCashierPage } from '@/pages/pos/POSCashierPage';
-import { POSReportsPage } from '@/pages/pos/POSReportsPage';
-import { POSSalesHistoryPage } from '@/pages/pos/POSSalesHistoryPage'; 
-import { POSInventoryPage } from '@/pages/pos/POSInventoryPage';
-import { EstimatesListPage } from '@/pages/pos/EstimatesListPage';
-import { AccountsPayablePage } from '@/pages/pos/AccountsPayablePage';
-import { AccountsReceivablePage } from '@/pages/pos/AccountsReceivablePage';
-import { POSCajasPage } from '@/pages/pos/POSCajasPage';
+import { POSCashierPage } from './pages/pos/POSCashierPage';
+import { POSReportsPage } from './pages/pos/POSReportsPage';
+import { POSSalesHistoryPage } from './pages/pos/POSSalesHistoryPage'; 
+import { POSInventoryPage } from './pages/pos/POSInventoryPage';
+import { EstimatesListPage } from './pages/pos/EstimatesListPage';
+import { AccountsPayablePage } from './pages/pos/AccountsPayablePage';
+import { AccountsReceivablePage } from './pages/pos/AccountsReceivablePage';
+import { POSCajasPage } from './pages/pos/POSCajasPage';
+import { LayawaysListPage } from './pages/pos/LayawaysListPage';
 
 
 // Admin Ecommerce Pages
-import { ECommerceSettingsPage } from '@/pages/ecommerce/ECommerceDashboardPage'; 
-import { EcommerceStorePage } from '@/pages/ecommerce/EcommerceStorePage';
-import { EcommerceOrdersPage } from '@/pages/ecommerce/EcommerceOrdersPage';
-import { SuppliersListPage } from '@/pages/ecommerce/SuppliersListPage';
-import { SupplierOrdersListPage } from '@/pages/ecommerce/SupplierOrdersListPage';
-import { CheckoutPage } from '@/pages/ecommerce/CheckoutPage'; 
-import { OrderConfirmationPage } from '@/pages/ecommerce/OrderConfirmationPage'; 
+import { ECommerceSettingsPage } from './pages/ecommerce/DashboardHomePage'; 
+import { EcommerceStorePage } from './pages/ecommerce/EcommerceStorePage';
+import { EcommerceOrdersPage } from './pages/ecommerce/EcommerceOrdersPage';
+import { SuppliersListPage } from './pages/ecommerce/SuppliersListPage';
+import { SupplierOrdersListPage } from './pages/ecommerce/SupplierOrdersListPage';
+import { CheckoutPage } from './pages/ecommerce/CheckoutPage'; 
+import { OrderConfirmationPage } from './pages/ecommerce/OrderConfirmationPage'; 
+
+// Admin Pages
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 
 
 // Icons
-import { SunIcon, MoonIcon, ExclamationTriangleIcon } from '@/components/icons';
+import { SunIcon, MoonIcon, ExclamationTriangleIcon } from './components/icons';
 
 // Constants
-import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, POS_BUTTON_RED_CLASSES, POS_BUTTON_YELLOW_CLASSES, BUTTON_PRIMARY_CLASSES } from '@/constants';
-import { Modal } from '@/components/Modal';
-import { VirtualAssistant } from '@/components/VirtualAssistant';
+import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, POS_BUTTON_RED_CLASSES, POS_BUTTON_YELLOW_CLASSES, BUTTON_PRIMARY_CLASSES } from './constants';
+import { Modal } from './components/Modal';
+import { VirtualAssistant } from './components/VirtualAssistant';
 
 
 // --- PROTECTED ROUTE COMPONENT ---
@@ -395,6 +398,7 @@ const AppContent: React.FC = () => {
                 {/* Shared Manager & Employee Routes */}
                 <Route path="/pm/dashboard" element={<ProjectsDashboardPage />} />
                 <Route path="/pm/projects" element={<ProjectsListPage />} />
+                <Route path="/pm/projects/:projectId" element={<ProjectDetailPage />} />
                 <Route path="/pm/chat" element={<ProjectChatPage />} />
                 <Route path="/pos/cashier" element={<POSCashierPage />} />
 
@@ -412,6 +416,7 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/reports" element={<POSReportsPage />} />
                 <Route path="/pos/sales-history" element={<POSSalesHistoryPage />} />
                 <Route path="/pos/estimates" element={<EstimatesListPage />} />
+                <Route path="/pos/layaways" element={<LayawaysListPage />} />
                 <Route path="/pos/accounts-payable" element={<AccountsPayablePage />} />
                 <Route path="/pos/accounts-receivable" element={<AccountsReceivablePage />} />
                 <Route path="/pos/cajas" element={<POSCajasPage />} />
@@ -421,11 +426,14 @@ const AppContent: React.FC = () => {
                 <Route path="/ecommerce/suppliers" element={<SuppliersListPage />} />
                 <Route path="/ecommerce/supplier-orders" element={<SupplierOrdersListPage />} />
 
+                <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+
                 {/* Default module redirects */}
                 <Route path="/tienda" element={<Navigate to="/tienda/products" replace />} />
                 <Route path="/pm" element={<Navigate to="/pm/dashboard" replace />} />
                 <Route path="/pos" element={<Navigate to={currentUser?.role === UserRole.MANAGER ? "/pos/reports" : "/pos/cashier"} replace />} />
                 <Route path="/ecommerce" element={<Navigate to="/ecommerce/dashboard" replace />} />
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/project-client" element={<Navigate to="/project-client/dashboard" replace />} />
 
             </Route>

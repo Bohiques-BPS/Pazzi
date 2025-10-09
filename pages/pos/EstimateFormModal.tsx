@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Estimate, EstimateFormData, Client, CartItem, Product, EstimateStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -8,6 +7,7 @@ import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS, ADMIN_USER_ID, INITIAL_BRANCHES } from '../../constants';
 import { UserCircleIcon, TrashIconMini } from '../../components/icons';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface EstimateFormModalProps {
     isOpen: boolean;
@@ -201,7 +201,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
 
                          <div>
                             <label htmlFor="notes" className="block text-sm font-medium">Notas</label>
-                            <textarea name="notes" id="notes" value={formData.notes} onChange={handleChange} rows={2} className={inputFormStyle}></textarea>
+                            <RichTextEditor value={formData.notes || ''} onChange={(value) => setFormData(prev => ({...prev, notes: value}))} placeholder="Añada notas, términos o condiciones para el estimado..." />
                         </div>
                     </div>
                     

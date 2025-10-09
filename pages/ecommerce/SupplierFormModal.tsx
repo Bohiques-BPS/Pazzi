@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Supplier, SupplierFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface SupplierFormModalProps {
     isOpen: boolean;
@@ -72,7 +72,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                 </div>
                 <div>
                     <label htmlFor="address" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Dirección (Opcional)</label>
-                    <textarea name="address" id="address" value={formData.address} onChange={handleChange} rows={2} className={inputFormStyle}></textarea>
+                    <RichTextEditor value={formData.address || ''} onChange={(value) => setFormData(prev => ({...prev, address: value}))} placeholder="Dirección del proveedor..." />
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>

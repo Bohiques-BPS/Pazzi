@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
 import { useData } from '../../contexts/DataContext'; // Added useData
 import { AppModule, UserRole, Notification } from '../../types'; // Added Notification
 import { APP_MODULES_CONFIG } from '../../constants'; 
+// FIX: Corrected import path for icons from `../../components/icons` to `../icons` to match sibling components in the same directory.
 import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon } from '../icons'; // Added BellIcon, OrderIcon
 
 interface NavbarProps {
@@ -96,9 +96,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
   const renderClientProjectNavLinks = () => (
     <>
-        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Dashboard</Link>
-        <Link to="/project-client/calendar" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><CalendarDaysIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Calendario</Link>
-        <Link to="/project-client/dashboard" className="text-iconCustomBlue hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><ChatBubbleLeftRightIcon className="w-6 h-6 text-iconCustomBlue mr-1.5" /> Mis Chats</Link>
+        <Link to="/project-client/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> Dashboard</Link>
+        <Link to="/project-client/calendar" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><CalendarDaysIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> Calendario</Link>
+        <Link to="/project-client/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><ChatBubbleLeftRightIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> Mis Chats</Link>
     </>
   );
 
@@ -117,6 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     [AppModule.PROJECT_MANAGEMENT]: 'bg-blue-500',
     [AppModule.POS]: 'bg-teal-500',
     [AppModule.ECOMMERCE]: 'bg-amber-500',
+    [AppModule.ADMINISTRACION]: 'bg-slate-600',
     [AppModule.PROJECT_CLIENT_DASHBOARD]: 'bg-gray-500', // For completeness
   };
   const moduleLabelColorClass = moduleLabelColors[currentModule] || 'bg-gray-500'; // Fallback
@@ -129,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           {/* Mobile Sidebar Toggle (Manager/Employee on mobile) */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && 
             <button onClick={onToggleSidebar} className="mr-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden">
-              <MenuIcon className="w-6 h-6 text-iconCustomBlue" />
+              <MenuIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
             </button>
           }
           
@@ -145,7 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     aria-expanded={moduleDropdownOpen}
                     aria-controls="module-menu"
                 >
-                    {currentModule} <ChevronDownIcon className="w-6 h-6 text-iconCustomBlue ml-1" />
+                    {currentModule} <ChevronDownIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 ml-1" />
                 </button>
 
                 {/* Desktop: Icon-based dropdown */}
@@ -158,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     aria-expanded={moduleDropdownOpen}
                     aria-controls="module-menu"
                 >
-                    <Squares2X2Icon className="w-6 h-6 text-iconCustomBlue" />
+                    <Squares2X2Icon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
                 </button>
 
                 {/* Dropdown menu content (shared) */}
@@ -219,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     aria-expanded={notificationDropdownOpen}
                     aria-controls="notification-menu"
                 >
-                    <BellIcon className="w-6 h-6 text-iconCustomBlue"/>
+                    <BellIcon className="w-6 h-6 text-slate-600 dark:text-slate-300"/>
                     {unreadCount > 0 && (
                         <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-neutral-800 bg-red-500 animate-pulse"></span>
                     )}
@@ -273,9 +274,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           {/* User Menu */}
           <div className="relative">
             <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
-                <UserCircleIcon className="w-6 h-6 text-iconCustomBlue" />
+                <UserCircleIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
                 <span className="hidden md:inline text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
-                <ChevronDownIcon className="w-6 h-6 text-iconCustomBlue" />
+                <ChevronDownIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
             </button>
             {userDropdownOpen && (
                 <div id="user-menu" className="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600">
@@ -286,7 +287,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                         className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
                         role="menuitem"
                     >
-                    <ListBulletIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Mis Pedidos
+                    <ListBulletIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> Mis Pedidos
                     </Link>
                 )}
                 <Link 
@@ -295,14 +296,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
                     role="menuitem"
                 >
-                    <Cog6ToothIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Mi Cuenta
+                    <Cog6ToothIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> Mi Cuenta
                 </Link>
                 <button
                     onClick={() => {handleLogout(); setUserDropdownOpen(false);}}
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                     role="menuitem"
                 >
-                    <ArrowLeftOnRectangleIcon className="w-6 h-6 text-iconCustomBlue mr-2" /> Cerrar Sesión
+                    <ArrowLeftOnRectangleIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> Cerrar Sesión
                 </button>
             </div>
             )}

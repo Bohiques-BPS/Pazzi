@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { SparklesIcon, XMarkIcon, PaperAirplaneIcon, ChatBubbleLeftRightIcon } from './icons'; // Added ChatBubbleLeftRightIcon
 import { BUTTON_PRIMARY_CLASSES } from '../constants';
+import { RichTextEditor } from './ui/RichTextEditor';
 
 interface ChatMessage {
     id: string;
@@ -277,7 +278,7 @@ Si se te pregunta por los productos que ha pedido un cliente específico, primer
                                         ? 'bg-primary text-white dark:bg-primary' 
                                         : 'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100'
                                 }`}>
-                                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                                    <div className="text-sm prose dark:prose-invert max-w-none prose-p:my-0 prose-ul:my-1 prose-ol:my-1" dangerouslySetInnerHTML={{ __html: msg.text }}></div>
                                     <p className={`text-xs mt-1 opacity-70 ${msg.sender === 'user' ? 'text-right text-neutral-200 dark:text-neutral-400' : 'text-left text-neutral-500 dark:text-neutral-400'}`}>
                                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </p>
@@ -300,14 +301,11 @@ Si se te pregunta por los productos que ha pedido un cliente específico, primer
                             onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
                             className="flex items-center space-x-2"
                         >
-                            <input
-                                type="text"
+                            <RichTextEditor
                                 value={userInput}
-                                onChange={(e) => setUserInput(e.target.value)}
+                                onChange={setUserInput}
                                 placeholder="Pregúntame algo..."
-                                className="flex-grow px-3 py-2 text-sm border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                                 disabled={isLoading}
-                                aria-label="Escribe tu pregunta al asistente"
                             />
                             <button
                                 type="submit"

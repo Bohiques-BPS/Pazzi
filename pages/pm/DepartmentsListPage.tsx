@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Department } from '@/types';
-import { useData } from '@/contexts/DataContext';
-import { DataTable, TableColumn } from '@/components/DataTable';
-import { DepartmentFormModal } from '@/pages/pm/DepartmentFormModal';
-import { ConfirmationModal } from '@/components/Modal';
-import { PlusIcon, EditIcon, DeleteIcon, SparklesIcon } from '@/components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '@/constants';
-import { AIImportModal } from '@/components/AIImportModal';
+import { Department } from '../../types';
+import { useData } from '../../contexts/DataContext';
+import { DataTable, TableColumn } from '../../components/DataTable';
+import { DepartmentFormModal } from './DepartmentFormModal';
+import { ConfirmationModal } from '../../components/Modal';
+import { PlusIcon, EditIcon, DeleteIcon, SparklesIcon } from '../../components/icons';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { AIImportModal } from '../../components/AIImportModal';
 
 export const DepartmentsListPage: React.FC = () => {
     const { departments, setDepartments } = useData();
@@ -71,6 +71,7 @@ export const DepartmentsListPage: React.FC = () => {
             const newDepartment: Department = {
                 id: `dept-ai-${Date.now()}-${index}`,
                 name: name,
+                storeOwnerId: 'admin-user' // Assume admin user for now
             };
             newDepartments.push(newDepartment);
             importedCount++;

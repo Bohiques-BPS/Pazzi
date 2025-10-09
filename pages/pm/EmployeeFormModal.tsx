@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { Employee, EmployeeFormData, UserRole, EmployeePermissions } from '../../types'; // Added UserRole, EmployeePermissions
 import { useData } from '../../contexts/DataContext';
@@ -5,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/Modal';
 import { EMPLOYEE_ROLES, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { PhotoIcon, LockClosedIcon, Squares2X2Icon, BriefcaseIcon, CashBillIcon } from '../../components/icons'; // Added permission-related icons
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface EmployeeFormModalProps {
     isOpen: boolean;
@@ -165,7 +168,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({isOpen, onC
                 formData.lastName,
                 formData.email,
                 formData.password,
-                UserRole.EMPLOYEE
+                UserRole.EMPLOYEE,
+                {
+                    profilePictureUrl: formData.profilePictureUrl,
+                    permissions: formData.permissions
+                }
             );
 
             if (registrationSuccess) {
@@ -239,7 +246,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({isOpen, onC
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Dirección</label>
-                            <textarea name="address" value={formData.address || ''} onChange={handleChange} rows={2} placeholder="Dirección completa" className={inputFormStyle}/>
+                            <RichTextEditor value={formData.address || ''} onChange={(value) => setFormData(prev => ({...prev, address: value}))} placeholder="Dirección completa" />
                         </div>
                         <div>
                             <label htmlFor="profilePictureUrl" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1 flex items-center"><PhotoIcon /> Foto de Perfil (URL)</label>

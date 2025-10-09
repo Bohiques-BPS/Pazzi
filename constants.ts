@@ -1,7 +1,5 @@
-
-
 import React from 'react'; 
-import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department
+import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department, Task, TaskStatus, TaskComment } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department
 import { 
     BriefcaseIcon, 
     Squares2X2Icon, 
@@ -26,14 +24,17 @@ import {
     ArrowLeftOnRectangleIcon as ExitIcon,
     PrinterIcon as PrintIcon,
     FloppyDiskIcon as SaveIcon,
-    EscKeyIcon as ClearInputIcon,
+    XMarkIcon as EscKeyIcon,
     ExclamationTriangleIcon as EmergencyIcon,
     CreditCardIcon as CardIcon, // Added
     UserPlusIcon, // Added for client add
     ClipboardDocumentListIcon, // Added for Estimates
     AthMovilIcon, // Added for ATH Movil
     FolderIcon, // Added for Departments
-} from '@/components/icons'; 
+    ArchiveBoxIcon,
+    ArrowUturnLeftIcon,
+    ShieldCheckIcon,
+} from './components/icons'; 
 
 export const ADMIN_EMAIL = 'admin@admin.com';
 export const ADMIN_PASSWORD = 'admin';
@@ -50,10 +51,16 @@ export const ADMIN_USER_ID = 'admin-user';
 export const ANOTHER_ECOMMERCE_CLIENT_ID = 'client-ecommerce-another'; // Renamed for consistency
 
 export const DEFAULT_USERS: (User & { password?: string })[] = [
-  { id: ADMIN_USER_ID, email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: UserRole.MANAGER, name: 'Admin', lastName: 'Pazzi', isEmergencyOrderActive: false },
+  { id: ADMIN_USER_ID, email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: UserRole.MANAGER, name: 'Admin', lastName: 'Pazzi', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=admin-pazzi', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true }, alertSettings: {} },
   { id: ECOMMERCE_CLIENT_ID, email: ECOMMERCE_CLIENT_EMAIL, password: ECOMMERCE_CLIENT_PASSWORD, role: UserRole.CLIENT_ECOMMERCE, name: 'Cliente', lastName: 'Shopper', isEmergencyOrderActive: false },
-  { id: PROJECT_CLIENT_ID, email: PROJECT_CLIENT_EMAIL, password: PROJECT_CLIENT_PASSWORD, role: UserRole.CLIENT_PROJECT, name: 'Roberto', lastName: 'Gómez (Proyecto)', isEmergencyOrderActive: false }, // This is now Roberto
-  { id: 'employee-user-predefined', email: EMPLOYEE_EMAIL, password: EMPLOYEE_PASSWORD, role: UserRole.EMPLOYEE, name: 'Colaborador', lastName: 'Demo', isEmergencyOrderActive: false },
+  { id: PROJECT_CLIENT_ID, email: PROJECT_CLIENT_EMAIL, password: PROJECT_CLIENT_PASSWORD, role: UserRole.CLIENT_PROJECT, name: 'Roberto', lastName: 'Gómez (Proyecto)', isEmergencyOrderActive: false },
+  
+  // Employees as Users
+  { id: 'emp-1', email: 'ana.juarez@pazzi.com', password: 'empleado', role: UserRole.EMPLOYEE, name: 'Ana', lastName: 'Juárez', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=ana-juarez', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true } },
+  { id: 'emp-2', email: 'carlos.vargas@pazzi.com', password: 'empleado', role: UserRole.EMPLOYEE, name: 'Carlos', lastName: 'Vargas', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=carlos-vargas', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
+  { id: 'emp-3', email: 'sofia.herrera@pazzi.com', password: 'empleado', role: UserRole.EMPLOYEE, name: 'Sofía', lastName: 'Herrera', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=sofia-herrera', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
+  { id: 'employee-user-predefined', email: EMPLOYEE_EMAIL, password: EMPLOYEE_PASSWORD, role: UserRole.EMPLOYEE, name: 'Colaborador', lastName: 'Demo', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=colaborador-demo', permissions: { viewProjectManagement: false, manageProjects: false, accessPOSCashier: true } },
+  
   { id: ANOTHER_ECOMMERCE_CLIENT_ID, email: 'otrocliente.ecommerce@example.com', password: 'otrocliente', role: UserRole.CLIENT_ECOMMERCE, name: 'Otro', lastName: 'Comprador', isEmergencyOrderActive: false },
 ];
 
@@ -72,7 +79,7 @@ export const INITIAL_CAJAS: Caja[] = [
 
 export const INITIAL_PRODUCTS: Product[] = [
   
-  { id: 'prod-tile-ceramic', name: 'Azulejo Cerámico Blanco (Tienda Cliente Ecommerce)', unitPrice: 5, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 1000 }, { branchId: 'branch-central', quantity: 120 }], description: 'Azulejo cerámico blanco brillante (precio por m²). Ideal para baños y cocinas.', imageUrl: 'https://picsum.photos/seed/ceramictile/300/300', skus: ['AZL-CER-BLC-01'], category: 'Revestimientos', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
+  { id: 'prod-tile-ceramic', name: 'Azulejo Cerámico Blanco (Tienda Cliente Ecommerce)', unitPrice: 5, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 1000 }, { branchId: 'branch-central', quantity: 120 }], description: 'Azulejo cerámico blanco brillante (precio por m²). Ideal para baños y cocinas.', imageUrl: 'https://picsum.photos/seed/ceramictile/300/300', skus: ['AZL-CER-BLC-01'], category: 'Revestimientos', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false, material: 'Cerámica', quality: 'Primera Calidad', width: 30, length: 60, height: 0.8, weight: 1.5 },
   { id: 'prod-counter-granite', name: 'Encimera de Granito Negro (Tienda Cliente Ecommerce)', unitPrice: 180, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 50 }], description: 'Encimera de granito pulido (precio por metro lineal). Resistente y elegante.', imageUrl: 'https://picsum.photos/seed/granitecounter/300/300', skus: ['ENC-GRA-NEG-05'], category: 'Encimeras', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
   { id: 'prod-flooring-wood', name: 'Instalación de Piso de Madera (Tienda Cliente Ecommerce)', unitPrice: 60, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 200 }], description: 'Instalación de piso de ingeniería de roble (precio por m², incluye instalación).', imageUrl: 'https://picsum.photos/seed/woodfloor/300/300', skus: ['PIS-MAD-ROB-02'], category: 'Pisos', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isService: true, isEmergencyTaxExempt: false },
   { id: 'prod-sink-kitchen', name: 'Fregadero Doble Acero Inox. (Tienda Cliente Ecommerce)', unitPrice: 220, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 40 }], description: 'Fregadero de acero inoxidable de alta calidad con dos senos.', imageUrl: 'https://picsum.photos/seed/kitchensink/300/300', skus: ['FRG-COC-DBL-11'], category: 'Fregaderos', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
@@ -82,7 +89,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   { id: 'prod-cement-bag-demo', name: 'Bolsa de Cemento Gris (Tienda Cliente Ecommerce)', unitPrice: 12, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 80 }], description: 'Bolsa de cemento Portland gris de 42.5kg.', imageUrl: 'https://picsum.photos/seed/cementbag/300/300', skus: ['CMT-GRS-42KG'], category: 'Construcción', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
 
   
-  { id: 'prod-cabinets-modern', name: 'Juego de Gabinetes Modernos (General)', unitPrice: 2500, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 15 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 5 }], description: 'Set completo de gabinetes de melamina blanca, estilo minimalista.', imageUrl: 'https://picsum.photos/seed/kitchencabinets/300/300', skus: ['GAB-COC-MOD-03'], category: 'Gabinetes', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false },
+  { id: 'prod-cabinets-modern', name: 'Juego de Gabinetes Modernos (General)', unitPrice: 2500, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 15 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 5 }], description: 'Set completo de gabinetes de melamina blanca, estilo minimalista.', imageUrl: 'https://picsum.photos/seed/kitchencabinets/300/300', skus: ['GAB-COC-MOD-03'], category: 'Gabinetes', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false, material: 'Melamina sobre MDF', quality: 'Grado Residencial', width: 240, length: 60, height: 90, weight: 120, compatibility: 'No requiere ensamblaje especializado. Incluye herrajes estándar.' },
   { id: 'prod-paint-interior', name: 'Servicio de Pintura Interior (Global Pazzi)', unitPrice: 300, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 99 }], description: 'Pintura interior de alta calidad (materiales). Precio por habitación estándar.', imageUrl: 'https://picsum.photos/seed/interiorpaint/300/300', skus: ['SRV-PNT-INT-10'], category: 'Servicios de Pintura', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-pinturas-max', isService: true, isEmergencyTaxExempt: false },
   { id: 'prod-shower-set', name: 'Set de Ducha Lujosa (Global Pazzi)', unitPrice: 450, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 30 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 10 }], description: 'Incluye cabezal de ducha tipo lluvia, teleducha y grifería termostática.', imageUrl: 'https://picsum.photos/seed/showerset/300/300', skus: ['GRI-DUC-LUX-07'], category: 'Grifería y Sanitarios', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-herrajes-sur', isEmergencyTaxExempt: false },
   { id: 'prod-vanity-bath', name: 'Mueble de Baño con Lavabo (Global Pazzi)', unitPrice: 350, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 25 }], description: 'Mueble de baño suspendido con lavabo de cerámica y espejo.', imageUrl: 'https://picsum.photos/seed/bathvanity/300/300', skus: ['MBL-BAN-LAV-08'], category: 'Muebles de Baño', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false },
@@ -177,10 +184,10 @@ export const EMPLOYEE_ROLES = ['Gerente de Proyectos', 'Diseñador', 'Contratist
 export const CLIENT_PRICE_LEVEL_OPTIONS = ['Precio Venta', 'Precio Nivel 1', 'Precio Nivel 2', 'Contratista', 'Mayorista'];
 
 export const INITIAL_EMPLOYEES: Employee[] = [
-  { id: 'emp-1', name: 'Ana', lastName: 'Juárez', email: 'ana.juarez@pazzi.com', role: EMPLOYEE_ROLES[0], hireDate: '2022-03-15' },
-  { id: 'emp-2', name: 'Carlos', lastName: 'Vargas', email: 'carlos.vargas@pazzi.com', role: EMPLOYEE_ROLES[1], hireDate: '2021-08-01' },
-  { id: 'emp-3', name: 'Sofía', lastName: 'Herrera', email: 'sofia.herrera@pazzi.com', role: EMPLOYEE_ROLES[2], hireDate: '2023-01-10' },
-  { id: 'employee-user-predefined', name: 'Colaborador', lastName: 'Demo', email: EMPLOYEE_EMAIL, role: EMPLOYEE_ROLES[4], hireDate: '2023-05-01' }, // POS Employee
+  { id: 'emp-1', name: 'Ana', lastName: 'Juárez', email: 'ana.juarez@pazzi.com', role: EMPLOYEE_ROLES[0], hireDate: '2022-03-15', profilePictureUrl: 'https://i.pravatar.cc/150?u=ana-juarez', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true } },
+  { id: 'emp-2', name: 'Carlos', lastName: 'Vargas', email: 'carlos.vargas@pazzi.com', role: EMPLOYEE_ROLES[1], hireDate: '2021-08-01', profilePictureUrl: 'https://i.pravatar.cc/150?u=carlos-vargas', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
+  { id: 'emp-3', name: 'Sofía', lastName: 'Herrera', email: 'sofia.herrera@pazzi.com', role: EMPLOYEE_ROLES[2], hireDate: '2023-01-10', profilePictureUrl: 'https://i.pravatar.cc/150?u=sofia-herrera', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
+  { id: 'employee-user-predefined', name: 'Colaborador', lastName: 'Demo', email: EMPLOYEE_EMAIL, role: EMPLOYEE_ROLES[4], hireDate: '2023-05-01', profilePictureUrl: 'https://i.pravatar.cc/150?u=colaborador-demo', permissions: { viewProjectManagement: false, manageProjects: false, accessPOSCashier: true } },
 ];
 
 const currentYear = new Date().getFullYear();
@@ -340,6 +347,21 @@ export const INITIAL_NOTIFICATIONS: Notification[] = [
     { id: 'notif-3', title: 'Bajo Stock: Termostato Inteligente', message: 'Quedan solo 5 unidades en Sucursal Central.', timestamp: new Date().toISOString(), read: false, type: 'low_stock', link: '/pos/inventory' }
 ];
 
+export const INITIAL_TASKS: Task[] = [
+    { id: 'task-1', projectId: 'proj-kitchen-remodel', title: 'Definir paleta de colores', status: TaskStatus.TODO, archived: false, order: 0, assignedEmployeeIds: ['emp-2'] },
+    { id: 'task-2', projectId: 'proj-kitchen-remodel', title: 'Comprar azulejos y grifería', status: TaskStatus.TODO, archived: false, order: 1, assignedEmployeeIds: ['emp-1'] },
+    { id: 'task-3', projectId: 'proj-kitchen-remodel', title: 'Demoler cocina antigua', status: TaskStatus.IN_PROGRESS, archived: false, order: 0, assignedEmployeeIds: ['emp-3'] },
+    { id: 'task-4', projectId: 'proj-kitchen-remodel', title: 'Instalar plomería nueva', status: TaskStatus.IN_PROGRESS, archived: false, order: 1, assignedEmployeeIds: ['emp-3'] },
+    { id: 'task-5', projectId: 'proj-kitchen-remodel', title: 'Instalar gabinetes', status: TaskStatus.FOR_APPROVAL, archived: false, order: 0, assignedEmployeeIds: ['emp-1', 'emp-3'] },
+    { id: 'task-6', projectId: 'proj-kitchen-remodel', title: 'Pintar paredes', status: TaskStatus.DONE, archived: false, order: 0 },
+    { id: 'task-7', projectId: 'proj-bathroom-addition', title: 'Planos de ampliación', status: TaskStatus.DONE, archived: false, order: 0, assignedEmployeeIds: ['emp-2'] },
+];
+
+export const INITIAL_TASK_COMMENTS: TaskComment[] = [
+    { id: 'taskcomment-1', taskId: 'task-3', senderId: 'emp-1', senderName: 'Ana Juárez', timestamp: new Date().toISOString(), text: 'La demolición ha comenzado. Cuidado con el polvo.' },
+    { id: 'taskcomment-2', taskId: 'task-3', senderId: 'client-1', senderName: 'Roberto Gómez', timestamp: new Date().toISOString(), text: '¡Excelente! Gracias por el aviso.' },
+];
+
 
 export const inputFormStyle = "block w-full px-3 py-1.5 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
 export const INPUT_SM_CLASSES = "px-2.5 py-1.5 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
@@ -357,6 +379,7 @@ export const POS_BUTTON_RED_CLASSES = "bg-red-600 hover:bg-red-700 text-white fo
 export const POS_BUTTON_YELLOW_CLASSES = "bg-yellow-500 hover:bg-yellow-600 text-neutral-800 font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_GREEN_CLASSES = "bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_PURPLE_CLASSES = "bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
+export const POS_BUTTON_CYAN_CLASSES = "bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_SECONDARY_CLASSES = "bg-neutral-500 hover:bg-neutral-600 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_DARK_RED_CLASSES = "bg-red-800 hover:bg-red-900 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 
@@ -365,6 +388,7 @@ export const POS_BUTTON_ORANGE_CLASSES = "bg-orange-500 hover:bg-orange-600 text
 export const POS_BUTTON_INDIGO_CLASSES = "bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_CREDIT_CLASSES = "bg-sky-600 hover:bg-sky-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 export const POS_BUTTON_PINK_CLASSES = "bg-pink-600 hover:bg-pink-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
+export const POS_BUTTON_LIME_CLASSES = "bg-lime-600 hover:bg-lime-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";
 
 
 // Auth Page Styles
@@ -406,6 +430,7 @@ export const APP_MODULES_CONFIG = [
       { type: 'link', name: 'Colaboradores', path: '/tienda/employees', icon: React.createElement(UsersIcon, { className: "w-5 h-5" }) },
       { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: React.createElement(BuildingStorefrontIcon, { className: "w-5 h-5" }) },
     ] as SidebarItemConfig[],
+    subModulesAdmin: [] as SidebarItemConfig[],
   },
   { 
     name: AppModule.PROJECT_MANAGEMENT, 
@@ -422,6 +447,7 @@ export const APP_MODULES_CONFIG = [
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [] as SidebarItemConfig[],
   },
   { 
     name: AppModule.POS, 
@@ -433,6 +459,7 @@ export const APP_MODULES_CONFIG = [
         { type: 'link', name: 'Reportes POS', path: '/pos/reports', icon: React.createElement(ChartPieIcon) },
         { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: React.createElement(ListBulletIcon) },
         { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: React.createElement(ClipboardDocumentListIcon) },
+        { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: React.createElement(ArchiveBoxIcon) },
         { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: React.createElement(DocumentArrowUpIcon) },
         { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: React.createElement(BanknotesIcon) },
         { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: React.createElement(CubeIcon) },
@@ -440,6 +467,7 @@ export const APP_MODULES_CONFIG = [
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [] as SidebarItemConfig[],
   },
   { 
     name: AppModule.ECOMMERCE, 
@@ -456,6 +484,20 @@ export const APP_MODULES_CONFIG = [
     ] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [] as SidebarItemConfig[],
+  },
+  { 
+    name: AppModule.ADMINISTRACION, 
+    path: '/admin/dashboard', 
+    icon: React.createElement(ShieldCheckIcon),
+    subModulesProject: [] as SidebarItemConfig[],
+    subModulesPOS: [] as SidebarItemConfig[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [
+      { type: 'link', name: 'Dashboard Admin', path: '/admin/dashboard', icon: React.createElement(HomeIcon) },
+    ] as SidebarItemConfig[],
   },
   { 
     name: AppModule.PROJECT_CLIENT_DASHBOARD, 
@@ -470,6 +512,7 @@ export const APP_MODULES_CONFIG = [
         { type: 'link', name: 'Chat del Proyecto', path: '/project-client/chat', icon: React.createElement(ChatBubbleLeftRightIcon) }, // Path will be dynamic with projectId
     ] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [] as SidebarItemConfig[],
   },
 ];
 

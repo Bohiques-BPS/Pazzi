@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable, { UserOptions } from 'jspdf-autotable';
 import { Project, ProjectStatus, Client, Product as ProductType, Employee, ECommerceSettings, ProjectFormData, UserRole, Visit, VisitStatus } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { useAuth } from '../../contexts/AuthContext'; // Added useAuth
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext'; // Adjusted path
-import { ProjectFormModal } from './ProjectFormModal'; // Adjusted path
 import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { ProjectCard } from '../../components/cards/ProjectCard'; // Adjusted path
 import { PlusIcon, SparklesIcon, EditIcon, DeleteIcon, DocumentArrowDownIcon } from '../../components/icons'; // Adjusted path
@@ -363,10 +363,8 @@ const generateInvoicePDF = ({project, client, allProducts, storeSettings}: Gener
 export const ProjectsListPage: React.FC = () => {
     const { projects: allProjectsContext, setProjects, getClientById, products: allProductsFromHook, getAllEmployees, clients, visits, generateInvoiceForProject } = useData(); 
     const { currentUser } = useAuth();
-    const { getDefaultSettings } = useECommerceSettings(); 
-    const [showFormModal, setShowFormModal] = useState(false);
-    const [editingProject, setEditingProject] = useState<Project | null>(null);
-    const [initialModalTab, setInitialModalTab] = useState<'details' | 'chat'>('details');
+    const { getDefaultSettings } = useECommerceSettings();
+    const navigate = useNavigate();
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
@@ -392,35 +390,8 @@ export const ProjectsListPage: React.FC = () => {
         return allProjectsContext; // For manager
     }, [allProjectsContext, currentUser, isEmployeeView]);
 
-
-    const openModalForCreate = (initialData?: Partial<ProjectFormData>) => { 
-        if (isEmployeeView) return; 
-        setEditingProject(null); 
-        setInitialModalTab('details');
-        if (initialData) {
-            setEditingProject({ 
-                id: '',
-                ...initialData,
-                name: initialData.name || '',
-                clientId: initialData.clientId || (clients.length > 0 ? clients[0].id : ''),
-                status: initialData.status || ProjectStatus.PENDING,
-                description: initialData.description || '',
-                assignedProducts: initialData.assignedProducts || [],
-                assignedEmployeeIds: initialData.assignedEmployeeIds || [],
-                visitDate: initialData.visitDate || '',
-                visitTime: initialData.visitTime || '',
-                workMode: initialData.workMode || 'daysOnly',
-                workDays: initialData.workDays || [],
-                workDayTimeRanges: initialData.workDayTimeRanges || [],
-            } as Project); 
-        }
-        setShowFormModal(true); 
-    };
-
-    const openModalForEdit = (proj: Project, initialTab: 'details' | 'chat' = 'details') => { 
-        setEditingProject(proj); 
-        setInitialModalTab(initialTab);
-        setShowFormModal(true); 
+    const handleViewProject = (project: Project, initialTab: 'details' | 'chat' | 'tasks' = 'details') => {
+        navigate(`/pm/projects/${project.id}?tab=${initialTab}`);
     };
     
     const requestDelete = (projId: string) => {
@@ -606,9 +577,9 @@ export const ProjectsListPage: React.FC = () => {
                             <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
                                 <SparklesIcon /> Importar con IA
                             </button>
-                            <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
+                            <Link to="/pm/projects/new" className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
                                 <PlusIcon /> Crear Proyecto
-                            </button>
+                            </Link>
                         </>
                     )}
                 </div>
@@ -683,7 +654,7 @@ export const ProjectsListPage: React.FC = () => {
                         <ProjectCard 
                             key={proj.id} 
                             project={proj} 
-                            onEdit={openModalForEdit} 
+                            onViewProject={handleViewProject} 
                             onRequestDelete={requestDelete} 
                             onViewQuotation={handleGenerateQuotationPDF}
                             onGenerateInvoice={handleGenerateInvoice}
@@ -697,14 +668,6 @@ export const ProjectsListPage: React.FC = () => {
                 <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">No se encontraron proyectos con los filtros actuales.</p>
             )}
             
-            <ProjectFormModal 
-                isOpen={showFormModal} 
-                onClose={() => setShowFormModal(false)} 
-                project={editingProject}
-                initialTab={initialModalTab} 
-                onGenerateInvoice={handleGenerateInvoice} // Pass the handler
-                onViewInvoicePDF={handleViewInvoicePDF}   // Pass the handler
-            />
             {!isEmployeeView && (
                  <ConfirmationModal
                     isOpen={showDeleteConfirmModal}

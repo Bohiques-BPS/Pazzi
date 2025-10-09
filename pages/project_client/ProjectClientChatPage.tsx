@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
@@ -7,6 +6,7 @@ import { Project, UserRole } from '../../types';
 import { ChatMessageItem } from '../pm/ChatMessageItem'; 
 import { PaperAirplaneIcon, ArrowUturnLeftIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 export const ProjectClientChatPage: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
@@ -94,24 +94,13 @@ export const ProjectClientChatPage: React.FC = () => {
             </div>
 
             <div className="p-3 sm:p-4 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
-                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2 sm:space-x-3">
-                    <textarea
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage();
-                            }
-                        }}
-                        placeholder="Escribe tu mensaje..."
-                        className={`${inputFormStyle} flex-grow !py-2 resize-none max-h-24`}
-                        rows={1}
-                        aria-label="Escribir mensaje"
-                    />
+                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-start space-x-2 sm:space-x-3">
+                    <div className="flex-grow">
+                        <RichTextEditor value={newMessage} onChange={setNewMessage} placeholder="Escribe tu mensaje..." />
+                    </div>
                     <button 
                         type="submit" 
-                        className={`${BUTTON_PRIMARY_CLASSES} !py-2 !px-3 sm:!px-4 rounded-lg flex items-center justify-center flex-shrink-0`}
+                        className={`${BUTTON_PRIMARY_CLASSES} !py-2 !px-3 sm:!px-4 rounded-lg flex items-center justify-center flex-shrink-0 self-end`}
                         disabled={!newMessage.trim()}
                         aria-label="Enviar mensaje"
                     >

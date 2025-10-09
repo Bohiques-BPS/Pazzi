@@ -5,7 +5,7 @@ import { EllipsisVerticalIcon, CalendarDaysIcon, UserGroupIcon, ChatBubbleLeftRi
 
 interface ProjectCardProps {
     project: Project;
-    onEdit: (project: Project, initialTab?: 'details' | 'chat') => void; // Modified to accept initialTab
+    onViewProject: (project: Project, initialTab?: 'details' | 'chat' | 'tasks') => void;
     onRequestDelete: (projectId: string) => void;
     onViewQuotation: (project: Project) => void;
     onGenerateInvoice: (project: Project) => void; // New prop
@@ -16,7 +16,7 @@ interface ProjectCardProps {
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ 
     project, 
-    onEdit, 
+    onViewProject, 
     onRequestDelete, 
     onViewQuotation, 
     onGenerateInvoice,
@@ -54,7 +54,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     </button>
                     {actionsOpen && (
                         <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-10 border border-neutral-200 dark:border-neutral-600">
-                            <button onClick={() => { onEdit(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Editar Detalles</button>
+                            <button onClick={() => { onViewProject(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Editar Detalles</button>
                             <button onClick={() => { onViewQuotation(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Cotización</button>
                              {project.status === ProjectStatus.COMPLETED && !project.invoiceGenerated && (
                                 <button onClick={() => { onGenerateInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Generar Factura</button>
@@ -71,7 +71,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         <p className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block ${statusColors[project.status]}`}>
             {project.status}
         </p>
-        <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-2 line-clamp-2 flex-grow">{project.description}</p>
+        <div className="text-sm prose dark:prose-invert max-w-none text-neutral-600 dark:text-neutral-300 mt-2 line-clamp-2 flex-grow" dangerouslySetInnerHTML={{ __html: project.description || ''}}></div>
       </div>
 
       <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
@@ -83,8 +83,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             <p className="flex items-center"><CalendarDaysIcon className="w-4 h-4 mr-2" /> Visita: {project.visitDate ? new Date(project.visitDate + 'T00:00:00').toLocaleDateString() : 'N/P'}</p>
         </div>
          <div className="mt-4 flex space-x-2">
-            <button onClick={() => onEdit(project, 'chat')} className="flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
+            <button onClick={() => onViewProject(project, 'chat')} className="flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
                 <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" /> Chat
+            </button>
+             <button onClick={() => onViewProject(project, 'tasks')} className="flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
+                <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" /> Tareas
             </button>
              {project.invoiceGenerated && (
                  <button onClick={() => onViewInvoice(project)} className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-700/50 dark:hover:bg-blue-700/80 dark:text-blue-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
