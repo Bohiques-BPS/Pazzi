@@ -159,7 +159,7 @@ const POSActionAuthModal: React.FC<{
 export const POSCashierPage: React.FC = () => {
     const navigate = useNavigate();
     const {
-        products, getProductsWithStockForBranch, branches, cajas, clients, addSale,
+        products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
         heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales
     } = useData();
     const { currentUser, login, allUsers, logout } = useAuth();
@@ -519,36 +519,24 @@ export const POSCashierPage: React.FC = () => {
         }
     };
     
-    const handleProcessReturn = (originalSale: Sale, itemsToReturn: CartItem[], reason: string) => {
-        if (!currentUser) return;
-        
-        // This is a simplified process. A real one might need more checks.
-        const returnTotal = itemsToReturn.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-    
-        const newReturnSale: Sale = {
-            id: `return-${Date.now()}`,
-            date: new Date().toISOString(),
-            totalAmount: -returnTotal,
-            items: itemsToReturn,
-            paymentMethod: 'Devolución',
-            cajaId: selectedCajaId,
-            branchId: selectedBranchId,
-            employeeId: currentUser.id,
-            paymentStatus: 'Pagado',
-            clientId: originalSale.clientId,
-            isReturn: true,
-            originalSaleId: originalSale.id
-        };
-    
-        setSales(prev => [...prev, newReturnSale]);
-    
-        setSales(prev => prev.map(s => 
-            s.id === originalSale.id 
-                ? { ...s, paymentStatus: 'Devolución Parcial' } // Simplified status update
-                : s
-        ));
-    
-        alert('Devolución procesada. El ajuste de inventario se debe hacer manualmente por ahora.');
+    const handleProcessReturnFromModal = (originalSaleId: string, itemsToReturn: CartItem[], reason: string, adminPassword: string) => {
+        const admin = allUsers.find(u => u.role === UserRole.MANAGER && u.password === adminPassword);
+        if (!admin) {
+            alert('Contraseña de administrador incorrecta. Devolución no autorizada.');
+            return;
+        }
+
+        const originalSale = sales.find(s => s.id === originalSaleId);
+        if (!originalSale) {
+            alert('Venta original no encontrada.');
+            return;
+        }
+        if (!currentUser) {
+            alert('Usuario no encontrado.');
+            return;
+        }
+
+        processReturn(originalSale, itemsToReturn, currentUser.id, selectedCajaId, selectedBranchId, reason);
         setActiveModal(null);
     };
 
@@ -751,7 +739,7 @@ export const POSCashierPage: React.FC = () => {
             <EndShiftModal isOpen={activeModal === 'endShift'} onClose={() => setActiveModal(null)} onConfirm={handleEndShift} shiftData={shiftReportData} />
             <PayoutModal isOpen={activeModal === 'payout'} onClose={() => setActiveModal(null)} onConfirm={handleAddPayout} currentCashInDrawer={(shiftState?.openingAmount || 0) + shiftReportData.cashSales - shiftReportData.payouts} />
             <DiscountAuthModal isOpen={activeModal === 'discountAuth'} onClose={() => setActiveModal(null)} onApply={handleApplyDiscount} />
-            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={() => {}} />
+            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} />
         </div>
     );
 };

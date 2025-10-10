@@ -24,6 +24,7 @@ export interface DataContextType {
   sales: Sale[]; 
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>; // Added setSales
   addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string}, branchId: string) => void;
+  processReturn: (originalSale: Sale, itemsToReturn: CartItem[], employeeId: string, cajaId: string, branchId: string, reason: string) => void;
   recordSalePayment: (saleId: string) => void; 
   lastCompletedSale: Sale | null; 
   
@@ -443,6 +444,70 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         });
     }, [getProductStockForBranch, updateProductStockForBranch, addNotification, setLastCompletedSale, addInventoryLog, currentUser]);
 
+    const processReturn = useCallback((originalSale: Sale, itemsToReturn: CartItem[], employeeId: string, cajaId: string, branchId: string, reason: string) => {
+        if (itemsToReturn.length === 0) return;
+    
+        const returnTotal = itemsToReturn.reduce((sum, item) => {
+            let itemPrice = item.unitPrice;
+            if (item.discount) {
+                if (item.discount.type === 'percentage') {
+                    itemPrice *= (1 - item.discount.value / 100);
+                } else {
+                    itemPrice = Math.max(0, itemPrice - item.discount.value);
+                }
+            }
+            return sum + (itemPrice * item.quantity);
+        }, 0);
+        
+        const newReturnSale: Sale = {
+            id: `return-${Date.now()}`,
+            date: new Date().toISOString(),
+            totalAmount: -returnTotal,
+            items: itemsToReturn,
+            paymentMethod: 'Devolución',
+            cajaId,
+            branchId,
+            employeeId,
+            paymentStatus: 'Pagado',
+            clientId: originalSale.clientId,
+            isReturn: true,
+            originalSaleId: originalSale.id,
+        };
+    
+        setSalesInternal(prev => [...prev, newReturnSale]);
+    
+        const isFullReturn = itemsToReturn.length === originalSale.items.length && itemsToReturn.every(returnedItem => {
+            const originalItem = originalSale.items.find(oi => oi.id === returnedItem.id);
+            return originalItem && originalItem.quantity === returnedItem.quantity;
+        });
+    
+        const newStatus = isFullReturn ? 'Devolución Completa' : 'Devolución Parcial';
+    
+        setSalesInternal(prev => prev.map(s => s.id === originalSale.id ? { ...s, paymentStatus: newStatus } : s));
+    
+        itemsToReturn.forEach(item => {
+            if (!item.isService) {
+                const stockBefore = getProductStockForBranch(item.id, branchId);
+                const stockAfter = stockBefore + item.quantity;
+                updateProductStockForBranch(item.id, branchId, stockAfter);
+                addInventoryLog({
+                    productId: item.id,
+                    branchId: branchId,
+                    date: newReturnSale.date,
+                    type: InventoryLogType.RETURN,
+                    quantityChange: item.quantity,
+                    stockBefore: stockBefore,
+                    stockAfter: stockAfter,
+                    referenceId: newReturnSale.id,
+                    employeeId,
+                    notes: `Devolución de Venta #${originalSale.id.slice(-6)}. Razón: ${reason}`
+                });
+            }
+        });
+    
+    }, [getProductStockForBranch, updateProductStockForBranch, addInventoryLog, setSalesInternal]);
+
+
     const addSalePayment = useCallback((paymentData: Omit<SalePayment, 'id'>) => {
         const newPayment: SalePayment = {
             ...paymentData,
@@ -729,7 +794,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         <DataContext.Provider value={{ 
             products, setProducts, getProductsByStoreOwner, getProductStockForBranch, updateProductStockForBranch, addProduct, updateProduct, getProductsWithStockForBranch,
             clients, setClients, employees, setEmployees, projects, setProjects, addProject, generateInvoiceForProject,
-            sales, setSales, addSale, recordSalePayment, lastCompletedSale,
+            sales, setSales, addSale, processReturn, recordSalePayment, lastCompletedSale,
             salePayments, addSalePayment,
             estimates, setEstimates, addEstimate,
             inventoryLogs, addInventoryLog,

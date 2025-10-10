@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { Sale, ECommerceSettings } from '../../types'; // Adjusted path, Added ECommerceSettings
@@ -14,10 +13,11 @@ export const POSSalesHistoryPage: React.FC = () => {
   const { sales, getProductById, getEmployeeById } = useData();
   const { getDefaultSettings } = useECommerceSettings(); // Changed to use getDefaultSettings
 
-  const generateSaleReceiptPDF = (sale: Sale) => {
+  const generateSaleReceiptPDF = async (sale: Sale) => {
     const doc = new jsPDF();
     const currentStoreSettings = getDefaultSettings(); // Get current default settings
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let currentY = margin;
 
@@ -97,9 +97,38 @@ export const POSSalesHistoryPage: React.FC = () => {
     doc.setFont("helvetica", "bold");
     doc.text(`TOTAL VENTA: $${sale.totalAmount.toFixed(2)}`, pageWidth - margin, currentY, { align: 'right' });
     currentY += 15;
+    
+    const qrText = `Recibo de Venta Pazzi\nID: VTA-${sale.id.slice(-6).toUpperCase()}\nTotal: $${sale.totalAmount.toFixed(2)}\nFecha: ${new Date(sale.date).toLocaleDateString('es-ES')}`;
+    let qrCodeDataUrl = '';
+    if ((window as any).QRCode) {
+        try {
+            qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
+        } catch (err) {
+            console.error("Failed to generate QR code", err);
+        }
+    } else {
+        console.error("QRCode library is not loaded.");
+    }
 
-    doc.setFontSize(9);
-    doc.text("¡Gracias por su compra!", pageWidth / 2, currentY, { align: 'center' });
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        if (qrCodeDataUrl) {
+            const qrSize = 20;
+            const qrX = margin;
+            const qrY = pageHeight - margin - qrSize - 5;
+            doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+            doc.setFontSize(7);
+            doc.setTextColor(150);
+            doc.text("Escanear para detalles", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+        }
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        doc.text("¡Gracias por su compra!", pageWidth / 2, pageHeight - margin - 5, { align: 'center' });
+        doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - margin - 5, { align: 'right' });
+    }
     
     doc.save(`recibo_venta_${sale.id.slice(-6).toUpperCase()}.pdf`);
 };

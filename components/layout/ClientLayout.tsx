@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
@@ -72,7 +73,7 @@ export const ClientLayout: React.FC<LayoutProps> = ({ children }) => {
                                             key={subLink.path}
                                             to={subLink.path}
                                             onClick={() => sidebarOpen && setSidebarOpen(false)}
-                                            className={`block py-2.5 px-4 pl-8 rounded-md transition duration-200 text-base ${location.pathname === subLink.path ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
+                                            className={`block py-2.5 px-4 pl-8 rounded-md transition duration-200 text-base font-semibold ${location.pathname === subLink.path ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
                                         >
                                          {React.cloneElement(subLink.icon, { className: "w-4 h-4 mr-2 inline"})} {subLink.name}
                                         </Link>
@@ -85,7 +86,7 @@ export const ClientLayout: React.FC<LayoutProps> = ({ children }) => {
                                     target={link.isExternalLike ? "_blank" : ""}
                                     rel={link.isExternalLike ? "noopener noreferrer" : ""}
                                     onClick={() => sidebarOpen && setSidebarOpen(false)}
-                                    className={`flex items-center py-2.5 px-4 rounded-md transition duration-200 text-base ${ (location.pathname === link.path || (link.subPathMatch && location.pathname.startsWith(link.subPathMatch))) ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
+                                    className={`flex items-center py-2.5 px-4 rounded-md transition duration-200 text-base font-semibold ${ (location.pathname === link.path || (link.subPathMatch && location.pathname.startsWith(link.subPathMatch))) ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
                                 >
                                     {React.cloneElement(link.icon, { className: "w-5 h-5 mr-3"})} {link.name}
                                 </Link>

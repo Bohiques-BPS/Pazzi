@@ -11,9 +11,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 
-const generateEstimatePDF = (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any) => {
+const generateEstimatePDF = async (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let y = margin;
 
@@ -102,8 +103,36 @@ const generateEstimatePDF = (estimate: Estimate, client: Client | undefined, get
     });
 
     y += 5;
-    doc.setFont("helvetica", "italic");
-    doc.text("¡Esperamos poder servirle!", pageWidth / 2, y, { align: 'center' });
+    
+    const qrText = `Estimado Pazzi\nID: ${estimate.id.slice(-6)}\nCliente: ${client?.name || 'N/A'}\nTotal: $${estimate.totalAmount.toFixed(2)}`;
+    let qrCodeDataUrl = '';
+    if ((window as any).QRCode) {
+        try {
+            qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
+        } catch (err) {
+            console.error("Failed to generate QR code", err);
+        }
+    } else {
+        console.error("QRCode library is not loaded.");
+    }
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        if (qrCodeDataUrl) {
+            const qrSize = 20;
+            const qrX = margin;
+            const qrY = pageHeight - margin - qrSize - 5;
+            doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+            doc.setFontSize(7);
+            doc.setTextColor(150);
+            doc.text("Escanear para detalles", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+        }
+        
+        doc.setFont("helvetica", "italic");
+        doc.text("¡Esperamos poder servirle!", pageWidth / 2, pageHeight - margin - 5, { align: 'center' });
+    }
 
     doc.save(`Estimado_${estimate.id.slice(-6)}.pdf`);
 };
@@ -149,10 +178,10 @@ export const EstimatesListPage: React.FC = () => {
         setShowDeleteConfirmModal(false);
     };
     
-    const handlePrint = (estimate: Estimate) => {
+    const handlePrint = async (estimate: Estimate) => {
         const client = getClientById(estimate.clientId);
         const settings = getDefaultSettings();
-        generateEstimatePDF(estimate, client, getProductById, settings);
+        await generateEstimatePDF(estimate, client, getProductById, settings);
     };
 
     const handleCombine = () => {
@@ -219,6 +248,176 @@ export const EstimatesListPage: React.FC = () => {
 
         setSelectedEstimateIds([]);
         setShowCombineConfirm(false);
+    };
+
+    const handleGeneratePDF = async () => {
+        // FIX: Use `estimates` from context and derive `client` from selection.
+        const selected = estimates.filter(e => selectedEstimateIds.includes(e.id));
+        if (selected.length === 0) {
+            alert("Seleccione al menos un estimado para generar el PDF.");
+            return;
+        }
+
+        const firstClientId = selected[0].clientId;
+        if (!selected.every(e => e.clientId === firstClientId)) {
+            alert("Solo puede generar un PDF combinado para estimados del mismo cliente.");
+            return;
+        }
+        
+        const client = getClientById(firstClientId);
+        if (!client) {
+            alert("No se pudo encontrar la información del cliente para los estimados seleccionados.");
+            return;
+        }
+    
+        const storeSettings = getDefaultSettings();
+    
+        // Combine items from all selected estimates
+        const combinedItemsMap = new Map<string, CartItem>();
+        selected.forEach(est => {
+            est.items.forEach(item => {
+                const existing = combinedItemsMap.get(item.id);
+                if (existing) {
+                    existing.quantity += item.quantity;
+                } else {
+                    combinedItemsMap.set(item.id, { ...item });
+                }
+            });
+        });
+        const combinedItems = Array.from(combinedItemsMap.values());
+    
+        // Recalculate totals for the combined items
+        const subtotal = combinedItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+        const defaultIVARate = 0.16;
+        const iva = combinedItems.reduce((taxSum, item) => {
+            const product = getProductById(item.id);
+            const rate = product?.ivaRate ?? defaultIVARate;
+            return taxSum + (item.unitPrice * item.quantity * rate);
+        }, 0);
+        const totalAmount = subtotal + iva;
+    
+        // --- PDF Generation using jsPDF ---
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        let y = margin;
+    
+        // Header
+        doc.setFontSize(18);
+        doc.setTextColor(storeSettings.primaryColor || '#0D9488');
+        doc.setFont("helvetica", "bold");
+        doc.text(storeSettings.storeName || "Pazzi Tienda Por Defecto", margin, y);
+        y += 10;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        doc.text("Sucursal: Sucursal Central", margin, y); // Hardcoded for now
+        doc.text("Tel: (555) 123-PAZZI", pageWidth - margin, y, { align: 'right' }); // Hardcoded
+        y += 10;
+        
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("Estimación de Costos", pageWidth / 2, y, { align: 'center' });
+        y += 15;
+    
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Estimación para: ${client.name} ${client.lastName}`, margin, y);
+        doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, pageWidth - margin, y, { align: 'right' });
+        y += 8;
+    
+        doc.text("Agradecemos la oportunidad de presentarle esta estimación para su consideración.", margin, y);
+        y += 10;
+        
+        doc.setLineWidth(0.2);
+        doc.line(margin, y - 2, pageWidth - margin, y - 2);
+    
+        const tableHead = [['Cant.', 'Descripción', 'P. Unitario', 'Total']];
+        const tableBody = combinedItems.map(item => [
+            item.quantity.toString(),
+            item.name,
+            `$${item.unitPrice.toFixed(2)}`,
+            `$${(item.unitPrice * item.quantity).toFixed(2)}`
+        ]);
+    
+        autoTable(doc, {
+            head: tableHead,
+            body: tableBody,
+            startY: y,
+            theme: 'striped',
+            headStyles: { fillColor: [13, 148, 136] }, // teal-600
+            didDrawPage: (data) => {
+                y = data.cursor?.y || y;
+            }
+        });
+    
+        y = (doc as any).lastAutoTable.finalY + 10;
+    
+        // Totals section
+        const totalsX = pageWidth - margin - 60;
+        doc.setFontSize(11);
+        doc.text("Subtotal:", totalsX, y, { align: 'left' });
+        doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+        y += 7;
+        doc.text("IVA:", totalsX, y, { align: 'left' });
+        doc.text(`$${iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+        y += 7;
+        doc.setFont("helvetica", "bold");
+        doc.text("TOTAL ESTIMADO:", totalsX, y, { align: 'left' });
+        doc.text(`$${totalAmount.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+        y += 15;
+        
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text("Términos:", margin, y); y += 5;
+        const terms = [
+            "- Esta estimación es válida por 30 días.",
+            "- Los precios no incluyen costos de instalación o envío a menos que se indique explícitamente.",
+            "- Los precios pueden variar según la disponibilidad de los productos."
+        ];
+        terms.forEach(term => {
+            doc.text(term, margin, y);
+            y += 4;
+        });
+    
+        y += 5;
+        doc.setFont("helvetica", "italic");
+        doc.text("¡Esperamos poder servirle!", pageWidth / 2, y, { align: 'center' });
+    
+        const qrText = `Estimado Combinado Pazzi\nCliente: ${client.name} ${client.lastName}\nTotal: $${totalAmount.toFixed(2)}`;
+        let qrCodeDataUrl = '';
+        if ((window as any).QRCode) {
+            try {
+                qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
+            } catch (err) {
+                console.error("Failed to generate QR code", err);
+            }
+        } else {
+            console.error("QRCode library is not loaded.");
+        }
+    
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            
+            if (qrCodeDataUrl) {
+                const qrSize = 20;
+                const qrX = margin;
+                const qrY = pageHeight - margin - qrSize - 5;
+                doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+                doc.setFontSize(7);
+                doc.setTextColor(150);
+                doc.text("Escanear para detalles", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+            }
+            
+            doc.setFont("helvetica", "italic");
+            doc.text("¡Esperamos poder servirle!", pageWidth / 2, pageHeight - margin - 5, { align: 'center' });
+        }
+    
+        const selectedIdsString = selectedEstimateIds.join('_').slice(0, 10);
+        doc.save(`Estimado_${client.name.replace(/\s/g, '_')}_${selectedIdsString}.pdf`);
     };
 
     const columns: TableColumn<Estimate>[] = [

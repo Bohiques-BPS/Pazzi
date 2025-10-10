@@ -3,7 +3,7 @@ import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Sale, Client } from '../../types';
 import { DataTable, TableColumn } from '../../components/DataTable';
-import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini } from '../../components/icons';
+import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini, EnvelopeIcon } from '../../components/icons';
 import jsPDF from 'jspdf';
 import autoTable, { UserOptions } from 'jspdf-autotable';
 import { ConfirmationModal } from '../../components/Modal';
@@ -30,12 +30,13 @@ export const AccountsReceivablePage: React.FC = () => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [sales]);
 
-  const generateReceivablePDF = (sale: Sale) => {
+  const generateReceivablePDF = async (sale: Sale) => {
     const doc = new jsPDF();
     const storeSettings = getDefaultSettings();
     const client = getClientById(sale.clientId || '');
 
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let currentY = margin;
 
@@ -150,6 +151,33 @@ export const AccountsReceivablePage: React.FC = () => {
       currentY += 5;
     }
     doc.text("¡Gracias por su negocio!", margin, currentY);
+
+    const qrText = `Cuenta por Cobrar Pazzi\nVenta: VTA-${sale.id.slice(-6).toUpperCase()}\nCliente: ${client?.name || 'Contado'}\nTotal: $${sale.totalAmount.toFixed(2)}`;
+    let qrCodeDataUrl = '';
+    if ((window as any).QRCode) {
+        try {
+            qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
+        } catch (err) {
+            console.error("Failed to generate QR code", err);
+        }
+    } else {
+        console.error("QRCode library is not loaded.");
+    }
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        if (qrCodeDataUrl) {
+            const qrSize = 20;
+            const qrX = margin;
+            const qrY = pageHeight - margin - qrSize - 5;
+            doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+            doc.setFontSize(7);
+            doc.setTextColor(150);
+            doc.text("Escanear para detalles", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+        }
+    }
     
     doc.save(`cuenta_cobrar_VTA-${sale.id.slice(-6).toUpperCase()}.pdf`);
   };
@@ -186,6 +214,27 @@ export const AccountsReceivablePage: React.FC = () => {
     setShowVoidConfirmModal(false);
     setSaleToVoid(null);
   };
+
+  const handleSendReminder = (sale: Sale) => {
+    if (!sale.clientId) {
+        alert("Esta venta no tiene un cliente asignado, no se puede enviar un recordatorio.");
+        return;
+    }
+    const client = getClientById(sale.clientId);
+    if (!client || !client.email) {
+        alert("El cliente no tiene una dirección de correo electrónico registrada.");
+        return;
+    }
+
+    const subject = `Recordatorio de Factura Pendiente: VTA-${sale.id.slice(-6).toUpperCase()}`;
+    const storeName = getDefaultSettings().storeName || "Pazzi";
+
+    const body = `Estimado/a ${client.name} ${client.lastName},\n\nEste es un recordatorio amigable de que la factura VTA-${sale.id.slice(-6).toUpperCase()} por un total de $${sale.totalAmount.toFixed(2)} aún está pendiente de pago.\n\nFecha de vencimiento: ${sale.dueDate ? new Date(sale.dueDate + 'T00:00:00').toLocaleDateString('es-ES') : 'No especificada'}\n\nAgradeceríamos si pudiera procesar el pago a la brevedad posible.\n\nSi ya ha realizado el pago, por favor ignore este mensaje.\n\nGracias,\nEl equipo de ${storeName}`;
+    
+    const mailtoLink = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+  };
+
 
   const columns: TableColumn<Sale>[] = [
     { header: 'ID Venta', accessor: (s) => s.id.substring(0, 8).toUpperCase() },
@@ -224,6 +273,13 @@ export const AccountsReceivablePage: React.FC = () => {
         columns={columns}
         actions={(sale) => (
           <div className="flex space-x-1">
+            <button
+              onClick={() => handleSendReminder(sale)}
+              className="text-orange-500 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 p-1"
+              title="Enviar Recordatorio por Email"
+            >
+              <EnvelopeIcon className="w-4 h-4"/>
+            </button>
             <button
               onClick={() => handleEditReceivable(sale)}
               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1"

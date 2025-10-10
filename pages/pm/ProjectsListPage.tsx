@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable, { UserOptions } from 'jspdf-autotable';
@@ -22,7 +22,7 @@ interface GenerateQuotationPDFProps {
     visits: Visit[];
 }
 
-const generateQuotationPDF = ({project, client, allProducts, allEmployees, storeSettings, visits}: GenerateQuotationPDFProps) => {
+const generateQuotationPDF = async ({project, client, allProducts, allEmployees, storeSettings, visits}: GenerateQuotationPDFProps) => {
     const doc = new (jsPDF as any)(); 
 
     const projectVisits = visits.filter(v => v.projectId === project.id).sort((a,b) => new Date(a.date + 'T' + a.startTime).getTime() - new Date(b.date + 'T' + b.startTime).getTime());
@@ -209,10 +209,33 @@ const generateQuotationPDF = ({project, client, allProducts, allEmployees, store
         currentY += 4;
     });
     currentY += 6;
+    
+    const qrText = `Cotización Pazzi\nProyecto: ${project.name}\nCliente: ${client?.name || ''} ${client?.lastName || ''}\nTotal: $${grandTotal.toFixed(2)}`;
+    let qrCodeDataUrl = '';
+    if ((window as any).QRCode) {
+        try {
+            qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
+        } catch (err) {
+            console.error("Failed to generate QR code", err);
+        }
+    } else {
+        console.error("QRCode library is not loaded.");
+    }
 
     const pageCount = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
+        
+        if (qrCodeDataUrl) {
+            const qrSize = 20;
+            const qrX = margin;
+            const qrY = pageHeight - margin - qrSize - 5;
+            doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+            doc.setFontSize(7);
+            doc.setTextColor(150);
+            doc.text("Escanear para detalles", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+        }
+
         doc.setFontSize(9);
         doc.setTextColor(100); 
         doc.text('Gracias por su confianza.', pageWidth / 2, pageHeight - margin + 5, { align: 'center' });
@@ -229,7 +252,7 @@ interface GenerateInvoicePDFProps {
     storeSettings: ECommerceSettings;
 }
 
-const generateInvoicePDF = ({project, client, allProducts, storeSettings}: GenerateInvoicePDFProps) => {
+const generateInvoicePDF = async ({project, client, allProducts, storeSettings}: GenerateInvoicePDFProps) => {
     const doc = new (jsPDF as any)();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -350,11 +373,40 @@ const generateInvoicePDF = ({project, client, allProducts, storeSettings}: Gener
     doc.text("Términos de Pago: Neto 30 días desde fecha de factura.", margin, currentY); currentY += 5;
     doc.text("Detalles Bancarios para Transferencia: Banco XYZ, Cuenta: 123-456-789, SWIFT: XYZBANK", margin, currentY); currentY += 10;
 
-    // Footer
-    currentY = Math.max(currentY, pageHeight - margin - 20);
-    if (currentY > pageHeight - margin - 20) { doc.addPage(); currentY = margin; }
-    doc.setFontSize(8);
-    doc.text("Gracias por su preferencia.", pageWidth / 2, pageHeight - margin + 5, { align: 'center' });
+    // QR Code generation
+    const qrText = `Factura Pazzi\nNro: ${project.invoiceNumber}\nCliente: ${client?.name || ''} ${client?.lastName || ''}\nTotal: $${grandTotal.toFixed(2)}`;
+    let qrCodeDataUrl = '';
+    if ((window as any).QRCode) {
+        try {
+            qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
+        } catch (err) {
+            console.error("Failed to generate QR code", err);
+        }
+    } else {
+        console.error("QRCode library is not loaded.");
+    }
+
+    // Footer loop
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        // Add QR code if generated
+        if (qrCodeDataUrl) {
+            const qrSize = 20;
+            const qrX = margin;
+            const qrY = pageHeight - margin - qrSize - 5; // Position it a bit up from bottom
+            doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+            doc.setFontSize(7);
+            doc.setTextColor(150);
+            doc.text("Escanear para verificar", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+        }
+
+        doc.setFontSize(9);
+        doc.setTextColor(100); 
+        doc.text("Gracias por su preferencia.", pageWidth / 2, pageHeight - margin - 5, { align: 'center' });
+        doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - margin - 5, { align: 'right' });
+    }
     
     doc.save(`Factura_${project.invoiceNumber || project.name.replace(/\s+/g, '_')}.pdf`);
 };
@@ -407,10 +459,10 @@ export const ProjectsListPage: React.FC = () => {
         setShowDeleteConfirmModal(false);
     };
     
-    const handleGenerateQuotationPDF = (project: Project) => {
+    const handleGenerateQuotationPDF = async (project: Project) => {
         const client = getClientById(project.clientId);
         const currentStoreSettings = getDefaultSettings(); 
-        generateQuotationPDF({
+        await generateQuotationPDF({
             project,
             client,
             allProducts: globalProducts, 
@@ -433,14 +485,14 @@ export const ProjectsListPage: React.FC = () => {
         }
     };
 
-    const handleViewInvoicePDF = (project: Project) => {
+    const handleViewInvoicePDF = async (project: Project) => {
         if (!project.invoiceGenerated) {
             alert("Primero debe generar la factura para este proyecto.");
             return;
         }
         const client = getClientById(project.clientId);
         const storeSettings = getDefaultSettings();
-        generateInvoicePDF({ project, client, allProducts: globalProducts, storeSettings });
+        await generateInvoicePDF({ project, client, allProducts: globalProducts, storeSettings });
     };
 
 

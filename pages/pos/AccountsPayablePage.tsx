@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
@@ -102,12 +101,13 @@ export const AccountsPayablePage: React.FC = () => {
       .sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
   }, [supplierOrders]);
 
-  const generatePayablePDF = (order: SupplierOrder) => {
+  const generatePayablePDF = async (order: SupplierOrder) => {
     const doc = new jsPDF();
     const storeSettings = getDefaultSettings(); 
     const supplier = getSupplierById(order.supplierId);
 
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let currentY = margin;
 
@@ -209,7 +209,33 @@ export const AccountsPayablePage: React.FC = () => {
     doc.text("SALDO PENDIENTE:", totalsX, currentY, {align: 'left'});
     doc.text(`$${balanceDue.toFixed(2)}`, pageWidth - margin, currentY, {align: 'right'});
     currentY += 15;
-    doc.setFont("helvetica", "normal");
+    
+    const qrText = `Cuenta por Pagar Pazzi\nPedido: PO-${order.id.slice(-6).toUpperCase()}\nProveedor: ${supplier?.name || 'N/A'}\nTotal: $${order.totalCost.toFixed(2)}`;
+    let qrCodeDataUrl = '';
+    if ((window as any).QRCode) {
+        try {
+            qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
+        } catch (err) {
+            console.error("Failed to generate QR code", err);
+        }
+    } else {
+        console.error("QRCode library is not loaded.");
+    }
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        if (qrCodeDataUrl) {
+            const qrSize = 20;
+            const qrX = margin;
+            const qrY = pageHeight - margin - qrSize - 5;
+            doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+            doc.setFontSize(7);
+            doc.setTextColor(150);
+            doc.text("Escanear para detalles", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+        }
+    }
     
     doc.save(`cuenta_pagar_PO-${order.id.slice(-6).toUpperCase()}.pdf`);
   };

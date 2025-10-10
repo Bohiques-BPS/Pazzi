@@ -246,12 +246,12 @@ export const ProjectCalendarPage: React.FC = () => {
                                 <div className="mt-1 space-y-1 overflow-y-auto flex-grow max-h-[calc(100%-20px)]">
                                     {dayObj.events.slice(0, 3).map(event => (
                                         <div key={event.id} onClick={e => { e.stopPropagation(); handleEventClick(event); }} 
-                                            className={`block w-full p-0.5 text-left text-[10px] sm:text-xs rounded shadow-sm truncate ${event.type === 'visit' ? 'bg-teal-100 dark:bg-teal-700/50 text-teal-700 dark:text-teal-200 hover:bg-teal-200' : 'bg-blue-100 dark:bg-blue-700/50 text-blue-700 dark:text-blue-200 hover:bg-blue-200'}`}>
+                                            className={`block w-full p-0.5 text-left text-[9px] sm:text-xs rounded shadow-sm truncate ${event.type === 'visit' ? 'bg-teal-100 dark:bg-teal-700/50 text-teal-700 dark:text-teal-200 hover:bg-teal-200' : 'bg-blue-100 dark:bg-blue-700/50 text-blue-700 dark:text-blue-200 hover:bg-blue-200'}`}>
                                             {event.type === 'project' && <BriefcaseIcon className="w-2.5 h-2.5 inline mr-1" />}
                                             {event.title}
                                         </div>
                                     ))}
-                                    {dayObj.events.length > 3 && <div className="text-center text-[10px] text-neutral-500 dark:text-neutral-400">+{dayObj.events.length - 3} más</div>}
+                                    {dayObj.events.length > 3 && <div className="text-center text-[9px] text-neutral-500 dark:text-neutral-400">+{dayObj.events.length - 3} más</div>}
                                 </div>
                             </div>
                         ))}
