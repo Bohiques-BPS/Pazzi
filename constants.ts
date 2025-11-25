@@ -429,8 +429,8 @@ export const INITIAL_SUPPLIER_ORDERS: SupplierOrder[] = [
 
 
 export const INITIAL_NOTIFICATIONS: Notification[] = [
-    { id: 'notif-1', title: 'Nuevo Pedido Recibido', message: 'Pedido #order-1 de Cliente Shopper por $205.50.', timestamp: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), read: true, link: '/ecommerce/orders', type: 'new_order', icon: ShoppingCartIcon },
-    { id: 'notif-2', title: 'Chat de Proyecto', message: 'Roberto Gómez: ¿Cómo va el avance con los gabinetes?', timestamp: new Date(new Date().setDate(new Date().getDate()-2)).toISOString(), read: false, link: '/pm/chat', type: 'chat_message', icon: ChatBubbleLeftRightIcon },
+    { id: 'notif-1', title: 'Nuevo Pedido Recibido', message: 'Pedido #order-1 de Cliente Shopper por $205.50.', timestamp: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), read: true, link: '/ecommerce/orders', type: 'new_order' },
+    { id: 'notif-2', title: 'Chat de Proyecto', message: 'Roberto Gómez: ¿Cómo va el avance con los gabinetes?', timestamp: new Date(new Date().setDate(new Date().getDate()-2)).toISOString(), read: false, link: '/pm/chat', type: 'chat_message' },
     { id: 'notif-3', title: 'Bajo Stock: Termostato Inteligente', message: 'Quedan solo 5 unidades en Sucursal Central.', timestamp: new Date().toISOString(), read: false, type: 'low_stock', link: '/pos/inventory' }
 ];
 

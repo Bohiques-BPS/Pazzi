@@ -456,7 +456,6 @@ export interface Notification {
     read: boolean;
     link?: string;
     type: NotificationType;
-    icon?: React.ComponentType<any>;
 }
 
 

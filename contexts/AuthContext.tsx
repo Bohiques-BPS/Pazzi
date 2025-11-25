@@ -1,8 +1,8 @@
 
-
 import React, { useState, createContext, useContext, useEffect } from 'react';
 import { User, UserRole, EmployeePermissions, AlertSettings } from '../types';
-import { DEFAULT_USERS, ADMIN_EMAIL, ADMIN_PASSWORD } from '../constants';
+import { DEFAULT_USERS, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_USER_ID } from '../constants';
+import { db } from '../services/db';
 
 export interface AuthContextType {
   currentUser: User | null;
@@ -15,31 +15,47 @@ export interface AuthContextType {
   toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>; 
   updateUserAlertSettings: (userId: string, newSettings: AlertSettings) => Promise<boolean>;
   updateUser: (userId: string, updates: Partial<User & { password?: string; pin?: string }>) => Promise<boolean>;
+  isLoading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('pazziCurrentUser');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-  const [allUsers, setAllUsers] = useState<(User & { password?: string })[]>(() => { 
-     const storedUsers = localStorage.getItem('pazziAllUsers');
-     return storedUsers ? JSON.parse(storedUsers) : [...DEFAULT_USERS];
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<(User & { password?: string })[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Initialize Data from DB
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('pazziCurrentUser', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('pazziCurrentUser');
+    const initAuth = async () => {
+        try {
+            const storedUser = await db.migrateFromLocalStorage('pazziCurrentUser', null);
+            const storedAllUsers = await db.migrateFromLocalStorage('pazziAllUsers', [...DEFAULT_USERS]);
+            
+            setCurrentUser(storedUser);
+            setAllUsers(storedAllUsers);
+        } catch (e) {
+            console.error("Failed to load auth data", e);
+            setAllUsers([...DEFAULT_USERS]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    initAuth();
+  }, []);
+
+  // Persist Data on Change
+  useEffect(() => {
+    if (!isLoading) {
+        db.set('pazziCurrentUser', currentUser);
     }
-  }, [currentUser]);
+  }, [currentUser, isLoading]);
   
   useEffect(() => {
-    localStorage.setItem('pazziAllUsers', JSON.stringify(allUsers));
-  }, [allUsers]);
+    if (!isLoading && allUsers.length > 0) {
+        db.set('pazziAllUsers', allUsers);
+    }
+  }, [allUsers, isLoading]);
 
 
   const login = async (email: string, pass: string): Promise<boolean> => {
@@ -173,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings, loginWithPin, updateUser }}>
+    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings, loginWithPin, updateUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

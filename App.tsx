@@ -76,7 +76,7 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 
 
 // Icons
-import { ExclamationTriangleIcon } from './components/icons';
+import { ExclamationTriangleIcon, SparklesIcon } from './components/icons';
 
 // Constants
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, POS_BUTTON_RED_CLASSES, POS_BUTTON_YELLOW_CLASSES, BUTTON_PRIMARY_CLASSES } from './constants';
@@ -104,7 +104,8 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: UserRole[] }) => {
 // --- APP ROUTES & MAIN COMPONENT ---
 
 const AppContent: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading: isAuthLoading } = useAuth();
+  const { isDataLoading } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -113,6 +114,9 @@ const AppContent: React.FC = () => {
   const { currentModule, setCurrentModule } = appContext; 
   
   const { settings } = useGlobalSettings();
+
+  // Check if loading DB
+  const isLoading = isAuthLoading || isDataLoading;
 
   useEffect(() => {
       const root = document.documentElement;
@@ -126,6 +130,8 @@ const AppContent: React.FC = () => {
   }, [settings.fontSize]);
 
   useEffect(() => {
+    if (isLoading) return;
+
     const isAuthPath = ['/login', '/register', '/forgot-password'].some(p => location.pathname.startsWith(p));
     const isPublicPath = ['/', '/checkout'].some(p => location.pathname.startsWith(p)) || /^\/store(\/[^/]+)?$/.test(location.pathname) || /^\/order-confirmation(\/[^/]+)?$/.test(location.pathname);
 
@@ -152,7 +158,7 @@ const AppContent: React.FC = () => {
              navigate(targetPath, { replace: true });
         }
     }
-  }, [currentUser, location.pathname, navigate, currentModule, setCurrentModule]);
+  }, [currentUser, location.pathname, navigate, currentModule, setCurrentModule, isLoading]);
   
   const SettingsPage = () => { 
       const { currentUser: authCurrentUser, updateUserPassword, toggleUserEmergencyOrderMode } = useAuth(); 
@@ -363,6 +369,16 @@ const AppContent: React.FC = () => {
         </div>
       );
   };
+
+  if (isLoading) {
+      return (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-100 dark:bg-neutral-900">
+              <SparklesIcon className="w-12 h-12 text-primary animate-spin mb-4" />
+              <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">Iniciando Pazzi...</h2>
+              <p className="text-neutral-500 dark:text-neutral-400 mt-2">Cargando base de datos local segura.</p>
+          </div>
+      );
+  }
 
   const showVirtualAssistant = currentUser;
 

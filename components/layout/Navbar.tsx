@@ -4,9 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
 import { useData } from '../../contexts/DataContext'; 
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
-import { AppModule, UserRole, Notification } from '../../types'; 
+import { AppModule, UserRole, Notification, NotificationType } from '../../types'; 
 import { APP_MODULES_CONFIG } from '../../constants'; 
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon } from '../icons'; 
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ExclamationTriangleIcon, InformationCircleIcon } from '../icons'; 
 
 interface NavbarProps {
     onToggleSidebar: () => void;
@@ -31,6 +31,15 @@ const formatRelativeTime = (isoTimestamp: string) => {
     if (hours < 24) return `Hace ${hours}h`;
     if (days === 1) return 'Ayer';
     return `Hace ${days} días`;
+};
+
+const getNotificationIcon = (type: NotificationType) => {
+    switch (type) {
+        case 'new_order': return OrderIcon;
+        case 'chat_message': return ChatBubbleLeftRightIcon;
+        case 'low_stock': return ExclamationTriangleIcon;
+        default: return InformationCircleIcon;
+    }
 };
 
 
@@ -239,7 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                         </div>
                         <div className="overflow-y-auto flex-grow">
                             {latestNotifications.length > 0 ? latestNotifications.map(notification => {
-                                const IconComponent = notification.icon;
+                                const IconComponent = getNotificationIcon(notification.type);
                                 return (
                                 <div
                                     key={notification.id}
