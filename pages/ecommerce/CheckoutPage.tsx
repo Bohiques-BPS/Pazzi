@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link as RouterLink, useParams } from 'react-router-dom'; // Added useNavigate
 import { useData } from '../../contexts/DataContext';
@@ -6,6 +5,7 @@ import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { CartItem, Order, ECommerceSettings as StoreSettingsType } from '../../types'; // Added Order type
 import { BUTTON_PRIMARY_CLASSES, inputFormStyle, BUTTON_SECONDARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants'; // Changed PREDEFINED_CLIENT_ID
 import { CreditCardIcon, ArrowUturnLeftIcon } from '../../components/icons'; 
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 
 interface CheckoutLocationState {
     cart: CartItem[];
@@ -224,7 +224,13 @@ export const CheckoutPage: React.FC = () => {
                                 <input type="text" name="clientName" placeholder="Nombre Completo" value={customerDetails.clientName} onChange={handleInputChange} className={inputFormStyle} required />
                                 <input type="email" name="clientEmail" placeholder="Email" value={customerDetails.clientEmail} onChange={handleInputChange} className={inputFormStyle} required />
                             </div>
-                            <textarea name="shippingAddress" placeholder="Dirección de Envío Completa" value={customerDetails.shippingAddress} onChange={handleInputChange as any} rows={3} className={`${inputFormStyle} mt-4`} required />
+                            <div className="mt-4">
+                                <RichTextEditor
+                                    value={customerDetails.shippingAddress}
+                                    onChange={(value) => setCustomerDetails(prev => ({ ...prev, shippingAddress: value }))}
+                                    placeholder="Dirección de Envío Completa"
+                                />
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <input type="text" name="city" placeholder="Ciudad" value={customerDetails.city} onChange={handleInputChange} className={inputFormStyle} required />
                                 <input type="text" name="postalCode" placeholder="Código Postal" value={customerDetails.postalCode} onChange={handleInputChange} className={inputFormStyle} required />

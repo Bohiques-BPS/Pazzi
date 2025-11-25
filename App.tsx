@@ -1,3 +1,4 @@
+
 import React, { useState, createContext, useContext, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, useParams, Outlet } from 'react-router-dom';
 
@@ -10,6 +11,7 @@ import { DataProvider, useData } from './contexts/DataContext';
 import { ECommerceSettingsProvider, useECommerceSettings } from './contexts/ECommerceSettingsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AppContextProvider, useAppContext } from './contexts/AppContext';
+import { GlobalSettingsProvider, useGlobalSettings } from './contexts/GlobalSettingsContext'; // Imported
 
 
 // Layout Components
@@ -23,6 +25,7 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 // General Pages
 import { LandingPage } from './pages/LandingPage';
 import { DashboardHomePage } from './pages/DashboardHomePage'; 
+import { ConfigurationPage } from './pages/ConfigurationPage'; // Imported
 
 // PM Client Pages
 import { ProjectClientDashboardPage } from './pages/project_client/ProjectClientDashboardPage';
@@ -73,7 +76,7 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 
 
 // Icons
-import { SunIcon, MoonIcon, ExclamationTriangleIcon } from './components/icons';
+import { ExclamationTriangleIcon } from './components/icons';
 
 // Constants
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, POS_BUTTON_RED_CLASSES, POS_BUTTON_YELLOW_CLASSES, BUTTON_PRIMARY_CLASSES } from './constants';
@@ -108,6 +111,19 @@ const AppContent: React.FC = () => {
   const appContext = useAppContext();
   if (!appContext) throw new Error("AppContext not found for AppContent");
   const { currentModule, setCurrentModule } = appContext; 
+  
+  const { settings } = useGlobalSettings();
+
+  useEffect(() => {
+      const root = document.documentElement;
+      if (settings.fontSize === 'sm') {
+          root.style.fontSize = '14px';
+      } else if (settings.fontSize === 'lg') {
+          root.style.fontSize = '18px';
+      } else {
+          root.style.fontSize = '16px'; // md default
+      }
+  }, [settings.fontSize]);
 
   useEffect(() => {
     const isAuthPath = ['/login', '/register', '/forgot-password'].some(p => location.pathname.startsWith(p));
@@ -140,7 +156,6 @@ const AppContent: React.FC = () => {
   
   const SettingsPage = () => { 
       const { currentUser: authCurrentUser, updateUserPassword, toggleUserEmergencyOrderMode } = useAuth(); 
-      const { theme, setTheme } = useTheme();
       const [currentPassword, setCurrentPassword] = useState('');
       const [newPassword, setNewPassword] = useState('');
       const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -212,7 +227,7 @@ const AppContent: React.FC = () => {
       
       return (
         <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">Configuración de Cuenta</h1>
+            <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">Mi Cuenta</h1>
             
             {message && (
                 <p className={`mb-4 p-3 rounded-md text-base ${message.type === 'success' ? 'bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-300'}`}>
@@ -345,24 +360,6 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
             </Modal>
-
-            <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
-                <h2 className="text-2xl font-semibold text-primary mb-4">Tema de la Aplicación</h2>
-                <div className="flex items-center space-x-4">
-                    <button 
-                        onClick={() => setTheme(Theme.LIGHT)} 
-                        className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center ${theme === Theme.LIGHT ? 'ring-2 ring-offset-2 dark:ring-offset-neutral-800 ring-primary' : 'opacity-70 hover:opacity-100'}`}
-                    >
-                        <SunIcon />{' '}Claro
-                    </button>
-                    <button 
-                        onClick={() => setTheme(Theme.DARK)} 
-                        className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center ${theme === Theme.DARK ? 'ring-2 ring-offset-2 dark:ring-offset-neutral-800 ring-primary' : 'opacity-70 hover:opacity-100'}`}
-                    >
-                         <MoonIcon />{' '}Oscuro
-                    </button>
-                </div>
-            </div>
         </div>
       );
   };
@@ -385,6 +382,7 @@ const AppContent: React.FC = () => {
         <Route element={<ProtectedRoute allowedRoles={[UserRole.MANAGER, UserRole.EMPLOYEE, UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT]} />}>
             <Route element={<MainLayout />}>
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/configuration" element={<ConfigurationPage />} /> {/* New Route */}
                 <Route path="/" element={<DashboardHomePage />} />
 
                 {/* E-commerce Client Routes */}
@@ -454,15 +452,17 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <AppContextProvider>
-        <AuthProvider>
-          <DataProvider>
-            <ECommerceSettingsProvider>
-              <AppContent />
-            </ECommerceSettingsProvider>
-          </DataProvider>
-        </AuthProvider>
-      </AppContextProvider>
+      <GlobalSettingsProvider>
+        <AppContextProvider>
+            <AuthProvider>
+            <DataProvider>
+                <ECommerceSettingsProvider>
+                <AppContent />
+                </ECommerceSettingsProvider>
+            </DataProvider>
+            </AuthProvider>
+        </AppContextProvider>
+      </GlobalSettingsProvider>
     </ThemeProvider>
   );
 };

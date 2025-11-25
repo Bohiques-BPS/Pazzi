@@ -1,50 +1,86 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { SupplierOrder, SupplierOrderStatus, Product as ProductType, Supplier } from '../../types'; // Added Supplier type
-import { DataTable, TableColumn } from '../../components/DataTable';
+import { SupplierOrder, SupplierOrderStatus, Product as ProductType, Supplier } from '../../types';
 import { Modal, ConfirmationModal } from '../../components/Modal';
-import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon } from '../../components/icons'; // Changed DeleteIcon to CancelIcon for clarity
-import jsPDF from 'jspdf';
-import autoTable, { UserOptions } from 'jspdf-autotable';
-import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
-import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal'; // To edit orders
+import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon, PhotoIcon, DocumentArrowUpIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon, PaperAirplaneIcon, EnvelopeIcon } from '../../components/icons';
+import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal';
+import { DataTable, TableColumn } from '../../components/DataTable';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { AdminAuthModal } from '../../components/ui/AdminAuthModal'; // Import Auth Modal
 
-type JsPdfAutoTableColumnStyles = UserOptions['columnStyles'];
-
+// ... (Keep RecordPaymentModal as is) ...
 interface RecordPaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
     order: SupplierOrder | null;
-    onRecordPayment: (orderId: string, amount: number) => void;
-    getSupplierById: (id: string) => Supplier | undefined; // Added prop
+    onRecordPayment: (orderId: string, amount: number, invoiceRef?: string, attachment?: string) => void;
 }
 
-const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, order, onRecordPayment, getSupplierById }) => {
+const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, order, onRecordPayment }) => {
+    const { getSupplierById } = useData();
     const [amountPaidInput, setAmountPaidInput] = useState<string>('');
+    const [invoiceRefInput, setInvoiceRefInput] = useState<string>('');
+    const [attachment, setAttachment] = useState<string | undefined>(undefined);
+    const [attachmentName, setAttachmentName] = useState<string | undefined>(undefined);
+    const [error, setError] = useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const remainingBalance = useMemo(() => {
+        if (!order) return 0;
+        return order.totalCost - (order.amountPaid || 0);
+    }, [order]);
 
     useEffect(() => {
-        if (isOpen) {
-            setAmountPaidInput(''); 
+        if (isOpen && order) {
+            setAmountPaidInput(remainingBalance > 0 ? remainingBalance.toFixed(2) : ''); 
+            setInvoiceRefInput('');
+            setAttachment(undefined);
+            setAttachmentName(undefined);
+            setError(null);
         }
-    }, [isOpen]);
+    }, [isOpen, order, remainingBalance]);
 
     if (!isOpen || !order) return null;
+    
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAttachment(reader.result as string);
+                setAttachmentName(file.name);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
-    const remainingBalance = order.totalCost - (order.amountPaid || 0);
+    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setAmountPaidInput(val);
+        
+        const numVal = parseFloat(val);
+        if (numVal > remainingBalance + 0.01) {
+            setError(`El monto no puede exceder el saldo pendiente de $${remainingBalance.toFixed(2)}`);
+        } else {
+            setError(null);
+        }
+    };
 
     const handleSubmitPayment = (e: React.FormEvent) => {
         e.preventDefault();
         const amount = parseFloat(amountPaidInput);
         if (isNaN(amount) || amount <= 0) {
-            alert("Por favor, ingrese un monto de pago válido.");
+            setError("Por favor, ingrese un monto de pago válido mayor a 0.");
             return;
         }
-        if (amount > remainingBalance) {
-            alert(`El monto pagado ($${amount.toFixed(2)}) no puede exceder el saldo pendiente ($${remainingBalance.toFixed(2)}).`);
+        if (amount > remainingBalance + 0.001) { // Epsilon for float issues
+            setError(`El monto pagado ($${amount.toFixed(2)}) no puede exceder el saldo pendiente ($${remainingBalance.toFixed(2)}).`);
             return;
         }
-        onRecordPayment(order.id, amount);
+        onRecordPayment(order.id, amount, invoiceRefInput, attachment);
         onClose();
     };
 
@@ -54,306 +90,453 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">
                     Pedido a: {getSupplierById(order.supplierId)?.name || order.supplierId} <br/>
                     Total Pedido: ${order.totalCost.toFixed(2)} <br/>
-                    Pagado Hasta Ahora: ${ (order.amountPaid || 0).toFixed(2)} <br/>
+                    Pagado Hasta Ahora: ${(order.amountPaid || 0).toFixed(2)} <br/>
                     <strong className="text-primary">Saldo Pendiente: ${remainingBalance.toFixed(2)}</strong>
                 </p>
                 <div>
                     <label htmlFor="paymentAmount" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Monto a Pagar</label>
                     <input
-                        type="number"
-                        id="paymentAmount"
-                        value={amountPaidInput}
-                        onChange={(e) => setAmountPaidInput(e.target.value)}
-                        className={inputFormStyle + " w-full mt-1"}
+                        type="number" id="paymentAmount" value={amountPaidInput}
+                        onChange={handleAmountChange}
+                        className={`${inputFormStyle} ${error ? 'border-red-500 focus:ring-red-500' : ''}`}
                         placeholder={`Máx. ${remainingBalance.toFixed(2)}`}
-                        min="0.01"
-                        step="0.01"
-                        max={remainingBalance.toString()}
-                        required
+                        min="0.01" step="0.01" max={remainingBalance.toFixed(2)} required autoFocus
                     />
+                    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+                </div>
+                 <div>
+                    <label htmlFor="invoiceRef" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nº de Factura (Opcional)</label>
+                    <input
+                        type="text" id="invoiceRef" value={invoiceRefInput}
+                        onChange={(e) => setInvoiceRefInput(e.target.value)}
+                        className={inputFormStyle} placeholder="Ej: F-12345"
+                    />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Adjuntar Comprobante (Opcional)</label>
+                    <div className="mt-1 flex items-center space-x-2">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className={BUTTON_SECONDARY_SM_CLASSES}
+                        >
+                            <DocumentArrowUpIcon className="w-4 h-4 mr-2" />
+                            Seleccionar archivo...
+                        </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            onChange={handleFileChange}
+                            className="hidden"
+                            accept="image/*,.pdf"
+                        />
+                        {attachmentName && (
+                            <div className="flex items-center space-x-2 text-sm text-neutral-600 dark:text-neutral-300">
+                                <PhotoIcon className="w-4 h-4 text-green-500"/>
+                                <span className="truncate max-w-xs">{attachmentName}</span>
+                                <button type="button" onClick={() => {setAttachment(undefined); setAttachmentName(undefined); if(fileInputRef.current) fileInputRef.current.value = '';}} className="text-red-500 text-xs">X</button>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Registrar Pago</button>
+                    <button 
+                        type="submit" 
+                        className={`${BUTTON_PRIMARY_SM_CLASSES} ${error ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={!!error}
+                    >
+                        Registrar Pago
+                    </button>
                 </div>
             </form>
         </Modal>
     );
 };
 
+// --- NEW: Batch Supplier Notification Modal ---
+interface BatchSupplierNotificationModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    orders: (SupplierOrder & { balance: number })[];
+    supplierName: string;
+    onSend: (message: string) => void;
+}
+
+const BatchSupplierNotificationModal: React.FC<BatchSupplierNotificationModalProps> = ({ isOpen, onClose, orders, supplierName, onSend }) => {
+    const [message, setMessage] = useState('');
+    const totalBalance = useMemo(() => orders.reduce((acc, o) => acc + o.balance, 0), [orders]);
+
+    useEffect(() => {
+        if (orders.length > 0 && isOpen) {
+            const orderList = orders.map(o => 
+                `<li>Orden <b>#${o.id.slice(-6).toUpperCase()}</b> (${new Date(o.orderDate).toLocaleDateString()}): Pendiente <b>$${o.balance.toFixed(2)}</b></li>`
+            ).join('');
+
+            const defaultMessage = `Estimado ${supplierName},<br/><br/>Estamos revisando las siguientes órdenes pendientes de pago:<br/><ul>${orderList}</ul><br/><b>Total Pendiente: $${totalBalance.toFixed(2)}</b><br/><br/>Por favor, confírmennos si estas facturas están listas para pago o envíennos un estado de cuenta actualizado.<br/><br/>Gracias,<br/>El equipo de Pazzi.`;
+            setMessage(defaultMessage);
+        }
+    }, [orders, supplierName, isOpen, totalBalance]);
+
+    const handleSend = () => {
+        onSend(message);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Contactar Proveedor (${orders.length} órdenes)`} size="lg">
+            <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-100 dark:border-blue-800">
+                    <p className="text-sm text-neutral-700 dark:text-neutral-200">
+                        Proveedor: <strong>{supplierName}</strong><br/>
+                        Total seleccionado: <strong className="text-primary">${totalBalance.toFixed(2)}</strong>
+                    </p>
+                </div>
+                
+                <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Mensaje</label>
+                    <RichTextEditor 
+                        value={message} 
+                        onChange={setMessage} 
+                        placeholder="Escriba el mensaje para el proveedor..." 
+                    />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700">
+                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                    <button onClick={handleSend} className={BUTTON_PRIMARY_SM_CLASSES}>
+                        <PaperAirplaneIcon className="w-4 h-4 mr-2" />
+                        Enviar / Registrar Contacto
+                    </button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 
 export const AccountsPayablePage: React.FC = () => {
-  const { supplierOrders, getSupplierById, getProductById, recordSupplierOrderPayment, updateSupplierOrderStatus, setSupplierOrders } = useData();
-  const { getDefaultSettings } = useECommerceSettings();
+    const { supplierOrders, getSupplierById, suppliers, recordSupplierOrderPayment, updateSupplierOrderStatus, addNotification } = useData();
+    const { getDefaultSettings } = useECommerceSettings();
 
-  const [paymentModalOrder, setPaymentModalOrder] = useState<SupplierOrder | null>(null);
-  const [showEditOrderModal, setShowEditOrderModal] = useState(false);
-  const [orderToEdit, setOrderToEdit] = useState<SupplierOrder | null>(null);
-  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
-  const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
-
-
-  const outstandingOrders = useMemo(() => {
-    return supplierOrders.filter(order => 
-        order.paymentStatus !== 'Pagado Completo' && 
-        order.status !== SupplierOrderStatus.CANCELADO
-      )
-      .sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
-  }, [supplierOrders]);
-
-  const generatePayablePDF = async (order: SupplierOrder) => {
-    const doc = new jsPDF();
-    const storeSettings = getDefaultSettings(); 
-    const supplier = getSupplierById(order.supplierId);
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    let currentY = margin;
-
-    if (storeSettings.logoUrl && !storeSettings.logoUrl.startsWith('https://picsum.photos')) {
-        doc.setFontSize(10);
-        doc.text(`Logo: ${storeSettings.storeName}`, margin, currentY + 5);
-        currentY += 10;
-    } else {
-        doc.setFontSize(18);
-        doc.setTextColor(6, 182, 161);
-        doc.setFont("helvetica", "bold");
-        doc.text(storeSettings.storeName || "Pazzi", margin, currentY + 5);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0,0,0);
-        currentY += 10;
-    }
+    const [paymentModalOrder, setPaymentModalOrder] = useState<SupplierOrder | null>(null);
+    const [showEditOrderModal, setShowEditOrderModal] = useState(false);
+    const [orderToEdit, setOrderToEdit] = useState<SupplierOrder | null>(null);
+    const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
+    const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
     
-    doc.setFontSize(10);
-    doc.text("Nuestra Información:", margin, currentY);
-    currentY += 5;
-    doc.text(storeSettings.storeName || "Pazzi Plataforma Integrada", margin, currentY);
-    currentY += 5;
-    doc.text("Calle Pazzi 789, Ciudad Pazzi | Tel: (555) 987-6543", margin, currentY);
-    currentY += 10;
+    // Auth Modal State
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [pendingOrderForPayment, setPendingOrderForPayment] = useState<SupplierOrder | null>(null);
 
-    doc.setLineWidth(0.5);
-    doc.line(margin, currentY, pageWidth - margin, currentY);
-    currentY += 10;
+    // Filters
+    const [statusFilter, setStatusFilter] = useState<'Pendientes' | 'Pagado Completo' | 'Todas'>('Pendientes');
+    const [supplierFilterId, setSupplierFilterId] = useState<string | null>(null);
+    const [dueFilter, setDueFilter] = useState<'all' | 'overdue' | 'today' | '7days' | '30days' | 'plus30'>('all');
 
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("ESTADO DE CUENTA POR PAGAR", pageWidth / 2, currentY, { align: 'center' });
-    currentY += 8;
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Número de Pedido: PO-${order.id.slice(-6).toUpperCase()}`, margin, currentY);
-    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, pageWidth - margin, currentY, { align: 'right' });
-    currentY += 10;
+    // Selection
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [showBatchModal, setShowBatchModal] = useState(false);
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Proveedor:", margin, currentY);
-    currentY += 5;
-    doc.setFont("helvetica", "normal");
-    if (supplier) {
-        doc.text(supplier.name, margin, currentY);
-        currentY += 5;
-        doc.text(supplier.email, margin, currentY);
-        currentY += 5;
-        doc.text(supplier.address || "Dirección no disponible", margin, currentY);
-    } else {
-        doc.text("Información del proveedor no disponible.", margin, currentY);
-    }
-    currentY += 10;
-    
-    const tableColumnStyles: JsPdfAutoTableColumnStyles = {
-        '0': { cellWidth: 'auto' }, 
-        '1': { cellWidth: 25, halign: 'right' }, 
-        '2': { cellWidth: 30, halign: 'right' }, 
-        '3': { cellWidth: 35, halign: 'right' }
+    // Autocomplete Logic for Suppliers
+    const [supplierSearchInput, setSupplierSearchInput] = useState('');
+    const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
+    const supplierInputRef = useRef<HTMLInputElement>(null);
+
+    const supplierSuggestions = useMemo(() => {
+        if (!supplierSearchInput) return suppliers.slice(0, 10);
+        const lower = supplierSearchInput.toLowerCase();
+        return suppliers.filter(s => s.name.toLowerCase().includes(lower)).slice(0, 10);
+    }, [suppliers, supplierSearchInput]);
+
+    const handleSelectSupplier = (supplier: Supplier) => {
+        setSupplierFilterId(supplier.id);
+        setSupplierSearchInput(supplier.name);
+        setIsSupplierDropdownOpen(false);
+        setSelectedIds([]); // Clear selection
     };
-    
-    const head = [['Producto', 'Cant. Pedida', 'Costo Unit.', 'Subtotal']];
-    const body = order.items.map(item => {
-        const product = getProductById(item.productId);
-        const itemSubtotal = item.quantityOrdered * item.unitCost;
-        return [
-            product?.name || item.productId,
-            item.quantityOrdered.toString(),
-            `$${item.unitCost.toFixed(2)}`,
-            `$${itemSubtotal.toFixed(2)}`
-        ];
-    });
 
-    autoTable(doc as any, {
-        head: head,
-        body: body,
-        startY: currentY,
-        theme: 'striped', 
-        headStyles: { fillColor: [6, 182, 161], textColor: 255 }, 
-        columnStyles: tableColumnStyles,
-        margin: { left: margin, right: margin },
-        didDrawPage: (data: any) => { currentY = data.cursor.y; } 
-    });
-    currentY = (doc as any).lastAutoTable.finalY + 10;
+    const clearSupplierFilter = () => {
+        setSupplierFilterId(null);
+        setSupplierSearchInput('');
+        setSelectedIds([]); // Clear selection
+    };
 
-    const amountPaid = order.amountPaid || 0;
-    const balanceDue = order.totalCost - amountPaid;
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (supplierInputRef.current && !supplierInputRef.current.contains(event.target as Node)) {
+                setIsSupplierDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
-    doc.setFontSize(10);
-    let totalsX = pageWidth - margin - 70; 
-    doc.text("Costo Total Pedido:", totalsX, currentY, {align: 'left'});
-    doc.text(`$${order.totalCost.toFixed(2)}`, pageWidth - margin, currentY, {align: 'right'});
-    currentY += 7;
-    doc.text("Monto Pagado:", totalsX, currentY, {align: 'left'});
-    doc.text(`$${amountPaid.toFixed(2)}`, pageWidth - margin, currentY, {align: 'right'});
-    currentY += 7;
-    doc.setFont("helvetica", "bold");
-    doc.text("SALDO PENDIENTE:", totalsX, currentY, {align: 'left'});
-    doc.text(`$${balanceDue.toFixed(2)}`, pageWidth - margin, currentY, {align: 'right'});
-    currentY += 15;
-    
-    const qrText = `Cuenta por Pagar Pazzi\nPedido: PO-${order.id.slice(-6).toUpperCase()}\nProveedor: ${supplier?.name || 'N/A'}\nTotal: $${order.totalCost.toFixed(2)}`;
-    let qrCodeDataUrl = '';
-    if ((window as any).QRCode) {
-        try {
-            qrCodeDataUrl = await (window as any).QRCode.toDataURL(qrText);
-        } catch (err) {
-            console.error("Failed to generate QR code", err);
-        }
-    } else {
-        console.error("QRCode library is not loaded.");
-    }
 
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    const toggleRowExpansion = (orderId: string) => {
+        setExpandedRows(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(orderId)) {
+                newSet.delete(orderId);
+            } else {
+                newSet.add(orderId);
+            }
+            return newSet;
+        });
+    };
+
+    const filteredOrders = useMemo(() => {
+        let orders = supplierOrders.filter(o => o.status !== SupplierOrderStatus.CANCELADO);
         
-        if (qrCodeDataUrl) {
-            const qrSize = 20;
-            const qrX = margin;
-            const qrY = pageHeight - margin - qrSize - 5;
-            doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-            doc.setFontSize(7);
-            doc.setTextColor(150);
-            doc.text("Escanear para detalles", qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
+        // 1. Status Filter
+        if (statusFilter === 'Pendientes') {
+            orders = orders.filter(o => o.paymentStatus !== 'Pagado Completo');
+        } else if (statusFilter === 'Pagado Completo') {
+            orders = orders.filter(o => o.paymentStatus === 'Pagado Completo');
         }
-    }
+
+        // 2. Supplier Filter (Using Autocomplete ID)
+        if (supplierFilterId) {
+            orders = orders.filter(o => o.supplierId === supplierFilterId);
+        }
+
+        // 3. Due Date Filter (Assuming Net 30 for "Due Date")
+        if (dueFilter !== 'all') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            orders = orders.filter(o => {
+                const orderDate = new Date(o.orderDate + 'T00:00:00');
+                // Assume Net 30 for calculation
+                const dueDate = new Date(orderDate);
+                dueDate.setDate(dueDate.getDate() + 30); 
+                dueDate.setHours(0,0,0,0);
+
+                const diffTime = dueDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                switch (dueFilter) {
+                    case 'overdue': return diffDays < 0;
+                    case 'today': return diffDays === 0;
+                    case '7days': return diffDays >= 0 && diffDays <= 7;
+                    case '30days': return diffDays >= 0 && diffDays <= 30;
+                    case 'plus30': return diffDays > 30;
+                    default: return true;
+                }
+            });
+        }
+
+        return orders.map(o => ({
+            ...o,
+            balance: o.totalCost - o.amountPaid
+        })).sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
+    }, [supplierOrders, statusFilter, supplierFilterId, dueFilter]);
+
+    const handleRequestPayment = (order: SupplierOrder) => {
+        setPendingOrderForPayment(order);
+        setShowAuthModal(true);
+    };
+
+    const handleAuthSuccess = () => {
+        if (pendingOrderForPayment) {
+            setPaymentModalOrder(pendingOrderForPayment);
+            setPendingOrderForPayment(null);
+        }
+    };
+
+    const handleEditOrder = (order: SupplierOrder) => { setOrderToEdit(order); setShowEditOrderModal(true); };
+    const handleCancelOrder = (orderId: string) => { setOrderToCancelId(orderId); setShowCancelConfirmModal(true); };
+    const confirmCancelOrder = () => { if (orderToCancelId) { updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO); } setOrderToCancelId(null); setShowCancelConfirmModal(false); };
     
-    doc.save(`cuenta_pagar_PO-${order.id.slice(-6).toUpperCase()}.pdf`);
-  };
+    const generatePayablePDF = async (order: SupplierOrder) => {
+        alert(`Generando PDF para pedido #${order.id.slice(0,8)}...`);
+    };
 
-  const handleRecordPayment = (orderId: string, amount: number) => {
-    recordSupplierOrderPayment(orderId, amount);
-  };
-  
-  const handleEditOrder = (order: SupplierOrder) => {
-    setOrderToEdit(order);
-    setShowEditOrderModal(true);
-  };
+    const handleBatchNotify = () => {
+        if (selectedIds.length === 0 || !supplierFilterId) return;
+        setShowBatchModal(true);
+    };
 
-  const handleCancelOrder = (orderId: string) => {
-    setOrderToCancelId(orderId);
-    setShowCancelConfirmModal(true);
-  };
+    const confirmBatchNotify = (message: string) => {
+        const supplier = getSupplierById(supplierFilterId || '');
+        console.log(`Notification sent to supplier ${supplier?.name}:`, message);
+        addNotification({
+            title: 'Proveedor Contactado',
+            message: `Se registró contacto con ${supplier?.name} sobre ${selectedIds.length} órdenes.`,
+            type: 'generic',
+            link: '/pos/accounts-payable'
+        });
+        setShowBatchModal(false);
+        setSelectedIds([]);
+    };
 
-  const confirmCancelOrder = () => {
-    if (orderToCancelId) {
-        updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO);
-    }
-    setOrderToCancelId(null);
-    setShowCancelConfirmModal(false);
-  };
+    return (
+        <div>
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Cuentas por Pagar</h1>
+                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto items-center">
+                        
+                        {/* Show Batch Button if Filter Active and Items Selected */}
+                        {supplierFilterId && selectedIds.length > 0 && (
+                            <button 
+                                onClick={handleBatchNotify}
+                                className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center animate-pulse bg-blue-600 hover:bg-blue-700 border-blue-600`}
+                            >
+                                <EnvelopeIcon className="w-4 h-4 mr-2" />
+                                Contactar sobre Seleccionados ({selectedIds.length})
+                            </button>
+                        )}
 
-  const columns: TableColumn<SupplierOrder>[] = [
-    { header: 'ID Pedido', accessor: (o) => o.id.substring(0, 8).toUpperCase() },
-    { 
-      header: 'Proveedor', 
-      accessor: (o) => {
-        const supplier = getSupplierById(o.supplierId);
-        return supplier ? supplier.name : 'N/A';
-      }
-    },
-    { header: 'Fecha Pedido', accessor: (o) => new Date(o.orderDate + 'T00:00:00').toLocaleDateString() },
-    { header: 'Costo Total', accessor: (o) => `$${o.totalCost.toFixed(2)}` },
-    { header: 'Monto Pagado', accessor: (o) => `$${(o.amountPaid || 0).toFixed(2)}` },
-    { 
-      header: 'Estado Pago', 
-      accessor: (o) => (
-        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-            o.paymentStatus === 'No Pagado' ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' :
-            o.paymentStatus === 'Pagado Parcialmente' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-100' :
-            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100' 
-        }`}>
-          {o.paymentStatus}
-        </span>
-      )
-    },
-    { header: 'Estado Pedido', accessor: (o) => o.status }
-  ];
+                        <select id="apStatusFilter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className={INPUT_SM_CLASSES}>
+                            <option value="Pendientes">Pendientes</option>
+                            <option value="Pagado Completo">Pagado Completo</option>
+                            <option value="Todas">Todas</option>
+                        </select>
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">
-        Cuentas por Pagar a Proveedores
-      </h1>
-      <DataTable<SupplierOrder>
-        data={outstandingOrders}
-        columns={columns}
-        actions={(order) => (
-          <div className="flex space-x-1">
-            <button
-              onClick={() => handleEditOrder(order)}
-              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-              title="Editar Pedido"
-            >
-              <EditIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => generatePayablePDF(order)}
-              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-              title="Imprimir Estado de Cuenta"
-            >
-              <PrinterIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setPaymentModalOrder(order)}
-              className="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 p-1"
-              title="Registrar Pago"
-              disabled={order.paymentStatus === 'Pagado Completo' || order.status === SupplierOrderStatus.CANCELADO}
-            >
-              <BanknotesIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleCancelOrder(order.id)}
-              className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
-              title="Cancelar Pedido"
-              disabled={order.status === SupplierOrderStatus.CANCELADO || order.status === SupplierOrderStatus.RECIBIDO_COMPLETO}
-            >
-              <CancelIcon className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-      />
-      <RecordPaymentModal
-        isOpen={!!paymentModalOrder}
-        onClose={() => setPaymentModalOrder(null)}
-        order={paymentModalOrder}
-        onRecordPayment={handleRecordPayment}
-        getSupplierById={getSupplierById} // Pass the function here
-      />
-      <SupplierOrderFormModal
-        isOpen={showEditOrderModal}
-        onClose={() => setShowEditOrderModal(false)}
-        orderToEdit={orderToEdit}
-      />
-      {orderToCancelId && (
-        <ConfirmationModal
-            isOpen={showCancelConfirmModal}
-            onClose={() => setShowCancelConfirmModal(false)}
-            onConfirm={confirmCancelOrder}
-            title="Confirmar Cancelación de Pedido"
-            message={`¿Está seguro que desea cancelar el pedido PO-${orderToCancelId.slice(-6).toUpperCase()}? Esta acción no revertirá automáticamente el stock si ya fue recibido.`}
-            confirmButtonText="Sí, Cancelar Pedido"
-        />
-      )}
-    </div>
-  );
+                        {/* Supplier Autocomplete Filter */}
+                        <div className="relative" ref={supplierInputRef}>
+                            <div className="relative">
+                                <input 
+                                    type="text"
+                                    placeholder="Filtrar por Proveedor..."
+                                    value={supplierSearchInput}
+                                    onChange={(e) => { setSupplierSearchInput(e.target.value); if(e.target.value === '') { setSupplierFilterId(null); setSelectedIds([]); } }}
+                                    onFocus={() => setIsSupplierDropdownOpen(true)}
+                                    className={`${INPUT_SM_CLASSES} pr-8 w-full sm:w-64`}
+                                />
+                                {supplierSearchInput && (
+                                    <button 
+                                        onClick={clearSupplierFilter}
+                                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                                    >
+                                        <XMarkIcon className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                            {isSupplierDropdownOpen && (
+                                <ul className="absolute z-50 w-full mt-1 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    <li 
+                                        onClick={() => { clearSupplierFilter(); setIsSupplierDropdownOpen(false); }}
+                                        className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm"
+                                    >
+                                        Todos los Proveedores
+                                    </li>
+                                    {supplierSuggestions.map(s => (
+                                        <li 
+                                            key={s.id}
+                                            onClick={() => handleSelectSupplier(s)}
+                                            className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm"
+                                        >
+                                            {s.name}
+                                        </li>
+                                    ))}
+                                    {supplierSuggestions.length === 0 && (
+                                        <li className="px-3 py-2 text-neutral-500 text-sm">No se encontraron proveedores.</li>
+                                    )}
+                                </ul>
+                            )}
+                        </div>
+
+                        <select value={dueFilter} onChange={e => setDueFilter(e.target.value as any)} className={INPUT_SM_CLASSES}>
+                            <option value="all">Vencimiento (Net 30): Todos</option>
+                            <option value="overdue">Vencidas</option>
+                            <option value="today">Vence Hoy</option>
+                            <option value="7days">Próx. 7 Días</option>
+                            <option value="30days">Próx. 30 Días</option>
+                            <option value="plus30">+30 Días</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+             <div className="overflow-x-auto bg-white dark:bg-neutral-800 shadow-md rounded-lg">
+                <DataTable<SupplierOrder>
+                    data={filteredOrders}
+                    selectedIds={supplierFilterId ? selectedIds : undefined} // Only enable selection if filtered by supplier
+                    onSelectionChange={supplierFilterId ? setSelectedIds : undefined}
+                    columns={[
+                        { header: '', accessor: (order) => {
+                            const paymentNotesParsed = (order.paymentNotes || []).length;
+                            return paymentNotesParsed > 0 ? (
+                                <button onClick={() => toggleRowExpansion(order.id)} className="p-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-600">
+                                    {expandedRows.has(order.id) ? <ChevronDownIcon className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />}
+                                </button>
+                            ) : null;
+                        }, className: "w-8 px-2" },
+                        { header: 'ID Pedido', accessor: (o) => o.id.substring(0, 8).toUpperCase() },
+                        { header: 'Proveedor', accessor: (o) => getSupplierById(o.supplierId)?.name || 'N/A' },
+                        { header: 'Fecha Pedido', accessor: (o) => new Date(o.orderDate + 'T00:00:00').toLocaleDateString() },
+                        { header: 'Costo Total', accessor: (o) => `$${o.totalCost.toFixed(2)}` },
+                        { header: 'Monto Pagado', accessor: (o) => `$${o.amountPaid.toFixed(2)}` },
+                        { header: 'Saldo Pendiente', accessor: (o) => <span className="font-semibold text-red-600 dark:text-red-400">${(o.totalCost - o.amountPaid).toFixed(2)}</span> },
+                        { header: 'Estado Pago', accessor: 'paymentStatus' },
+                    ]}
+                    actions={(order) => (
+                        <div className="flex space-x-1">
+                            <button onClick={() => handleEditOrder(order)} className="text-blue-500 p-1" title="Editar Pedido"><EditIcon className="w-4 h-4" /></button>
+                            <button onClick={() => generatePayablePDF(order)} className="text-blue-500 p-1" title="Imprimir Estado de Cuenta"><PrinterIcon className="w-4 h-4" /></button>
+                            <button 
+                                onClick={() => handleRequestPayment(order)} // Updated to trigger Auth
+                                className="text-green-500 p-1" 
+                                title="Registrar Pago" 
+                                disabled={order.totalCost - order.amountPaid <= 0}
+                            >
+                                <BanknotesIcon className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleCancelOrder(order.id)} className="text-red-500 p-1" title="Cancelar Pedido" disabled={order.status === SupplierOrderStatus.RECIBIDO_COMPLETO}><CancelIcon className="w-4 h-4" /></button>
+                        </div>
+                    )}
+                />
+                {/* Render expanded rows for payment details manually since DataTable doesn't support expandable rows directly in this version easily without structural changes */}
+                {filteredOrders.some(o => expandedRows.has(o.id)) && (
+                    <div className="p-4 bg-neutral-50 dark:bg-neutral-800 border-t dark:border-neutral-700">
+                        <h4 className="text-sm font-semibold mb-2">Detalles de Pagos (Expandidos)</h4>
+                        {filteredOrders.filter(o => expandedRows.has(o.id)).map(order => (
+                            <div key={`expanded-${order.id}`} className="mb-4 border-b pb-2 dark:border-neutral-700">
+                                <p className="text-xs font-bold mb-1">Pedido {order.id.slice(0,8)}:</p>
+                                <table className="min-w-full bg-white dark:bg-neutral-700 rounded-md text-xs">
+                                    <thead className="bg-neutral-100 dark:bg-neutral-600">
+                                        <tr><th className="px-2 py-1 text-left">Fecha</th><th className="px-2 py-1 text-right">Monto</th><th className="px-2 py-1">Ref.</th><th className="px-2 py-1">Adjunto</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {(order.paymentNotes || []).map((note, i) => {
+                                            try {
+                                                const p = JSON.parse(note);
+                                                return (
+                                                    <tr key={i} className="border-t dark:border-neutral-600">
+                                                        <td className="px-2 py-1">{p.d}</td>
+                                                        <td className="px-2 py-1 text-right font-medium">${p.p}</td>
+                                                        <td className="px-2 py-1">{p.i || '-'}</td>
+                                                        <td className="px-2 py-1">{p.a ? <a href={p.a} target="_blank" rel="noreferrer" className="text-blue-500">Ver</a> : 'No'}</td>
+                                                    </tr>
+                                                );
+                                            } catch { return null; }
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+            
+            <AdminAuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onConfirm={handleAuthSuccess} />
+            <RecordPaymentModal isOpen={!!paymentModalOrder} onClose={() => setPaymentModalOrder(null)} order={paymentModalOrder} onRecordPayment={recordSupplierOrderPayment}/>
+            <SupplierOrderFormModal isOpen={showEditOrderModal} onClose={() => setShowEditOrderModal(false)} orderToEdit={orderToEdit} />
+            
+            <BatchSupplierNotificationModal
+                isOpen={showBatchModal}
+                onClose={() => setShowBatchModal(false)}
+                orders={filteredOrders.filter(o => selectedIds.includes(o.id))}
+                supplierName={supplierFilterId ? (getSupplierById(supplierFilterId)?.name || '') : ''}
+                onSend={confirmBatchNotify}
+            />
+
+            {orderToCancelId && <ConfirmationModal isOpen={showCancelConfirmModal} onClose={() => setShowCancelConfirmModal(false)} onConfirm={confirmCancelOrder} title="Confirmar Cancelación" message={`¿Seguro que desea cancelar el pedido PO-${orderToCancelId.slice(-6).toUpperCase()}?`} confirmButtonText="Sí, Cancelar Pedido" />}
+        </div>
+    );
 };

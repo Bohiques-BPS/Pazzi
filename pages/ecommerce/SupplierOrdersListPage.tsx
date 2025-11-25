@@ -7,6 +7,7 @@ import { SupplierOrderFormModal } from './SupplierOrderFormModal';
 import { Modal } from '../../components/Modal'; 
 import { PlusIcon, EditIcon, EyeIcon, Cog6ToothIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface UpdateStatusModalProps {
     isOpen: boolean;
@@ -16,6 +17,7 @@ interface UpdateStatusModalProps {
 }
 
 const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, order, onUpdate }) => {
+    const { t } = useTranslation();
     const [newStatus, setNewStatus] = useState<SupplierOrderStatus | ''>('');
 
     useEffect(() => {
@@ -62,7 +64,7 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
                 </div>
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700 mt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>
-                        Cancelar
+                        {t('common.cancel')}
                     </button>
                     <button 
                         type="submit" 
@@ -79,6 +81,7 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
 
 
 export const SupplierOrdersListPage: React.FC = () => {
+    const { t } = useTranslation();
     const { supplierOrders, getSupplierById, updateSupplierOrderStatus } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingOrder, setEditingOrder] = useState<SupplierOrder | null>(null);
@@ -122,13 +125,13 @@ export const SupplierOrdersListPage: React.FC = () => {
 
 
     const columns: TableColumn<SupplierOrder>[] = [
-        { header: 'ID Pedido', accessor: (order) => order.id.substring(0, 8).toUpperCase() },
-        { header: 'Proveedor', accessor: (order) => getSupplierById(order.supplierId)?.name || 'N/A' },
-        { header: 'Fecha Pedido', accessor: (order) => new Date(order.orderDate + 'T00:00:00').toLocaleDateString('es-ES') },
-        { header: 'F. Entrega Est.', accessor: (order) => order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A' },
-        { header: 'Costo Total', accessor: (order) => `$${order.totalCost.toFixed(2)}` },
+        { header: t('ecommerce.supplier_orders.col.id'), accessor: (order) => order.id.substring(0, 8).toUpperCase() },
+        { header: t('ecommerce.supplier_orders.col.supplier'), accessor: (order) => getSupplierById(order.supplierId)?.name || 'N/A' },
+        { header: t('ecommerce.supplier_orders.col.date'), accessor: (order) => new Date(order.orderDate + 'T00:00:00').toLocaleDateString('es-ES') },
+        { header: t('ecommerce.supplier_orders.col.delivery_date'), accessor: (order) => order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A' },
+        { header: t('ecommerce.supplier_orders.col.cost'), accessor: (order) => `$${order.totalCost.toFixed(2)}` },
         { 
-            header: 'Estado', 
+            header: t('ecommerce.supplier_orders.col.status'), 
             accessor: (order) => (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                     order.status === 'Pedido' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' :
@@ -144,11 +147,11 @@ export const SupplierOrdersListPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Pedidos a Proveedores</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('ecommerce.supplier_orders.title')}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                      <input
                         type="text"
-                        placeholder="Buscar por ID, proveedor..."
+                        placeholder={t('ecommerce.supplier_orders.search_placeholder')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
@@ -166,7 +169,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                         ))}
                     </select>
                     <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
-                        <PlusIcon /> Crear Pedido
+                        <PlusIcon /> {t('ecommerce.supplier_orders.create')}
                     </button>
                 </div>
             </div>
@@ -176,7 +179,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 actions={(order) => (
                     <div className="flex space-x-2">
                         <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Ver/Editar Pedido ${order.id.substring(0,8)}`}>
-                            <EyeIcon /> {/* Using Eye for View/Edit combo */}
+                            <EyeIcon />
                         </button>
                          <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" aria-label={`Actualizar Estado Pedido ${order.id.substring(0,8)}`}>
                             <Cog6ToothIcon />

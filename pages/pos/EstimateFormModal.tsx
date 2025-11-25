@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Estimate, EstimateFormData, Client, CartItem, Product, EstimateStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -8,6 +9,7 @@ import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS, ADMIN_USER_ID, INITIAL_BRANCHES } from '../../constants';
 import { UserCircleIcon, TrashIconMini } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface EstimateFormModalProps {
     isOpen: boolean;
@@ -16,6 +18,7 @@ interface EstimateFormModalProps {
 }
 
 export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, onClose, estimateToEdit }) => {
+    const { t } = useTranslation();
     const { clients, products, setEstimates, getProductById } = useData();
     const { currentUser } = useAuth();
     const [isClientSearchModalOpen, setIsClientSearchModalOpen] = useState(false);
@@ -145,7 +148,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
 
     return (
         <>
-            <Modal isOpen={isOpen} onClose={onClose} title={estimateToEdit ? "Editar Estimado" : "Crear Estimado"} size="4xl">
+            <Modal isOpen={isOpen} onClose={onClose} title={estimateToEdit ? t('pos.estimates.form.edit_title') : t('pos.estimates.form.create_title')} size="4xl">
                 <form onSubmit={handleSubmit} className="flex flex-col h-[75vh]">
                     <div className="flex-grow overflow-y-auto pr-2 space-y-4">
                         <div className="flex items-center space-x-3 p-2 border rounded-md dark:border-neutral-600">
@@ -157,17 +160,17 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                                         <p className="text-xs text-neutral-500">{selectedClient.email}</p>
                                     </>
                                 ) : (
-                                    <p className="text-sm text-neutral-500">Ningún cliente seleccionado</p>
+                                    <p className="text-sm text-neutral-500">{t('pos.client_search')}</p>
                                 )}
                              </div>
                              <button type="button" onClick={() => setIsClientSearchModalOpen(true)} className={BUTTON_SECONDARY_SM_CLASSES}>
-                                {selectedClient ? 'Cambiar Cliente' : 'Buscar Cliente'}
+                                {selectedClient ? t('common.edit') : t('common.search')}
                              </button>
                         </div>
                         
                         <div>
-                            <label className="text-sm font-medium">Añadir Productos</label>
-                            <ProductAutocomplete products={posRelevantProducts} onProductSelect={handleProductSelect} inputRef={productAutocompleteRef} />
+                            <label className="text-sm font-medium">{t('pos.estimates.form.add_products')}</label>
+                            <ProductAutocomplete products={posRelevantProducts} onProductSelect={handleProductSelect} inputRef={productAutocompleteRef} placeholder={t('pos.search_placeholder')} />
                         </div>
 
                         <div className="space-y-2 max-h-48 overflow-y-auto border-t border-b py-2 dark:border-neutral-700">
@@ -183,35 +186,35 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                                         <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700 p-1" title="Quitar"><TrashIconMini/></button>
                                     </div>
                                 </div>
-                           )) : <p className="text-xs text-center text-neutral-500">Añada productos al estimado.</p>}
+                           )) : <p className="text-xs text-center text-neutral-500">{t('pos.empty_cart')}</p>}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div>
-                                <label htmlFor="status" className="block text-sm font-medium">Estado</label>
+                                <label htmlFor="status" className="block text-sm font-medium">{t('pos.estimates.form.status')}</label>
                                 <select name="status" id="status" value={formData.status} onChange={handleChange} className={inputFormStyle}>
                                     {ESTIMATE_STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label htmlFor="expiryDate" className="block text-sm font-medium">Válido Hasta (Opcional)</label>
+                                <label htmlFor="expiryDate" className="block text-sm font-medium">{t('pos.estimates.form.valid_until')}</label>
                                 <input type="date" name="expiryDate" id="expiryDate" value={formData.expiryDate} onChange={handleChange} className={inputFormStyle} />
                             </div>
                         </div>
 
                          <div>
-                            <label htmlFor="notes" className="block text-sm font-medium">Notas</label>
+                            <label htmlFor="notes" className="block text-sm font-medium">{t('pos.estimates.form.notes')}</label>
                             <RichTextEditor value={formData.notes || ''} onChange={(value) => setFormData(prev => ({...prev, notes: value}))} placeholder="Añada notas, términos o condiciones para el estimado..." />
                         </div>
                     </div>
                     
                     <div className="flex-shrink-0 pt-4 border-t dark:border-neutral-700 space-y-2">
-                        <div className="flex justify-between text-sm"><span className="text-neutral-500">Subtotal:</span> <span>${subtotal.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-neutral-500">IVA (aprox.):</span> <span>${totalIVA.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-xl font-bold text-primary"><span className="dark:text-accent">TOTAL:</span> <span>${grandTotal.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-neutral-500">{t('pos.subtotal')}:</span> <span>${subtotal.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-neutral-500">{t('pos.tax')} (aprox.):</span> <span>${totalIVA.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-xl font-bold text-primary"><span className="dark:text-accent">{t('pos.total')}:</span> <span>${grandTotal.toFixed(2)}</span></div>
                         <div className="flex justify-end space-x-2 pt-2">
-                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                            <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Guardar Estimado</button>
+                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                            <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
                         </div>
                     </div>
                 </form>

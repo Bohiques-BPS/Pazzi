@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { SupplierOrder, SupplierOrderFormData, SupplierOrderItem, Product as ProductType, SupplierOrderStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS } from '../../constants';
 import { TrashIconMini } from '../../components/icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface SupplierOrderFormModalProps {
     isOpen: boolean;
@@ -12,6 +14,7 @@ interface SupplierOrderFormModalProps {
 }
 
 export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ isOpen, onClose, orderToEdit }) => {
+    const { t } = useTranslation();
     const { suppliers, products: catalogProducts, addSupplierOrder, setSupplierOrders } = useData();
     
     const initialFormData: SupplierOrderFormData = {
@@ -19,7 +22,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         orderDate: new Date().toISOString().split('T')[0],
         expectedDeliveryDate: '',
         items: [],
-        status: SupplierOrderStatus.BORRADOR, // Changed from 'Borrador'
+        status: SupplierOrderStatus.BORRADOR, 
     };
     const [formData, setFormData] = useState<SupplierOrderFormData>(initialFormData);
     const [currentItem, setCurrentItem] = useState<{ productId: string; quantityOrdered: number; unitCost: number }>({
@@ -41,7 +44,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             } else {
                 setFormData({
                     ...initialFormData,
-                    supplierId: suppliers[0]?.id || '', // Ensure supplierId is set if suppliers exist
+                    supplierId: suppliers[0]?.id || '', 
                 });
             }
             setCurrentItem({ productId: catalogProducts[0]?.id || '', quantityOrdered: 1, unitCost: 0 });
@@ -70,7 +73,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             return;
         }
         setFormData(prev => ({ ...prev, items: [...prev.items, currentItem] }));
-        setCurrentItem({ productId: catalogProducts[0]?.id || '', quantityOrdered: 1, unitCost: 0 }); // Reset for next item
+        setCurrentItem({ productId: catalogProducts[0]?.id || '', quantityOrdered: 1, unitCost: 0 }); 
     };
 
     const handleRemoveItem = (productIdToRemove: string) => {
@@ -96,25 +99,24 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             const updatedOrder: SupplierOrder = { ...orderToEdit, ...formData, totalCost };
             setSupplierOrders(prev => prev.map(o => o.id === orderToEdit.id ? updatedOrder : o));
         } else {
-            // totalCost is calculated inside addSupplierOrder for new orders
             addSupplierOrder(formData);
         }
         onClose();
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? 'Editar Pedido a Proveedor' : 'Crear Pedido a Proveedor'} size="4xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? t('ecommerce.supplier_orders.form.edit_title') : t('ecommerce.supplier_orders.form.create_title')} size="4xl">
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="supplierId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Proveedor</label>
+                        <label htmlFor="supplierId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.supplier')}</label>
                         <select name="supplierId" id="supplierId" value={formData.supplierId} onChange={handleFormChange} className={inputFormStyle} required>
                             <option value="">Seleccionar Proveedor</option>
                             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Estado</label>
+                        <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.status')}</label>
                         <select name="status" id="status" value={formData.status} onChange={handleFormChange} className={inputFormStyle}>
                             {SUPPLIER_ORDER_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
@@ -122,33 +124,33 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="orderDate" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha del Pedido</label>
+                        <label htmlFor="orderDate" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.date')}</label>
                         <input type="date" name="orderDate" id="orderDate" value={formData.orderDate} onChange={handleFormChange} className={inputFormStyle} required />
                     </div>
                     <div>
-                        <label htmlFor="expectedDeliveryDate" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha Estimada Entrega (Opcional)</label>
+                        <label htmlFor="expectedDeliveryDate" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.delivery_date')}</label>
                         <input type="date" name="expectedDeliveryDate" id="expectedDeliveryDate" value={formData.expectedDeliveryDate || ''} onChange={handleFormChange} className={inputFormStyle} />
                     </div>
                 </div>
 
                 <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                    <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Artículos del Pedido</legend>
+                    <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.form.items')}</legend>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 items-end">
                         <div className="md:col-span-2">
-                            <label htmlFor="itemProductId" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Producto</label>
+                            <label htmlFor="itemProductId" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_product')}</label>
                             <select name="productId" id="itemProductId" value={currentItem.productId} onChange={handleItemInputChange} className={inputFormStyle + " text-sm !py-1.5"}>
                                 {catalogProducts.map(p => <option key={p.id} value={p.id}>{p.name} (Stock Total: {p.stockByBranch.reduce((sum, sb) => sum + sb.quantity, 0)})</option>)}
                             </select>
                         </div>
                         <div>
-                            <label htmlFor="itemQuantity" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Cantidad</label>
+                            <label htmlFor="itemQuantity" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_quantity')}</label>
                             <input type="number" name="quantityOrdered" id="itemQuantity" value={currentItem.quantityOrdered} onChange={handleItemInputChange} className={inputFormStyle + " text-sm !py-1.5"} min="1" />
                         </div>
                         <div>
-                            <label htmlFor="itemUnitCost" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Costo Unit.</label>
+                            <label htmlFor="itemUnitCost" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_cost')}</label>
                             <input type="number" name="unitCost" id="itemUnitCost" value={currentItem.unitCost} onChange={handleItemInputChange} className={inputFormStyle + " text-sm !py-1.5"} min="0" step="0.01" />
                         </div>
-                        <button type="button" onClick={handleAddItem} className={`${BUTTON_SECONDARY_SM_CLASSES} md:col-start-4 !text-sm`}>Añadir Artículo</button>
+                        <button type="button" onClick={handleAddItem} className={`${BUTTON_SECONDARY_SM_CLASSES} md:col-start-4 !text-sm`}>{t('ecommerce.supplier_orders.form.add_item')}</button>
                     </div>
                     {formData.items.length > 0 && (
                         <div className="max-h-40 overflow-y-auto border dark:border-neutral-600 rounded">
@@ -188,8 +190,8 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700 mt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{orderToEdit ? 'Guardar Cambios' : 'Crear Pedido'}</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
                 </div>
             </form>
         </Modal>

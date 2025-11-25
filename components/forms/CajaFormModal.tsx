@@ -19,6 +19,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         branchId: activeBranches[0]?.id || '',
         isActive: true,
         applyIVA: true,
+        isExternal: false,
     };
     const [formData, setFormData] = useState<CajaFormData>(initialFormData);
 
@@ -30,6 +31,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                     branchId: cajaToEdit.branchId,
                     isActive: cajaToEdit.isActive,
                     applyIVA: cajaToEdit.applyIVA,
+                    isExternal: cajaToEdit.isExternal || false,
                 });
             } else {
                 // Reset to initial, ensuring branchId is valid if activeBranches exist
@@ -93,7 +95,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                     </select>
                     {activeBranches.length === 0 && <p className="text-xs text-red-500 mt-1">No hay sucursales activas. Por favor, active o cree una sucursal primero.</p>}
                 </div>
-                <div className="flex items-center space-x-6 pt-2">
+                <div className="flex flex-wrap items-center gap-6 pt-2">
                     <label htmlFor="isActive" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
                         <input
                             type="checkbox"
@@ -120,6 +122,25 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   "Aplicar IVA por Defecto" indica si las ventas procesadas en esta caja deben incluir IVA automáticamente. Esto puede ser ajustado por producto si necesario.
                 </p>
+
+                <div className="pt-2 border-t dark:border-neutral-700">
+                    <label htmlFor="isExternal" className="flex items-start text-sm font-medium text-neutral-700 dark:text-neutral-300 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-100 dark:border-amber-800 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            name="isExternal"
+                            id="isExternal"
+                            checked={formData.isExternal}
+                            onChange={handleChange}
+                            className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-neutral-300 dark:border-neutral-600 rounded mr-2 mt-0.5"
+                        />
+                        <div>
+                            <span className="block font-bold text-amber-700 dark:text-amber-400">Caja Externa / Fuera del Sistema</span>
+                            <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-normal mt-1">
+                                Las ventas realizadas en esta caja se guardarán pero <strong>NO</strong> se incluirán en los reportes financieros estándar por defecto. Útil para ventas paralelas o de prueba.
+                            </span>
+                        </div>
+                    </label>
+                </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>

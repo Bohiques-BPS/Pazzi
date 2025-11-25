@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export enum UserRole {
@@ -10,6 +11,13 @@ export enum UserRole {
 export enum Theme {
   LIGHT = 'light',
   DARK = 'dark',
+}
+
+export interface GlobalSettings {
+    timezone: string;
+    numberFormat: 'comma_decimal' | 'dot_decimal'; // comma_decimal = 1,000.00; dot_decimal = 1.000,00
+    language: 'es' | 'en';
+    fontSize: 'sm' | 'md' | 'lg';
 }
 
 export interface AlertSettings {
@@ -31,6 +39,7 @@ export interface User {
   permissions?: EmployeePermissions;
   profilePictureUrl?: string;
   alertSettings?: AlertSettings;
+  pin?: string;
 }
 
 export interface Branch {
@@ -47,6 +56,7 @@ export interface Caja {
     branchId: string;
     isActive: boolean;
     applyIVA: boolean;
+    isExternal?: boolean; // New: Marks if sales from this register should be excluded from main reports
 }
 
 export interface ProductVariation {
@@ -62,6 +72,10 @@ export interface ProductPriceLevel {
     price: number;
 }
 
+export interface CustomSpecification {
+    name: string;
+    value: string;
+}
 
 export interface Product {
     id: string;
@@ -105,6 +119,7 @@ export interface Product {
     availableStock?: number; // This might be a computed property in some contexts
     hasPriceLevels?: boolean;
     priceLevels?: ProductPriceLevel[];
+    customSpecifications?: CustomSpecification[]; // New field
 }
 
 export interface ProductStockInfo extends Product {
@@ -175,6 +190,7 @@ export interface Client {
     preferredCarrier?: string;
     projectIds?: string[];
     createdDate?: string;
+    isLoss?: boolean; // New: Marks client as a loss/bad debt
 }
 
 export interface EmployeePermissions {
@@ -202,6 +218,7 @@ export interface Employee {
     socialSecurityNumber?: string;
     profilePictureUrl?: string;
     permissions?: EmployeePermissions;
+    pin?: string;
 }
 
 export enum ProjectStatus {
@@ -217,6 +234,7 @@ export interface WorkDayTimeRange {
     date: string;
     startTime: string;
     endTime: string;
+    assignedEmployeeIds?: string[];
 }
 
 export interface ProjectResource {
@@ -290,6 +308,7 @@ export interface Sale {
     relatedEstimateIds?: string[]; // To track which estimates were converted
     isReturn?: boolean;
     originalSaleId?: string;
+    isExternal?: boolean; // New: Indicates if this sale was made on an external register
 }
 
 export enum EstimateStatus {
@@ -424,6 +443,7 @@ export interface SupplierOrder {
     storeOwnerId: string;
     amountPaid: number;
     paymentStatus: 'No Pagado' | 'Pagado Parcialmente' | 'Pagado Completo';
+    paymentNotes?: string[];
 }
 
 export type NotificationType = 'new_order' | 'chat_message' | 'low_stock' | 'generic';
@@ -436,7 +456,7 @@ export interface Notification {
     read: boolean;
     link?: string;
     type: NotificationType;
-    icon?: React.ReactNode;
+    icon?: React.ComponentType<any>;
 }
 
 
@@ -461,6 +481,8 @@ export type ClientFormData = Omit<Client, 'id' | 'createdDate'>;
 export interface EmployeeFormData extends Omit<Employee, 'id'> {
     password?: string;
     confirmPassword?: string;
+    pin?: string;
+    confirmPin?: string;
 }
 
 export type ProjectFormData = Omit<Project, 'id' | 'invoiceGenerated' | 'invoiceNumber' | 'invoiceDate' | 'invoiceAmount' | 'paymentDueDate'>;
@@ -469,7 +491,7 @@ export type VisitFormData = Omit<Visit, 'id'>;
 
 export type SupplierFormData = Omit<Supplier, 'id' | 'storeOwnerId'>;
 
-export type SupplierOrderFormData = Omit<SupplierOrder, 'id' | 'totalCost' | 'storeOwnerId' | 'amountPaid' | 'paymentStatus'>;
+export type SupplierOrderFormData = Omit<SupplierOrder, 'id' | 'totalCost' | 'storeOwnerId' | 'amountPaid' | 'paymentStatus' | 'paymentNotes'>;
 
 export type BranchFormData = Omit<Branch, 'id'>;
 
@@ -493,6 +515,7 @@ export interface SalePayment {
     amountPaid: number;
     paymentMethodUsed: string;
     notes?: string;
+    attachment?: string; // Data URL of the attachment
 }
 
 export enum LayawayStatus {

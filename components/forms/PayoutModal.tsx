@@ -3,6 +3,7 @@ import { Modal } from '../Modal';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useAuth } from '../../contexts/AuthContext';
 import { User, UserRole } from '../../types';
+import { RichTextEditor } from '../ui/RichTextEditor';
 
 interface PayoutModalProps {
     isOpen: boolean;
@@ -10,12 +11,6 @@ interface PayoutModalProps {
     onConfirm: (amount: number, reason: string) => void;
     currentCashInDrawer: number;
 }
-
-const payoutReasons = [
-    'Depósito a Caja Fuerte DROP', 'Mercancía', 'Suplidores',
-    'Maquinas', 'Loto', 'Instantáneos',
-    'Western Union', 'Vales', 'Otros'
-];
 
 export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onConfirm, currentCashInDrawer }) => {
     const { allUsers } = useAuth();
@@ -41,10 +36,21 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
         }
     }, [isOpen, managers]);
 
+    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setAmount(val);
+        const numVal = parseFloat(val);
+        if (numVal > currentCashInDrawer) {
+            setError(`El retiro no puede exceder el efectivo en caja ($${currentCashInDrawer.toFixed(2)}).`);
+        } else {
+            setError('');
+        }
+    };
+
     const handleConfirm = () => {
         const payoutAmount = parseFloat(amount);
         if (isNaN(payoutAmount) || payoutAmount <= 0) {
-            setError('Por favor, ingrese un monto válido.');
+            setError('Por favor, ingrese un monto válido mayor a 0.');
             return;
         }
         if (payoutAmount > currentCashInDrawer) {
@@ -56,7 +62,7 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
             return;
         }
         if (!comments.trim()) {
-            setError('Debe seleccionar una razón o añadir un comentario.');
+            setError('Debe escribir la razón del desembolso.');
             return;
         }
 
@@ -73,24 +79,9 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Desembolsos - Pay Out" size="3xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Desembolsos - Pay Out" size="lg">
             <div className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {payoutReasons.map(reason => (
-                        <button
-                            key={reason}
-                            onClick={() => setComments(reason)}
-                            className={`p-3 text-center border rounded-md transition-colors text-sm font-medium
-                                ${comments === reason
-                                    ? 'bg-primary text-white border-primary'
-                                    : 'bg-neutral-100 dark:bg-neutral-700 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-200 dark:hover:bg-neutral-600'
-                                }`}
-                        >
-                            {reason}
-                        </button>
-                    ))}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t dark:border-neutral-600">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="authorizedBy" className="block text-sm font-medium">Autorizado por</label>
                         <select id="authorizedBy" value={authorizedBy} onChange={e => setAuthorizedBy(e.target.value)} className={inputFormStyle}>
@@ -105,24 +96,22 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
                             type="number"
                             id="payoutAmount"
                             value={amount}
-                            onChange={e => setAmount(e.target.value)}
-                            className={inputFormStyle}
+                            onChange={handleAmountChange}
+                            className={`${inputFormStyle} ${error ? 'border-red-500 focus:ring-red-500' : ''}`}
                             placeholder="0.00"
                             min="0.01"
                             step="0.01"
                             max={currentCashInDrawer}
+                            autoFocus
                         />
                     </div>
                 </div>
                 <div>
-                     <label htmlFor="payoutComments" className="block text-sm font-medium">Comentarios</label>
-                     <textarea
-                        id="payoutComments"
+                     <label htmlFor="payoutComments" className="block text-sm font-medium">Razón del Desembolso</label>
+                     <RichTextEditor
                         value={comments}
-                        onChange={e => setComments(e.target.value)}
-                        rows={2}
-                        className={inputFormStyle}
-                        placeholder="Escriba la razón del desembolso o seleccione una de las opciones de arriba"
+                        onChange={setComments}
+                        placeholder="Escriba el motivo del retiro de efectivo..."
                      />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,7 +141,14 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
                  {error && <p className="text-xs text-center text-red-500">{error}</p>}
                 <div className="flex justify-end space-x-2 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="button" onClick={handleConfirm} className={BUTTON_PRIMARY_SM_CLASSES}>Aceptar</button>
+                    <button 
+                        type="button" 
+                        onClick={handleConfirm} 
+                        className={`${BUTTON_PRIMARY_SM_CLASSES} ${error ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={!!error}
+                    >
+                        Aceptar
+                    </button>
                 </div>
             </div>
         </Modal>

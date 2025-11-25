@@ -1,12 +1,13 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext'; 
 import { ECommerceSettings } from '../../types'; 
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; 
 import { PaintBrushIcon, PhotoIcon, StarIcon, ArrowPathIcon } from '../../components/icons'; 
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const ECommerceSettingsPage: React.FC = () => {
+    const { t } = useTranslation();
     const { getDefaultSettings, updateDefaultSettings } = useECommerceSettings();
     const [formData, setFormData] = useState<ECommerceSettings>(getDefaultSettings());
     const [message, setMessage] = useState<string | null>(null);
@@ -25,10 +26,7 @@ export const ECommerceSettingsPage: React.FC = () => {
     };
     
     const handleResetToDefaults = () => {
-        // This function might need to fetch the "master" defaults if they differ from current `getDefaultSettings`
-        // For now, it resets to whatever the context considers the current default.
-        // A more robust system might have a hardcoded initial default separate from the editable default.
-        const masterDefault: ECommerceSettings = { // This should be from constants.DEFAULT_ECOMMERCE_SETTINGS if it's truly resetting
+        const masterDefault: ECommerceSettings = { 
             storeName: "Pazzi Tienda Online (Predeterminada)",
             logoUrl: "https://picsum.photos/seed/pazzidefaultlogo/150/50",
             template: 'Moderno',
@@ -49,9 +47,9 @@ export const ECommerceSettingsPage: React.FC = () => {
 
     return (
         <div className="max-w-2xl mx-auto">
-            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">Configuración Global de E-commerce (Defaults)</h1>
+            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">{t('ecommerce.settings.title')}</h1>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-                Estos ajustes se aplicarán como predeterminados para nuevas tiendas de clientes que no hayan personalizado su propia configuración.
+                {t('ecommerce.settings.subtitle')}
             </p>
             
             {message && (
@@ -63,7 +61,7 @@ export const ECommerceSettingsPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md space-y-6">
                 <div>
                     <label htmlFor="storeName" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">
-                        <StarIcon /> Nombre de Tienda (Predeterminado)
+                        <StarIcon /> {t('ecommerce.settings.store_name')}
                     </label>
                     <input
                         type="text"
@@ -78,7 +76,7 @@ export const ECommerceSettingsPage: React.FC = () => {
 
                 <div>
                     <label htmlFor="logoUrl" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">
-                        <PhotoIcon /> URL del Logo (Predeterminado)
+                        <PhotoIcon /> {t('ecommerce.settings.logo_url')}
                     </label>
                     <input
                         type="url"
@@ -96,7 +94,7 @@ export const ECommerceSettingsPage: React.FC = () => {
 
                 <div>
                     <label htmlFor="template" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">
-                        Plantilla (Predeterminada)
+                        {t('ecommerce.settings.template')}
                     </label>
                     <select
                         name="template"
@@ -113,7 +111,7 @@ export const ECommerceSettingsPage: React.FC = () => {
 
                 <div>
                     <label htmlFor="primaryColor" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">
-                       <PaintBrushIcon /> Color Primario (Predeterminado)
+                       <PaintBrushIcon /> {t('ecommerce.settings.primary_color')}
                     </label>
                     <div className="flex items-center space-x-2">
                         <input
@@ -137,10 +135,10 @@ export const ECommerceSettingsPage: React.FC = () => {
 
                 <div className="flex justify-between items-center pt-4 border-t dark:border-neutral-700">
                      <button type="button" onClick={handleResetToDefaults} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
-                        <ArrowPathIcon /> Restaurar Defaults Maestros
+                        <ArrowPathIcon /> {t('ecommerce.settings.restore_defaults')}
                     </button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>
-                        Guardar Configuración Predeterminada
+                        {t('ecommerce.settings.save')}
                     </button>
                 </div>
             </form>

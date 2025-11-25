@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
@@ -6,8 +7,10 @@ import { BriefcaseIcon, CalendarDaysIcon, ClockIcon, UsersIcon, ChatBubbleLeftRi
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge';
 import { ProjectFormModal } from './ProjectFormModal'; // Import the modal
+import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Use translations
 
 export const ProjectsDashboardPage: React.FC = () => {
+    const { t } = useTranslation(); // Hook
     const { projects, visits, chatMessages, getProjectById, getClientById, getEmployeeById, sales, employees } = useData();
     const navigate = useNavigate();
 
@@ -107,10 +110,10 @@ export const ProjectsDashboardPage: React.FC = () => {
         }
 
         if (project.status === ProjectStatus.ACTIVE) {
-            return "En progreso";
+            return t('pm.status.in_progress', "En progreso");
         }
 
-        return "Planificación pendiente";
+        return t('pm.status.planning_pending', "Planificación pendiente");
     };
 
 
@@ -264,24 +267,24 @@ export const ProjectsDashboardPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Dashboard de Proyectos</h1>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Un resumen de la actividad reciente y próxima.</p>
+                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pm.dashboard.title')}</h1>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('pm.dashboard.subtitle')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Link to="/pm/projects" className={BUTTON_PRIMARY_SM_CLASSES}>
-                        <BriefcaseIcon className="w-4 h-4 mr-1.5" /> Ver Todos los Proyectos
+                        <BriefcaseIcon className="w-4 h-4 mr-1.5" /> {t('pm.dashboard.view_all')}
                     </Link>
                     <Link to="/pm/calendar" className={BUTTON_PRIMARY_SM_CLASSES}>
-                        <CalendarDaysIcon className="w-4 h-4 mr-1.5" /> Calendario Completo
+                        <CalendarDaysIcon className="w-4 h-4 mr-1.5" /> {t('pm.dashboard.full_calendar')}
                     </Link>
                 </div>
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatCard title="Proyectos Activos" value={stats.active} icon={<BriefcaseIcon />} />
-                <StatCard title="Proyectos Pendientes" value={stats.pending} icon={<ClockIcon />} />
-                <StatCard title="Completados (Este Mes)" value={stats.completedThisMonth} icon={<BriefcaseIcon />} />
+                <StatCard title={t('pm.stats.active')} value={stats.active} icon={<BriefcaseIcon />} />
+                <StatCard title={t('pm.stats.pending')} value={stats.pending} icon={<ClockIcon />} />
+                <StatCard title={t('pm.stats.completed_month')} value={stats.completedThisMonth} icon={<BriefcaseIcon />} />
             </div>
 
             {/* Main Content Grid */}
@@ -289,7 +292,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                 <div className="space-y-6">
                     {/* Projects in Progress */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
-                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">Proyectos en Curso o Próximos</h2>
+                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">{t('pm.section.in_progress')}</h2>
                          <div className="space-y-3">
                             {projectsInProgress.length > 0 ? (
                                 projectsInProgress.map(project => {
@@ -311,7 +314,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <p className="font-semibold text-sm text-primary dark:text-accent">{project.name}</p>
-                                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{client ? `Cliente: ${client.name} ${client.lastName}` : 'Sin cliente asignado'}</p>
+                                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{client ? `${t('common.client')}: ${client.name} ${client.lastName}` : t('pm.no_client')}</p>
                                                     </div>
                                                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block ${project.status === ProjectStatus.ACTIVE ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200'}`}>{project.status}</span>
                                                 </div>
@@ -325,20 +328,20 @@ export const ProjectsDashboardPage: React.FC = () => {
                                                     onClick={(e) => handleOpenChat(e, project)} 
                                                     className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center z-10 relative`}
                                                 >
-                                                    <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1"/> Ver Chat
+                                                    <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1"/> {t('pm.view_chat')}
                                                 </button>
                                             </div>
                                         </button>
                                     );
                                 })
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay proyectos activos o por iniciar próximamente.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm.no_active_projects')}</p>
                             )}
                         </div>
                     </div>
                      {/* Upcoming Visits */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
-                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">Próximas Visitas</h2>
+                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">{t('pm.section.visits')}</h2>
                         <div className="space-y-3">
                             {upcomingVisits.length > 0 ? (
                                 upcomingVisits.map(visit => {
@@ -348,7 +351,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="font-semibold text-sm text-primary dark:text-accent">{visit.title}</p>
-                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{project ? `Proyecto: ${project.name}` : 'Visita General'}</p>
+                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{project ? `${t('calendar.project')}: ${project.name}` : t('pm.general_visit')}</p>
                                                 </div>
                                                 <VisitStatusBadge status={visit.status} />
                                             </div>
@@ -359,14 +362,14 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     );
                                 })
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay visitas programadas.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm.no_visits')}</p>
                             )}
                         </div>
                     </div>
                     {/* Top Clients */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
                         <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3 flex items-center">
-                            <BanknotesIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> Top Clientes (Este Mes)
+                            <BanknotesIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> {t('pm.section.top_clients')}
                         </h2>
                         <div className="space-y-3">
                             {topClientsThisMonth.length > 0 ? (
@@ -385,7 +388,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay datos de ventas de clientes este mes.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm.no_sales')}</p>
                             )}
                         </div>
                     </div>
@@ -394,7 +397,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                 <div className="space-y-6">
                     {/* Recent Messages */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
-                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">Actividad Reciente en Chats</h2>
+                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">{t('pm.section.recent_chat')}</h2>
                         <div className="space-y-2">
                             {recentMessages.length > 0 ? (
                                 recentMessages.map(message => {
@@ -417,14 +420,14 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     );
                                 })
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay mensajes recientes.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm.no_messages')}</p>
                             )}
                         </div>
                     </div>
                     {/* Most Active Employees */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
                         <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3 flex items-center">
-                            <UsersIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> Colaboradores más Activos (Este Mes)
+                            <UsersIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> {t('pm.section.top_employees')}
                         </h2>
                         <div className="space-y-3">
                             {mostActiveEmployeesThisMonth.length > 0 ? (
@@ -432,7 +435,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     <div key={employee!.id} className="text-sm">
                                         <div className="flex justify-between items-center mb-1">
                                             <span className="font-medium text-neutral-700 dark:text-neutral-200 truncate pr-2">{index + 1}. {employee!.name} {employee!.lastName}</span>
-                                            <span className="font-semibold text-neutral-600 dark:text-neutral-300 flex-shrink-0">{totalHours.toFixed(1)} horas</span>
+                                            <span className="font-semibold text-neutral-600 dark:text-neutral-300 flex-shrink-0">{totalHours.toFixed(1)} {t('pm.hours')}</span>
                                         </div>
                                         <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5">
                                             <div 
@@ -443,7 +446,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay horas de visita registradas este mes.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm.no_hours')}</p>
                             )}
                         </div>
                     </div>

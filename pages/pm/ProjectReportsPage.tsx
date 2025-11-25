@@ -5,6 +5,7 @@ import { Project, Employee, Client, Product, ProjectStatus, WorkDayTimeRange } f
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { ChartBarIcon, UsersIcon, BriefcaseIcon, BanknotesIcon, ClockIcon, ExclamationTriangleIcon, ArrowUpIcon, ArrowDownIcon } from '../../components/icons';
 import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
 
 interface SortConfig<T> {
   key: keyof T | null;
@@ -14,12 +15,13 @@ interface SortConfig<T> {
 const ITEMS_PER_PAGE = 5;
 
 const PaginationControls: React.FC<{currentPage: number, totalPages: number, onPageChange: (page: number) => void}> = ({ currentPage, totalPages, onPageChange }) => {
+    const { t } = useTranslation();
     if (totalPages <= 1) return null;
     return (
         <div className="mt-4 flex justify-center items-center space-x-2">
-            <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className={BUTTON_SECONDARY_SM_CLASSES}>Anterior</button>
-            <span className="text-sm text-neutral-600 dark:text-neutral-300">Página {currentPage} de {totalPages}</span>
-            <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className={BUTTON_SECONDARY_SM_CLASSES}>Siguiente</button>
+            <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.previous')}</button>
+            <span className="text-sm text-neutral-600 dark:text-neutral-300">{t('common.page_of', { current: currentPage, total: totalPages })}</span>
+            <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.next')}</button>
         </div>
     );
 };
@@ -85,6 +87,7 @@ interface PendingProjectReportItem extends Project {
 
 
 export const ProjectReportsPage: React.FC = () => {
+    const { t } = useTranslation(); // Use hook
     const { projects, employees, clients, products: allProducts, getClientById } = useData();
 
     // State for Employee Performance Report
@@ -273,45 +276,45 @@ export const ProjectReportsPage: React.FC = () => {
 
     // --- Generic Sorter and Header Creator ---
     const createSortableHeader = <T,>(
-        title: string, 
+        titleKey: string, 
         columnKey: keyof T, 
         currentSort: SortConfig<T>, 
         setSort: React.Dispatch<React.SetStateAction<SortConfig<T>>>
     ) => (
         <button className="flex items-center space-x-1" onClick={() => setSort(prev => ({ key: columnKey, direction: prev.key === columnKey && prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
-            <span>{title}</span>
+            <span>{t(titleKey)}</span>
             {currentSort.key === columnKey && (currentSort.direction === 'ascending' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
         </button>
     );
 
     // --- Column Definitions ---
     const employeeColumns: TableColumn<EmployeeReportItem>[] = [
-        { header: createSortableHeader('Colaborador', 'employeeName', employeeSort, setEmployeeSort), accessor: 'employeeName' },
-        { header: createSortableHeader('# Proyectos (A/P)', 'activeProjectCount', employeeSort, setEmployeeSort), accessor: 'activeProjectCount', className: 'text-center' },
-        { header: 'Proyectos Asignados (Resumen)', accessor: 'assignedProjectsSummary'},
+        { header: createSortableHeader('reports.col.employee', 'employeeName', employeeSort, setEmployeeSort), accessor: 'employeeName' },
+        { header: createSortableHeader('reports.col.projects_count', 'activeProjectCount', employeeSort, setEmployeeSort), accessor: 'activeProjectCount', className: 'text-center' },
+        { header: t('reports.col.assigned_summary'), accessor: 'assignedProjectsSummary'},
     ];
     const clientColumns: TableColumn<ClientReportItem>[] = [
-        { header: createSortableHeader('Cliente', 'clientName', clientSort, setClientSort), accessor: 'clientName' },
-        { header: createSortableHeader('# Proy. Totales', 'totalProjects', clientSort, setClientSort), accessor: 'totalProjects', className: 'text-center' },
-        { header: createSortableHeader('# Proy. (A/P)', 'activeProjects', clientSort, setClientSort), accessor: 'activeProjects', className: 'text-center' },
+        { header: createSortableHeader('reports.col.client', 'clientName', clientSort, setClientSort), accessor: 'clientName' },
+        { header: createSortableHeader('reports.col.total_projects', 'totalProjects', clientSort, setClientSort), accessor: 'totalProjects', className: 'text-center' },
+        { header: createSortableHeader('reports.col.active_projects', 'activeProjects', clientSort, setClientSort), accessor: 'activeProjects', className: 'text-center' },
     ];
     const projectCostColumns: TableColumn<ProjectCostReportItem>[] = [
-        { header: createSortableHeader('Proyecto', 'projectName', projectCostSort, setProjectCostSort), accessor: 'projectName' },
-        { header: createSortableHeader('Cliente', 'clientName', projectCostSort, setProjectCostSort), accessor: 'clientName' },
-        { header: createSortableHeader('Costo Est.', 'estimatedCost', projectCostSort, setProjectCostSort), accessor: item => `$${item.estimatedCost.toFixed(2)}`, className: 'text-right' },
-        { header: createSortableHeader('Estado', 'projectStatus', projectCostSort, setProjectCostSort), accessor: 'projectStatus' },
+        { header: createSortableHeader('reports.col.project', 'projectName', projectCostSort, setProjectCostSort), accessor: 'projectName' },
+        { header: createSortableHeader('reports.col.client', 'clientName', projectCostSort, setProjectCostSort), accessor: 'clientName' },
+        { header: createSortableHeader('reports.col.est_cost', 'estimatedCost', projectCostSort, setProjectCostSort), accessor: item => `$${item.estimatedCost.toFixed(2)}`, className: 'text-right' },
+        { header: createSortableHeader('common.status', 'projectStatus', projectCostSort, setProjectCostSort), accessor: 'projectStatus' },
     ];
     const completedProjectColumns: TableColumn<CompletedProjectReportItem>[] = [
-        { header: createSortableHeader('Proyecto', 'projectName', completedProjectSort, setCompletedProjectSort), accessor: 'projectName' },
-        { header: createSortableHeader('Cliente', 'clientName', completedProjectSort, setCompletedProjectSort), accessor: 'clientName' },
-        { header: createSortableHeader('Duración Est.', 'duration', completedProjectSort, setCompletedProjectSort), accessor: 'duration', className: 'text-right' },
+        { header: createSortableHeader('reports.col.project', 'projectName', completedProjectSort, setCompletedProjectSort), accessor: 'projectName' },
+        { header: createSortableHeader('reports.col.client', 'clientName', completedProjectSort, setCompletedProjectSort), accessor: 'clientName' },
+        { header: createSortableHeader('reports.col.duration', 'duration', completedProjectSort, setCompletedProjectSort), accessor: 'duration', className: 'text-right' },
     ];
     const pendingProjectColumns: TableColumn<PendingProjectReportItem>[] = [
-        { header: createSortableHeader('Proyecto', 'projectName', pendingProjectSort, setPendingProjectSort), accessor: 'projectName' },
-        { header: createSortableHeader('Cliente', 'clientName', pendingProjectSort, setPendingProjectSort), accessor: 'clientName' },
-        { header: createSortableHeader('Estado', 'projectStatus', pendingProjectSort, setPendingProjectSort), accessor: 'projectStatus' },
-        { header: createSortableHeader('Próxima Actividad', 'nextActivityInfo', pendingProjectSort, setPendingProjectSort), accessor: 'nextActivityInfo' },
-        { header: createSortableHeader('Recursos (P/E)', 'resourceSummary', pendingProjectSort, setPendingProjectSort), accessor: 'resourceSummary', className: 'text-center' },
+        { header: createSortableHeader('reports.col.project', 'projectName', pendingProjectSort, setPendingProjectSort), accessor: 'projectName' },
+        { header: createSortableHeader('reports.col.client', 'clientName', pendingProjectSort, setPendingProjectSort), accessor: 'clientName' },
+        { header: createSortableHeader('common.status', 'projectStatus', pendingProjectSort, setPendingProjectSort), accessor: 'projectStatus' },
+        { header: createSortableHeader('reports.col.next_activity', 'nextActivityInfo', pendingProjectSort, setPendingProjectSort), accessor: 'nextActivityInfo' },
+        { header: createSortableHeader('reports.col.resources', 'resourceSummary', pendingProjectSort, setPendingProjectSort), accessor: 'resourceSummary', className: 'text-center' },
     ];
 
     // --- Paginated Data ---
@@ -322,7 +325,7 @@ export const ProjectReportsPage: React.FC = () => {
     const paginatedPendingProjectData = pendingProjectData.slice((pendingProjectPage - 1) * ITEMS_PER_PAGE, pendingProjectPage * ITEMS_PER_PAGE);
 
     const renderSection = (
-        title: string, 
+        titleKey: string, 
         iconElement: React.ReactElement<{ className?: string }>, // Use React.ReactElement
         filters: React.ReactNode, 
         tableData: any[], 
@@ -334,7 +337,7 @@ export const ProjectReportsPage: React.FC = () => {
         <div className="bg-white dark:bg-neutral-800 p-4 sm:p-6 rounded-lg shadow-lg">
             <div className="flex items-center text-primary dark:text-accent mb-3">
                 {React.isValidElement(iconElement) ? React.cloneElement(iconElement, { className: "w-6 h-6 mr-2" }) : null}
-                <h2 className="text-lg sm:text-xl font-semibold">{title}</h2>
+                <h2 className="text-lg sm:text-xl font-semibold">{t(titleKey)}</h2>
             </div>
             {filters}
             <DataTable data={tableData} columns={columns} />
@@ -344,24 +347,24 @@ export const ProjectReportsPage: React.FC = () => {
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-neutral-800 dark:text-neutral-100">Reportes de Gestión de Proyectos</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-neutral-800 dark:text-neutral-100">{t('reports.pm.title')}</h1>
 
             {renderSection(
-                "Desempeño y Carga de Colaboradores", <UsersIcon />,
-                <input type="text" placeholder="Buscar colaborador..." value={employeeSearch} onChange={e => setEmployeeSearch(e.target.value)} className={`${INPUT_SM_CLASSES} mb-3 w-full sm:w-1/2`} />,
+                "reports.pm.employee_performance", <UsersIcon />,
+                <input type="text" placeholder={t('common.search') + "..."} value={employeeSearch} onChange={e => setEmployeeSearch(e.target.value)} className={`${INPUT_SM_CLASSES} mb-3 w-full sm:w-1/2`} />,
                 paginatedEmployeeData, employeeColumns, employeePage, employeeProjectData.length, setEmployeePage
             )}
 
             {renderSection(
-                "Clientes Más Activos (Por Nº Proyectos)", <BriefcaseIcon />,
-                <input type="text" placeholder="Buscar cliente..." value={clientSearch} onChange={e => setClientSearch(e.target.value)} className={`${INPUT_SM_CLASSES} mb-3 w-full sm:w-1/2`} />,
+                "reports.pm.top_clients", <BriefcaseIcon />,
+                <input type="text" placeholder={t('common.search') + "..."} value={clientSearch} onChange={e => setClientSearch(e.target.value)} className={`${INPUT_SM_CLASSES} mb-3 w-full sm:w-1/2`} />,
                 paginatedClientData, clientColumns, clientPage, clientProjectData.length, setClientPage
             )}
 
             {renderSection(
-                "Análisis de Costos Estimados de Proyectos", <BanknotesIcon />,
+                "reports.pm.project_costs", <BanknotesIcon />,
                 <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                    <input type="text" placeholder="Buscar proyecto/cliente..." value={projectCostSearch} onChange={e => setProjectCostSearch(e.target.value)} className={`${INPUT_SM_CLASSES} flex-grow`} />
+                    <input type="text" placeholder={t('common.search') + "..."} value={projectCostSearch} onChange={e => setProjectCostSearch(e.target.value)} className={`${INPUT_SM_CLASSES} flex-grow`} />
                     <select value={projectCostStatusFilter} onChange={e => setProjectCostStatusFilter(e.target.value as ProjectStatus | 'Todos')} className={INPUT_SM_CLASSES}>
                         <option value="Todos">Todos Estados</option>
                         {Object.values(ProjectStatus).map(s => <option key={s} value={s}>{s}</option>)}
@@ -371,17 +374,17 @@ export const ProjectReportsPage: React.FC = () => {
             )}
 
             {renderSection(
-                "Proyectos Completados: Duración Estimada", <ClockIcon />,
-                <input type="text" placeholder="Buscar proyecto/cliente..." value={completedProjectSearch} onChange={e => setCompletedProjectSearch(e.target.value)} className={`${INPUT_SM_CLASSES} mb-3 w-full sm:w-1/2`} />,
+                "reports.pm.completed_duration", <ClockIcon />,
+                <input type="text" placeholder={t('common.search') + "..."} value={completedProjectSearch} onChange={e => setCompletedProjectSearch(e.target.value)} className={`${INPUT_SM_CLASSES} mb-3 w-full sm:w-1/2`} />,
                 paginatedCompletedProjectData, completedProjectColumns, completedProjectPage, completedProjectData.length, setCompletedProjectPage
             )}
             
             {renderSection(
-                "Proyectos Pendientes y Activos con Próximas Actividades", <ExclamationTriangleIcon className="text-amber-500"/>,
+                "reports.pm.pending_status", <ExclamationTriangleIcon className="text-amber-500"/>,
                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                    <input type="text" placeholder="Buscar proyecto/cliente..." value={pendingProjectSearch} onChange={e => setPendingProjectSearch(e.target.value)} className={`${INPUT_SM_CLASSES} flex-grow`} />
+                    <input type="text" placeholder={t('common.search') + "..."} value={pendingProjectSearch} onChange={e => setPendingProjectSearch(e.target.value)} className={`${INPUT_SM_CLASSES} flex-grow`} />
                     <select value={pendingProjectStatusFilter} onChange={e => setPendingProjectStatusFilter(e.target.value as ProjectStatus | 'Todos')} className={INPUT_SM_CLASSES}>
-                        <option value="Todos">Todos Estados (A/P)</option>
+                        <option value="Todos">Todos Estados</option>
                         <option value={ProjectStatus.ACTIVE}>Activo</option>
                         <option value={ProjectStatus.PENDING}>Pendiente</option>
                     </select>

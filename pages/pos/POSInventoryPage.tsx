@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Product, Category, Branch, UserRole } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -7,8 +8,10 @@ import { BranchStockAdjustmentModal } from '../../components/forms/BranchStockAd
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { ListBulletIcon, Cog6ToothIcon } from '../../components/icons'; 
 import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const POSInventoryPage: React.FC = () => {
+    const { t } = useTranslation();
     const { 
         products: allCompanyProducts,
         branches, 
@@ -53,7 +56,7 @@ export const POSInventoryPage: React.FC = () => {
     const tableColumns = useMemo((): TableColumn<Product>[] => {
         return [
             { 
-                header: 'Producto', 
+                header: t('inventory.col.product'), 
                 accessor: (p) => (
                     <div className="flex items-center space-x-3">
                         <img src={p.imageUrl || 'https://picsum.photos/seed/defaultprod/50/50'} alt={p.name} className="w-10 h-10 object-cover rounded flex-shrink-0"/>
@@ -66,12 +69,12 @@ export const POSInventoryPage: React.FC = () => {
                 className: 'w-4/5'
             },
             { 
-                header: 'Stock Total', 
+                header: t('inventory.col.total_stock'), 
                 accessor: (product) => product.stockByBranch.reduce((sum, sb) => sum + sb.quantity, 0),
                 className: 'text-center font-semibold w-1/5'
             }
         ];
-    }, []);
+    }, [t]);
     
     const tableActions = (product: Product) => (
         <div className="flex items-center space-x-2">
@@ -79,13 +82,13 @@ export const POSInventoryPage: React.FC = () => {
                 onClick={() => handleOpenHistoryModal(product)}
                 className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center`}
             >
-                <ListBulletIcon className="w-4 h-4 mr-1"/> Historial
+                <ListBulletIcon className="w-4 h-4 mr-1"/> {t('inventory.action.history')}
             </button>
             <button 
                 onClick={() => handleOpenBranchAdjustmentModal(product)}
                 className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center`}
             >
-                <Cog6ToothIcon className="w-4 h-4 mr-1"/> Ajustar Stock
+                <Cog6ToothIcon className="w-4 h-4 mr-1"/> {t('inventory.action.adjust')}
             </button>
         </div>
     );
@@ -94,12 +97,12 @@ export const POSInventoryPage: React.FC = () => {
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
-                    Gestión de Inventario
+                    {t('inventory.title')}
                 </h1>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <input
                         type="text"
-                        placeholder="Buscar por nombre o SKU..."
+                        placeholder={t('inventory.search_placeholder')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
@@ -109,7 +112,7 @@ export const POSInventoryPage: React.FC = () => {
                         onChange={(e) => setSelectedCategory(e.target.value)}
                         className={`${INPUT_SM_CLASSES} sm:w-auto`}
                     >
-                        <option value="Todos">Todas las Categorías</option>
+                        <option value="Todos">{t('inventory.filter.all_categories')}</option>
                         {availableCategories.map(cat => (
                             <option key={cat.id} value={cat.name}>{cat.name}</option>
                         ))}

@@ -1,8 +1,10 @@
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
 import { Product, Client, Employee, Project, Sale, Order, Visit, Category, ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, Notification, NotificationType, Caja, ProjectStatus, HeldCart, CartItem, SalePayment, Estimate, InventoryLog, InventoryLogType, Department, Layaway, LayawayStatus, ProjectFormData, Task, TaskComment, TaskStatus } from '../types';
-import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES, INITIAL_INVENTORY_LOGS, INITIAL_DEPARTMENTS, INITIAL_TASKS, INITIAL_TASK_COMMENTS } from '../constants';
+import { INITIAL_PRODUCTS, INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS, INITIAL_CATEGORIES, INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIERS, INITIAL_SUPPLIER_ORDERS, INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, INITIAL_ESTIMATES, INITIAL_INVENTORY_LOGS, INITIAL_SALE_PAYMENTS, INITIAL_DEPARTMENTS, INITIAL_TASKS, INITIAL_TASK_COMMENTS } from '../constants';
 import { useAuth } from './AuthContext'; 
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons'; // Example icons for notifications
+
+type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
 
 export interface DataContextType {
   products: Product[];
@@ -24,7 +26,7 @@ export interface DataContextType {
   sales: Sale[]; 
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>; // Added setSales
   addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string}, branchId: string) => void;
-  processReturn: (originalSale: Sale, itemsToReturn: CartItem[], employeeId: string, cajaId: string, branchId: string, reason: string) => void;
+  processReturn: (originalSale: Sale, itemsToReturn: ReturnItemPayload[], employeeId: string, cajaId: string, branchId: string, reason: string) => void;
   recordSalePayment: (saleId: string) => void; 
   lastCompletedSale: Sale | null; 
   
@@ -71,7 +73,7 @@ export interface DataContextType {
   updateSupplierOrderStatus: (orderId: string, newStatus: SupplierOrderStatus, receivedToBranchId?: string) => void; 
   getSupplierOrderById: (id: string) => SupplierOrder | undefined;
   getSupplierOrdersByStoreOwner: (ownerId: string) => SupplierOrder[];
-  recordSupplierOrderPayment: (orderId: string, amount: number) => void; 
+  recordSupplierOrderPayment: (orderId: string, amount: number, invoiceRef?: string, attachment?: string) => void; 
 
   getProductById: (id: string) => Product | undefined;
   getClientById: (id: string) => Client | undefined;
@@ -126,7 +128,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [employees, setEmployees] = useState<Employee[]>(() => JSON.parse(localStorage.getItem('pazziEmployees') || JSON.stringify(INITIAL_EMPLOYEES)));
     const [projects, setProjects] = useState<Project[]>(() => JSON.parse(localStorage.getItem('pazziProjects') || JSON.stringify(INITIAL_PROJECTS)));
     const [sales, setSalesInternal] = useState<Sale[]>(() => JSON.parse(localStorage.getItem('pazziSales') || JSON.stringify(INITIAL_SALES)));
-    const [salePayments, setSalePayments] = useState<SalePayment[]>(() => JSON.parse(localStorage.getItem('pazziSalePayments') || '[]'));
+    const [salePayments, setSalePayments] = useState<SalePayment[]>(() => JSON.parse(localStorage.getItem('pazziSalePayments') || JSON.stringify(INITIAL_SALE_PAYMENTS)));
     const [estimates, setEstimates] = useState<Estimate[]>(() => JSON.parse(localStorage.getItem('pazziEstimates') || JSON.stringify(INITIAL_ESTIMATES)));
     const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>(() => JSON.parse(localStorage.getItem('pazziInventoryLogs') || JSON.stringify(INITIAL_INVENTORY_LOGS)));
     const [orders, setOrders] = useState<Order[]>(() => JSON.parse(localStorage.getItem('pazziOrders') || JSON.stringify(INITIAL_ORDERS)));
@@ -177,10 +179,10 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const getProductById = useCallback((id: string) => products.find(p => p.id === id), [products]);
     
     const addNotification = useCallback((notificationData: Omit<Notification, 'id' | 'timestamp' | 'read' | 'icon'>) => {
-        let icon: React.ReactNode | undefined;
+        let icon: React.ComponentType<any> | undefined;
         switch (notificationData.type) {
-            case 'new_order': icon = React.createElement(ShoppingCartIcon, {className: "w-4 h-4"}); break;
-            case 'chat_message': icon = React.createElement(ChatIcon, {className: "w-4 h-4"}); break;
+            case 'new_order': icon = ShoppingCartIcon; break;
+            case 'chat_message': icon = ChatIcon; break;
             default: icon = undefined;
         }
         const newNotification: Notification = {
@@ -444,10 +446,13 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         });
     }, [getProductStockForBranch, updateProductStockForBranch, addNotification, setLastCompletedSale, addInventoryLog, currentUser]);
 
-    const processReturn = useCallback((originalSale: Sale, itemsToReturn: CartItem[], employeeId: string, cajaId: string, branchId: string, reason: string) => {
+    const processReturn = useCallback((originalSale: Sale, itemsToReturn: ReturnItemPayload[], employeeId: string, cajaId: string, branchId: string, reason: string) => {
         if (itemsToReturn.length === 0) return;
     
         const returnTotal = itemsToReturn.reduce((sum, item) => {
+            if (item.customRefundAmount !== undefined) {
+                return sum + item.customRefundAmount;
+            }
             let itemPrice = item.unitPrice;
             if (item.discount) {
                 if (item.discount.type === 'percentage') {
@@ -486,7 +491,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setSalesInternal(prev => prev.map(s => s.id === originalSale.id ? { ...s, paymentStatus: newStatus } : s));
     
         itemsToReturn.forEach(item => {
-            if (!item.isService) {
+            if (item.returnToStock && !item.isService) {
                 const stockBefore = getProductStockForBranch(item.id, branchId);
                 const stockAfter = stockBefore + item.quantity;
                 updateProductStockForBranch(item.id, branchId, stockAfter);
@@ -699,7 +704,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return visits.filter(v => v.date >= today).sort((a, b) => a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date)).filter(v => v.date === today ? v.startTime >= nowTime : true).slice(0, count);
     }, [visits]);
 
-    const recordSupplierOrderPayment = useCallback((orderId: string, amount: number) => {
+    const recordSupplierOrderPayment = useCallback((orderId: string, amount: number, invoiceRef?: string, attachment?: string) => {
         setSupplierOrders(prevOrders => prevOrders.map(order => {
             if (order.id === orderId) {
                 const newAmountPaid = (order.amountPaid || 0) + amount;
@@ -709,7 +714,19 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 } else if (newAmountPaid <= 0) {
                     newPaymentStatus = 'No Pagado';
                 }
-                return { ...order, amountPaid: newAmountPaid, paymentStatus: newPaymentStatus };
+                
+                const paymentDetails: any = {
+                    p: amount.toFixed(2), // payment amount
+                    d: new Date().toLocaleDateString(), // date
+                };
+                if (invoiceRef) paymentDetails.i = invoiceRef;
+                if (attachment) paymentDetails.a = attachment; // attachment as data URL
+
+                const newPaymentNote = JSON.stringify(paymentDetails);
+
+                const newPaymentNotes = [...(order.paymentNotes || []), newPaymentNote];
+
+                return { ...order, amountPaid: newAmountPaid, paymentStatus: newPaymentStatus, paymentNotes: newPaymentNotes };
             }
             return order;
         }));
@@ -758,36 +775,34 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setHeldCarts(prev => prev.filter(hc => hc.id !== cartId));
     }, []);
 
+    const updateTask = useCallback((taskId: string, updates: Partial<Omit<Task, 'id'>>) => {
+        setTasks(prevTasks => prevTasks.map(task =>
+            task.id === taskId ? { ...task, ...updates } : task
+        ));
+    }, [setTasks]);
+
     const addTask = useCallback((taskData: Omit<Task, 'id' | 'archived' | 'order'>): Task => {
-        const tasksInStatus = tasks.filter(t => t.projectId === taskData.projectId && t.status === taskData.status);
-        const newOrder = tasksInStatus.length;
+        const newOrder = tasks.filter(t => t.projectId === taskData.projectId && t.status === taskData.status).length;
         const newTask: Task = {
             ...taskData,
             id: `task-${Date.now()}`,
             archived: false,
-            order: newOrder
+            order: newOrder,
         };
         setTasks(prev => [...prev, newTask]);
         return newTask;
-    }, [tasks]);
-
-    const updateTask = useCallback((taskId: string, updates: Partial<Omit<Task, 'id'>>) => {
-        setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updates } : t)));
-    }, []);
+    }, [tasks, setTasks]);
 
     const addTaskComment = useCallback((commentData: Omit<TaskComment, 'id' | 'timestamp' | 'senderName'>) => {
-        if (!currentUser) {
-            console.error("No user logged in to add a comment");
-            return;
-        }
+        if (!currentUser) return;
         const newComment: TaskComment = {
             ...commentData,
-            id: `taskcomm-${Date.now()}`,
+            id: `taskcomment-${Date.now()}`,
             timestamp: new Date().toISOString(),
-            senderName: `${currentUser.name} ${currentUser.lastName}`.trim() || currentUser.email
+            senderName: `${currentUser.name} ${currentUser.lastName}`.trim() || currentUser.email,
         };
         setTaskComments(prev => [...prev, newComment]);
-    }, [currentUser]);
+    }, [currentUser, setTaskComments]);
 
 
     return (

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Estimate, EstimateStatus, Client, Product, CartItem, EstimateFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -7,9 +8,10 @@ import { EstimateFormModal } from './EstimateFormModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon, PrinterIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const generateEstimatePDF = async (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any) => {
     const doc = new jsPDF();
@@ -139,6 +141,7 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
 
 
 export const EstimatesListPage: React.FC = () => {
+    const { t } = useTranslation();
     const { estimates, setEstimates, getClientById, getProductById } = useData();
     const { currentUser } = useAuth();
     const { getDefaultSettings } = useECommerceSettings();
@@ -251,7 +254,6 @@ export const EstimatesListPage: React.FC = () => {
     };
 
     const handleGeneratePDF = async () => {
-        // FIX: Use `estimates` from context and derive `client` from selection.
         const selected = estimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0) {
             alert("Seleccione al menos un estimado para generar el PDF.");
@@ -421,12 +423,12 @@ export const EstimatesListPage: React.FC = () => {
     };
 
     const columns: TableColumn<Estimate>[] = [
-        { header: 'ID Estimado', accessor: (e) => e.id.substring(0, 8).toUpperCase() },
-        { header: 'Fecha', accessor: (e) => new Date(e.date).toLocaleDateString() },
-        { header: 'Cliente', accessor: (e) => getClientById(e.clientId)?.name || 'N/A' },
-        { header: 'Total', accessor: (e) => `$${e.totalAmount.toFixed(2)}` },
+        { header: t('pos.estimates.col.id'), accessor: (e) => e.id.substring(0, 8).toUpperCase() },
+        { header: t('pos.estimates.col.date'), accessor: (e) => new Date(e.date).toLocaleDateString() },
+        { header: t('pos.estimates.col.client'), accessor: (e) => getClientById(e.clientId)?.name || 'N/A' },
+        { header: t('pos.estimates.col.total'), accessor: (e) => `$${e.totalAmount.toFixed(2)}` },
         { 
-            header: 'Estado', 
+            header: t('pos.estimates.col.status'), 
             accessor: (e) => (
                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                     e.status === EstimateStatus.ENVIADO ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' :
@@ -442,15 +444,15 @@ export const EstimatesListPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Estimados</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pos.estimates.title')}</h1>
                 <div className="flex items-center gap-2">
                     {selectedEstimateIds.length >= 2 && (
                         <button onClick={handleCombine} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
-                            <PlusIcon /> Combinar ({selectedEstimateIds.length})
+                            <PlusIcon /> {t('pos.estimates.combine')} ({selectedEstimateIds.length})
                         </button>
                     )}
                     <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
-                        <PlusIcon /> Crear Estimado
+                        <PlusIcon /> {t('pos.estimates.create')}
                     </button>
                 </div>
             </div>
@@ -459,9 +461,9 @@ export const EstimatesListPage: React.FC = () => {
                 columns={columns}
                 actions={(estimate) => (
                     <div className="flex space-x-1">
-                        <button onClick={() => handlePrint(estimate)} className="text-primary hover:text-secondary p-1" title="Imprimir PDF"><PrinterIcon /></button>
-                        <button onClick={() => openModalForEdit(estimate)} className="text-blue-600 dark:text-blue-400 p-1" title="Editar"><EditIcon /></button>
-                        <button onClick={() => requestDelete(estimate.id)} className="text-red-600 dark:text-red-400 p-1" title="Eliminar"><DeleteIcon /></button>
+                        <button onClick={() => handlePrint(estimate)} className="text-primary hover:text-secondary p-1" title={t('pos.estimates.print_pdf')}><PrinterIcon /></button>
+                        <button onClick={() => openModalForEdit(estimate)} className="text-blue-600 dark:text-blue-400 p-1" title={t('common.edit')}><EditIcon /></button>
+                        <button onClick={() => requestDelete(estimate.id)} className="text-red-600 dark:text-red-400 p-1" title={t('common.delete')}><DeleteIcon /></button>
                     </div>
                 )}
                 selectedIds={selectedEstimateIds}
@@ -476,17 +478,19 @@ export const EstimatesListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="Confirmar Eliminación"
-                message="¿Estás seguro de que quieres eliminar este estimado? Esta acción no se puede deshacer."
-                confirmButtonText="Sí, Eliminar"
+                title={t('confirm.delete.title')}
+                message={t('confirm.delete.message')}
+                confirmButtonText={t('confirm.delete.btn')}
+                cancelButtonText={t('confirm.cancel.btn')}
             />
             <ConfirmationModal
                 isOpen={showCombineConfirm}
                 onClose={() => setShowCombineConfirm(false)}
                 onConfirm={confirmCombine}
-                title="Confirmar Combinación de Estimados"
-                message={`¿Está seguro de que desea combinar ${selectedEstimateIds.length} estimados en uno nuevo? Los estimados originales se marcarán como 'Combinado'.`}
-                confirmButtonText="Sí, Combinar"
+                title={t('pos.estimates.confirm_combine.title')}
+                message={t('pos.estimates.confirm_combine.message', { count: selectedEstimateIds.length })}
+                confirmButtonText={t('pos.estimates.combine')}
+                cancelButtonText={t('confirm.cancel.btn')}
             />
         </div>
     );

@@ -4,6 +4,7 @@ import { Modal } from '../Modal';
 import { Product, InventoryLog, Branch } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../DataTable';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface InventoryHistoryModalProps {
     isOpen: boolean;
@@ -12,6 +13,7 @@ interface InventoryHistoryModalProps {
 }
 
 export const InventoryHistoryModal: React.FC<InventoryHistoryModalProps> = ({ isOpen, onClose, productId }) => {
+    const { t } = useTranslation();
     const { inventoryLogs, getProductById, branches, getEmployeeById } = useData();
     
     const product = useMemo(() => productId ? getProductById(productId) : null, [productId, getProductById]);
@@ -25,10 +27,10 @@ export const InventoryHistoryModal: React.FC<InventoryHistoryModalProps> = ({ is
     }, [productId, inventoryLogs]);
 
     const branchLogColumns: TableColumn<InventoryLog>[] = [
-        { header: 'Fecha', accessor: (log) => new Date(log.date).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }), className: "whitespace-nowrap" },
-        { header: 'Tipo', accessor: 'type' },
+        { header: t('inventory.history.col_date'), accessor: (log) => new Date(log.date).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }), className: "whitespace-nowrap" },
+        { header: t('inventory.history.col_type'), accessor: 'type' },
         { 
-            header: 'Cambio', 
+            header: t('inventory.history.col_change'), 
             accessor: (log) => {
                 const isPositive = log.quantityChange > 0;
                 const colorClass = isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
@@ -36,20 +38,20 @@ export const InventoryHistoryModal: React.FC<InventoryHistoryModalProps> = ({ is
             },
             className: "text-center" 
         },
-        { header: 'Stock Antes', accessor: 'stockBefore', className: "text-center" },
-        { header: 'Stock Después', accessor: 'stockAfter', className: "text-center font-medium" },
-        { header: 'Ref.', accessor: (log) => log.referenceId?.slice(-6).toUpperCase() || 'N/A' },
-        { header: 'Notas', accessor: 'notes', className: 'text-xs max-w-xs truncate' },
-        { header: 'Empleado', accessor: (log) => getEmployeeById(log.employeeId)?.name || 'Sistema' },
+        { header: t('inventory.history.col_stock_before'), accessor: 'stockBefore', className: "text-center" },
+        { header: t('inventory.history.col_stock_after'), accessor: 'stockAfter', className: "text-center font-medium" },
+        { header: t('inventory.history.col_ref'), accessor: (log) => log.referenceId?.slice(-6).toUpperCase() || 'N/A' },
+        { header: t('inventory.history.col_notes'), accessor: 'notes', className: 'text-xs max-w-xs truncate' },
+        { header: t('inventory.history.col_employee'), accessor: (log) => getEmployeeById(log.employeeId)?.name || 'Sistema' },
     ];
 
     if (!isOpen || !product) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Historial de Inventario: ${product.name}`} size="full">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('inventory.history.title', { product: product.name })} size="full">
             <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
                 <div>
-                    <h3 className="text-md font-semibold text-primary mb-2">Stock Actual por Sucursal</h3>
+                    <h3 className="text-md font-semibold text-primary mb-2">{t('inventory.history.current_stock_branch')}</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-sm">
                         {product.stockByBranch.map(stockItem => {
                             const branch = branches.find(b => b.id === stockItem.branchId);
@@ -62,14 +64,14 @@ export const InventoryHistoryModal: React.FC<InventoryHistoryModalProps> = ({ is
                             );
                         })}
                          <div className="p-2 bg-primary/10 dark:bg-primary/20 rounded text-center">
-                            <div className="font-semibold text-primary dark:text-accent">Total</div>
+                            <div className="font-semibold text-primary dark:text-accent">{t('inventory.history.total')}</div>
                             <div className="text-lg font-bold text-primary dark:text-accent">{product.stockByBranch.reduce((acc, item) => acc + item.quantity, 0)}</div>
                         </div>
                     </div>
                 </div>
                 
                 <div className="space-y-4">
-                    <h3 className="text-md font-semibold text-primary mb-2 border-t pt-4 dark:border-neutral-700">Registro de Movimientos por Sucursal</h3>
+                    <h3 className="text-md font-semibold text-primary mb-2 border-t pt-4 dark:border-neutral-700">{t('inventory.history.movement_log')}</h3>
                     {activeBranches.map(branch => {
                         const logsForBranch = allProductLogs.filter(log => log.branchId === branch.id);
                         return (
@@ -82,7 +84,7 @@ export const InventoryHistoryModal: React.FC<InventoryHistoryModalProps> = ({ is
                                     />
                                 ) : (
                                     <p className="text-xs text-neutral-500 dark:text-neutral-400 px-2 py-4 text-center bg-neutral-50 dark:bg-neutral-700/50 rounded">
-                                        No hay movimientos registrados para este producto en esta sucursal.
+                                        {t('inventory.history.no_movements')}
                                     </p>
                                 )}
                             </div>

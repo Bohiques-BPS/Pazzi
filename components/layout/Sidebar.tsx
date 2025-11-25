@@ -1,10 +1,10 @@
 
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AppModule, UserRole } from '../../types'; 
 import { APP_MODULES_CONFIG, SidebarItemConfig, SubModuleGroup, SubModuleLink } from '../../constants'; 
 import { useAuth } from '../../contexts/AuthContext'; 
+import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
 import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon } from '../icons'; 
 
 interface SidebarProps {
@@ -16,8 +16,9 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSidebarOpen }) => {
   const location = useLocation();
   const { currentUser } = useAuth();
+  const { t } = useTranslation(); // Use translation hook
   const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === currentModule);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({}); // Initialize as empty to start all groups closed
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({}); 
 
   let subModulesToDisplay: SidebarItemConfig[] = []; 
 
@@ -41,12 +42,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   } else if (currentUser?.role === UserRole.EMPLOYEE) {
     if (currentModule === AppModule.POS) {
         subModulesToDisplay = [
-            { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: React.createElement(CashBillIcon, { className: "w-6 h-6" }) }
+            { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: CashBillIcon }
         ];
     } else if (currentModule === AppModule.PROJECT_MANAGEMENT) {
         subModulesToDisplay = [
-            { type: 'link', name: 'Mis Proyectos', path: '/pm/projects', icon: React.createElement(BriefcaseIcon, { className: "w-6 h-6" }) },
-            { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: React.createElement(ChatBubbleLeftRightIcon, { className: "w-6 h-6" }) }
+            { type: 'link', name: 'Mis Proyectos', path: '/pm/projects', icon: BriefcaseIcon },
+            { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon }
         ];
     }
   } else if (currentUser?.role === UserRole.CLIENT_PROJECT) {
@@ -79,14 +80,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
 
 
   const renderSidebarItem = (item: SidebarItemConfig, index: number) => {
+    const Icon = item.icon;
+    // Translate item name
+    const translatedName = t(item.name);
+
     if (item.type === 'group') {
-      // Special handling for the "General" module to make its group a static title
       if (currentModule === AppModule.TIENDA) {
         return (
           <div key={`${item.name}-${index}`}>
             <div className="flex items-center w-full py-2 px-2 text-lg font-semibold text-neutral-700 dark:text-neutral-200">
-              {item.icon && <span className="mr-3">{item.icon}</span>}
-              {item.name}
+              {Icon && <span className="mr-3"><Icon className="w-5 h-5" /></span>}
+              {translatedName}
             </div>
             <div className="space-y-1 mt-1">
               {item.children.map((child, childIndex) => renderSidebarItem(child, childIndex))}
@@ -95,7 +99,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         );
       }
 
-      // Default collapsible group for other modules
       const isGroupOpen = openGroups[item.name] === undefined ? true : openGroups[item.name];
       
       return (
@@ -107,8 +110,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
             aria-controls={`group-content-${item.name}`}
           >
             <div className="flex items-center">
-              {item.icon && <span className="mr-3">{item.icon}</span>}
-              {item.name}
+              {Icon && <span className="mr-3"><Icon className="w-5 h-5" /></span>}
+              {translatedName}
             </div>
             <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${isGroupOpen ? 'transform rotate-180' : ''}`} />
           </button>
@@ -140,8 +143,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         onClick={handleLinkClick}
         className={`flex items-center py-2 px-2 rounded-md transition duration-200 text-lg font-semibold ${isActive ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
       >
-        {item.icon && <span className="mr-3 w-6 h-6 flex items-center justify-center">{item.icon}</span>}
-        {item.name}
+        {Icon && <span className="mr-3 w-6 h-6 flex items-center justify-center"><Icon className="w-5 h-5" /></span>}
+        {translatedName}
       </Link>
     );
   };

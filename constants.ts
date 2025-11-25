@@ -1,5 +1,6 @@
+
 import React from 'react'; 
-import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department, Task, TaskStatus, TaskComment, ProjectPriority } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department
+import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department, Task, TaskStatus, TaskComment, ProjectPriority, SalePayment } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department, SalePayment
 import { 
     BriefcaseIcon, 
     Squares2X2Icon, 
@@ -51,15 +52,15 @@ export const ADMIN_USER_ID = 'admin-user';
 export const ANOTHER_ECOMMERCE_CLIENT_ID = 'client-ecommerce-another'; // Renamed for consistency
 
 export const DEFAULT_USERS: (User & { password?: string })[] = [
-  { id: ADMIN_USER_ID, email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: UserRole.MANAGER, name: 'Admin', lastName: 'Pazzi', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=admin-pazzi', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true }, alertSettings: {} },
+  { id: ADMIN_USER_ID, email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: UserRole.MANAGER, name: 'Admin', lastName: 'Pazzi', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=admin-pazzi', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true }, alertSettings: {}, pin: '0000' },
   { id: ECOMMERCE_CLIENT_ID, email: ECOMMERCE_CLIENT_EMAIL, password: ECOMMERCE_CLIENT_PASSWORD, role: UserRole.CLIENT_ECOMMERCE, name: 'Cliente', lastName: 'Shopper', isEmergencyOrderActive: false },
   { id: PROJECT_CLIENT_ID, email: PROJECT_CLIENT_EMAIL, password: PROJECT_CLIENT_PASSWORD, role: UserRole.CLIENT_PROJECT, name: 'Roberto', lastName: 'Gómez (Proyecto)', isEmergencyOrderActive: false },
   
   // Employees as Users
-  { id: 'emp-1', email: 'ana.juarez@pazzi.com', password: 'empleado', role: UserRole.EMPLOYEE, name: 'Ana', lastName: 'Juárez', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=ana-juarez', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true } },
+  { id: 'emp-1', email: 'ana.juarez@pazzi.com', password: 'empleado', role: UserRole.EMPLOYEE, name: 'Ana', lastName: 'Juárez', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=ana-juarez', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true }, pin: '1111' },
   { id: 'emp-2', email: 'carlos.vargas@pazzi.com', password: 'empleado', role: UserRole.EMPLOYEE, name: 'Carlos', lastName: 'Vargas', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=carlos-vargas', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
   { id: 'emp-3', email: 'sofia.herrera@pazzi.com', password: 'empleado', role: UserRole.EMPLOYEE, name: 'Sofía', lastName: 'Herrera', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=sofia-herrera', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
-  { id: 'employee-user-predefined', email: EMPLOYEE_EMAIL, password: EMPLOYEE_PASSWORD, role: UserRole.EMPLOYEE, name: 'Colaborador', lastName: 'Demo', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=colaborador-demo', permissions: { viewProjectManagement: false, manageProjects: false, accessPOSCashier: true } },
+  { id: 'employee-user-predefined', email: EMPLOYEE_EMAIL, password: EMPLOYEE_PASSWORD, role: UserRole.EMPLOYEE, name: 'Colaborador', lastName: 'Demo', isEmergencyOrderActive: false, profilePictureUrl: 'https://i.pravatar.cc/150?u=colaborador-demo', permissions: { viewProjectManagement: false, manageProjects: false, accessPOSCashier: true }, pin: '1234' },
   
   { id: ANOTHER_ECOMMERCE_CLIENT_ID, email: 'otrocliente.ecommerce@example.com', password: 'otrocliente', role: UserRole.CLIENT_ECOMMERCE, name: 'Otro', lastName: 'Comprador', isEmergencyOrderActive: false },
 ];
@@ -184,10 +185,10 @@ export const EMPLOYEE_ROLES = ['Gerente de Proyectos', 'Diseñador', 'Contratist
 export const CLIENT_PRICE_LEVEL_OPTIONS = ['Precio Venta', 'Precio Nivel 1', 'Precio Nivel 2', 'Contratista', 'Mayorista'];
 
 export const INITIAL_EMPLOYEES: Employee[] = [
-  { id: 'emp-1', name: 'Ana', lastName: 'Juárez', email: 'ana.juarez@pazzi.com', role: EMPLOYEE_ROLES[0], hireDate: '2022-03-15', profilePictureUrl: 'https://i.pravatar.cc/150?u=ana-juarez', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true } },
+  { id: 'emp-1', name: 'Ana', lastName: 'Juárez', email: 'ana.juarez@pazzi.com', role: EMPLOYEE_ROLES[0], hireDate: '2022-03-15', profilePictureUrl: 'https://i.pravatar.cc/150?u=ana-juarez', permissions: { viewProjectManagement: true, manageProjects: true, accessPOSCashier: true }, pin: '1111' },
   { id: 'emp-2', name: 'Carlos', lastName: 'Vargas', email: 'carlos.vargas@pazzi.com', role: EMPLOYEE_ROLES[1], hireDate: '2021-08-01', profilePictureUrl: 'https://i.pravatar.cc/150?u=carlos-vargas', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
   { id: 'emp-3', name: 'Sofía', lastName: 'Herrera', email: 'sofia.herrera@pazzi.com', role: EMPLOYEE_ROLES[2], hireDate: '2023-01-10', profilePictureUrl: 'https://i.pravatar.cc/150?u=sofia-herrera', permissions: { viewProjectManagement: true, manageProjects: false, accessPOSCashier: false } },
-  { id: 'employee-user-predefined', name: 'Colaborador', lastName: 'Demo', email: EMPLOYEE_EMAIL, role: EMPLOYEE_ROLES[4], hireDate: '2023-05-01', profilePictureUrl: 'https://i.pravatar.cc/150?u=colaborador-demo', permissions: { viewProjectManagement: false, manageProjects: false, accessPOSCashier: true } },
+  { id: 'employee-user-predefined', name: 'Colaborador', lastName: 'Demo', email: EMPLOYEE_EMAIL, role: EMPLOYEE_ROLES[4], hireDate: '2023-05-01', profilePictureUrl: 'https://i.pravatar.cc/150?u=colaborador-demo', permissions: { viewProjectManagement: false, manageProjects: false, accessPOSCashier: true }, pin: '1234' },
 ];
 
 const currentYear = new Date().getFullYear();
@@ -232,6 +233,70 @@ export const INITIAL_PROJECTS: Project[] = [
 export const INITIAL_SALES: Sale[] = [
   { id: 'sale-1', date: `${currentYear}-01-05T10:30:00Z`, totalAmount: 150.75, items: [{...INITIAL_PRODUCTS[0], quantity: 2}, {...INITIAL_PRODUCTS[2], quantity: 1}], paymentMethod: 'Efectivo', cajaId: '0008', employeeId: 'employee-user-predefined', branchId: firstActiveBranchId, paymentStatus: 'Pagado' },
   { id: 'sale-2', date: `${currentYear}-01-05T14:45:00Z`, totalAmount: 88.20, items: [{...INITIAL_PRODUCTS[1], quantity: 3}], paymentMethod: 'Tarjeta', cajaId: '0008', employeeId: 'employee-user-predefined', branchId: firstActiveBranchId, paymentStatus: 'Pagado' },
+  {
+    id: 'sale-cxc-1',
+    date: `${currentYear}-02-10T11:00:00Z`,
+    totalAmount: 2850,
+    items: [
+        {...INITIAL_PRODUCTS.find(p => p.id === 'prod-cabinets-modern')!, quantity: 1},
+        {...INITIAL_PRODUCTS.find(p => p.id === 'prod-vanity-bath')!, quantity: 1}
+    ],
+    paymentMethod: 'Crédito C.',
+    cajaId: '0008',
+    employeeId: 'emp-1',
+    branchId: firstActiveBranchId,
+    paymentStatus: 'Pendiente de Pago',
+    clientId: 'client-1',
+    dueDate: `${currentYear}-03-10`,
+    receivableNotes: 'Instalación de cocina'
+  },
+  {
+    id: 'sale-cxc-2',
+    date: `${currentYear}-02-15T15:00:00Z`,
+    totalAmount: 1500,
+    items: [
+        {...INITIAL_PRODUCTS.find(p => p.id === 'prod-paint-interior')!, quantity: 5},
+    ],
+    paymentMethod: 'Crédito C.',
+    cajaId: '0008',
+    employeeId: 'emp-1',
+    branchId: firstActiveBranchId,
+    paymentStatus: 'Pendiente de Pago',
+    clientId: 'client-3',
+    dueDate: `${currentYear}-04-15`,
+    receivableNotes: 'Pintura oficinas corporativas. Factura #F-0215'
+  },
+  {
+    id: 'sale-cxc-3',
+    date: `${currentYear}-01-20T10:00:00Z`,
+    totalAmount: 450,
+    items: [
+        {...INITIAL_PRODUCTS.find(p => p.id === 'prod-shower-set')!, quantity: 1},
+    ],
+    paymentMethod: 'Crédito C.',
+    cajaId: 'caja-02-norte',
+    employeeId: 'employee-user-predefined',
+    branchId: 'branch-norte',
+    paymentStatus: 'Pendiente de Pago', 
+    clientId: 'client-2',
+    dueDate: `${currentYear}-02-20`
+  },
+  {
+    id: 'sale-cxc-4',
+    date: `${currentYear}-03-01T09:30:00Z`,
+    totalAmount: 5600,
+    items: [
+        {...INITIAL_PRODUCTS.find(p => p.id === 'prod-cabinets-modern')!, quantity: 2},
+        {...INITIAL_PRODUCTS.find(p => p.id === 'prod-paint-interior')!, quantity: 2},
+    ],
+    paymentMethod: 'Crédito C.',
+    cajaId: '0008',
+    employeeId: 'emp-1',
+    branchId: firstActiveBranchId,
+    paymentStatus: 'Pendiente de Pago',
+    clientId: 'client-3',
+    dueDate: `${currentYear}-05-01`
+  }
 ];
 
 export const INITIAL_ESTIMATES: Estimate[] = [
@@ -264,6 +329,25 @@ export const INITIAL_ESTIMATES: Estimate[] = [
 ];
 
 export const INITIAL_INVENTORY_LOGS: InventoryLog[] = [];
+
+export const INITIAL_SALE_PAYMENTS: SalePayment[] = [
+  {
+    id: 'sp-1',
+    saleId: 'sale-cxc-1', // partially paid
+    paymentDate: `${currentYear}-02-20T14:00:00Z`,
+    amountPaid: 1000,
+    paymentMethodUsed: 'Transferencia',
+    notes: 'Abono #1'
+  },
+  {
+    id: 'sp-2',
+    saleId: 'sale-cxc-3', // fully paid
+    paymentDate: `${currentYear}-01-25T12:00:00Z`,
+    amountPaid: 450,
+    paymentMethodUsed: 'Tarjeta',
+    notes: 'Pago completo'
+  }
+];
 
 export const INITIAL_ORDERS: Order[] = [
   { id: 'order-1', date: `${currentYear}-01-03T11:00:00Z`, clientName: 'Cliente Shopper', clientEmail: ECOMMERCE_CLIENT_EMAIL, shippingAddress: 'Calle Inventada 456, Ciudad Web', totalAmount: 205.50, items: [{...INITIAL_PRODUCTS[0], quantity: 1}, {...INITIAL_PRODUCTS[1], quantity: 1}], status: 'Completado', storeOwnerId: ECOMMERCE_CLIENT_ID, paymentMethod: "Tarjeta" },
@@ -345,8 +429,8 @@ export const INITIAL_SUPPLIER_ORDERS: SupplierOrder[] = [
 
 
 export const INITIAL_NOTIFICATIONS: Notification[] = [
-    { id: 'notif-1', title: 'Nuevo Pedido Recibido', message: 'Pedido #order-1 de Cliente Shopper por $205.50.', timestamp: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), read: true, link: '/ecommerce/orders', type: 'new_order', icon: React.createElement(ShoppingCartIcon, {className: "w-4 h-4"}) },
-    { id: 'notif-2', title: 'Chat de Proyecto', message: 'Roberto Gómez: ¿Cómo va el avance con los gabinetes?', timestamp: new Date(new Date().setDate(new Date().getDate()-2)).toISOString(), read: false, link: '/pm/chat', type: 'chat_message', icon: React.createElement(ChatBubbleLeftRightIcon, {className: "w-4 h-4"}) },
+    { id: 'notif-1', title: 'Nuevo Pedido Recibido', message: 'Pedido #order-1 de Cliente Shopper por $205.50.', timestamp: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), read: true, link: '/ecommerce/orders', type: 'new_order', icon: ShoppingCartIcon },
+    { id: 'notif-2', title: 'Chat de Proyecto', message: 'Roberto Gómez: ¿Cómo va el avance con los gabinetes?', timestamp: new Date(new Date().setDate(new Date().getDate()-2)).toISOString(), read: false, link: '/pm/chat', type: 'chat_message', icon: ChatBubbleLeftRightIcon },
     { id: 'notif-3', title: 'Bajo Stock: Termostato Inteligente', message: 'Quedan solo 5 unidades en Sucursal Central.', timestamp: new Date().toISOString(), read: false, type: 'low_stock', link: '/pos/inventory' }
 ];
 
@@ -366,7 +450,7 @@ export const INITIAL_TASK_COMMENTS: TaskComment[] = [
 ];
 
 
-export const inputFormStyle = "block w-full px-3 py-1.5 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
+export const inputFormStyle = "block w-full px-3 py-2 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary h-12";
 export const INPUT_SM_CLASSES = "px-2.5 py-1.5 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
 
 export const BUTTON_PRIMARY_CLASSES = "bg-primary hover:bg-secondary text-white font-semibold text-lg py-2 px-4 rounded-md shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-neutral-900";
@@ -406,12 +490,12 @@ export interface SubModuleLink {
     type: 'link';
     name: string;
     path: string;
-    icon?: React.ReactNode; 
+    icon?: React.ComponentType<any>; 
 }
 export interface SubModuleGroup {
     type: 'group';
     name: string;
-    icon?: React.ReactNode; 
+    icon?: React.ComponentType<any>; 
     children: SubModuleLink[];
 }
 
@@ -419,32 +503,32 @@ export const APP_MODULES_CONFIG = [
   { 
     name: AppModule.TIENDA, 
     path: '/tienda', 
-    icon: React.createElement(Cog6ToothIcon),
+    icon: Cog6ToothIcon,
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [
-      { type: 'link', name: 'Productos', path: '/tienda/products', icon: React.createElement(Squares2X2Icon, { className: "w-5 h-5" }) },
-      { type: 'link', name: 'Inventario', path: '/tienda/inventory', icon: React.createElement(CubeIcon, { className: "w-5 h-5" }) },
-      { type: 'link', name: 'Categorías', path: '/tienda/categories', icon: React.createElement(ListBulletIcon, { className: "w-5 h-5" }) },
-      { type: 'link', name: 'Departamentos', path: '/tienda/departments', icon: React.createElement(FolderIcon, { className: "w-5 h-5" }) },
-      { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: React.createElement(UserGroupIcon, { className: "w-5 h-5" }) },
-      { type: 'link', name: 'Colaboradores', path: '/tienda/employees', icon: React.createElement(UsersIcon, { className: "w-5 h-5" }) },
-      { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: React.createElement(BuildingStorefrontIcon, { className: "w-5 h-5" }) },
+      { type: 'link', name: 'Productos', path: '/tienda/products', icon: Squares2X2Icon },
+      { type: 'link', name: 'Inventario', path: '/tienda/inventory', icon: CubeIcon },
+      { type: 'link', name: 'Categorías', path: '/tienda/categories', icon: ListBulletIcon },
+      { type: 'link', name: 'Departamentos', path: '/tienda/departments', icon: FolderIcon },
+      { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon },
+      { type: 'link', name: 'Colaboradores', path: '/tienda/employees', icon: UsersIcon },
+      { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: BuildingStorefrontIcon },
     ] as SidebarItemConfig[],
     subModulesAdmin: [] as SidebarItemConfig[],
   },
   { 
     name: AppModule.PROJECT_MANAGEMENT, 
     path: '/pm/dashboard', 
-    icon: React.createElement(BriefcaseIcon),
+    icon: BriefcaseIcon,
     subModulesProject: [
-        { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: React.createElement(HomeIcon) },
-        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: React.createElement(BriefcaseIcon) },
-        { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: React.createElement(ChatBubbleLeftRightIcon) },
-        { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: React.createElement(CalendarDaysIcon) },
-        { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: React.createElement(ChartBarIcon) },
+        { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: HomeIcon },
+        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: BriefcaseIcon },
+        { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon },
+        { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: CalendarDaysIcon },
+        { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: ChartBarIcon },
     ] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
@@ -455,17 +539,17 @@ export const APP_MODULES_CONFIG = [
   { 
     name: AppModule.POS, 
     path: '/pos', 
-    icon: React.createElement(CashBillIcon),
+    icon: CashBillIcon,
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [
-        { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: React.createElement(CashBillIcon) },
-        { type: 'link', name: 'Reportes POS', path: '/pos/reports', icon: React.createElement(ChartPieIcon) },
-        { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: React.createElement(ListBulletIcon) },
-        { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: React.createElement(ClipboardDocumentListIcon) },
-        { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: React.createElement(ArchiveBoxIcon) },
-        { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: React.createElement(DocumentArrowUpIcon) },
-        { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: React.createElement(BanknotesIcon) },
-        { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: React.createElement(CubeIcon) },
+        { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: CashBillIcon },
+        { type: 'link', name: 'Reportes POS', path: '/pos/reports', icon: ChartPieIcon },
+        { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon },
+        { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon },
+        { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon },
+        { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: DocumentArrowUpIcon },
+        { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: BanknotesIcon },
+        { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: CubeIcon },
     ] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
@@ -475,15 +559,15 @@ export const APP_MODULES_CONFIG = [
   { 
     name: AppModule.ECOMMERCE, 
     path: '/ecommerce', 
-    icon: React.createElement(ShoppingCartIcon, {className: ""}),
+    icon: ShoppingCartIcon,
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [
-        { type: 'link', name: 'Dashboard E-commerce', path: '/ecommerce/dashboard', icon: React.createElement(HomeIcon) },
-        { type: 'link', name: 'Pedidos Online', path: '/ecommerce/orders', icon: React.createElement(TruckIcon) },
-        { type: 'link', name: 'Proveedores', path: '/ecommerce/suppliers', icon: React.createElement(UserGroupIcon) },
-        { type: 'link', name: 'Pedidos a Proveedor', path: '/ecommerce/supplier-orders', icon: React.createElement(DocumentArrowUpIcon) },
-        { type: 'link', name: 'Mi Tienda (Vista Previa)', path: `/store/${ADMIN_USER_ID}`, icon: React.createElement(BuildingStorefrontIcon) },
+        { type: 'link', name: 'Dashboard E-commerce', path: '/ecommerce/dashboard', icon: HomeIcon },
+        { type: 'link', name: 'Pedidos Online', path: '/ecommerce/orders', icon: TruckIcon },
+        { type: 'link', name: 'Proveedores', path: '/ecommerce/suppliers', icon: UserGroupIcon },
+        { type: 'link', name: 'Pedidos a Proveedor', path: '/ecommerce/supplier-orders', icon: DocumentArrowUpIcon },
+        { type: 'link', name: 'Mi Tienda (Vista Previa)', path: `/store/${ADMIN_USER_ID}`, icon: BuildingStorefrontIcon },
     ] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
@@ -492,27 +576,27 @@ export const APP_MODULES_CONFIG = [
   { 
     name: AppModule.ADMINISTRACION, 
     path: '/admin/dashboard', 
-    icon: React.createElement(ShieldCheckIcon),
+    icon: ShieldCheckIcon,
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
     subModulesAdmin: [
-      { type: 'link', name: 'Dashboard Admin', path: '/admin/dashboard', icon: React.createElement(HomeIcon) },
+      { type: 'link', name: 'Dashboard Admin', path: '/admin/dashboard', icon: HomeIcon },
     ] as SidebarItemConfig[],
   },
   { 
     name: AppModule.PROJECT_CLIENT_DASHBOARD, 
     path: '/project-client', 
-    icon: React.createElement(HomeIcon), // Example, not directly used in sidebar if client has its own layout
+    icon: HomeIcon, // Example, not directly used in sidebar if client has its own layout
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [ // These are for client's view
-        { type: 'link', name: 'Dashboard Cliente', path: '/project-client/dashboard', icon: React.createElement(Squares2X2Icon) },
-        { type: 'link', name: 'Calendario Proyecto', path: '/project-client/calendar', icon: React.createElement(CalendarDaysIcon) },
-        { type: 'link', name: 'Chat del Proyecto', path: '/project-client/chat', icon: React.createElement(ChatBubbleLeftRightIcon) }, // Path will be dynamic with projectId
+        { type: 'link', name: 'Dashboard Cliente', path: '/project-client/dashboard', icon: Squares2X2Icon },
+        { type: 'link', name: 'Calendario Proyecto', path: '/project-client/calendar', icon: CalendarDaysIcon },
+        { type: 'link', name: 'Chat del Proyecto', path: '/project-client/chat', icon: ChatBubbleLeftRightIcon }, // Path will be dynamic with projectId
     ] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
     subModulesAdmin: [] as SidebarItemConfig[],
@@ -523,4 +607,3 @@ export const VISIT_STATUS_OPTIONS = Object.values(VisitStatus);
 export const SUPPLIER_ORDER_STATUS_OPTIONS = Object.values(SupplierOrderStatus);
 export const PROJECT_STATUS_OPTIONS = Object.values(ProjectStatus);
 export const ESTIMATE_STATUS_OPTIONS = Object.values(EstimateStatus);
-// End of constants.ts

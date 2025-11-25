@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { Employee, EmployeeFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
@@ -9,8 +8,10 @@ import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { PlusIcon, EditIcon, DeleteIcon, SparklesIcon } from '../../components/icons'; // Adjusted path
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, EMPLOYEE_ROLES } from '../../constants'; // Adjusted path
 import { AIImportModal } from '../../components/AIImportModal'; // Adjusted path
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const EmployeesListPage: React.FC = () => {
+    const { t } = useTranslation();
     const { employees, setEmployees } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -95,26 +96,26 @@ export const EmployeesListPage: React.FC = () => {
     };
 
     const columns: TableColumn<Employee>[] = [
-        { header: 'Nombre', accessor: 'name' },
-        { header: 'Apellido', accessor: 'lastName' },
-        { header: 'Email', accessor: 'email' },
-        { header: 'Rol', accessor: 'role' },
+        { header: t('employee.field.name'), accessor: 'name' },
+        { header: t('employee.field.lastname'), accessor: 'lastName' },
+        { header: t('employee.field.email'), accessor: 'email' },
+        { header: t('employee.field.role'), accessor: 'role' },
     ];
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Colaboradores</h1>
+                <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('employee.list.title')}</h1>
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
-                        <SparklesIcon /> Importar con IA
+                        <SparklesIcon /> {t('common.import_ai')}
                     </button>
-                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon /> Crear Colaborador</button>
+                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon /> {t('employee.list.create')}</button>
                 </div>
             </div>
             <DataTable<Employee> data={employees} columns={columns} actions={(emp) => (
                 <>
-                    <button onClick={() => openModalForEdit(emp)} className="text-blue-600 dark:text-blue-400 p-1" aria-label={`Editar ${emp.name} ${emp.lastName}`}><EditIcon /></button>
-                    <button onClick={() => requestDelete(emp.id)} className="text-red-600 dark:text-red-400 p-1" aria-label={`Eliminar ${emp.name} ${emp.lastName}`}><DeleteIcon /></button>
+                    <button onClick={() => openModalForEdit(emp)} className="text-blue-600 dark:text-blue-400 p-1" aria-label={t('common.edit')}><EditIcon /></button>
+                    <button onClick={() => requestDelete(emp.id)} className="text-red-600 dark:text-red-400 p-1" aria-label={t('common.delete')}><DeleteIcon /></button>
                 </>
             )} />
             <EmployeeFormModal isOpen={showFormModal} onClose={() => setShowFormModal(false)} employee={editingEmployee} />
@@ -122,9 +123,9 @@ export const EmployeesListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="Confirmar Eliminación"
-                message="¿Estás seguro de que quieres eliminar este colaborador? Esta acción no se puede deshacer."
-                confirmButtonText="Sí, Eliminar"
+                title={t('confirm.delete.title')}
+                message={t('confirm.delete.message')}
+                confirmButtonText={t('confirm.delete.btn')}
             />
             <AIImportModal
                 isOpen={showAIImportModal}

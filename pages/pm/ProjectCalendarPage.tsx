@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Visit, Project, ProjectStatus, VisitStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -7,6 +8,7 @@ import { ProjectFormModal } from './ProjectFormModal';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon as CreateVisitIcon, BriefcaseIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge';
+import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation
 
 // --- Helper Functions & Types ---
 
@@ -130,13 +132,10 @@ const getWeekDays = (current: Date): Date[] => {
     return Array.from({ length: 7 }, (_, i) => { const d = new Date(startOfWeek); d.setDate(startOfWeek.getDate() + i); return d; });
 };
 
-const hoursToDisplay = Array.from({ length: 13 }, (_, i) => i + 8); // 8 AM to 8 PM
-const parseTime = (timeStr: string): number => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours + (minutes / 60);
-};
-
 export const ProjectCalendarPage: React.FC = () => {
+    const { t, lang } = useTranslation(); // Use hook
+    const locale = lang === 'es' ? 'es-ES' : 'en-US';
+
     const { visits, projects, setVisits } = useData();
     const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
     const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -150,15 +149,23 @@ export const ProjectCalendarPage: React.FC = () => {
     const [initialDateForNewVisit, setInitialDateForNewVisit] = useState<Date | null>(null);
     const [isProjectFormModalOpen, setIsProjectFormModalOpen] = useState(false);
     const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
-    const [visitForConversion, setVisitForConversion] = useState<Visit | null>(null);
-    const [projectIdsBeforeConversion, setProjectIdsBeforeConversion] = useState<Set<string> | null>(null);
 
     const [currentTimePosition, setCurrentTimePosition] = useState(0);
 
     const allCalendarEvents = useMemo(() => getEventsForRange(projects, visits), [projects, visits]);
     const calendarDays = useMemo(() => getDaysForMonthView(currentDate, allCalendarEvents), [currentDate, allCalendarEvents]);
-    const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
-    const daysOfWeekNamesMonth = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    // Dynamic Day Names based on Locale
+    const daysOfWeekNamesMonth = useMemo(() => {
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            // Create a date object for a Sunday to start the week (e.g., 2023-01-01)
+            const d = new Date(2023, 0, 1 + i);
+            days.push(d.toLocaleDateString(locale, { weekday: 'long' }));
+        }
+        // Capitalize first letter
+        return days.map(day => day.charAt(0).toUpperCase() + day.slice(1));
+    }, [locale]);
+
 
     const updateCurrentTimePosition = useCallback(() => {
         const now = new Date();
@@ -212,24 +219,24 @@ export const ProjectCalendarPage: React.FC = () => {
             <div className="flex-grow bg-white dark:bg-neutral-800 p-3 sm:p-4 rounded-lg shadow-lg flex flex-col overflow-hidden">
                 <div className="flex flex-col sm:flex-row justify-between items-center mb-3 gap-2">
                     <div className="flex items-center gap-1 sm:gap-2">
-                        <button onClick={goToToday} className={BUTTON_SECONDARY_SM_CLASSES}>Hoy</button>
+                        <button onClick={goToToday} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.today')}</button>
                         <button onClick={() => changeDate(-1, viewMode)} className={BUTTON_SECONDARY_SM_CLASSES}><ChevronLeftIcon /></button>
                         <button onClick={() => changeDate(1, viewMode)} className={BUTTON_SECONDARY_SM_CLASSES}><ChevronRightIcon /></button>
                         <h2 className="text-base sm:text-lg font-semibold text-neutral-700 dark:text-neutral-200 ml-2">
-                            {isValidDate(currentDate) ? currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' }) : "Fecha inválida"}
+                            {isValidDate(currentDate) ? currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' }) : t('calendar.invalid_date')}
                         </h2>
                     </div>
                      <div className="flex items-center gap-2">
                         <div className="flex items-center gap-x-3 text-xs">
-                            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-teal-500 mr-1.5"></span>Visita</span>
-                            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>Proyecto</span>
+                            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-teal-500 mr-1.5"></span>{t('calendar.visit')}</span>
+                            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>{t('calendar.project')}</span>
                         </div>
                         <select value={viewMode} onChange={e => setViewMode(e.target.value as 'month' | 'week')} className={`${INPUT_SM_CLASSES} !py-1.5 !text-xs`}>
-                            <option value="month">Mes</option>
-                            <option value="week">Semana</option>
+                            <option value="month">{t('calendar.month')}</option>
+                            <option value="week">{t('calendar.week')}</option>
                         </select>
                         <button onClick={() => openScheduleVisitModal(undefined, selectedDate)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center text-xs`}>
-                            <CreateVisitIcon className="w-4 h-4" /> Programar Visita
+                            <CreateVisitIcon className="w-4 h-4" /> {t('calendar.schedule_visit')}
                         </button>
                     </div>
                 </div>
@@ -262,23 +269,23 @@ export const ProjectCalendarPage: React.FC = () => {
 
             <div className="w-full lg:w-80 bg-white dark:bg-neutral-800 p-3 sm:p-4 rounded-lg shadow-lg flex-shrink-0 overflow-y-auto h-full pos-reports-scrollbar">
                 <h3 className="text-base sm:text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-3">
-                    Actividad para el {isValidDate(selectedDate) ? selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : "Fecha inválida"}
+                    {t('calendar.activity_for')} {isValidDate(selectedDate) ? selectedDate.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' }) : t('calendar.invalid_date')}
                 </h3>
                 {eventsForSelectedDay.length > 0 ? (
                     <ul className="space-y-2">
                         {eventsForSelectedDay.map(event => (
                             <li key={event.id} onClick={() => handleEventClick(event)} className="p-2 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer">
-                                {event.type === 'project' && <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">DÍA DE PROYECTO</p>}
+                                {event.type === 'project' && <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{t('calendar.project').toUpperCase()}</p>}
                                 <div className="flex justify-between items-start">
                                     <h4 className="font-semibold text-primary text-xs sm:text-sm">{event.title}</h4>
                                     {event.type === 'visit' && <VisitStatusBadge status={event.status as VisitStatus} />}
                                 </div>
-                                {!event.isAllDay && <p className="text-xs text-neutral-500 dark:text-neutral-400">{event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {event.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>}
+                                {!event.isAllDay && <p className="text-xs text-neutral-500 dark:text-neutral-400">{event.start.toLocaleTimeString(locale, {hour: '2-digit', minute:'2-digit'})} - {event.end.toLocaleTimeString(locale, {hour: '2-digit', minute:'2-digit'})}</p>}
                                 {event.type === 'project' && <p className="text-xs text-neutral-500 dark:text-neutral-400">Todo el día</p>}
                             </li>
                         ))}
                     </ul>
-                ) : <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay actividades programadas.</p>}
+                ) : <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('calendar.no_activity')}</p>}
             </div>
 
             <ScheduleVisitModal isOpen={isScheduleVisitModalOpen} onClose={() => setIsScheduleVisitModalOpen(false)} visitToEdit={visitToEdit} initialDate={initialDateForNewVisit || (selectedDate && isValidDate(selectedDate) ? selectedDate : new Date())} />

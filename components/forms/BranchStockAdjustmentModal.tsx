@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { Product, InventoryLogType, InventoryLog } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface BranchStockAdjustmentModalProps {
     isOpen: boolean;
@@ -19,6 +21,7 @@ interface AdjustmentState {
 }
 
 export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProps> = ({ isOpen, onClose, product }) => {
+    const { t } = useTranslation();
     const { branches, updateProductStockForBranch, addInventoryLog } = useData();
     const { currentUser } = useAuth();
     const [adjustments, setAdjustments] = useState<AdjustmentState>({});
@@ -106,19 +109,19 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
     if (!isOpen || !product) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Gestionar Stock de: ${product.name}`} size="4xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('inventory.adjust.title', { product: product.name })} size="4xl">
             <div className="space-y-4 max-h-[70vh] flex flex-col">
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 flex-shrink-0">
-                    Ingrese la cantidad a sumar (ej: 10 o +10) o restar (ej: -5) para cada sucursal. Deje en blanco si no hay cambios.
+                    {t('inventory.adjust.help_text')}
                 </p>
                 <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                     {/* Header */}
                      <div className="grid grid-cols-12 gap-x-3 p-2 sticky top-0 bg-neutral-100 dark:bg-neutral-900 z-10">
-                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Sucursal</div>
-                        <div className="col-span-3 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Stock Actual</div>
-                        <div className="col-span-4 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Ajuste (+/-)</div>
-                        <div className="col-span-5 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Nuevo Stock</div>
-                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Notas</div>
+                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('inventory.adjust.col_branch')}</div>
+                        <div className="col-span-3 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('inventory.adjust.col_current')}</div>
+                        <div className="col-span-4 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('inventory.adjust.col_adjust')}</div>
+                        <div className="col-span-5 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('inventory.adjust.col_new')}</div>
+                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('inventory.adjust.col_notes')}</div>
                     </div>
                     {/* Rows */}
                     <div className="space-y-3">
@@ -147,7 +150,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
                                             type="text"
                                             value={adjustments[branch.id]?.notes || ''}
                                             onChange={(e) => handleNotesChange(branch.id, e.target.value)}
-                                            placeholder="Notas (opcional)"
+                                            placeholder={t('inventory.adjust.col_notes') + "..."}
                                             className={`${inputFormStyle} !text-xs`}
                                         />
                                     </div>
@@ -157,8 +160,8 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
                     </div>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700 flex-shrink-0">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="button" onClick={handleSubmit} className={BUTTON_PRIMARY_SM_CLASSES}>Guardar Ajustes</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                    <button type="button" onClick={handleSubmit} className={BUTTON_PRIMARY_SM_CLASSES}>{t('inventory.adjust.save')}</button>
                 </div>
             </div>
         </Modal>

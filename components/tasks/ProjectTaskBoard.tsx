@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { Task, TaskStatus, Employee } from '../../types';
@@ -5,12 +6,14 @@ import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { PlusIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translations
 
 interface ProjectTaskBoardProps {
     projectId: string;
 }
 
 export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId }) => {
+    const { t } = useTranslation(); // Hook
     const { tasks, setTasks, addTask, updateTask, taskComments, getAllEmployees } = useData();
     const [draggedTask, setDraggedTask] = useState<Task | null>(null);
     const [isCreatingInStatus, setIsCreatingInStatus] = useState<TaskStatus | null>(null);
@@ -29,6 +32,14 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         [TaskStatus.FOR_APPROVAL]: projectTasks.filter(t => t.status === TaskStatus.FOR_APPROVAL),
         [TaskStatus.DONE]: projectTasks.filter(t => t.status === TaskStatus.DONE),
     }), [projectTasks]);
+
+    // Mapping for display titles
+    const columnTitles: Record<TaskStatus, string> = {
+        [TaskStatus.TODO]: t('tasks.status.todo'),
+        [TaskStatus.IN_PROGRESS]: t('tasks.status.in_progress'),
+        [TaskStatus.FOR_APPROVAL]: t('tasks.status.for_approval'),
+        [TaskStatus.DONE]: t('tasks.status.done'),
+    };
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, task: Task) => {
         setDraggedTask(task);
@@ -115,7 +126,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                         className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col"
                     >
                         <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg">
-                           <span>{status}</span>
+                           <span>{columnTitles[status as TaskStatus]}</span>
                            <span className="text-sm text-gray-500">{tasksInColumn.length}</span>
                         </h3>
                         <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
@@ -143,7 +154,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                 <textarea
                                     value={newTaskTitle}
                                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                                    placeholder="Escriba un título para esta tarea..."
+                                    placeholder={t('tasks.add_placeholder')}
                                     className="w-full p-2 text-sm border-neutral-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-neutral-600 dark:border-neutral-500"
                                     rows={3}
                                     autoFocus
@@ -151,12 +162,12 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status as TaskStatus); } }}
                                 />
                                 <div className="mt-2">
-                                    <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>Añadir Tarea</button>
+                                    <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('tasks.add_btn')}</button>
                                 </div>
                             </div>
                         ) : (
                             <button onClick={() => setIsCreatingInStatus(status as TaskStatus)} className="mt-2 w-full text-left p-2 rounded-lg text-base text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center transition-colors">
-                                <PlusIcon className="w-4 h-4 mr-1" /> Añadir una tarea
+                                <PlusIcon className="w-4 h-4 mr-1" /> {t('tasks.add_trigger')}
                             </button>
                         )}
                     </div>

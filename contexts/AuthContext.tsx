@@ -7,12 +7,14 @@ import { DEFAULT_USERS, ADMIN_EMAIL, ADMIN_PASSWORD } from '../constants';
 export interface AuthContextType {
   currentUser: User | null;
   login: (email: string, pass: string) => Promise<boolean>;
+  loginWithPin: (userId: string, pin: string) => Promise<boolean>;
   register: (name: string, lastName: string, email: string, pass: string, role: UserRole, options?: { profilePictureUrl?: string; permissions?: EmployeePermissions }) => Promise<boolean>;
   logout: () => void;
   allUsers: (User & { password?: string })[];
   updateUserPassword: (userId: string, currentPasswordPlain: string, newPasswordPlain: string) => Promise<{success: boolean, message: string}>;
   toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>; 
   updateUserAlertSettings: (userId: string, newSettings: AlertSettings) => Promise<boolean>;
+  updateUser: (userId: string, updates: Partial<User & { password?: string; pin?: string }>) => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -57,6 +59,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  const loginWithPin = async (userId: string, pin: string): Promise<boolean> => {
+    const userToLogin = allUsers.find(u => u.id === userId);
+    if (userToLogin && userToLogin.pin === pin) {
+        setCurrentUser(userToLogin);
+        return true;
+    }
+    return false;
+  };
+
   const register = async (name: string, lastName: string, email: string, pass: string, role: UserRole, options?: { profilePictureUrl?: string; permissions?: EmployeePermissions }): Promise<boolean> => {
     if (allUsers.find(u => u.email.toLowerCase() === email.toLowerCase())) {
       alert('El email ya está registrado.');
@@ -87,6 +98,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(null);
   };
   
+  const updateUser = async (userId: string, updates: Partial<User & { password?: string }>): Promise<boolean> => {
+    const userIndex = allUsers.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        console.error("User not found for update");
+        return false;
+    }
+
+    const updatedUsers = [...allUsers];
+    updatedUsers[userIndex] = { ...updatedUsers[userIndex], ...updates };
+    setAllUsers(updatedUsers);
+    
+    if (currentUser && currentUser.id === userId) {
+        setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
+    }
+    return true;
+  };
+
   const updateUserPassword = async (userId: string, currentPasswordPlain: string, newPasswordPlain: string): Promise<{success: boolean, message: string}> => {
     const userIndex = allUsers.findIndex(u => u.id === userId);
     if (userIndex === -1) {
@@ -145,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings }}>
+    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings, loginWithPin, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,8 +7,10 @@ import { SupplierFormModal } from './SupplierFormModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const SuppliersListPage: React.FC = () => {
+    const { t } = useTranslation();
     const { suppliers, setSuppliers } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -40,18 +42,18 @@ export const SuppliersListPage: React.FC = () => {
     };
 
     const columns: TableColumn<Supplier>[] = [
-        { header: 'Nombre Proveedor', accessor: 'name' },
-        { header: 'Contacto', accessor: 'contactName' },
-        { header: 'Email', accessor: 'email' },
-        { header: 'Teléfono', accessor: 'phone' },
+        { header: t('ecommerce.suppliers.col.name'), accessor: 'name' },
+        { header: t('ecommerce.suppliers.col.contact'), accessor: 'contactName' },
+        { header: t('ecommerce.suppliers.col.email'), accessor: 'email' },
+        { header: t('ecommerce.suppliers.col.phone'), accessor: 'phone' },
     ];
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Proveedores</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('ecommerce.suppliers.title')}</h1>
                 <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
-                    <PlusIcon /> Crear Proveedor
+                    <PlusIcon /> {t('ecommerce.suppliers.create')}
                 </button>
             </div>
             <DataTable<Supplier>
@@ -59,10 +61,10 @@ export const SuppliersListPage: React.FC = () => {
                 columns={columns}
                 actions={(supplier) => (
                     <>
-                        <button onClick={() => openModalForEdit(supplier)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Editar ${supplier.name}`}>
+                        <button onClick={() => openModalForEdit(supplier)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')}>
                             <EditIcon />
                         </button>
-                        <button onClick={() => requestDelete(supplier.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={`Eliminar ${supplier.name}`}>
+                        <button onClick={() => requestDelete(supplier.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('common.delete')}>
                             <DeleteIcon />
                         </button>
                     </>
@@ -73,9 +75,9 @@ export const SuppliersListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="Confirmar Eliminación"
-                message="¿Estás seguro de que quieres eliminar este proveedor? Esta acción no se puede deshacer."
-                confirmButtonText="Sí, Eliminar"
+                title={t('confirm.delete.title')}
+                message={t('confirm.delete.message')}
+                confirmButtonText={t('confirm.delete.btn')}
             />
         </div>
     );

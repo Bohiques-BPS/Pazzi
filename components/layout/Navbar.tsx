@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
-import { useData } from '../../contexts/DataContext'; // Added useData
-import { AppModule, UserRole, Notification } from '../../types'; // Added Notification
+import { useData } from '../../contexts/DataContext'; 
+import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
+import { AppModule, UserRole, Notification } from '../../types'; 
 import { APP_MODULES_CONFIG } from '../../constants'; 
-// FIX: Corrected import path for icons from `../../components/icons` to `../icons` to match sibling components in the same directory.
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon } from '../icons'; // Added BellIcon, OrderIcon
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon } from '../icons'; 
 
 interface NavbarProps {
     onToggleSidebar: () => void;
@@ -35,14 +36,15 @@ const formatRelativeTime = (isoTimestamp: string) => {
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, setCurrentModule }) => {
   const { currentUser, logout } = useAuth();
-  const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData(); // Added notification context
+  const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData(); 
+  const { t } = useTranslation(); // Use hook
   const navigate = useNavigate();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
-  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false); // State for notification dropdown
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false); 
   
   const unreadCount = getUnreadNotificationsCount();
-  const latestNotifications = notifications.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 7); // Show latest 7
+  const latestNotifications = notifications.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 7); 
 
   const handleLogout = () => {
     logout();
@@ -69,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
         if (moduleName === AppModule.PROJECT_MANAGEMENT) return '/pm/projects';
     }
      if (currentUser?.role === UserRole.MANAGER && moduleName === AppModule.POS) {
-        return '/pos/reports'; // Manager defaults to reports page for POS
+        return '/pos/reports'; 
     }
     
     if (moduleName === AppModule.PROJECT_MANAGEMENT && mod.subModulesProject && mod.subModulesProject.length > 0 && mod.subModulesProject[0].type === 'link') {
@@ -78,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
         const firstPosItem = mod.subModulesPOS[0];
         if (firstPosItem.type === 'link') return firstPosItem.path;
         if (firstPosItem.type === 'group' && firstPosItem.children.length > 0) return firstPosItem.children[0].path;
-         return mod.path; // Fallback to base path if no direct sub-module link
+         return mod.path; 
     } else if (moduleName === AppModule.ECOMMERCE && mod.subModulesEcommerce && mod.subModulesEcommerce.length > 0 && mod.subModulesEcommerce[0].type === 'link') {
         return mod.subModulesEcommerce[0].path;
     }
@@ -107,9 +109,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     if (notification.link) {
         navigate(notification.link);
     }
-    // Potentially close dropdown if not navigating, or if navigating within same page.
-    // For now, it will stay open unless a navigation happens which re-renders navbar.
-    // To ensure it closes, you might need: setNotificationDropdownOpen(false);
   };
   
   const moduleLabelColors: Record<AppModule, string> = {
@@ -118,26 +117,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     [AppModule.POS]: 'bg-teal-500',
     [AppModule.ECOMMERCE]: 'bg-amber-500',
     [AppModule.ADMINISTRACION]: 'bg-slate-600',
-    [AppModule.PROJECT_CLIENT_DASHBOARD]: 'bg-gray-500', // For completeness
+    [AppModule.PROJECT_CLIENT_DASHBOARD]: 'bg-gray-500', 
   };
-  const moduleLabelColorClass = moduleLabelColors[currentModule] || 'bg-gray-500'; // Fallback
+  const moduleLabelColorClass = moduleLabelColors[currentModule] || 'bg-gray-500'; 
 
 
   return (
     <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]">
-      <div className="mx-auto flex items-center justify-between h-full px-4"> {/* Added px-4 here for overall padding */}
+      <div className="mx-auto flex items-center justify-between h-full px-4"> 
         <div className="flex items-center">
-          {/* Mobile Sidebar Toggle (Manager/Employee on mobile) */}
+          {/* Mobile Sidebar Toggle */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && 
             <button onClick={onToggleSidebar} className="mr-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden">
               <MenuIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
             </button>
           }
           
-          {/* Module Selector (Desktop Icon / Mobile Text) - if available */}
+          {/* Module Selector */}
           {availableModulesForSelector.length > 0 && ( 
             <div className="relative mr-3">
-                {/* Mobile/Tablet: Text-based dropdown */}
+                {/* Mobile/Tablet */}
                 <button 
                     id="navbar-module-selector-button-mobile"
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
@@ -146,10 +145,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     aria-expanded={moduleDropdownOpen}
                     aria-controls="module-menu"
                 >
-                    {currentModule} <ChevronDownIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 ml-1" />
+                    {t(currentModule)} <ChevronDownIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 ml-1" />
                 </button>
 
-                {/* Desktop: Icon-based dropdown */}
+                {/* Desktop */}
                 <button
                     id="navbar-module-selector-button-desktop"
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
@@ -162,11 +161,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     <Squares2X2Icon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
                 </button>
 
-                {/* Dropdown menu content (shared) */}
+                {/* Dropdown */}
                 {moduleDropdownOpen && (
                     <div 
                         id="module-menu" 
-                        className="absolute mt-2 w-56 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600 left-0"
+                        className="absolute mt-2 w-64 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600 left-0"
                     >
                         {availableModulesForSelector.map(mod => (
                             <button
@@ -179,7 +178,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                 className="block w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                                 role="menuitem"
                             >
-                                {mod.name}
+                                {t(mod.name)}
                             </button>
                         ))}
                     </div>
@@ -192,14 +191,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
             <img src={logoUrl} alt="Pazzi Logo" className="h-9" />
           </Link>
 
-          {/* NEW: Module Label */}
+          {/* Module Label */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
             <div className={`hidden md:flex items-center px-2.5 py-1 rounded-md text-base font-semibold text-white ${moduleLabelColorClass}`}>
-                {currentModule}
+                {t(currentModule)}
             </div>
           }
           
-          {/* Client Project Nav Links (Desktop) */}
+          {/* Client Project Nav Links */}
           {currentUser?.role === UserRole.CLIENT_PROJECT && (
               <div className="hidden md:flex items-center space-x-1">
                   {renderClientProjectNavLinks()}
@@ -207,9 +206,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           )}
         </div>
 
-        {/* Right side of Navbar: Notifications & User Menu */}
+        {/* Right side: Notifications & User Menu */}
         <div className="flex items-center space-x-2">
-           {/* Notification Bell - Visible for logged-in users except e-commerce clients */}
+           {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
             <div className="relative">
                 <button 
@@ -231,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                             <h3 className="text-base font-semibold text-neutral-700 dark:text-neutral-200">Notificaciones</h3>
                             {unreadCount > 0 && (
                                 <button 
-                                    onClick={() => {markAllNotificationsAsRead(); /* setNotificationDropdownOpen(false); */}}
+                                    onClick={() => {markAllNotificationsAsRead(); }}
                                     className="text-sm text-primary hover:underline"
                                 >
                                     Marcar todas como leídas
@@ -239,7 +238,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                             )}
                         </div>
                         <div className="overflow-y-auto flex-grow">
-                            {latestNotifications.length > 0 ? latestNotifications.map(notification => (
+                            {latestNotifications.length > 0 ? latestNotifications.map(notification => {
+                                const IconComponent = notification.icon;
+                                return (
                                 <div
                                     key={notification.id}
                                     onClick={() => handleNotificationClick(notification)}
@@ -247,7 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                     role="menuitem"
                                 >
                                     <div className="flex items-start">
-                                        {notification.icon && <span className="mr-3 mt-0.5 text-primary dark:text-accent">{notification.icon}</span>}
+                                        {IconComponent && <span className="mr-3 mt-0.5 text-primary dark:text-accent"><IconComponent className="w-4 h-4" /></span>}
                                         <div className="flex-1">
                                             <p className={`text-base font-medium ${!notification.read ? 'text-primary dark:text-accent' : 'text-neutral-800 dark:text-neutral-100'}`}>{notification.title}</p>
                                             <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate max-w-xs">{notification.message}</p>
@@ -256,13 +257,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                         {!notification.read && <span className="ml-2 mt-1 w-2 h-2 bg-primary dark:bg-accent rounded-full flex-shrink-0"></span>}
                                     </div>
                                 </div>
-                            )) : (
+                            )}) : (
                                 <p className="text-center text-base text-neutral-500 dark:text-neutral-400 py-6">No hay notificaciones nuevas.</p>
                             )}
                         </div>
                          {notifications.length > 0 && (
                              <div className="px-4 py-2 border-t dark:border-neutral-600 text-center">
-                                {/* <Link to="/notifications" onClick={() => setNotificationDropdownOpen(false)} className="text-base text-primary hover:underline">Ver todas</Link> */}
                                 <span className="text-sm text-neutral-400 dark:text-neutral-500">Mostrando últimas {latestNotifications.length}</span>
                             </div>
                          )}
@@ -287,7 +287,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                         className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
                         role="menuitem"
                     >
-                    <ListBulletIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> Mis Pedidos
+                    <ListBulletIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.my_orders')}
                     </Link>
                 )}
                 <Link 
@@ -296,14 +296,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
                     role="menuitem"
                 >
-                    <Cog6ToothIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> Mi Cuenta
+                    <Cog6ToothIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.my_account')}
+                </Link>
+                <Link 
+                    to="/configuration" 
+                    onClick={() => setUserDropdownOpen(false)} 
+                    className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
+                    role="menuitem"
+                >
+                    <WrenchScrewdriverIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.configuration')}
                 </Link>
                 <button
                     onClick={() => {handleLogout(); setUserDropdownOpen(false);}}
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                     role="menuitem"
                 >
-                    <ArrowLeftOnRectangleIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> Cerrar Sesión
+                    <ArrowLeftOnRectangleIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.logout')}
                 </button>
             </div>
             )}

@@ -1,11 +1,13 @@
+
 import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AppContext, useAppContext } from '../contexts/AppContext'; // Corrected path
-import { AppModule, UserRole } from '../types'; // Corrected path
-import { APP_MODULES_CONFIG } from '../constants'; // Corrected path
-import { GuidedTour, TourStep } from '../components/GuidedTour'; // Import GuidedTour
-import { useAuth } from '../contexts/AuthContext'; // Import useAuth
+import { AppContext, useAppContext } from '../contexts/AppContext';
+import { AppModule, UserRole } from '../types';
+import { APP_MODULES_CONFIG } from '../constants';
+import { GuidedTour, TourStep } from '../components/GuidedTour';
+import { useAuth } from '../contexts/AuthContext';
 import { PlusIcon, ListBulletIcon, BriefcaseIcon, CubeIcon, CashBillIcon } from '../components/icons';
+import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 const TOUR_LOCAL_STORAGE_KEY = 'pazziDashboardTourShown';
 
@@ -23,6 +25,7 @@ const QuickLink: React.FC<{ to: string; icon: React.ReactNode; text: string; }> 
 
 
 export const DashboardHomePage: React.FC = () => {
+    const { t } = useTranslation();
     const appContextValue = useAppContext();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
@@ -40,7 +43,7 @@ export const DashboardHomePage: React.FC = () => {
     }, [currentUser]);
 
 
-    if (!appContextValue) return <div>Loading...</div>; 
+    if (!appContextValue) return <div>{t('common.loading')}</div>; 
     const { currentModule, setCurrentModule } = appContextValue;
 
     const handleModuleClick = (module: AppModule) => {
@@ -71,41 +74,41 @@ export const DashboardHomePage: React.FC = () => {
     const tourSteps: TourStep[] = [
         {
             id: 'step1-welcome',
-            title: 'Bienvenido a Pazzi',
-            content: 'Este es un breve recorrido por los módulos principales. Usa el selector de módulos (icono de cuadrados) o el menú lateral para navegar.',
-            targetElementId: 'navbar-module-selector-button-desktop', // ID for the desktop module selector
+            title: t('tour.step1.title'),
+            content: t('tour.step1.content'),
+            targetElementId: 'navbar-module-selector-button-desktop',
             placement: 'bottom',
             headerColorClass: 'bg-primary',
         },
         {
             id: 'step2-pm',
-            title: 'Gestión de Proyectos',
-            content: 'Administra proyectos, clientes, recursos, calendarios y comunicación. Ideal para planificar y ejecutar trabajos complejos.',
+            title: t('tour.step2.title'),
+            content: t('tour.step2.content'),
             targetElementId: `module-card-${AppModule.PROJECT_MANAGEMENT}`,
             placement: 'top',
             headerColorClass: 'bg-blue-600',
         },
         {
             id: 'step3-pos',
-            title: 'Punto de Venta (POS)',
-            content: 'Realiza ventas, gestiona tu caja, inventario, y obtén reportes detallados de tus transacciones en tienda.',
+            title: t('tour.step3.title'),
+            content: t('tour.step3.content'),
             targetElementId: `module-card-${AppModule.POS}`,
             placement: 'top',
             headerColorClass: 'bg-red-600',
         },
         {
             id: 'step4-ecommerce',
-            title: 'Administración E-commerce',
-            content: 'Configura tu tienda online, gestiona productos web, pedidos de clientes y proveedores.',
+            title: t('tour.step4.title'),
+            content: t('tour.step4.content'),
             targetElementId: `module-card-${AppModule.ECOMMERCE}`,
             placement: 'top',
             headerColorClass: 'bg-green-600',
         },
          {
             id: 'step5-end',
-            title: '¡Todo Listo!',
-            content: 'Has completado el tour. ¡Explora Pazzi y descubre todo lo que puede hacer por tu negocio!',
-            targetElementId: 'dashboard-home-title', // Target the main title of the page
+            title: t('tour.step5.title'),
+            content: t('tour.step5.content'),
+            targetElementId: 'dashboard-home-title',
             placement: 'bottom',
             headerColorClass: 'bg-primary',
         },
@@ -120,17 +123,18 @@ export const DashboardHomePage: React.FC = () => {
     
     return (
         <div className="p-6">
-            <h1 id="dashboard-home-title" className="text-4xl font-semibold text-neutral-700 dark:text-neutral-200">Bienvenido a Pazzi</h1>
-            <p className="mt-2 text-neutral-600 dark:text-neutral-300">Selecciona un módulo para comenzar a trabajar.</p>
+            <h1 id="dashboard-home-title" className="text-4xl font-semibold text-neutral-700 dark:text-neutral-200">{t('dashboard.welcome')}</h1>
+            <p className="mt-2 text-neutral-600 dark:text-neutral-300">{t('dashboard.select_module')}</p>
             
             <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {APP_MODULES_CONFIG.filter(m => m.name !== AppModule.PROJECT_CLIENT_DASHBOARD).map(module => {
                     const descriptionText = 
-                        module.name === AppModule.TIENDA ? 'gestión de productos, clientes, inventario y más.' :
-                        module.name === AppModule.PROJECT_MANAGEMENT ? 'gestión de proyectos.' :
-                        module.name === AppModule.POS ? 'punto de venta.' :
-                        module.name === AppModule.ECOMMERCE ? 'e-commerce admin.' :
-                        `${module.name.toLowerCase()}.`;
+                        module.name === AppModule.TIENDA ? t('dashboard.desc.tienda') :
+                        module.name === AppModule.PROJECT_MANAGEMENT ? t('dashboard.desc.pm') :
+                        module.name === AppModule.POS ? t('dashboard.desc.pos') :
+                        module.name === AppModule.ECOMMERCE ? t('dashboard.desc.ecommerce') :
+                        module.name === AppModule.ADMINISTRACION ? t('dashboard.desc.admin') :
+                        '';
 
                     return (
                         <button 
@@ -141,30 +145,30 @@ export const DashboardHomePage: React.FC = () => {
                         >
                              <div className="flex items-center mb-2">
                                 {React.isValidElement(module.icon) && React.cloneElement(module.icon as React.ReactElement<{className?: string}>, { className: "w-7 h-7 text-primary dark:text-accent" })}
-                                <h2 className="text-2xl font-semibold text-primary ml-3">{module.name}</h2>
+                                <h2 className="text-2xl font-semibold text-primary ml-3">{t(module.name)}</h2>
                             </div>
-                            <p className="text-neutral-600 dark:text-neutral-300 text-base">Accede a las herramientas de {descriptionText}</p>
+                            <p className="text-neutral-600 dark:text-neutral-300 text-base">{t('dashboard.access_btn', { module: descriptionText })}</p>
                         </button>
                     )
                 })}
             </div>
 
             <div className="mt-12">
-                <h2 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4">Accesos Rápidos</h2>
+                <h2 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4">{t('dashboard.quick_access')}</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     {currentUser?.role === UserRole.MANAGER && (
                         <>
-                            <QuickLink to="/tienda/products" icon={<PlusIcon />} text="Crear Producto" />
-                            <QuickLink to="/pos/sales-history" icon={<ListBulletIcon />} text="Historial de Ventas" />
-                            <QuickLink to="/pm/projects" icon={<BriefcaseIcon />} text="Ver Proyectos" />
-                            <QuickLink to="/tienda/inventory" icon={<CubeIcon />} text="Ver Inventario" />
-                            <QuickLink to="/pos/cashier" icon={<CashBillIcon />} text="Ir a Caja" />
+                            <QuickLink to="/tienda/products" icon={<PlusIcon />} text={t('quick.create_product')} />
+                            <QuickLink to="/pos/sales-history" icon={<ListBulletIcon />} text={t('quick.sales_history')} />
+                            <QuickLink to="/pm/projects" icon={<BriefcaseIcon />} text={t('quick.view_projects')} />
+                            <QuickLink to="/tienda/inventory" icon={<CubeIcon />} text={t('quick.view_inventory')} />
+                            <QuickLink to="/pos/cashier" icon={<CashBillIcon />} text={t('quick.go_to_pos')} />
                         </>
                     )}
                      {currentUser?.role === UserRole.EMPLOYEE && (
                         <>
-                            <QuickLink to="/pos/cashier" icon={<CashBillIcon />} text="Caja Registradora" />
-                            <QuickLink to="/pm/projects" icon={<BriefcaseIcon />} text="Mis Proyectos" />
+                            <QuickLink to="/pos/cashier" icon={<CashBillIcon />} text={t('quick.go_to_pos')} />
+                            <QuickLink to="/pm/projects" icon={<BriefcaseIcon />} text={t('quick.my_projects')} />
                         </>
                     )}
                 </div>

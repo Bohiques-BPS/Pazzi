@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project, ProjectFormData, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, UserRole, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -9,6 +10,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ProjectFormModalProps {
     isOpen: boolean;
@@ -26,6 +28,7 @@ const defaultWorkDayTime: WorkDayTimeRange = { date: new Date().toISOString().sp
 const defaultToday = new Date().toISOString().split('T')[0];
 
 export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClose, project, initialTab = 'details', onGenerateInvoice, onViewInvoicePDF}) => {
+    const { t } = useTranslation();
     const { projects, setProjects, clients, products: allProductsHookData, employees: allEmployeesHook, getChatMessagesForProject, addChatMessage, getClientById, getEmployeeById, generateInvoiceForProject } = useData();
     const { currentUser } = useAuth();
     
@@ -53,7 +56,14 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     const [currentQuantity, setCurrentQuantity] = useState<number>(1);
 
     const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
-    const [activeDetailsTab, setActiveDetailsTab] = useState<ActiveDetailsTab>('Detalles');
+    
+    const detailTabLabels = [
+        { id: 'Detalles', label: t('project.tab.details') },
+        { id: 'Programación', label: t('project.tab.schedule') },
+        { id: 'Recursos', label: t('project.tab.resources') },
+        { id: 'Facturación', label: t('project.tab.invoicing') }
+    ];
+    const [activeDetailsTab, setActiveDetailsTab] = useState<string>(detailTabLabels[0].label);
 
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -90,7 +100,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     useEffect(() => {
         if (isOpen) {
             setActiveTab(project ? initialTab : 'details');
-            setActiveDetailsTab('Detalles'); 
+            setActiveDetailsTab(detailTabLabels[0].label); 
             if (project) {
                 setFormData({
                     name: project.name,
@@ -445,19 +455,18 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
         setIsCallModalOpen(true);
     };
 
-    const detailTabs: ActiveDetailsTab[] = ['Detalles', 'Programación', 'Recursos'];
-    if (project) detailTabs.push('Facturación');
+    const availableDetailTabs = detailTabLabels.filter(tab => project ? true : tab.id !== 'Facturación');
     
     return (
         <>
-        <Modal isOpen={isOpen} onClose={onClose} title={project ? (isEmployeeView ? 'Ver Detalles del Proyecto' : 'Editar Proyecto') : 'Crear Proyecto'} size="5xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={project ? (isEmployeeView ? t('project.form.edit') : t('project.form.edit')) : t('project.form.create')} size="5xl">
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4">
                 <button onClick={() => setActiveTab('details')} className={`px-4 py-2 text-sm font-medium ${activeTab === 'details' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                    Detalles
+                    {t('project.tab.details')}
                 </button>
                 {project && (
                     <button onClick={() => setActiveTab('chat')} className={`px-4 py-2 text-sm font-medium ${activeTab === 'chat' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                        Chat del Proyecto
+                        {t('Chat de Proyectos')}
                     </button>
                 )}
             </div>
@@ -465,28 +474,28 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             {activeTab === 'details' && (
                 <form onSubmit={handleSubmit}>
                     <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-3 -mx-4 px-4">
-                        {detailTabs.map(tab => (
+                        {availableDetailTabs.map(tab => (
                             <button
-                                key={tab}
+                                key={tab.id}
                                 type="button"
-                                onClick={() => setActiveDetailsTab(tab)}
-                                className={`px-3 py-2 text-sm font-medium ${activeDetailsTab === tab ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
+                                onClick={() => setActiveDetailsTab(tab.label)}
+                                className={`px-3 py-2 text-sm font-medium ${activeDetailsTab === tab.label ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
                             >
-                                {tab}
+                                {tab.label}
                             </button>
                         ))}
                     </div>
                     
                     <div className="max-h-[55vh] overflow-y-auto pr-2 space-y-4">
                         {/* Detalles Tab */}
-                        <fieldset className={activeDetailsTab === 'Detalles' ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
+                        <fieldset className={activeDetailsTab === t('project.tab.details') ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                    <label htmlFor="projectName" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Nombre del Proyecto</label>
+                                    <label htmlFor="projectName" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.name')}</label>
                                     <input type="text" name="name" id="projectName" value={formData.name} onChange={handleChange} className={inputFormStyle} required/>
                                 </div>
                                 <div>
-                                    <label htmlFor="clientId" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Cliente</label>
+                                    <label htmlFor="clientId" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.client')}</label>
                                     <select name="clientId" id="clientId" value={formData.clientId} onChange={handleChange} className={inputFormStyle} required>
                                         {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
                                         {clients.length === 0 && <option value="" disabled>No hay clientes</option>}
@@ -494,13 +503,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                 </div>
                             </div>
                             <div>
-                                <label htmlFor="projectStatus" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Estado</label>
+                                <label htmlFor="projectStatus" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.status')}</label>
                                 <select name="status" id="projectStatus" value={formData.status} onChange={handleChange} className={inputFormStyle} required>
                                     {PROJECT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label htmlFor="projectDescription" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
+                                <label htmlFor="projectDescription" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.description')}</label>
                                 <RichTextEditor 
                                     value={formData.description} 
                                     onChange={(value) => setFormData(prev => ({...prev, description: value}))} 
@@ -510,35 +519,35 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                         </fieldset>
 
                         {/* Programación Tab */}
-                        <fieldset className={activeDetailsTab === 'Programación' ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
+                        <fieldset className={activeDetailsTab === t('project.tab.schedule') ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
                             <div>
-                                <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Visita Inicial</h4>
+                                <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('project.schedule.initial_visit')}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div>
-                                        <label htmlFor="visitDate" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Fecha Visita</label>
+                                        <label htmlFor="visitDate" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.schedule.visit_date')}</label>
                                         <input type="date" name="visitDate" id="visitDate" value={formData.visitDate || ''} onChange={handleChange} className={inputFormStyle}/>
                                     </div>
                                     <div>
-                                        <label htmlFor="visitTime" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Hora Visita</label>
+                                        <label htmlFor="visitTime" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.schedule.visit_time')}</label>
                                         <input type="time" name="visitTime" id="visitTime" value={formData.visitTime || ''} onChange={handleChange} className={inputFormStyle}/>
                                     </div>
                                 </div>
                             </div>
                             <div className="pt-4 border-t dark:border-neutral-700">
-                                <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Trabajo del Proyecto</h4>
+                                <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('project.schedule.work_type')}</h4>
                                 <div className="flex space-x-4 mb-3">
-                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="daysOnly" checked={formData.workMode === 'daysOnly'} onChange={() => handleWorkModeChange('daysOnly')} className="form-radio mr-1"/> Solo Días</label>
-                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="daysAndTimes" checked={formData.workMode === 'daysAndTimes'} onChange={() => handleWorkModeChange('daysAndTimes')} className="form-radio mr-1"/> Días y Horas</label>
-                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="dateRange" checked={formData.workMode === 'dateRange'} onChange={() => handleWorkModeChange('dateRange')} className="form-radio mr-1"/> Rango Continuo</label>
+                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="daysOnly" checked={formData.workMode === 'daysOnly'} onChange={() => handleWorkModeChange('daysOnly')} className="form-radio mr-1"/> {t('project.schedule.mode.days_only')}</label>
+                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="daysAndTimes" checked={formData.workMode === 'daysAndTimes'} onChange={() => handleWorkModeChange('daysAndTimes')} className="form-radio mr-1"/> {t('project.schedule.mode.days_times')}</label>
+                                    <label className="flex items-center text-xs text-neutral-700 dark:text-neutral-300"><input type="radio" name="workMode" value="dateRange" checked={formData.workMode === 'dateRange'} onChange={() => handleWorkModeChange('dateRange')} className="form-radio mr-1"/> {t('project.schedule.mode.range')}</label>
                                 </div>
                                 {formData.workMode === 'daysOnly' && (
                                     <div className="space-y-2">
                                         <div className="flex items-end gap-2">
                                             <div className="flex-grow">
-                                                <label htmlFor="singleWorkDay" className="block text-xs font-medium">Añadir Día de Trabajo</label>
+                                                <label htmlFor="singleWorkDay" className="block text-xs font-medium">{t('project.schedule.add_work_day')}</label>
                                                 <input type="date" id="singleWorkDay" value={currentSingleWorkDay} onChange={handleSingleWorkDayChange} className={inputFormStyle} />
                                             </div>
-                                            <button type="button" onClick={handleAddSingleWorkDay} className={BUTTON_SECONDARY_SM_CLASSES}>Añadir</button>
+                                            <button type="button" onClick={handleAddSingleWorkDay} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.add')}</button>
                                         </div>
                                         {formData.workDays.length > 0 && (
                                             <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">
@@ -556,19 +565,19 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                     <div className="space-y-2">
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
                                             <div className="md:col-span-2">
-                                                <label htmlFor="rangeDate" className="block text-xs font-medium">Fecha</label>
+                                                <label htmlFor="rangeDate" className="block text-xs font-medium">{t('project.schedule.date')}</label>
                                                 <input type="date" name="date" id="rangeDate" value={currentWorkDayRange.date} onChange={handleWorkDayRangeChange} className={inputFormStyle} />
                                             </div>
                                             <div>
-                                                <label htmlFor="rangeStartTime" className="block text-xs font-medium">Hora Inicio</label>
+                                                <label htmlFor="rangeStartTime" className="block text-xs font-medium">{t('project.schedule.start_time')}</label>
                                                 <input type="time" name="startTime" id="rangeStartTime" value={currentWorkDayRange.startTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} />
                                             </div>
                                             <div>
-                                                <label htmlFor="rangeEndTime" className="block text-xs font-medium">Hora Fin</label>
+                                                <label htmlFor="rangeEndTime" className="block text-xs font-medium">{t('project.schedule.end_time')}</label>
                                                 <input type="time" name="endTime" id="rangeEndTime" value={currentWorkDayRange.endTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} />
                                             </div>
                                         </div>
-                                        <button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} w-full`}><PlusIcon className="w-4 h-4 mr-1" />Añadir Rango</button>
+                                        <button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} w-full`}><PlusIcon className="w-4 h-4 mr-1" />{t('project.schedule.add_range')}</button>
                                         {formData.workDayTimeRanges.length > 0 && (
                                             <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">
                                                 {formData.workDayTimeRanges.map((range, index) => (
@@ -584,11 +593,11 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                 {formData.workMode === 'dateRange' && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
-                                            <label htmlFor="workStartDate" className="block text-xs font-medium">Fecha Inicio Rango</label>
+                                            <label htmlFor="workStartDate" className="block text-xs font-medium">{t('project.schedule.range_start')}</label>
                                             <input type="date" name="workStartDate" id="workStartDate" value={formData.workStartDate || ''} onChange={handleChange} className={inputFormStyle} />
                                         </div>
                                         <div>
-                                            <label htmlFor="workEndDate" className="block text-xs font-medium">Fecha Fin Rango</label>
+                                            <label htmlFor="workEndDate" className="block text-xs font-medium">{t('project.schedule.range_end')}</label>
                                             <input type="date" name="workEndDate" id="workEndDate" value={formData.workEndDate || ''} onChange={handleChange} className={inputFormStyle} />
                                         </div>
                                     </div>
@@ -597,28 +606,28 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                         </fieldset>
                         
                         {/* Recursos Tab */}
-                        <fieldset className={activeDetailsTab === 'Recursos' ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
+                        <fieldset className={activeDetailsTab === t('project.tab.resources') ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
                             {/* Product and Employee assignment fields */}
                             <div className="mb-3">
-                                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Asignar Productos</label>
+                                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('project.resources.assign_catalog')}</label>
                                 <div className="flex items-center gap-2 mb-1">
                                     <select value={currentProduct} onChange={e => setCurrentProduct(e.target.value)} className={inputFormStyle + " flex-grow !text-xs"}>{projectRelevantProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                                     <input type="number" value={currentQuantity} onChange={e => setCurrentQuantity(Math.max(1, parseInt(e.target.value) || 1))} className={inputFormStyle + " w-20 !text-xs"} min="1"/>
-                                    <button type="button" onClick={handleProductAdd} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>Añadir</button>
+                                    <button type="button" onClick={handleProductAdd} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>{t('common.add')}</button>
                                 </div>
                                 {formData.assignedProducts.length > 0 && (
                                     <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">{formData.assignedProducts.map(ap => { const product = projectRelevantProducts.find(p => p.id === ap.productId); return (<li key={ap.productId} className="flex justify-between items-center"><span>{product?.name || 'Producto Desconocido'} (x{ap.quantity})</span><button type="button" onClick={() => handleProductRemove(ap.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={`Quitar ${product?.name}`}><TrashIconMini/></button></li>); })}</ul>
                                 )}
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Asignar Empleados</label>
+                                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('project.resources.assign_employees')}</label>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.map(emp => (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>))}</div>
                             </div>
                         </fieldset>
 
                         {/* Facturación Tab */}
                         {project && (
-                            <div className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}>
+                            <div className={activeDetailsTab === t('project.tab.invoicing') ? 'space-y-4' : 'hidden'}>
                                 {project.invoiceGenerated ? (
                                     <div className="space-y-1 text-xs text-neutral-700 dark:text-neutral-300">
                                         <p><strong>Nº Factura:</strong> {project.invoiceNumber}</p>
@@ -646,8 +655,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                     
                     {canEditDetails && (
                         <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
-                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                            <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Guardar Proyecto</button>
+                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                            <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
                         </div>
                     )}
                     {!canEditDetails && (

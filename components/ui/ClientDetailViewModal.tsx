@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Modal } from '../Modal';
 import { Client } from '../../types';
@@ -9,12 +10,12 @@ interface ClientDetailViewModalProps {
     client: Client | null;
 }
 
-const DetailItem: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => {
+const DetailItem: React.FC<{ label: string; value?: string | number | null; highlight?: boolean }> = ({ label, value, highlight }) => {
     if (!value && value !== 0) return null;
     return (
         <div>
             <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{label}</p>
-            <p className="text-base text-neutral-800 dark:text-neutral-100">{value}</p>
+            <p className={`text-base text-neutral-800 dark:text-neutral-100 ${highlight ? 'font-bold text-red-600 dark:text-red-400' : ''}`}>{value}</p>
         </div>
     );
 };
@@ -67,6 +68,7 @@ export const ClientDetailViewModal: React.FC<ClientDetailViewModalProps> = ({ is
                          <DetailItem label="Términos de Pago" value={client.paymentTerms} />
                          <DetailItem label="Nivel de Precios" value={client.priceLevel} />
                          <DetailItem label="Balance Actual" value={client.balance ? `$${client.balance.toFixed(2)}` : '$0.00'} />
+                         {client.isLoss && <DetailItem label="Estado de Cuenta" value="En Pérdida / Incobrable" highlight />}
                     </div>
                 </section>
 

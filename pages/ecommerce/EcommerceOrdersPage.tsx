@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Order } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
@@ -6,8 +7,10 @@ import { EyeIcon, Cog6ToothIcon } from '../../components/icons'; // Adjusted pat
 import { OrderDetailModal } from './OrderDetailModal'; // Adjusted path
 import { OrderStatusUpdateModal } from './OrderStatusUpdateModal'; // Adjusted path
 import { INPUT_SM_CLASSES } from '../../constants'; // Adjusted path
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const EcommerceOrdersPage: React.FC = () => {
+    const { t } = useTranslation();
     const { orders, updateOrderStatus: updateContextOrderStatus } = useData();
     const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<Order | null>(null);
     const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<Order | null>(null);
@@ -39,12 +42,12 @@ export const EcommerceOrdersPage: React.FC = () => {
     };
 
     const columns: TableColumn<Order>[] = [
-        { header: 'ID Pedido', accessor: (order) => order.id.substring(0, 8).toUpperCase() },
-        { header: 'Fecha', accessor: (order) => new Date(order.date).toLocaleDateString('es-ES') },
-        { header: 'Cliente', accessor: 'clientName' },
-        { header: 'Total', accessor: (order) => `$${order.totalAmount.toFixed(2)}` },
+        { header: t('ecommerce.orders.col.id'), accessor: (order) => order.id.substring(0, 8).toUpperCase() },
+        { header: t('ecommerce.orders.col.date'), accessor: (order) => new Date(order.date).toLocaleDateString('es-ES') },
+        { header: t('ecommerce.orders.col.client'), accessor: 'clientName' },
+        { header: t('ecommerce.orders.col.total'), accessor: (order) => `$${order.totalAmount.toFixed(2)}` },
         { 
-            header: 'Estado', 
+            header: t('ecommerce.orders.col.status'), 
             accessor: (order) => (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                     order.status === 'Pendiente' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-600 dark:text-yellow-100' :
@@ -59,11 +62,11 @@ export const EcommerceOrdersPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Pedidos E-commerce</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('ecommerce.orders.title')}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <input
                         type="text"
-                        placeholder="Buscar por ID, cliente..."
+                        placeholder={t('ecommerce.orders.search_placeholder')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}

@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product, ProductFormData, Category, UserRole } from '../../types'; 
 import { useData } from '../../contexts/DataContext'; 
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Imported useTranslation
 import { DataTable, TableColumn } from '../../components/DataTable'; 
 import { ProductFormModal } from './ProductFormModal'; 
 import { ConfirmationModal } from '../../components/Modal'; 
@@ -13,6 +15,7 @@ import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 
 export const ProductsListPage: React.FC = () => {
+    const { t } = useTranslation(); // Use hook
     const { products, setProducts, categories: dynamicCategories, getProductsByStoreOwner, addProduct, addInventoryLog, branches } = useData(); 
     const { currentUser } = useAuth();
     
@@ -147,9 +150,9 @@ export const ProductsListPage: React.FC = () => {
 
     const tableColumns = useMemo((): TableColumn<Product>[] => {
         const staticColumns: TableColumn<Product>[] = [
-            { header: 'Producto', accessor: 'name', className: 'w-1/3 font-medium' },
-            { header: 'SKU P.', accessor: (p) => p.skus?.[0] || 'N/A' },
-            { header: 'Categoría', accessor: 'category' },
+            { header: t('product.name'), accessor: 'name', className: 'w-1/3 font-medium' },
+            { header: t('product.sku'), accessor: (p) => p.skus?.[0] || 'N/A' },
+            { header: t('product.category'), accessor: 'category' },
         ];
 
         const branchColumns: TableColumn<Product>[] = activeBranches.map(branch => ({
@@ -169,22 +172,22 @@ export const ProductsListPage: React.FC = () => {
         }));
 
         const totalStockColumn: TableColumn<Product>[] = [{
-            header: 'Stock Total',
+            header: t('product.stock_total'),
             accessor: (product) => product.stockByBranch.reduce((sum, sb) => sum + sb.quantity, 0),
             className: 'text-right font-semibold',
         }];
         
         return [...staticColumns, ...branchColumns, ...totalStockColumn];
-    }, [activeBranches]);
+    }, [activeBranches, t]); // Added t dependency
     
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Gestión de Productos</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('product.list.title')}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <input 
                         type="text" 
-                        placeholder="Buscar productos..." 
+                        placeholder={t('common.search') + "..."}
                         value={searchTerm} 
                         onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1);}}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
@@ -196,7 +199,7 @@ export const ProductsListPage: React.FC = () => {
                         className={`${INPUT_SM_CLASSES}`}
                         aria-label="Filtrar por categoría"
                     >
-                        <option value="Todos">Todas las categorías</option>
+                        <option value="Todos">Todas</option>
                         {availableCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                     </select>
                      <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
@@ -207,13 +210,13 @@ export const ProductsListPage: React.FC = () => {
                         onClick={() => setShowAIImportModal(true)} 
                         className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
                     >
-                        <SparklesIcon className="w-5 h-5"/> Importar con IA
+                        <SparklesIcon className="w-5 h-5"/> {t('product.list.import_ai')}
                     </button>
                     <button 
                         onClick={openModalForCreate} 
                         className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}
                     >
-                       <PlusIcon className="w-5 h-5"/> Agregar Producto
+                       <PlusIcon className="w-5 h-5"/> {t('product.list.add')}
                     </button>
                 </div>
             </div>
@@ -238,9 +241,9 @@ export const ProductsListPage: React.FC = () => {
                     )}
                     {totalCardPages > 1 && (
                         <div className="mt-6 flex justify-center items-center space-x-2">
-                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={BUTTON_SECONDARY_SM_CLASSES}>Anterior</button>
-                            <span className="text-sm text-neutral-600 dark:text-neutral-300">Página {currentPage} de {totalCardPages}</span>
-                            <button onClick={() => setCurrentPage(p => Math.min(totalCardPages, p + 1))} disabled={currentPage === totalCardPages} className={BUTTON_SECONDARY_SM_CLASSES}>Siguiente</button>
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.previous')}</button>
+                            <span className="text-sm text-neutral-600 dark:text-neutral-300">{t('common.page_of', { current: currentPage, total: totalCardPages })}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalCardPages, p + 1))} disabled={currentPage === totalCardPages} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.next')}</button>
                         </div>
                     )}
                 </>
@@ -267,9 +270,9 @@ export const ProductsListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="Confirmar Eliminación"
-                message={`¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer.`}
-                confirmButtonText="Sí, Eliminar"
+                title={t('confirm.delete.title')}
+                message={t('confirm.delete.message')}
+                confirmButtonText={t('confirm.delete.btn')}
             />
             <AIImportModal
                 isOpen={showAIImportModal}
