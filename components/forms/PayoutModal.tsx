@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../Modal';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
@@ -36,21 +37,10 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
         }
     }, [isOpen, managers]);
 
-    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
-        setAmount(val);
-        const numVal = parseFloat(val);
-        if (numVal > currentCashInDrawer) {
-            setError(`El retiro no puede exceder el efectivo en caja ($${currentCashInDrawer.toFixed(2)}).`);
-        } else {
-            setError('');
-        }
-    };
-
     const handleConfirm = () => {
         const payoutAmount = parseFloat(amount);
         if (isNaN(payoutAmount) || payoutAmount <= 0) {
-            setError('Por favor, ingrese un monto válido mayor a 0.');
+            setError('Por favor, ingrese un monto válido.');
             return;
         }
         if (payoutAmount > currentCashInDrawer) {
@@ -96,8 +86,8 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
                             type="number"
                             id="payoutAmount"
                             value={amount}
-                            onChange={handleAmountChange}
-                            className={`${inputFormStyle} ${error ? 'border-red-500 focus:ring-red-500' : ''}`}
+                            onChange={e => setAmount(e.target.value)}
+                            className={inputFormStyle}
                             placeholder="0.00"
                             min="0.01"
                             step="0.01"
@@ -141,14 +131,7 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
                  {error && <p className="text-xs text-center text-red-500">{error}</p>}
                 <div className="flex justify-end space-x-2 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button 
-                        type="button" 
-                        onClick={handleConfirm} 
-                        className={`${BUTTON_PRIMARY_SM_CLASSES} ${error ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={!!error}
-                    >
-                        Aceptar
-                    </button>
+                    <button type="button" onClick={handleConfirm} className={BUTTON_PRIMARY_SM_CLASSES}>Aceptar</button>
                 </div>
             </div>
         </Modal>

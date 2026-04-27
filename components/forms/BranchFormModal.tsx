@@ -21,6 +21,7 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
         phone: '',
         isActive: true,
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (branchToEdit && isOpen) {
@@ -44,26 +45,54 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.name.trim() === '') {
-            alert(t('common.error'));
+            alert("El nombre de la sucursal es obligatorio");
             return;
         }
 
         const isDuplicateName = allBranches.some(b => b.name.toLowerCase() === formData.name.toLowerCase() && (!branchToEdit || b.id !== branchToEdit.id));
         if (isDuplicateName) {
-            alert(t('common.error'));
+            alert("Ya existe una sucursal con este nombre");
             return;
         }
 
-        if (branchToEdit) {
-            setBranches(prev => prev.map(b => b.id === branchToEdit.id ? { ...branchToEdit, ...formData } : b));
-        } else {
-            const newBranch: Branch = { id: `branch-${Date.now()}`, ...formData };
-            setBranches(prev => [...prev, newBranch]);
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('pazzi_token');
+            const url = branchToEdit
+                ? `http://localhost:3001/api/branches/${branchToEdit.id}`
+                : 'http://localhost:3001/api/branches';
+            
+            const method = branchToEdit ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                if (branchToEdit) {
+                    setBranches(prev => prev.map(b => b.id === branchToEdit.id ? result : b));
+                } else {
+                    setBranches(prev => [...prev, result]);
+                }
+                onClose();
+            } else {
+                alert(result.error || "Error al guardar la sucursal.");
+            }
+        } catch (error) {
+            console.error("Error saving branch:", error);
+            alert("Error de conexión con el servidor.");
+        } finally {
+            setIsSubmitting(false);
         }
-        onClose();
     };
 
     return (
@@ -94,8 +123,10 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={isSubmitting}>{t('common.cancel')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
+                        {isSubmitting ? 'Guardando...' : t('common.save')}
+                    </button>
                 </div>
             </form>
         </Modal>

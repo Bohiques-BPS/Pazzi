@@ -99,18 +99,18 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    const { subtotal, totalIVA, grandTotal } = useMemo(() => {
+    const { subtotal, totalIVU, grandTotal } = useMemo(() => {
         let subtotal = 0;
-        let totalIVA = 0;
-        const defaultIVARate = 0.16;
+        let totalIVU = 0;
+        const defaultIVURate = 0.16;
         formData.items.forEach(item => {
             const itemSubtotal = item.unitPrice * item.quantity;
             subtotal += itemSubtotal;
             const product = getProductById(item.id);
-            const ivaRate = product?.ivaRate !== undefined ? product.ivaRate : defaultIVARate;
-            totalIVA += itemSubtotal * ivaRate;
+            const ivuRate = product?.ivuRate !== undefined ? product.ivuRate : defaultIVURate;
+            totalIVU += itemSubtotal * ivuRate;
         });
-        return { subtotal, totalIVA, grandTotal: subtotal + totalIVA };
+        return { subtotal, totalIVU, grandTotal: subtotal + totalIVU };
     }, [formData.items, getProductById]);
 
 
@@ -210,7 +210,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                     
                     <div className="flex-shrink-0 pt-4 border-t dark:border-neutral-700 space-y-2">
                         <div className="flex justify-between text-sm"><span className="text-neutral-500">{t('pos.subtotal')}:</span> <span>${subtotal.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-neutral-500">{t('pos.tax')} (aprox.):</span> <span>${totalIVA.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-neutral-500">{t('pos.tax')} (aprox.):</span> <span>${totalIVU.toFixed(2)}</span></div>
                         <div className="flex justify-between text-xl font-bold text-primary"><span className="dark:text-accent">{t('pos.total')}:</span> <span>${grandTotal.toFixed(2)}</span></div>
                         <div className="flex justify-end space-x-2 pt-2">
                             <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>

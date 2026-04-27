@@ -1,0 +1,644 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["omitApi"]
+}
+
+enum Role {
+  MANAGER
+  EMPLOYEE
+  CLIENT_ECOMMERCE
+  CLIENT_PROJECT
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  name              String
+  lastName          String
+  passwordHash      String
+  role              Role               @default(MANAGER)
+  sessions          Session[]
+  permissions       EmployeePermissions?
+  globalSettings    GlobalSettings?
+  alertSettings     AlertSetting[]
+  notifications     Notification[]
+  chatMessages      ChatMessage[]
+  taskComments      TaskComment[]
+  createdProducts   Product[]          @relation("ProductCreator")
+  managedOrders     Order[]            @relation("OrderManager")
+  sales             Sale[]             @relation("SaleEmployee")
+  estimates         Estimate[]         @relation("EstimateEmployee")
+  layaways          Layaway[]          @relation("LayawayEmployee")
+  supplierOrders    SupplierOrder[]    @relation("SupplierOrderManager")
+  inventoryLogs     InventoryLog[]
+  projectEmployees  ProjectEmployee[]
+  visitEmployees    VisitEmployee[]
+  taskEmployees     TaskEmployee[]
+  categories        Category[]
+  departments       Department[]
+  suppliers         Supplier[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique @db.VarChar(512)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model EmployeePermissions {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  user                  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewProjectManagement Boolean @default(false)
+  manageProjects        Boolean @default(false)
+  accessPOSCashier      Boolean @default(false)
+}
+
+model GlobalSettings {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timezone       String  @default("America/Puerto_Rico")
+  numberFormat   String  @default("comma_decimal")
+  language       String  @default("es")
+  fontSize       String  @default("md")
+  theme          String  @default("light")
+  defaultTaxRate Float   @default(0.115)
+}
+
+model AlertSetting {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  enabled   Boolean @default(true)
+  threshold Float?
+  email     String
+}
+
+model Branch {
+  id            String         @id @default(cuid())
+  name          String
+  address       String
+  phone         String
+  isActive      Boolean        @default(true)
+  cajas         Caja[]
+  sales         Sale[]
+  estimates     Estimate[]
+  layaways      Layaway[]
+  productStocks ProductStock[]
+  inventoryLogs InventoryLog[]
+}
+
+model Caja {
+  id         String  @id @default(cuid())
+  name       String
+  branchId   String
+  branch     Branch  @relation(fields: [branchId], references: [id])
+  isActive   Boolean @default(true)
+  applyIVU   Boolean @default(true)
+  isExternal Boolean @default(false)
+  sales      Sale[]
+}
+
+model Category {
+  id           String    @id @default(cuid())
+  name         String
+  storeOwnerId String
+  storeOwner   User      @relation(fields: [storeOwnerId], references: [id])
+  products     Product[]
+}
+
+model Department {
+  id           String    @id @default(cuid())
+  name         String
+  storeOwnerId String
+  storeOwner   User      @relation(fields: [storeOwnerId], references: [id])
+  products     Product[]
+}
+
+model Product {
+  id                   String               @id @default(cuid())
+  name                 String
+  description          String?              @db.Text
+  imageUrl             String?
+  unitPrice            Float                @default(0)
+  costPrice            Float?
+  profit               Float?
+  ivaRate              Float                @default(0.115)
+  isEmergencyTaxExempt Boolean              @default(false)
+  barcode13Digits      String?
+  barcode2             String?
+  supplierProductCode  String?
+  chainCode            String?
+  family               String?
+  manufacturer         String?
+  physicalLocation     String?
+  creationDate         DateTime             @default(now())
+  material             String?
+  quality              String?
+  length               Float?
+  width                Float?
+  height               Float?
+  weight               Float?
+  compatibility        String?              @db.Text
+  hasVariations        Boolean              @default(false)
+  hasPriceLevels       Boolean              @default(false)
+  displayOnScreen      Boolean              @default(true)
+  requiresSerialNumber Boolean              @default(false)
+  useKitchenPrinter    Boolean              @default(false)
+  useBarcodePrinter    Boolean              @default(false)
+  isService            Boolean              @default(false)
+  isActive             Boolean              @default(true)
+  categoryId           String?
+  category             Category?            @relation(fields: [categoryId], references: [id])
+  departmentId         String?
+  department           Department?          @relation(fields: [departmentId], references: [id])
+  supplierId           String?
+  supplier             Supplier?            @relation(fields: [supplierId], references: [id])
+  storeOwnerId         String
+  storeOwner           User                 @relation("ProductCreator", fields: [storeOwnerId], references: [id])
+  skus                 ProductSku[]
+  variations           ProductVariation[]
+  priceLevels          ProductPriceLevel[]
+  customSpecs          ProductCustomSpec[]
+  stockByBranch        ProductStock[]
+  inventoryLogs        InventoryLog[]
+  cartItems            CartItem[]
+  projectResources     ProjectResource[]
+  supplierOrderItems   SupplierOrderItem[]
+}
+
+model ProductSku {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku       String
+}
+
+model ProductVariation {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  unitPrice Float
+  sku       String?
+}
+
+model ProductPriceLevel {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  levelName String
+  price     Float
+}
+
+model ProductCustomSpec {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  value     String
+}
+
+model ProductStock {
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branchId  String
+  branch    Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  quantity  Float   @default(0)
+
+  @@id([productId, branchId])
+}
+
+model InventoryLog {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  branchId       String
+  branch         Branch   @relation(fields: [branchId], references: [id])
+  date           DateTime @default(now())
+  type           String
+  quantityChange Float
+  stockBefore    Float
+  stockAfter     Float
+  referenceId    String?
+  employeeId     String
+  employee       User     @relation(fields: [employeeId], references: [id])
+  notes          String?  @db.Text
+}
+
+model Client {
+  id                         String        @id @default(cuid())
+  name                       String
+  lastName                   String
+  email                      String        @unique
+  phone                      String?
+  phone2                     String?
+  fax                        String?
+  address                    String?       @db.Text
+  billingAddress             String?       @db.Text
+  city                       String?
+  country                    String?
+  zip                        String?
+  clientType                 String
+  acquisitionSource          String?
+  isActive                   Boolean       @default(true)
+  isLoss                     Boolean       @default(false)
+  companyName                String?
+  taxId                      String?
+  contactPersonName          String?
+  industry                   String?
+  businessType               String?
+  creditLimit                Float?
+  paymentTerms               String?
+  balance                    Float         @default(0)
+  chargeType                 String?
+  chargeValueType            String?
+  chargeValue                Float?
+  chargeCode                 String?
+  showBalance                Boolean       @default(false)
+  category                   String?
+  loyaltyLevel               String?
+  loyaltyPoints              Int           @default(0)
+  preferredCommunication     String?
+  salesperson                String?
+  priceLevel                 String?
+  zone                       String?
+  clientNotes                String?       @db.Text
+  socialSecurity             String?
+  dateOfBirth                DateTime?
+  stateTaxRate               Float?
+  municipalTaxRate           Float?
+  municipalTaxExemptionUntil DateTime?
+  specialInvoiceMessageEnabled Boolean     @default(false)
+  shippingAddress            String?       @db.Text
+  shippingContactName        String?
+  shippingContactPhone       String?
+  preferredCarrier           String?
+  images                     ClientImage[]
+  sales                      Sale[]
+  estimates                  Estimate[]
+  projects                   Project[]
+  orders                     Order[]
+}
+
+model ClientImage {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  url      String
+}
+
+model Employee {
+  id                          String   @id @default(cuid())
+  name                        String
+  lastName                    String
+  email                       String   @unique
+  role                        String
+  hireDate                    DateTime?
+  address                     String?
+  phone                       String?
+  emergencyContactName        String?
+  emergencyContactRelationship String?
+  emergencyContactPhone       String?
+  department                  String?
+  salary                      Float?
+  bankName                    String?
+  bankAccountNumber           String?
+  socialSecurityNumber        String?
+  profilePictureUrl           String?
+  pin                         String?
+}
+
+model Sale {
+  id               String          @id @default(cuid())
+  date             DateTime        @default(now())
+  totalAmount      Float
+  paymentMethod    String
+  paymentStatus    String
+  cajaId           String
+  caja             Caja            @relation(fields: [cajaId], references: [id])
+  branchId         String
+  branch           Branch          @relation(fields: [branchId], references: [id])
+  clientId         String?
+  client           Client?         @relation(fields: [clientId], references: [id])
+  employeeId       String
+  employee         User            @relation("SaleEmployee", fields: [employeeId], references: [id])
+  projectId        String?
+  project          Project?        @relation(fields: [projectId], references: [id])
+  dueDate          DateTime?
+  receivableNotes  String?         @db.Text
+  isReturn         Boolean         @default(false)
+  originalSaleId   String?
+  isExternal       Boolean         @default(false)
+  items            CartItem[]
+  payments         SalePayment[]
+  relatedEstimates SaleEstimate[]
+}
+
+model CartItem {
+  id            String    @id @default(cuid())
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id])
+  quantity      Float
+  unitPrice     Float
+  discountType  String?
+  discountValue Float?
+  saleId        String?
+  sale          Sale?     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  estimateId    String?
+  estimate      Estimate? @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  layawayId     String?
+  layaway       Layaway?  @relation(fields: [layawayId], references: [id], onDelete: Cascade)
+  orderId       String?
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model SalePayment {
+  id                String   @id @default(cuid())
+  saleId            String?
+  sale              Sale?    @relation(fields: [saleId], references: [id])
+  layawayId         String?
+  layaway           Layaway? @relation(fields: [layawayId], references: [id])
+  paymentDate       DateTime @default(now())
+  amountPaid        Float
+  paymentMethodUsed String
+  notes             String?  @db.Text
+  attachment        String?  @db.LongText
+}
+
+model Estimate {
+  id            String         @id @default(cuid())
+  date          DateTime       @default(now())
+  totalAmount   Float
+  status        String
+  notes         String?        @db.Text
+  expiryDate    DateTime?
+  clientId      String
+  client        Client         @relation(fields: [clientId], references: [id])
+  employeeId    String
+  employee      User           @relation("EstimateEmployee", fields: [employeeId], references: [id])
+  branchId      String
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  items         CartItem[]
+  sales         SaleEstimate[]
+}
+
+model SaleEstimate {
+  saleId     String
+  sale       Sale     @relation(fields: [saleId], references: [id])
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id])
+
+  @@id([saleId, estimateId])
+}
+
+model Layaway {
+  id          String        @id @default(cuid())
+  date        DateTime      @default(now())
+  totalAmount Float
+  status      String
+  notes       String?       @db.Text
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id])
+  employeeId  String
+  employee    User          @relation("LayawayEmployee", fields: [employeeId], references: [id])
+  branchId    String
+  branch      Branch        @relation(fields: [branchId], references: [id])
+  items       CartItem[]
+  payments    SalePayment[]
+}
+
+model Project {
+  id              String             @id @default(cuid())
+  name            String
+  clientId        String
+  client          Client             @relation(fields: [clientId], references: [id])
+  status          String
+  description     String?            @db.Text
+  workMode        String
+  workStartDate   DateTime?
+  workEndDate     DateTime?
+  visitDate       DateTime?
+  visitTime       String?
+  purchaseOrder   String?
+  projectKey      String?
+  priority        Int?
+  invoiceGenerated Boolean           @default(false)
+  invoiceNumber   String?
+  invoiceDate     DateTime?
+  invoiceAmount   Float?
+  paymentDueDate  DateTime?
+  createdAt       DateTime           @default(now())
+  employees       ProjectEmployee[]
+  resources       ProjectResource[]
+  customResources ProjectCustomResource[]
+  workDays        ProjectWorkDay[]
+  workDayRanges   ProjectWorkDayRange[]
+  visits          Visit[]
+  tasks           Task[]
+  chatMessages    ChatMessage[]
+  sales           Sale[]
+}
+
+model ProjectEmployee {
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+}
+
+model ProjectResource {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Float
+}
+
+model ProjectCustomResource {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  quantity  Float
+  unitPrice Float?
+}
+
+model ProjectWorkDay {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date      DateTime
+}
+
+model ProjectWorkDayRange {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date      String
+  startTime String
+  endTime   String
+}
+
+model Visit {
+  id        String          @id @default(cuid())
+  projectId String?
+  project   Project?        @relation(fields: [projectId], references: [id])
+  title     String
+  date      DateTime
+  startTime String
+  endTime   String
+  status    String
+  notes     String?         @db.Text
+  employees VisitEmployee[]
+}
+
+model VisitEmployee {
+  visitId String
+  visit   Visit  @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([visitId, userId])
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  senderId   String
+  senderName String
+  timestamp  DateTime @default(now())
+  text       String   @db.Text
+  sender     User     @relation(fields: [senderId], references: [id])
+}
+
+model Task {
+  id          String         @id @default(cuid())
+  projectId   String
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?        @db.Text
+  status      String
+  archived    Boolean        @default(false)
+  order       Int
+  employees   TaskEmployee[]
+  comments    TaskComment[]
+}
+
+model TaskEmployee {
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+}
+
+model TaskComment {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  senderId   String
+  user       User     @relation(fields: [senderId], references: [id])
+  senderName String
+  timestamp  DateTime @default(now())
+  text       String   @db.Text
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  name           String
+  contactName    String?
+  email          String
+  phone          String?
+  address        String?         @db.Text
+  storeOwnerId   String
+  storeOwner     User            @relation(fields: [storeOwnerId], references: [id])
+  products       Product[]
+  supplierOrders SupplierOrder[]
+}
+
+model SupplierOrder {
+  id                   String              @id @default(cuid())
+  supplierId           String
+  supplier             Supplier            @relation(fields: [supplierId], references: [id])
+  orderDate            DateTime            @default(now())
+  expectedDeliveryDate DateTime?
+  status               String
+  totalCost            Float
+  amountPaid           Float               @default(0)
+  paymentStatus        String
+  storeOwnerId         String
+  storeOwner           User                @relation("SupplierOrderManager", fields: [storeOwnerId], references: [id])
+  items                SupplierOrderItem[]
+  paymentNotes         SupplierOrderNote[]
+}
+
+model SupplierOrderItem {
+  id              String        @id @default(cuid())
+  supplierOrderId String
+  supplierOrder   SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id])
+  quantityOrdered Float
+  unitCost        Float
+}
+
+model SupplierOrderNote {
+  id              String        @id @default(cuid())
+  supplierOrderId String
+  supplierOrder   SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+  note            String
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  timestamp DateTime @default(now())
+  read      Boolean  @default(false)
+  link      String?
+  type      String
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  date            DateTime    @default(now())
+  totalAmount     Float
+  status          String
+  paymentMethod   String
+  shippingAddress String?     @db.Text
+  city            String?
+  postalCode      String?
+  clientName      String
+  clientEmail     String
+  clientId        String?
+  client          Client?     @relation(fields: [clientId], references: [id])
+  storeOwnerId    String
+  storeOwner      User        @relation("OrderManager", fields: [storeOwnerId], references: [id])
+  items           CartItem[]
+}
+
+model ECommerceSettings {
+  id           String @id @default(cuid())
+  storeName    String
+  logoUrl      String
+  template     String
+  primaryColor String
+}

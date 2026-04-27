@@ -1,22 +1,59 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Supplier } from '../../types';
 import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { SupplierFormModal } from './SupplierFormModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 
 export const SuppliersListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { suppliers, setSuppliers } = useData();
+    const location = useLocation();
+    const { currentUser } = useAuth();
+    const { suppliers, setSuppliers, getSuppliersByStoreOwner } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
+    const [loadingData, setLoadingData] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+
+    const isTiendaModule = location.pathname.startsWith('/tienda');
+    const storeOwnerId = isTiendaModule ? ADMIN_USER_ID : currentUser?.id;
+
+    useEffect(() => {
+        const fetchSuppliers = async () => {
+            setLoadingData(true);
+            try {
+                const response = await fetch('http://localhost:3001/api/suppliers', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    setSuppliers(data);
+                }
+            } catch (error) {
+                console.error("Error al cargar proveedores:", error);
+                toast.error("Error al cargar proveedores.");
+            } finally {
+                setLoadingData(false);
+            }
+        };
+        fetchSuppliers();
+    }, [setSuppliers]);
+
+    const filteredSuppliers = useMemo(() => {
+        if (!storeOwnerId) return [];
+        return getSuppliersByStoreOwner(storeOwnerId);
+    }, [getSuppliersByStoreOwner, storeOwnerId]);
 
     const openModalForCreate = () => {
         setEditingSupplier(null);
@@ -33,12 +70,29 @@ export const SuppliersListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (itemToDeleteId) {
-            setSuppliers(prev => prev.filter(s => s.id !== itemToDeleteId));
-            setItemToDeleteId(null);
+            try {
+                const response = await fetch(`http://localhost:3001/api/suppliers/${itemToDeleteId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                if (response.ok) {
+                    setSuppliers(prev => prev.filter(s => s.id !== itemToDeleteId));
+                    toast.success("Proveedor eliminado");
+                } else {
+                    toast.error("Error al eliminar el proveedor.");
+                }
+            } catch (error) {
+                console.error("Error deleting supplier:", error);
+                toast.error("Error de conexión.");
+            } finally {
+                setItemToDeleteId(null);
+                setShowDeleteConfirmModal(false);
+            }
         }
-        setShowDeleteConfirmModal(false);
     };
 
     const columns: TableColumn<Supplier>[] = [
@@ -56,8 +110,15 @@ export const SuppliersListPage: React.FC = () => {
                     <PlusIcon /> {t('ecommerce.suppliers.create')}
                 </button>
             </div>
+            {loadingData && (
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando proveedores...</span>
+                </div>
+            )}
+
             <DataTable<Supplier>
-                data={suppliers}
+                data={filteredSuppliers}
                 columns={columns}
                 actions={(supplier) => (
                     <>
@@ -70,7 +131,12 @@ export const SuppliersListPage: React.FC = () => {
                     </>
                 )}
             />
-            <SupplierFormModal isOpen={showFormModal} onClose={() => setShowFormModal(false)} supplier={editingSupplier} />
+            <SupplierFormModal 
+                isOpen={showFormModal} 
+                onClose={() => setShowFormModal(false)} 
+                supplier={editingSupplier} 
+                storeOwnerId={storeOwnerId}
+            />
             <ConfirmationModal
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}

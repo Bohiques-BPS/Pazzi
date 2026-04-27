@@ -1,13 +1,16 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { SupplierOrder, SupplierOrderStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { SupplierOrderFormModal } from './SupplierOrderFormModal';
-import { Modal } from '../../components/Modal'; 
-import { PlusIcon, EditIcon, EyeIcon, Cog6ToothIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
+import { Modal, ConfirmationModal } from '../../components/Modal'; 
+import { PlusIcon, EditIcon, EyeIcon, Cog6ToothIcon, DeleteIcon } from '../../components/icons';
+import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, ADMIN_USER_ID } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 
 interface UpdateStatusModalProps {
     isOpen: boolean;
@@ -30,10 +33,26 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
 
     if (!isOpen || !order) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newStatus && newStatus !== order.status) {
-            onUpdate(order.id, newStatus);
+            try {
+                const response = await fetch(`http://localhost:3001/api/supplier-orders/${order.id}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (response.ok) {
+                    const updated = await response.json();
+                    onUpdate(order.id, updated.status);
+                    toast.success("Estado actualizado");
+                }
+            } catch (error) {
+                console.error("Error updating status:", error);
+            }
         }
         onClose();
     };
@@ -82,16 +101,100 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
 
 export const SupplierOrdersListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { supplierOrders, getSupplierById, updateSupplierOrderStatus } = useData();
+    const location = useLocation();
+    const { currentUser } = useAuth();
+    const { 
+        setSupplierOrders, 
+        setProducts,
+        setSuppliers,
+        supplierOrders, 
+        updateSupplierOrderStatus, 
+        getSupplierOrdersByStoreOwner 
+    } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingOrder, setEditingOrder] = useState<SupplierOrder | null>(null);
+    const [loadingData, setLoadingData] = useState(false);
     
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [orderForStatusUpdate, setOrderForStatusUpdate] = useState<SupplierOrder | null>(null);
 
+    const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<SupplierOrderStatus | 'Todos'>('Todos');
 
+    const isTiendaModule = location.pathname.startsWith('/tienda');
+    const storeOwnerId = isTiendaModule ? ADMIN_USER_ID : currentUser?.id;
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            setLoadingData(true);
+            try {
+                const response = await fetch('http://localhost:3001/api/supplier-orders', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    setSupplierOrders(data);
+                }
+            } catch (error) {
+                console.error("Error al cargar pedidos:", error);
+                toast.error("Error al conectar con el servidor");
+            } finally {
+                setLoadingData(false);
+            }
+        };
+        fetchOrders();
+    }, [setSupplierOrders]);
+
+    // Carga de productos para que aparezcan en el modal de creación
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const response = await fetch('http://localhost:3001/api/products', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    const normalized = data.map((p: any) => ({
+                        ...p,
+                        category: typeof p.category === 'object' ? p.category.name : p.category,
+                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s.sku) : [],
+                        customSpecifications: p.customSpecs || []
+                    }));
+                    setProducts(normalized);
+                }
+            } catch (error) {
+                console.error("Error al cargar productos para órdenes:", error);
+            }
+        };
+        fetchProducts();
+    }, [setProducts]);
+
+    // Carga de proveedores para el modal
+    useEffect(() => {
+        const fetchSuppliers = async () => {
+            try {
+                const response = await fetch('http://localhost:3001/api/suppliers', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    setSuppliers(data);
+                }
+            } catch (error) {
+                console.error("Error al cargar proveedores para órdenes:", error);
+            }
+        };
+        fetchSuppliers();
+    }, [setSuppliers]);
 
     const openModalForCreate = () => {
         setEditingOrder(null);
@@ -113,20 +216,51 @@ export const SupplierOrdersListPage: React.FC = () => {
         setShowStatusModal(false);
     };
 
+    const requestDelete = (orderId: string) => {
+        setItemToDeleteId(orderId);
+        setShowDeleteConfirmModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (itemToDeleteId) {
+            try {
+                const response = await fetch(`http://localhost:3001/api/supplier-orders/${itemToDeleteId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                if (response.ok) {
+                    setSupplierOrders(prev => prev.filter(o => o.id !== itemToDeleteId));
+                    toast.success("Pedido eliminado");
+                } else {
+                    toast.error("No se pudo eliminar el pedido");
+                }
+            } catch (error) {
+                console.error("Error deleting order:", error);
+            } finally {
+                setItemToDeleteId(null);
+                setShowDeleteConfirmModal(false);
+            }
+        }
+    };
+
     const filteredOrders = useMemo(() => {
-        return supplierOrders
+        if (!storeOwnerId) return [];
+        const ordersByOwner = getSupplierOrdersByStoreOwner(storeOwnerId);
+        return ordersByOwner
             .filter(order => 
                 (order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                 (getSupplierById(order.supplierId)?.name || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
+                 (order.supplier?.name || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
                 (statusFilter === 'Todos' || order.status === statusFilter)
             )
             .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-    }, [supplierOrders, searchTerm, statusFilter, getSupplierById]);
+    }, [getSupplierOrdersByStoreOwner, storeOwnerId, searchTerm, statusFilter]);
 
 
     const columns: TableColumn<SupplierOrder>[] = [
         { header: t('ecommerce.supplier_orders.col.id'), accessor: (order) => order.id.substring(0, 8).toUpperCase() },
-        { header: t('ecommerce.supplier_orders.col.supplier'), accessor: (order) => getSupplierById(order.supplierId)?.name || 'N/A' },
+        { header: t('ecommerce.supplier_orders.col.supplier'), accessor: (order) => order.supplier?.name || 'N/A' },
         { header: t('ecommerce.supplier_orders.col.date'), accessor: (order) => new Date(order.orderDate + 'T00:00:00').toLocaleDateString('es-ES') },
         { header: t('ecommerce.supplier_orders.col.delivery_date'), accessor: (order) => order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A' },
         { header: t('ecommerce.supplier_orders.col.cost'), accessor: (order) => `$${order.totalCost.toFixed(2)}` },
@@ -173,21 +307,47 @@ export const SupplierOrdersListPage: React.FC = () => {
                     </button>
                 </div>
             </div>
-            <DataTable<SupplierOrder>
-                data={filteredOrders}
-                columns={columns}
-                actions={(order) => (
-                    <div className="flex space-x-2">
-                        <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Ver/Editar Pedido ${order.id.substring(0,8)}`}>
-                            <EyeIcon />
-                        </button>
-                         <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" aria-label={`Actualizar Estado Pedido ${order.id.substring(0,8)}`}>
-                            <Cog6ToothIcon />
-                        </button>
-                    </div>
-                )}
+            {loadingData && (
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando pedidos...</span>
+                </div>
+            )}
+
+            {!loadingData && (
+                <DataTable<SupplierOrder>
+                    data={filteredOrders}
+                    columns={columns}
+                    actions={(order) => (
+                        <div className="flex space-x-2">
+                            <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title="Ver/Editar">
+                                <EditIcon />
+                            </button>
+                            <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" title="Estado">
+                                <Cog6ToothIcon />
+                            </button>
+                            <button onClick={() => requestDelete(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title="Eliminar">
+                                <DeleteIcon />
+                            </button>
+                        </div>
+                    )}
+                />
+            )}
+
+            <ConfirmationModal
+                isOpen={showDeleteConfirmModal}
+                onClose={() => setShowDeleteConfirmModal(false)}
+                onConfirm={confirmDelete}
+                title={t('confirm.delete.title')}
+                message={t('confirm.delete.message')}
+                confirmButtonText={t('confirm.delete.btn')}
             />
-            <SupplierOrderFormModal isOpen={showFormModal} onClose={() => setShowFormModal(false)} orderToEdit={editingOrder} />
+            <SupplierOrderFormModal 
+                isOpen={showFormModal} 
+                onClose={() => setShowFormModal(false)} 
+                orderToEdit={editingOrder} 
+                storeOwnerId={storeOwnerId}
+            />
             <UpdateStatusModal 
                 isOpen={showStatusModal}
                 onClose={() => setShowStatusModal(false)}

@@ -11,25 +11,40 @@ interface SupplierOrderFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     orderToEdit: SupplierOrder | null;
+    storeOwnerId?: string;
 }
 
-export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ isOpen, onClose, orderToEdit }) => {
+export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ isOpen, onClose, orderToEdit, storeOwnerId }) => {
     const { t } = useTranslation();
-    const { suppliers, products: catalogProducts, addSupplierOrder, setSupplierOrders } = useData();
+    const { 
+        getSuppliersByStoreOwner, 
+        getProductsByStoreOwner,
+        addSupplierOrder, 
+        setSupplierOrders 
+    } = useData();
     
-    const initialFormData: SupplierOrderFormData = {
-        supplierId: suppliers[0]?.id || '',
+    const filteredSuppliers = useMemo(() => {
+        return storeOwnerId ? getSuppliersByStoreOwner(storeOwnerId) : [];
+    }, [getSuppliersByStoreOwner, storeOwnerId]);
+
+    const filteredProducts = useMemo(() => {
+        return storeOwnerId ? getProductsByStoreOwner(storeOwnerId) : [];
+    }, [getProductsByStoreOwner, storeOwnerId]);
+
+    const initialFormData = useMemo((): SupplierOrderFormData => ({
+        supplierId: filteredSuppliers[0]?.id || '',
         orderDate: new Date().toISOString().split('T')[0],
         expectedDeliveryDate: '',
         items: [],
         status: SupplierOrderStatus.BORRADOR, 
-    };
+    }), [filteredSuppliers]);
     const [formData, setFormData] = useState<SupplierOrderFormData>(initialFormData);
     const [currentItem, setCurrentItem] = useState<{ productId: string; quantityOrdered: number; unitCost: number }>({
-        productId: catalogProducts[0]?.id || '',
+        productId: filteredProducts[0]?.id || '',
         quantityOrdered: 1,
         unitCost: 0,
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -44,12 +59,12 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             } else {
                 setFormData({
                     ...initialFormData,
-                    supplierId: suppliers[0]?.id || '', 
+                    supplierId: filteredSuppliers[0]?.id || '', 
                 });
             }
-            setCurrentItem({ productId: catalogProducts[0]?.id || '', quantityOrdered: 1, unitCost: 0 });
+            setCurrentItem({ productId: filteredProducts[0]?.id || '', quantityOrdered: 1, unitCost: 0 });
         }
-    }, [orderToEdit, isOpen, suppliers, catalogProducts, initialFormData]);
+    }, [orderToEdit, isOpen, filteredSuppliers, filteredProducts, initialFormData]);
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -73,7 +88,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             return;
         }
         setFormData(prev => ({ ...prev, items: [...prev.items, currentItem] }));
-        setCurrentItem({ productId: catalogProducts[0]?.id || '', quantityOrdered: 1, unitCost: 0 }); 
+        setCurrentItem({ productId: filteredProducts[0]?.id || '', quantityOrdered: 1, unitCost: 0 }); 
     };
 
     const handleRemoveItem = (productIdToRemove: string) => {
@@ -84,7 +99,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         return formData.items.reduce((sum, item) => sum + (item.quantityOrdered * item.unitCost), 0);
     }, [formData.items]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.supplierId) {
             alert("Por favor, seleccione un proveedor.");
@@ -95,13 +110,45 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             return;
         }
 
-        if (orderToEdit) {
-            const updatedOrder: SupplierOrder = { ...orderToEdit, ...formData, totalCost };
-            setSupplierOrders(prev => prev.map(o => o.id === orderToEdit.id ? updatedOrder : o));
-        } else {
-            addSupplierOrder(formData);
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('pazzi_token');
+            const url = orderToEdit
+                ? `http://localhost:3001/api/supplier-orders/${orderToEdit.id}`
+                : 'http://localhost:3001/api/supplier-orders';
+            
+            const method = orderToEdit ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ...formData,
+                    storeOwnerId: storeOwnerId || ''
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                if (orderToEdit) {
+                    setSupplierOrders(prev => prev.map(o => o.id === orderToEdit.id ? result : o));
+                } else {
+                    setSupplierOrders(prev => [result, ...prev]);
+                }
+                onClose();
+            } else {
+                alert(result.error || "Error al guardar el pedido.");
+            }
+        } catch (error) {
+            console.error("Error saving supplier order:", error);
+            alert("Error de conexión con el servidor.");
+        } finally {
+            setIsSubmitting(false);
         }
-        onClose();
     };
 
     return (
@@ -112,7 +159,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                         <label htmlFor="supplierId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.supplier')}</label>
                         <select name="supplierId" id="supplierId" value={formData.supplierId} onChange={handleFormChange} className={inputFormStyle} required>
                             <option value="">Seleccionar Proveedor</option>
-                            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            {filteredSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
                     <div>
@@ -139,7 +186,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                         <div className="md:col-span-2">
                             <label htmlFor="itemProductId" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_product')}</label>
                             <select name="productId" id="itemProductId" value={currentItem.productId} onChange={handleItemInputChange} className={inputFormStyle + " text-sm !py-1.5"}>
-                                {catalogProducts.map(p => <option key={p.id} value={p.id}>{p.name} (Stock Total: {p.stockByBranch.reduce((sum, sb) => sum + sb.quantity, 0)})</option>)}
+                                {filteredProducts.map(p => <option key={p.id} value={p.id}>{p.name} (Stock Total: {p.stockByBranch?.reduce((sum, sb) => sum + sb.quantity, 0) || 0})</option>)}
                             </select>
                         </div>
                         <div>
@@ -166,7 +213,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                                 </thead>
                                 <tbody className="divide-y dark:divide-neutral-600">
                                     {formData.items.map(item => {
-                                        const product = catalogProducts.find(p => p.id === item.productId);
+                                        const product = filteredProducts.find(p => p.id === item.productId);
                                         return (
                                             <tr key={item.productId} className="hover:bg-neutral-100 dark:hover:bg-neutral-700/50">
                                                 <td className="px-2 py-1">{product?.name || 'Desconocido'}</td>
@@ -191,7 +238,9 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
 
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700 mt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
+                        {isSubmitting ? 'Guardando...' : t('common.save')}
+                    </button>
                 </div>
             </form>
         </Modal>

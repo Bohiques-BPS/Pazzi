@@ -13,10 +13,32 @@ export const BranchesListPage: React.FC = () => {
     const { t } = useTranslation();
     const { branches, setBranches } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
+    const [loadingData, setLoadingData] = useState(false);
     const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+
+    // Carga de sucursales desde el backend
+    React.useEffect(() => {
+        const fetchBranches = async () => {
+            setLoadingData(true);
+            try {
+                const response = await fetch('http://localhost:3001/api/branches', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) setBranches(data);
+            } catch (error) {
+                console.error("Error al cargar sucursales:", error);
+            } finally {
+                setLoadingData(false);
+            }
+        };
+        fetchBranches();
+    }, [setBranches]);
 
     const openModalForCreate = () => {
         setEditingBranch(null);
@@ -33,10 +55,23 @@ export const BranchesListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (itemToDeleteId) {
-            // TODO: Add logic to check if branch is in use before deleting
-            setBranches(prev => prev.filter(b => b.id !== itemToDeleteId));
+            try {
+                const response = await fetch(`http://localhost:3001/api/branches/${itemToDeleteId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                if (response.ok) {
+                    setBranches(prev => prev.filter(b => b.id !== itemToDeleteId));
+                } else {
+                    console.error("Error: No se pudo eliminar la sucursal.");
+                }
+            } catch (error) {
+                console.error("Error al eliminar sucursal:", error);
+            }
             setItemToDeleteId(null);
         }
         setShowDeleteConfirmModal(false);
@@ -66,6 +101,14 @@ export const BranchesListPage: React.FC = () => {
                     <PlusIcon /> {t('branch.list.create')}
                 </button>
             </div>
+
+            {loadingData && (
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando sucursales...</span>
+                </div>
+            )}
+
             <DataTable<Branch>
                 data={branches}
                 columns={columns}

@@ -1,25 +1,46 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Category, CategoryFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { DataTable, TableColumn } from '../../components/DataTable'; // Adjusted path
 import { CategoryFormModal } from './CategoryFormModal'; // Adjusted path
 import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
-import { PlusIcon, EditIcon, DeleteIcon, SparklesIcon } from '../../components/icons'; // Adjusted path
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
-import { AIImportModal } from '../../components/AIImportModal'; // Adjusted path
+import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adjusted path
+import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
 
 export const CategoriesListPage: React.FC = () => {
     const { t } = useTranslation();
     const { categories, setCategories } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
+    const [loadingData, setLoadingData] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    const [showAIImportModal, setShowAIImportModal] = useState(false);
+    // Carga de datos real desde el backend al entrar a la página
+    useEffect(() => {
+        const fetchCategories = async () => {
+            setLoadingData(true);
+            try {
+                const response = await fetch('http://localhost:3001/api/categories', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    setCategories(data);
+                }
+            } catch (error) {
+                console.error("Error al cargar categorías:", error);
+            } finally {
+                setLoadingData(false);
+            }
+        };
+        fetchCategories();
+    }, [setCategories]);
 
     const openModalForCreate = (initialData?: Partial<CategoryFormData>) => {
         setEditingCategory(null);
@@ -39,80 +60,72 @@ export const CategoriesListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = () => {
-        if(itemToDeleteId) {
-            setCategories(prev => prev.filter(c => c.id !== itemToDeleteId));
-            setItemToDeleteId(null);
+    const confirmDelete = async () => {
+        if (itemToDeleteId) {
+            try {
+                const response = await fetch(`http://localhost:3001/api/categories/${itemToDeleteId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                if (response.ok) {
+                    setCategories(prev => prev.filter(c => c.id !== itemToDeleteId));
+                } else {
+                    alert("Error al eliminar la categoría.");
+                }
+            } catch (error) {
+                console.error("Error deleting category:", error);
+                alert("Error de conexión al intentar eliminar.");
+            } finally {
+                setItemToDeleteId(null);
+                setShowDeleteConfirmModal(false);
+            }
         }
-        setShowDeleteConfirmModal(false);
     };
 
-    const handleAiCategoryImportSuccess = (dataArray: any[]) => {
-        console.log("AI Data Array for Category Import:", dataArray);
-        if (!Array.isArray(dataArray)) {
-            alert("La IA no devolvió un array de datos de categorías.");
-            return;
-        }
-
-        let importedCount = 0;
-        let failedCount = 0;
-        const newCategories: Category[] = [];
-
-        dataArray.forEach((item, index) => {
-            const name = item.nombre || item.name || '';
-            
-            if (!name) {
-                console.warn(`Ítem ${index} omitido por falta de nombre:`, item);
-                failedCount++;
-                return;
-            }
-
-            // Check for duplicates before adding
-            const isDuplicate = categories.some(cat => cat.name.toLowerCase() === name.toLowerCase());
-            if (isDuplicate) {
-                console.warn(`Categoría duplicada omitida: ${name}`);
-                failedCount++;
-                return;
-            }
-
-            const newCategory: Category = {
-                id: `cat-ai-${Date.now()}-${index}`,
-                name: name,
-                storeOwnerId: 'admin-user',
-            };
-            newCategories.push(newCategory);
-            importedCount++;
-        });
-
-        if (newCategories.length > 0) {
-            setCategories(prev => [...prev, ...newCategories]);
-        }
-        
-        let message = `${importedCount} categorías importadas correctamente.`;
-        if (failedCount > 0) {
-            message += ` ${failedCount} categorías no pudieron ser importadas (vacías o duplicadas).`;
-        }
-        alert(message);
-        setShowAIImportModal(false);
-    };
-
-    const columns: TableColumn<Category>[] = [
-        { header: t('category.field.name'), accessor: 'name', className: 'w-full' },
-    ];
+    const columns: TableColumn<Category>[] = useMemo(() => [
+        { 
+            header: t('Image'), 
+            accessor: (category) => (
+                <div className="w-10 h-10 rounded overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center mx-auto">
+                    {(category as any).imageUrl ? (
+                        <img
+                            src={(category as any).imageUrl.startsWith('http')
+                                ? (category as any).imageUrl
+                                : `http://localhost:3001${(category as any).imageUrl.startsWith('/') ? '' : '/'}${(category as any).imageUrl}`
+                            }
+                            alt={category.name} 
+                            className="w-full h-full object-cover" 
+                        />
+                    ) : (
+                        <div className="text-neutral-400 text-[8px] font-bold">N/A</div>
+                    )}
+                </div>
+            ),
+            className: 'w-16 text-center'
+        },
+        { header: t('category.field.name'), accessor: 'name' },
+    ], [t]);
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('category.list.title')}</h1>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>
-                        <SparklesIcon /> {t('common.import_ai')}
-                    </button>
                     <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
                         <PlusIcon /> {t('category.list.create')}
                     </button>
                 </div>
             </div>
+
+            {loadingData && (
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando categorías...</span>
+                </div>
+            )}
+
             <DataTable<Category>
                 data={categories}
                 columns={columns}
@@ -135,16 +148,6 @@ export const CategoriesListPage: React.FC = () => {
                 title={t('confirm.delete.title')}
                 message={t('confirm.delete.message')}
                 confirmButtonText={t('confirm.delete.btn')}
-            />
-            <AIImportModal
-                isOpen={showAIImportModal}
-                onClose={() => setShowAIImportModal(false)}
-                onImportSuccess={handleAiCategoryImportSuccess}
-                entityName="Categoría"
-                fieldsToExtract="nombre (string)"
-                exampleFormat={`{
-  "nombre": "Electrónica"
-}`}
             />
         </div>
     );

@@ -42,7 +42,10 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
     const accountData = useMemo(() => {
         if (!client) return null;
 
-        const clientSales = sales.filter(s => s.clientId === client.id);
+        const clientSales = sales.filter(s => 
+            s.clientId === client.id && 
+            (s.paymentMethod === 'Crédito C.' || (s.payments && s.payments.some(p => p.method === 'Crédito C.')))
+        );
         const clientProjects = projects.filter(p => p.clientId === client.id);
         const allClientSaleIds = clientSales.map(s => s.id);
         const allClientPayments = salePayments.filter(p => allClientSaleIds.includes(p.saleId));

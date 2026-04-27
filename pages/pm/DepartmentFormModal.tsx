@@ -15,7 +15,8 @@ interface DepartmentFormModalProps {
 export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen, onClose, department }) => {
     const { t } = useTranslation();
     const { setDepartments, departments } = useData();
-    const [formData, setFormData] = useState<DepartmentFormData>({ name: '' });
+    const [formData, setFormData] = useState<DepartmentFormData>({ name: '' }); // Add isSubmitting state
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (department) {
@@ -29,25 +30,49 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
         setFormData({ name: e.target.value });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => { // Make it async
         e.preventDefault();
         if (formData.name.trim() === '') {
-            alert(t('common.error'));
-            return;
-        }
-        const isDuplicate = departments.some(dep => dep.name.toLowerCase() === formData.name.toLowerCase() && (!department || dep.id !== department.id));
-        if (isDuplicate) {
-            alert(t('common.error'));
+            alert("El nombre es obligatorio");
             return;
         }
 
-        if (department) { 
-            setDepartments(prev => prev.map(d => d.id === department.id ? { ...department, ...formData, storeOwnerId: department.storeOwnerId } : d));
-        } else { 
-            const newDepartment: Department = { id: `dept-${Date.now()}-${formData.name.toLowerCase().replace(/\s+/g, '-')}`, storeOwnerId: 'admin-user', ...formData }; // Assume admin user for now
-            setDepartments(prev => [...prev, newDepartment]);
+        setIsSubmitting(true); // Set submitting state
+        try {
+            const token = localStorage.getItem('pazzi_token');
+            const url = department
+                ? `http://localhost:3001/api/departments/${department.id}`
+                : 'http://localhost:3001/api/departments';
+            
+            const method = department ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name: formData.name })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                if (department) {
+                    setDepartments(prev => prev.map(d => d.id === department.id ? result : d));
+                } else {
+                    setDepartments(prev => [...prev, result]);
+                }
+                onClose();
+            } else {
+                alert(result.error || "Error al guardar el departamento.");
+            }
+        } catch (error) {
+            console.error("Error saving department:", error);
+            alert("Error de conexión con el servidor.");
+        } finally {
+            setIsSubmitting(false); // Reset submitting state
         }
-        onClose();
     };
 
     return (
@@ -67,7 +92,9 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
+                        {isSubmitting ? 'Guardando...' : t('common.save')}
+                    </button>
                 </div>
             </form>
         </Modal>

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, ProductFormData, Category, UserRole } from '../../types'; 
 import { useData } from '../../contexts/DataContext'; 
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,24 +8,23 @@ import { DataTable, TableColumn } from '../../components/DataTable';
 import { ProductFormModal } from './ProductFormModal'; 
 import { ConfirmationModal } from '../../components/Modal'; 
 import { ProductCard } from '../../components/cards/ProductCard'; 
-import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, SparklesIcon, Cog6ToothIcon } from '../../components/icons'; 
+import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, Cog6ToothIcon } from '../../components/icons'; 
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID, inputFormStyle } from '../../constants'; 
-import { AIImportModal } from '../../components/AIImportModal'; 
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
-    const { products, setProducts, categories: dynamicCategories, getProductsByStoreOwner, addProduct, addInventoryLog, branches } = useData(); 
+    const { products, setProducts, categories: dynamicCategories, addInventoryLog, branches } = useData(); 
     const { currentUser } = useAuth();
     
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [loadingData, setLoadingData] = useState(false);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    const [showAIImportModal, setShowAIImportModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [productForHistory, setProductForHistory] = useState<Product | null>(null);
     
@@ -39,11 +38,45 @@ export const ProductsListPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE_CARD_VIEW = 10;
 
-    const globalProducts = useMemo(() => getProductsByStoreOwner(ADMIN_USER_ID), [products, getProductsByStoreOwner]);
+    // Sincronizamos globalProducts directamente con el estado products que viene del fetch
+    const globalProducts = products;
+
     const activeBranches = useMemo(() => branches.filter(b => b.isActive), [branches]);
     const availableCategories = useMemo(() => {
         return dynamicCategories.filter(cat => !cat.storeOwnerId || cat.storeOwnerId === currentUser?.id || currentUser?.role === UserRole.MANAGER);
     }, [dynamicCategories, currentUser]);
+
+    // Carga de datos real desde el backend
+    useEffect(() => {
+        const fetchProducts = async () => {
+            setLoadingData(true);
+            try {
+                const response = await fetch('http://localhost:3001/api/products', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                const data = await response.json();
+                
+                if (Array.isArray(data)) {
+                    // Normalizamos los productos para que la categoría sea un string (el nombre)
+                    const normalized = data.map((p: any) => ({
+                        ...p,
+                        category: typeof p.category === 'object' ? p.category.name : p.category,
+                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s.sku) : [],
+                        customSpecifications: p.customSpecs || []
+                    }));
+                    setProducts(normalized);
+                }
+            } catch (error) {
+                console.error("Error al cargar productos:", error);
+            } finally {
+                setLoadingData(false);
+            }
+        };
+        fetchProducts();
+    }, [setProducts]);
 
 
     const openModalForCreate = () => {
@@ -52,21 +85,25 @@ export const ProductsListPage: React.FC = () => {
     };
 
     const openModalForEdit = (product: Product) => {
-        if (product.storeOwnerId === ADMIN_USER_ID) {
+               if (product.storeOwnerId === ADMIN_USER_ID || product.storeOwnerId === currentUser?.id) {
+
             setEditingProduct(product);
             setShowFormModal(true);
         } else {
-            alert("Este producto no es un producto global y no puede editarse aquí.");
+                       alert("No tienes permisos para editar este producto.");
+
         }
     };
 
     const requestDelete = (productId: string) => {
         const productToDelete = globalProducts.find(p => p.id === productId);
-        if (productToDelete && productToDelete.storeOwnerId === ADMIN_USER_ID) {
+               if (productToDelete && (productToDelete.storeOwnerId === ADMIN_USER_ID || productToDelete.storeOwnerId === currentUser?.id)) {
+
             setItemToDeleteId(productId);
             setShowDeleteConfirmModal(true);
         } else {
-            alert("Este producto no es un producto global y no puede eliminarse aquí.");
+                     alert("No tienes permisos para eliminar este producto.");
+
         }
     };
     
@@ -81,64 +118,41 @@ export const ProductsListPage: React.FC = () => {
         setShowAdjustmentModal(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (itemToDeleteId) {
-            setProducts(prev => prev.filter(p => p.id !== itemToDeleteId));
-            setItemToDeleteId(null);
+           
+            try {
+                const response = await fetch(`http://localhost:3001/api/products/${itemToDeleteId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    }
+                });
+                if (response.ok) {
+                    setProducts(prev => prev.filter(p => p.id !== itemToDeleteId));
+                } else {
+                    const errData = await response.json();
+                    alert(errData.error || "No se pudo eliminar el producto del servidor.");
+                }
+            } catch (error) {
+                console.error("Error al eliminar producto:", error);
+            } finally {
+                setItemToDeleteId(null);
+            }
         }
         setShowDeleteConfirmModal(false);
     };
 
-    const handleAiProductImportSuccess = (dataArray: any[]) => {
-        console.log("AI Data Array for Product Import:", dataArray);
-        if (!Array.isArray(dataArray)) {
-            alert("La IA no devolvió un array de datos de productos.");
-            return;
-        }
-
-        let importedCount = 0;
-        let failedCount = 0;
-
-        dataArray.forEach((item) => {
-            const name = item.nombre || item.name || '';
-            const unitPrice = typeof item.precio === 'number' ? item.precio : (typeof item.unitPrice === 'number' ? item.unitPrice : undefined);
-            
-            if (!name || unitPrice === undefined) {
-                console.warn(`Ítem omitido por falta de campos obligatorios (nombre, precio):`, item);
-                failedCount++;
-                return;
-            }
-
-            const productFormData: ProductFormData = {
-                name: name,
-                unitPrice: unitPrice,
-                description: item.descripcion || item.description || '',
-                skus: Array.isArray(item.skus) ? item.skus.map(String) : (typeof item.sku === 'string' ? [item.sku] : []),
-                category: item.categoria || item.category || (availableCategories.length > 0 ? availableCategories[0].name : ''),
-                ivaRate: typeof item.ivaRate === 'number' ? item.ivaRate : (typeof item.tasaIVA === 'number' ? item.tasaIVA : 0.16),
-                imageUrl: item.imageUrl || `https://picsum.photos/seed/ai-prod-${Date.now()}-${importedCount}/200/200`,
-                storeOwnerId: ADMIN_USER_ID,
-                isEmergencyTaxExempt: false, 
-            };
-            addProduct(productFormData); // Use new addProduct function
-            importedCount++;
-        });
-        
-        let message = `${importedCount} productos importados correctamente.`;
-        if (failedCount > 0) {
-            message += ` ${failedCount} productos no pudieron ser importados por falta de datos.`;
-        }
-        alert(message);
-        setShowAIImportModal(false);
-    };
-
     const filteredProducts = useMemo(() => {
         return globalProducts 
-            .filter(p => 
-                (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                 (p.skus && p.skus.some(s => s.toLowerCase().includes(searchTerm.toLowerCase())))) &&
-                (selectedCategory === 'Todos' || p.category === selectedCategory)
-            );
+            .filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                     (p.skus && p.skus.some(s => s.toLowerCase().includes(searchTerm.toLowerCase())));
+                
+                const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
+
+                return matchesSearch && matchesCategory;
+            });
     }, [globalProducts, searchTerm, selectedCategory]);
 
     const paginatedCardProducts = useMemo(() => {
@@ -150,8 +164,31 @@ export const ProductsListPage: React.FC = () => {
 
     const tableColumns = useMemo((): TableColumn<Product>[] => {
         const staticColumns: TableColumn<Product>[] = [
-            { header: t('product.name'), accessor: 'name', className: 'w-1/3 font-medium' },
-            { header: t('product.sku'), accessor: (p) => p.skus?.[0] || 'N/A' },
+            { 
+                header: t('Image'), 
+                accessor: (product) => (
+                    <div className="w-10 h-10 rounded overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center mx-auto">
+                        {product.imageUrl ? (
+                            <img 
+                                src={product.imageUrl.startsWith('http') 
+                                    ? product.imageUrl 
+                                    : `http://localhost:3001${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}`
+                                } 
+                                alt={product.name} 
+                                className="w-full h-full object-cover" 
+                            />
+                        ) : (
+                            <div className="text-neutral-400 text-[8px] font-bold">N/A</div>
+                        )}
+                    </div>
+                ),
+                className: 'w-16 text-center'
+            },
+            { header: t('product.name'), accessor: 'name', className: 'font-medium min-w-[150px]', noWrap: false },
+            { header: t('product.sku'), accessor: (p) => {
+                const firstSku = p.skus?.[0];
+                return typeof firstSku === 'object' ? (firstSku as any).sku : (firstSku || 'N/A');
+            }},
             { header: t('product.category'), accessor: 'category' },
         ];
 
@@ -207,12 +244,6 @@ export const ProductsListPage: React.FC = () => {
                         <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon className="w-5 h-5"/></button>
                     </div>
                     <button 
-                        onClick={() => setShowAIImportModal(true)} 
-                        className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
-                    >
-                        <SparklesIcon className="w-5 h-5"/> {t('product.list.import_ai')}
-                    </button>
-                    <button 
                         onClick={openModalForCreate} 
                         className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}
                     >
@@ -221,7 +252,14 @@ export const ProductsListPage: React.FC = () => {
                 </div>
             </div>
 
-            {viewMode === 'card' ? (
+            {loadingData && (
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando productos desde la base de datos...</span>
+                </div>
+            )}
+
+            {!loadingData && viewMode === 'card' ? (
                 <>
                     {paginatedCardProducts.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
@@ -247,7 +285,7 @@ export const ProductsListPage: React.FC = () => {
                         </div>
                     )}
                 </>
-            ) : (
+            ) : !loadingData && (
                  <DataTable<Product>
                     data={filteredProducts}
                     columns={tableColumns}
@@ -264,7 +302,7 @@ export const ProductsListPage: React.FC = () => {
                 isOpen={showFormModal} 
                 onClose={() => setShowFormModal(false)} 
                 productToEdit={editingProduct} 
-                storeOwnerIdForNewProduct={ADMIN_USER_ID} // For global products
+                storeOwnerIdForNewProduct={currentUser?.id || ADMIN_USER_ID} // Pasar el ID del usuario actual para nuevos productos
             />
             <ConfirmationModal 
                 isOpen={showDeleteConfirmModal}
@@ -273,21 +311,6 @@ export const ProductsListPage: React.FC = () => {
                 title={t('confirm.delete.title')}
                 message={t('confirm.delete.message')}
                 confirmButtonText={t('confirm.delete.btn')}
-            />
-            <AIImportModal
-                isOpen={showAIImportModal}
-                onClose={() => setShowAIImportModal(false)}
-                onImportSuccess={handleAiProductImportSuccess}
-                entityName="Producto"
-                fieldsToExtract="nombre, skus (array de strings), categoría, precio (número), tasaIVA (número decimal, ej: 0.16), descripción, imageUrl (opcional)"
-                exampleFormat={`{
-  "nombre": "Azulejo de Cerámica",
-  "skus": ["AZ-CER-001", "TILE-WHT-LG"],
-  "categoria": "Revestimientos",
-  "precio": 12.99,
-  "tasaIVA": 0.16,
-  "descripcion": "Azulejo de cerámica blanco brillante para baños y cocinas, tamaño 30x60cm."
-}`}
             />
             <InventoryHistoryModal 
                 isOpen={showHistoryModal}

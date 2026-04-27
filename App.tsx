@@ -1,6 +1,7 @@
 
 import React, { useState, createContext, useContext, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, useParams, Outlet } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 import { User, UserRole, Product, Client, Employee, Project, Sale, Order, AppModule, ProductFormData, ClientFormData, EmployeeFormData, ProjectFormData, ProjectStatus, CartItem, ProjectResource, Visit, VisitStatus, VisitFormData, ECommerceSettings, Category, CategoryFormData, Theme, ChatMessage, Caja } from './types';
 import { APP_MODULES_CONFIG, ADMIN_USER_ID, PROJECT_CLIENT_ID, ECOMMERCE_CLIENT_ID, inputFormStyle as sharedInputFormStyle } from './constants'; 
@@ -76,18 +77,19 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 
 
 // Icons
-import { ExclamationTriangleIcon, SparklesIcon } from './components/icons';
+import { ExclamationTriangleIcon } from './components/icons';
 
 // Constants
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, POS_BUTTON_RED_CLASSES, POS_BUTTON_YELLOW_CLASSES, BUTTON_PRIMARY_CLASSES } from './constants';
 import { Modal } from './components/Modal';
-import { VirtualAssistant } from './components/VirtualAssistant';
 
 
 // --- PROTECTED ROUTE COMPONENT ---
 const ProtectedRoute = ({ allowedRoles }: { allowedRoles: UserRole[] }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, loading } = useAuth();
   const location = useLocation();
+
+  if (loading) return <div className="flex h-screen items-center justify-center">Cargando...</div>;
 
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -104,8 +106,7 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: UserRole[] }) => {
 // --- APP ROUTES & MAIN COMPONENT ---
 
 const AppContent: React.FC = () => {
-  const { currentUser, isLoading: isAuthLoading } = useAuth();
-  const { isDataLoading } = useData();
+  const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -114,9 +115,6 @@ const AppContent: React.FC = () => {
   const { currentModule, setCurrentModule } = appContext; 
   
   const { settings } = useGlobalSettings();
-
-  // Check if loading DB
-  const isLoading = isAuthLoading || isDataLoading;
 
   useEffect(() => {
       const root = document.documentElement;
@@ -130,7 +128,7 @@ const AppContent: React.FC = () => {
   }, [settings.fontSize]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (loading) return;
 
     const isAuthPath = ['/login', '/register', '/forgot-password'].some(p => location.pathname.startsWith(p));
     const isPublicPath = ['/', '/checkout'].some(p => location.pathname.startsWith(p)) || /^\/store(\/[^/]+)?$/.test(location.pathname) || /^\/order-confirmation(\/[^/]+)?$/.test(location.pathname);
@@ -158,7 +156,7 @@ const AppContent: React.FC = () => {
              navigate(targetPath, { replace: true });
         }
     }
-  }, [currentUser, location.pathname, navigate, currentModule, setCurrentModule, isLoading]);
+  }, [currentUser, loading, location.pathname, navigate, currentModule, setCurrentModule]);
   
   const SettingsPage = () => { 
       const { currentUser: authCurrentUser, updateUserPassword, toggleUserEmergencyOrderMode } = useAuth(); 
@@ -370,18 +368,6 @@ const AppContent: React.FC = () => {
       );
   };
 
-  if (isLoading) {
-      return (
-          <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-100 dark:bg-neutral-900">
-              <SparklesIcon className="w-12 h-12 text-primary animate-spin mb-4" />
-              <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">Iniciando Pazzi...</h2>
-              <p className="text-neutral-500 dark:text-neutral-400 mt-2">Cargando base de datos local segura.</p>
-          </div>
-      );
-  }
-
-  const showVirtualAssistant = currentUser;
-
   return (
     <>
       <Routes>
@@ -424,6 +410,8 @@ const AppContent: React.FC = () => {
                 <Route path="/tienda/employees" element={<EmployeesListPage />} />
                 <Route path="/tienda/branches" element={<BranchesListPage />} />
                 <Route path="/tienda/inventory" element={<POSInventoryPage />} />
+                <Route path="/tienda/suppliers" element={<SuppliersListPage />} />
+                <Route path="/tienda/supplier-orders" element={<SupplierOrdersListPage />} />
                 <Route path="/pm/calendar" element={<ProjectCalendarPage />} />
                 <Route path="/pm/reports" element={<ProjectReportsPage />} />
 
@@ -459,7 +447,6 @@ const AppContent: React.FC = () => {
         {/* Catch-all for any other unmatched routes */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {showVirtualAssistant && <VirtualAssistant />}
     </>
   );
 }
@@ -469,6 +456,7 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <GlobalSettingsProvider>
+        <Toaster position="top-right" reverseOrder={false} />
         <AppContextProvider>
             <AuthProvider>
             <DataProvider>

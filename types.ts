@@ -18,6 +18,7 @@ export interface GlobalSettings {
     numberFormat: 'comma_decimal' | 'dot_decimal'; // comma_decimal = 1,000.00; dot_decimal = 1.000,00
     language: 'es' | 'en';
     fontSize: 'sm' | 'md' | 'lg';
+    defaultTaxRate: number; // Universal IVU
 }
 
 export interface AlertSettings {
@@ -55,7 +56,7 @@ export interface Caja {
     name: string;
     branchId: string;
     isActive: boolean;
-    applyIVA: boolean;
+    applyIVU: boolean;
     isExternal?: boolean; // New: Marks if sales from this register should be excluded from main reports
 }
 
@@ -86,7 +87,7 @@ export interface Product {
     imageUrl?: string;
     skus: string[];
     category?: string;
-    ivaRate?: number;
+    ivuRate?: number;
     storeOwnerId: string;
     isEmergencyTaxExempt: boolean;
     material?: string;
@@ -309,6 +310,7 @@ export interface Sale {
     isReturn?: boolean;
     originalSaleId?: string;
     isExternal?: boolean; // New: Indicates if this sale was made on an external register
+    payments?: { method: string; amount: number }[]; // Added for multiple payments
 }
 
 export enum EstimateStatus {
@@ -456,6 +458,7 @@ export interface Notification {
     read: boolean;
     link?: string;
     type: NotificationType;
+    icon?: React.ComponentType<any>;
 }
 
 
@@ -504,6 +507,7 @@ export interface HeldCart {
     items: CartItem[];
     totalAmount: number;
     date: string;
+    clientId?: string;
 }
 
 export interface SalePayment {

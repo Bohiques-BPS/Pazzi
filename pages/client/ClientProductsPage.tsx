@@ -6,9 +6,8 @@ import { DataTable, TableColumn } from '../../components/DataTable';
 import { ProductFormModal } from '../pm/ProductFormModal'; 
 import { ConfirmationModal } from '../../components/Modal';
 import { ProductCard } from '../../components/cards/ProductCard';
-import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, SparklesIcon } from '../../components/icons';
+import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon } from '../../components/icons';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
-import { AIImportModal } from '../../components/AIImportModal'; 
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 
 export const ClientProductsPage: React.FC = () => {
@@ -32,8 +31,6 @@ export const ClientProductsPage: React.FC = () => {
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    const [showAIImportModal, setShowAIImportModal] = useState(false);
-    
     const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
     const [productToAdjust, setProductToAdjust] = useState<Product | null>(null);
     const [branchForAdjustment, setBranchForAdjustment] = useState<string | null>(null);
@@ -81,39 +78,6 @@ export const ClientProductsPage: React.FC = () => {
         }
         setShowDeleteConfirmModal(false);
     };
-    
-    const handleAiProductImportSuccess = (dataArray: any[]) => {
-        if (!currentUser) return;
-        let importedCount = 0;
-        let failedCount = 0;
-
-        dataArray.forEach((item) => {
-            const name = item.nombre || item.name || '';
-            const unitPrice = typeof item.precio === 'number' ? item.precio : (typeof item.unitPrice === 'number' ? item.unitPrice : undefined);
-            
-            if (!name || unitPrice === undefined) {
-                failedCount++;
-                return;
-            }
-            const productFormData: ProductFormData = {
-                name: name,
-                unitPrice: unitPrice,
-                description: item.descripcion || item.description || '',
-                skus: Array.isArray(item.skus) ? item.skus.map(String) : (typeof item.sku === 'string' ? [item.sku] : []),
-                category: item.categoria || item.category || (clientCategories.length > 0 ? clientCategories[0].name : ''),
-                ivaRate: typeof item.ivaRate === 'number' ? item.ivaRate : (typeof item.tasaIVA === 'number' ? item.tasaIVA : 0.16),
-                imageUrl: item.imageUrl || `https://picsum.photos/seed/clientprod-${Date.now()}-${importedCount}/200/200`,
-                storeOwnerId: currentUser.id,
-                isEmergencyTaxExempt: false,
-            };
-            addProduct(productFormData);
-            importedCount++;
-        });
-        
-        alert(`${importedCount} productos importados a tu tienda. ${failedCount > 0 ? `${failedCount} fallaron.` : ''}`);
-        setShowAIImportModal(false);
-    };
-
 
     const filteredClientProducts = useMemo(() => {
         return clientProducts
@@ -138,7 +102,7 @@ export const ClientProductsPage: React.FC = () => {
         { header: 'Categoría', accessor: 'category' },
         { header: 'Precio', accessor: (p) => `$${p.unitPrice.toFixed(2)}` },
         // { header: 'Stock', accessor: 'stock' }, // Removed stock
-        { header: 'IVA', accessor: (p) => p.ivaRate ? `${(p.ivaRate * 100).toFixed(0)}%` : 'N/A' },
+        { header: 'IVU', accessor: (p) => p.ivuRate ? `${(p.ivuRate * 100).toFixed(0)}%` : 'N/A' },
     ];
 
     if (!currentUser) {
@@ -165,13 +129,10 @@ export const ClientProductsPage: React.FC = () => {
                         <option value="Todos">Todas mis categorías</option>
                         {clientCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                     </select>
-                     <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
+                    <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
                         <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`}><Squares2X2Icon/></button>
                         <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`}><ListBulletIcon/></button>
                     </div>
-                    <button onClick={() => setShowAIImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}>
-                        <SparklesIcon /> Importar con IA
-                    </button>
                     <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                        <PlusIcon /> Añadir Producto
                     </button>
@@ -228,21 +189,6 @@ export const ClientProductsPage: React.FC = () => {
                 title="Confirmar Eliminación"
                 message={`¿Estás seguro de que quieres eliminar este producto de tu tienda?`}
                 confirmButtonText="Sí, Eliminar"
-            />
-            <AIImportModal
-                isOpen={showAIImportModal}
-                onClose={() => setShowAIImportModal(false)}
-                onImportSuccess={handleAiProductImportSuccess}
-                entityName="Producto para mi Tienda"
-                fieldsToExtract="nombre, skus (array de strings), categoría, precio (número), tasaIVA (número decimal, ej: 0.16), descripción, imageUrl (opcional)"
-                exampleFormat={`{
-  "nombre": "Martillo Pro",
-  "skus": ["MART-PRO-001"],
-  "categoria": "Herramientas Manuales",
-  "precio": 25.50,
-  "tasaIVA": 0.16,
-  "descripcion": "Martillo de uña profesional con mango de fibra de vidrio."
-}`}
             />
              <StockAdjustmentModal
                 isOpen={showAdjustmentModal}

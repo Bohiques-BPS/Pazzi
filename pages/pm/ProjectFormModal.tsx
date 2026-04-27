@@ -5,10 +5,9 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
-import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, SparklesIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon } from '../../components/icons'; // Added DocumentArrowDownIcon
+import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon } from '../../components/icons'; // Added DocumentArrowDownIcon
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -71,8 +70,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
     const [callType, setCallType] = useState<'video' | 'audio'>('video');
     const [callParticipants, setCallParticipants] = useState<string[]>([]);
-
-    const [isAiGenerating, setIsAiGenerating] = useState(false); 
 
     const [currentSingleWorkDay, setCurrentSingleWorkDay] = useState<string>(defaultToday);
     const [currentWorkDayRange, setCurrentWorkDayRange] = useState<WorkDayTimeRange>({...defaultWorkDayTime});
@@ -416,23 +413,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
         }
     };
 
-    const handleGenerateAiResponse = async () => {
-        if (!project || !currentUser || isAiGenerating || isEmployeeView) return;
-        setIsAiGenerating(true);
-         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-             const response: GenerateContentResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Genera una respuesta breve para un chat de proyecto sobre "${project.name}"`,
-            });
-            setNewMessage(response.text.trim());
-        } catch (error) {
-            console.error("Error AI:", error);
-            alert("Error al generar respuesta.");
-        }
-        setIsAiGenerating(false);
-    };
-
     const projectClient = project ? getClientById(project.clientId) : null;
     const projectAssignedEmployeesForCall = project ? project.assignedEmployeeIds.map(id => getEmployeeById(id)).filter(Boolean) as Employee[] : [];
 
@@ -709,17 +689,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                     </div>
                     <div className="p-3 border-t border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 flex-shrink-0">
                         <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2">
-                            {!isEmployeeView && (
-                                <button
-                                    type="button"
-                                    onClick={handleGenerateAiResponse}
-                                    className={`${BUTTON_SECONDARY_SM_CLASSES} !py-2 !px-2.5 rounded-lg`}
-                                    disabled={isAiGenerating}
-                                    title="Generar respuesta con IA"
-                                >
-                                    <SparklesIcon className={`${isAiGenerating ? 'animate-pulse' : ''}`} />
-                                </button>
-                            )}
                             <textarea
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
@@ -729,16 +698,15 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                         handleSendMessage();
                                     }
                                 }}
-                                placeholder={isAiGenerating ? "Generando respuesta AI..." : "Escribe un mensaje..."}
+                                placeholder="Escribe un mensaje..."
                                 className={`${inputFormStyle} flex-grow !py-2 resize-none max-h-24`}
                                 rows={1}
                                 aria-label="Escribir mensaje"
-                                disabled={isAiGenerating}
                             />
                             <button 
                                 type="submit" 
                                 className={`${BUTTON_PRIMARY_SM_CLASSES} !py-2 !px-3 rounded-lg flex items-center justify-center`}
-                                disabled={!newMessage.trim() || isAiGenerating}
+                                disabled={!newMessage.trim()}
                             >
                                 <PaperAirplaneIcon className="w-4 h-4" />
                                 <span className="ml-1.5 hidden sm:inline text-xs">Enviar</span>

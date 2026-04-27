@@ -91,13 +91,13 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     
         // Recalculate totals for the combined items
         const subtotal = combinedItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-        const defaultIVARate = 0.16;
-        const iva = combinedItems.reduce((taxSum, item) => {
+        const defaultIVURate = 0.16;
+        const ivu = combinedItems.reduce((taxSum, item) => {
             const product = getProductById(item.id);
-            const rate = product?.ivaRate ?? defaultIVARate;
+            const rate = product?.ivuRate ?? defaultIVURate;
             return taxSum + (item.unitPrice * item.quantity * rate);
         }, 0);
-        const totalAmount = subtotal + iva;
+        const totalAmount = subtotal + ivu;
     
         // --- PDF Generation using jsPDF ---
         const doc = new jsPDF();
@@ -163,8 +163,8 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
         doc.text("Subtotal:", totalsX, y, { align: 'left' });
         doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
         y += 7;
-        doc.text("IVA:", totalsX, y, { align: 'left' });
-        doc.text(`$${iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+        doc.text("IVU:", totalsX, y, { align: 'left' });
+        doc.text(`$${ivu.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
         y += 7;
         doc.setFont("helvetica", "bold");
         doc.text("TOTAL ESTIMADO:", totalsX, y, { align: 'left' });

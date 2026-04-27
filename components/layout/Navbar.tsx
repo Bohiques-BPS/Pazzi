@@ -4,9 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
 import { useData } from '../../contexts/DataContext'; 
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
-import { AppModule, UserRole, Notification, NotificationType } from '../../types'; 
+import { AppModule, UserRole, Notification } from '../../types'; 
 import { APP_MODULES_CONFIG } from '../../constants'; 
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ExclamationTriangleIcon, InformationCircleIcon } from '../icons'; 
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon } from '../icons'; 
 
 interface NavbarProps {
     onToggleSidebar: () => void;
@@ -31,15 +31,6 @@ const formatRelativeTime = (isoTimestamp: string) => {
     if (hours < 24) return `Hace ${hours}h`;
     if (days === 1) return 'Ayer';
     return `Hace ${days} días`;
-};
-
-const getNotificationIcon = (type: NotificationType) => {
-    switch (type) {
-        case 'new_order': return OrderIcon;
-        case 'chat_message': return ChatBubbleLeftRightIcon;
-        case 'low_stock': return ExclamationTriangleIcon;
-        default: return InformationCircleIcon;
-    }
 };
 
 
@@ -133,28 +124,28 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
   return (
     <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]">
-      <div className="mx-auto flex items-center justify-between h-full px-4"> 
+      <div className="mx-auto flex items-center justify-between h-full px-2 sm:px-4"> 
         <div className="flex items-center">
           {/* Mobile Sidebar Toggle */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && 
-            <button onClick={onToggleSidebar} className="mr-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden">
-              <MenuIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
+            <button onClick={onToggleSidebar} className="mr-1 sm:mr-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden">
+              <MenuIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             </button>
           }
           
           {/* Module Selector */}
           {availableModulesForSelector.length > 0 && ( 
-            <div className="relative mr-3">
+            <div className="relative mr-1.5 sm:mr-3">
                 {/* Mobile/Tablet */}
                 <button 
                     id="navbar-module-selector-button-mobile"
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
-                    className="md:hidden px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="md:hidden px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 whitespace-nowrap"
                     aria-haspopup="true"
                     aria-expanded={moduleDropdownOpen}
                     aria-controls="module-menu"
                 >
-                    {t(currentModule)} <ChevronDownIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 ml-1" />
+                    <span className="max-w-[80px] truncate">{t(`module.${currentModule}`)}</span> <ChevronDownIcon className="w-4 h-4 text-slate-600 dark:text-slate-300 ml-0.5" />
                 </button>
 
                 {/* Desktop */}
@@ -187,7 +178,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                 className="block w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                                 role="menuitem"
                             >
-                                {t(mod.name)}
+                                {t(`module.${mod.name}`)}
                             </button>
                         ))}
                     </div>
@@ -196,14 +187,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           )}
 
           {/* Logo */}
-          <Link to={getLogoLink()} className="mr-3 flex-shrink-0">
-            <img src={logoUrl} alt="Pazzi Logo" className="h-9" />
+          <Link to={getLogoLink()} className="mr-1 sm:mr-3 flex-shrink-0">
+            <img src={logoUrl} alt="Pazzi Logo" className="h-6 sm:h-9" />
           </Link>
 
           {/* Module Label */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
             <div className={`hidden md:flex items-center px-2.5 py-1 rounded-md text-base font-semibold text-white ${moduleLabelColorClass}`}>
-                {t(currentModule)}
+                {t(`module.${currentModule}`)}
             </div>
           }
           
@@ -216,21 +207,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
         </div>
 
         {/* Right side: Notifications & User Menu */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
            {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
             <div className="relative">
                 <button 
                     onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)} 
-                    className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="p-1.5 sm:p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-label="Notificaciones"
                     aria-haspopup="true"
                     aria-expanded={notificationDropdownOpen}
                     aria-controls="notification-menu"
                 >
-                    <BellIcon className="w-6 h-6 text-slate-600 dark:text-slate-300"/>
+                    <BellIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300"/>
                     {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-neutral-800 bg-red-500 animate-pulse"></span>
+                        <span className="absolute top-0 right-0 block h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ring-2 ring-white dark:ring-neutral-800 bg-red-500 animate-pulse"></span>
                     )}
                 </button>
                 {notificationDropdownOpen && (
@@ -248,7 +239,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                         </div>
                         <div className="overflow-y-auto flex-grow">
                             {latestNotifications.length > 0 ? latestNotifications.map(notification => {
-                                const IconComponent = getNotificationIcon(notification.type);
+                                const IconComponent = notification.icon;
                                 return (
                                 <div
                                     key={notification.id}
@@ -282,10 +273,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
           {/* User Menu */}
           <div className="relative">
-            <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-2 p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
-                <UserCircleIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
-                <span className="hidden md:inline text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
-                <ChevronDownIcon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
+            <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-1 sm:space-x-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
+                <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
+                <span className="hidden md:inline text-sm sm:text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
+                <ChevronDownIcon className="w-4 h-4 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             </button>
             {userDropdownOpen && (
                 <div id="user-menu" className="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600">

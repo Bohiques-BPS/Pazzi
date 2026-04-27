@@ -4,13 +4,12 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useData } from '../../contexts/DataContext';
 import { Project, ProjectFormData, UserRole, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource, ProjectPriority, CustomProjectResource } from '../../types';
 import { ProjectTaskBoard } from '../../components/tasks/ProjectTaskBoard';
-import { ArrowUturnLeftIcon, PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, SparklesIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon, ChevronDownIcon, EyeIcon } from '../../components/icons';
+import { ArrowUturnLeftIcon, PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon, ChevronDownIcon, EyeIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useAuth } from '../../contexts/AuthContext';
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ConfirmationModal } from '../../components/Modal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
@@ -19,7 +18,6 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added 
 type ActiveTab = 'details' | 'chat' | 'tasks';
 
 export const ProjectDetailPage: React.FC = () => {
-    const { t } = useTranslation(); // Use hook
     const { projectId } = useParams<{ projectId: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -49,9 +47,9 @@ export const ProjectDetailPage: React.FC = () => {
     if (project === null && projectId !== 'new') {
         return (
             <div className="text-center p-8">
-                <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">{t('project.detail.not_found')}</h2>
-                <p className="text-neutral-500 dark:text-neutral-400 mt-2">{t('project.detail.not_found_desc')}</p>
-                <Link to="/pm/projects" className="mt-4 inline-block text-primary hover:underline">{t('project.detail.back_list')}</Link>
+                <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">Proyecto no encontrado</h2>
+                <p className="text-neutral-500 dark:text-neutral-400 mt-2">El proyecto que buscas no existe o ha sido eliminado.</p>
+                <Link to="/pm/projects" className="mt-4 inline-block text-primary hover:underline">Volver a la lista de proyectos</Link>
             </div>
         );
     }
@@ -65,25 +63,25 @@ export const ProjectDetailPage: React.FC = () => {
                 <div>
                     <Link to="/pm/projects" className="text-sm text-neutral-500 dark:text-neutral-400 hover:underline flex items-center">
                         <ArrowUturnLeftIcon className="w-4 h-4 mr-1" />
-                        {t('project.detail.back')}
+                        Volver a Proyectos
                     </Link>
                     <h1 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">
-                        {isNewProject ? t('project.detail.create_title') : (projectData && projectData.name)}
+                        {isNewProject ? 'Crear Nuevo Proyecto' : (projectData && projectData.name)}
                     </h1>
                 </div>
             </div>
 
             <div className="flex border-b border-neutral-200 dark:border-neutral-700">
                 <button onClick={() => handleTabChange('details')} className={`px-4 py-2 text-base font-medium ${activeTab === 'details' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                    {t('project.tab.details')}
+                    Detalles
                 </button>
                 {!isNewProject && (
                     <>
                         <button onClick={() => handleTabChange('chat')} className={`px-4 py-2 text-base font-medium ${activeTab === 'chat' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                            {t('project.tab.chat')}
+                            Chat del Proyecto
                         </button>
                         <button onClick={() => handleTabChange('tasks')} className={`px-4 py-2 text-base font-medium ${activeTab === 'tasks' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                            {t('project.tab.tasks')}
+                            Tareas
                         </button>
                     </>
                 )}
@@ -439,7 +437,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
             {canEditDetails && (
                 <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
                     <button type="button" onClick={() => navigate('/pm/projects')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{project ? t('common.save') : t('project.form.create')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{project ? 'Guardar Cambios' : 'Crear Proyecto'}</button>
                 </div>
             )}
         </form>

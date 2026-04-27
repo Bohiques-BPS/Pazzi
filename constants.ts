@@ -49,6 +49,7 @@ export const EMPLOYEE_PASSWORD = 'empleado';
 export const ECOMMERCE_CLIENT_ID = 'client-ecommerce-user-predefined'; // Renamed
 export const PROJECT_CLIENT_ID = 'client-project-user-predefined'; // New
 export const ADMIN_USER_ID = 'admin-user'; 
+export const DEFAULT_CLIENT_ID = 'client-default-consumidor-final';
 export const ANOTHER_ECOMMERCE_CLIENT_ID = 'client-ecommerce-another'; // Renamed for consistency
 
 export const DEFAULT_USERS: (User & { password?: string })[] = [
@@ -73,31 +74,31 @@ export const INITIAL_BRANCHES: Branch[] = [
 const firstActiveBranchId = INITIAL_BRANCHES.find(b => b.isActive)?.id || 'branch-central';
 
 export const INITIAL_CAJAS: Caja[] = [
-    { id: '0008', name: 'Caja Principal (0008)', branchId: firstActiveBranchId, isActive: true, applyIVA: true },
-    { id: 'caja-02-norte', name: 'Caja Rápida (Norte)', branchId: 'branch-norte', isActive: true, applyIVA: true },
-    { id: 'caja-03-central-noiva', name: 'Caja Servicios (Central)', branchId: firstActiveBranchId, isActive: true, applyIVA: false },
+    { id: '0008', name: 'Caja Principal (0008)', branchId: firstActiveBranchId, isActive: true, applyIVU: true },
+    { id: 'caja-02-norte', name: 'Caja Rápida (Norte)', branchId: 'branch-norte', isActive: true, applyIVU: true },
+    { id: 'caja-03-central-noiva', name: 'Caja Servicios (Central)', branchId: firstActiveBranchId, isActive: true, applyIVU: false },
 ];
 
 export const INITIAL_PRODUCTS: Product[] = [
   
-  { id: 'prod-tile-ceramic', name: 'Azulejo Cerámico Blanco (Tienda Cliente Ecommerce)', unitPrice: 5, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 1000 }, { branchId: 'branch-central', quantity: 120 }], description: 'Azulejo cerámico blanco brillante (precio por m²). Ideal para baños y cocinas.', imageUrl: 'https://picsum.photos/seed/ceramictile/300/300', skus: ['AZL-CER-BLC-01'], category: 'Revestimientos', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false, material: 'Cerámica', quality: 'Primera Calidad', width: 30, length: 60, height: 0.8, weight: 1.5 },
-  { id: 'prod-counter-granite', name: 'Encimera de Granito Negro (Tienda Cliente Ecommerce)', unitPrice: 180, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 50 }], description: 'Encimera de granito pulido (precio por metro lineal). Resistente y elegante.', imageUrl: 'https://picsum.photos/seed/granitecounter/300/300', skus: ['ENC-GRA-NEG-05'], category: 'Encimeras', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
-  { id: 'prod-flooring-wood', name: 'Instalación de Piso de Madera (Tienda Cliente Ecommerce)', unitPrice: 60, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 200 }], description: 'Instalación de piso de ingeniería de roble (precio por m², incluye instalación).', imageUrl: 'https://picsum.photos/seed/woodfloor/300/300', skus: ['PIS-MAD-ROB-02'], category: 'Pisos', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isService: true, isEmergencyTaxExempt: false },
-  { id: 'prod-sink-kitchen', name: 'Fregadero Doble Acero Inox. (Tienda Cliente Ecommerce)', unitPrice: 220, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 40 }], description: 'Fregadero de acero inoxidable de alta calidad con dos senos.', imageUrl: 'https://picsum.photos/seed/kitchensink/300/300', skus: ['FRG-COC-DBL-11'], category: 'Fregaderos', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
-  { id: 'prod-paint-latex-white-demo', name: 'Pintura Látex Blanca Interior (Tienda Cliente Ecommerce)', unitPrice: 25, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 150 }], description: 'Galón de pintura látex blanca para interiores, lavable y de alta cubrición.', imageUrl: 'https://picsum.photos/seed/whitelatexpaint/300/300', skus: ['PNT-LAT-BLC-GL'], category: 'Pinturas', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
-  { id: 'prod-tools-set-basic-demo', name: 'Juego Básico Herramientas (Tienda Cliente Ecommerce)', unitPrice: 45, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 75 }], description: 'Incluye martillo, destornilladores, alicates y cinta métrica.', imageUrl: 'https://picsum.photos/seed/toolsetbasic/300/300', skus: ['TL-SET-BSC-01'], category: 'Herramientas', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
-  { id: 'prod-lighting-led-demo', name: 'Bombillo LED Ahorrador (Tienda Cliente Ecommerce)', unitPrice: 8, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 300 }], description: 'Bombillo LED de 9W, luz blanca fría, alta eficiencia.', imageUrl: 'https://picsum.photos/seed/ledbulbdemo/300/300', skus: ['LED-BLB-9W-CW'], category: 'Iluminación', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
-  { id: 'prod-cement-bag-demo', name: 'Bolsa de Cemento Gris (Tienda Cliente Ecommerce)', unitPrice: 12, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 80 }], description: 'Bolsa de cemento Portland gris de 42.5kg.', imageUrl: 'https://picsum.photos/seed/cementbag/300/300', skus: ['CMT-GRS-42KG'], category: 'Construcción', ivaRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
+  { id: 'prod-tile-ceramic', name: 'Azulejo Cerámico Blanco (Tienda Cliente Ecommerce)', unitPrice: 5, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 1000 }, { branchId: 'branch-central', quantity: 120 }], description: 'Azulejo cerámico blanco brillante (precio por m²). Ideal para baños y cocinas.', imageUrl: 'https://picsum.photos/seed/ceramictile/300/300', skus: ['AZL-CER-BLC-01'], category: 'Revestimientos', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false, material: 'Cerámica', quality: 'Primera Calidad', width: 30, length: 60, height: 0.8, weight: 1.5 },
+  { id: 'prod-counter-granite', name: 'Encimera de Granito Negro (Tienda Cliente Ecommerce)', unitPrice: 180, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 50 }], description: 'Encimera de granito pulido (precio por metro lineal). Resistente y elegante.', imageUrl: 'https://picsum.photos/seed/granitecounter/300/300', skus: ['ENC-GRA-NEG-05'], category: 'Encimeras', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
+  { id: 'prod-flooring-wood', name: 'Instalación de Piso de Madera (Tienda Cliente Ecommerce)', unitPrice: 60, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 200 }], description: 'Instalación de piso de ingeniería de roble (precio por m², incluye instalación).', imageUrl: 'https://picsum.photos/seed/woodfloor/300/300', skus: ['PIS-MAD-ROB-02'], category: 'Pisos', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isService: true, isEmergencyTaxExempt: false },
+  { id: 'prod-sink-kitchen', name: 'Fregadero Doble Acero Inox. (Tienda Cliente Ecommerce)', unitPrice: 220, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 40 }], description: 'Fregadero de acero inoxidable de alta calidad con dos senos.', imageUrl: 'https://picsum.photos/seed/kitchensink/300/300', skus: ['FRG-COC-DBL-11'], category: 'Fregaderos', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
+  { id: 'prod-paint-latex-white-demo', name: 'Pintura Látex Blanca Interior (Tienda Cliente Ecommerce)', unitPrice: 25, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 150 }], description: 'Galón de pintura látex blanca para interiores, lavable and de alta cubrición.', imageUrl: 'https://picsum.photos/seed/whitelatexpaint/300/300', skus: ['PNT-LAT-BLC-GL'], category: 'Pinturas', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
+  { id: 'prod-tools-set-basic-demo', name: 'Juego Básico Herramientas (Tienda Cliente Ecommerce)', unitPrice: 45, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 75 }], description: 'Incluye martillo, destornilladores, alicates y cinta métrica.', imageUrl: 'https://picsum.photos/seed/toolsetbasic/300/300', skus: ['TL-SET-BSC-01'], category: 'Herramientas', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
+  { id: 'prod-lighting-led-demo', name: 'Bombillo LED Ahorrador (Tienda Cliente Ecommerce)', unitPrice: 8, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 300 }], description: 'Bombillo LED de 9W, luz blanca fría, alta eficiencia.', imageUrl: 'https://picsum.photos/seed/ledbulbdemo/300/300', skus: ['LED-BLB-9W-CW'], category: 'Iluminación', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
+  { id: 'prod-cement-bag-demo', name: 'Bolsa de Cemento Gris (Tienda Cliente Ecommerce)', unitPrice: 12, stockByBranch: [{ branchId: ECOMMERCE_CLIENT_ID, quantity: 80 }], description: 'Bolsa de cemento Portland gris de 42.5kg.', imageUrl: 'https://picsum.photos/seed/cementbag/300/300', skus: ['CMT-GRS-42KG'], category: 'Construcción', ivuRate: 0.16, storeOwnerId: ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
 
   
-  { id: 'prod-cabinets-modern', name: 'Juego de Gabinetes Modernos (General)', unitPrice: 2500, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 15 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 5 }], description: 'Set completo de gabinetes de melamina blanca, estilo minimalista.', imageUrl: 'https://picsum.photos/seed/kitchencabinets/300/300', skus: ['GAB-COC-MOD-03'], category: 'Gabinetes', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false, material: 'Melamina sobre MDF', quality: 'Grado Residencial', width: 240, length: 60, height: 90, weight: 120, compatibility: 'No requiere ensamblaje especializado. Incluye herrajes estándar.' },
-  { id: 'prod-paint-interior', name: 'Servicio de Pintura Interior (Global Pazzi)', unitPrice: 300, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 99 }], description: 'Pintura interior de alta calidad (materiales). Precio por habitación estándar.', imageUrl: 'https://picsum.photos/seed/interiorpaint/300/300', skus: ['SRV-PNT-INT-10'], category: 'Servicios de Pintura', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-pinturas-max', isService: true, isEmergencyTaxExempt: false },
-  { id: 'prod-shower-set', name: 'Set de Ducha Lujosa (Global Pazzi)', unitPrice: 450, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 30 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 10 }], description: 'Incluye cabezal de ducha tipo lluvia, teleducha y grifería termostática.', imageUrl: 'https://picsum.photos/seed/showerset/300/300', skus: ['GRI-DUC-LUX-07'], category: 'Grifería y Sanitarios', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-herrajes-sur', isEmergencyTaxExempt: false },
-  { id: 'prod-vanity-bath', name: 'Mueble de Baño con Lavabo (Global Pazzi)', unitPrice: 350, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 25 }], description: 'Mueble de baño suspendido con lavabo de cerámica y espejo.', imageUrl: 'https://picsum.photos/seed/bathvanity/300/300', skus: ['MBL-BAN-LAV-08'], category: 'Muebles de Baño', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false },
-  { id: 'prod-design-consultation', name: 'Consulta de Diseño Interior (Global Pazzi)', unitPrice: 150, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 99 }], description: 'Sesión de 1 hora con un diseñador de interiores profesional.', imageUrl: '', skus: ['SRV-DIS-CONS-01'], category: 'Servicios de Diseño', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, isService: true, isEmergencyTaxExempt: false },
-  { id: 'prod-smart-thermostat', name: 'Termostato Inteligente WiFi (Global Pazzi)', unitPrice: 120, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 60 }], description: 'Controla la temperatura de tu hogar desde cualquier lugar.', imageUrl: 'https://picsum.photos/seed/smartthermostat/300/300', skus: ['DOM-TER-WIFI-01'], category: 'Domótica', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-aluminios-global', isEmergencyTaxExempt: false },
-  { id: 'prod-security-camera-admin', name: 'Cámara de Seguridad WiFi (Global Pazzi)', unitPrice: 85, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 40 }], description: 'Cámara de seguridad Full HD con visión nocturna y detección de movimiento.', imageUrl: 'https://picsum.photos/seed/securitycamera/300/300', skus: ['SEC-CAM-WIFI-01'], category: 'Seguridad', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-aluminios-global', isEmergencyTaxExempt: false },
-  { id: 'prod-door-lock-admin', name: 'Cerradura Inteligente (Global Pazzi)', unitPrice: 190, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 22 }], description: 'Cerradura inteligente con teclado numérico y acceso vía app.', imageUrl: '', skus: ['SEC-LCK-SMRT-02'], category: 'Seguridad', ivaRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-herrajes-sur', isEmergencyTaxExempt: false },
+  { id: 'prod-cabinets-modern', name: 'Juego de Gabinetes Modernos (General)', unitPrice: 2500, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 15 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 5 }], description: 'Set completo de gabinetes de melamina blanca, estilo minimalista.', imageUrl: 'https://picsum.photos/seed/kitchencabinets/300/300', skus: ['GAB-COC-MOD-03'], category: 'Gabinetes', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false, material: 'Melamina sobre MDF', quality: 'Grado Residencial', width: 240, length: 60, height: 90, weight: 120, compatibility: 'No requiere ensamblaje especializado. Incluye herrajes estándar.' },
+  { id: 'prod-paint-interior', name: 'Servicio de Pintura Interior (Global Pazzi)', unitPrice: 300, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 99 }], description: 'Pintura interior de alta calidad (materiales). Precio por habitación estándar.', imageUrl: 'https://picsum.photos/seed/interiorpaint/300/300', skus: ['SRV-PNT-INT-10'], category: 'Servicios de Pintura', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-pinturas-max', isService: true, isEmergencyTaxExempt: false },
+  { id: 'prod-shower-set', name: 'Set de Ducha Lujosa (Global Pazzi)', unitPrice: 450, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 30 }, { branchId: INITIAL_BRANCHES[1].id, quantity: 10 }], description: 'Incluye cabezal de ducha tipo lluvia, teleducha y grifería termostática.', imageUrl: 'https://picsum.photos/seed/showerset/300/300', skus: ['GRI-DUC-LUX-07'], category: 'Grifería y Sanitarios', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-herrajes-sur', isEmergencyTaxExempt: false },
+  { id: 'prod-vanity-bath', name: 'Mueble de Baño con Lavabo (Global Pazzi)', unitPrice: 350, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 25 }], description: 'Mueble de baño suspendido con lavabo de cerámica y espejo.', imageUrl: 'https://picsum.photos/seed/bathvanity/300/300', skus: ['MBL-BAN-LAV-08'], category: 'Muebles de Baño', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-maderas-norte', isEmergencyTaxExempt: false },
+  { id: 'prod-design-consultation', name: 'Consulta de Diseño Interior (Global Pazzi)', unitPrice: 150, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 99 }], description: 'Sesión de 1 hora con un diseñador de interiores profesional.', imageUrl: '', skus: ['SRV-DIS-CONS-01'], category: 'Servicios de Diseño', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, isService: true, isEmergencyTaxExempt: false },
+  { id: 'prod-smart-thermostat', name: 'Termostato Inteligente WiFi (Global Pazzi)', unitPrice: 120, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 60 }], description: 'Controla la temperatura de tu hogar desde cualquier lugar.', imageUrl: 'https://picsum.photos/seed/smartthermostat/300/300', skus: ['DOM-TER-WIFI-01'], category: 'Domótica', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-aluminios-global', isEmergencyTaxExempt: false },
+  { id: 'prod-security-camera-admin', name: 'Cámara de Seguridad WiFi (Global Pazzi)', unitPrice: 85, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 40 }], description: 'Cámara de seguridad Full HD con visión nocturna y detección de movimiento.', imageUrl: 'https://picsum.photos/seed/securitycamera/300/300', skus: ['SEC-CAM-WIFI-01'], category: 'Seguridad', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-aluminios-global', isEmergencyTaxExempt: false },
+  { id: 'prod-door-lock-admin', name: 'Cerradura Inteligente (Global Pazzi)', unitPrice: 190, stockByBranch: [{ branchId: firstActiveBranchId, quantity: 22 }], description: 'Cerradura inteligente con teclado numérico y acceso vía app.', imageUrl: '', skus: ['SEC-LCK-SMRT-02'], category: 'Seguridad', ivuRate: 0.16, storeOwnerId: ADMIN_USER_ID, supplierId: 'sup-herrajes-sur', isEmergencyTaxExempt: false },
   { 
     id: 'prod-cable-electric', 
     name: 'Cable Eléctrico THHN #12', 
@@ -107,7 +108,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     imageUrl: 'https://picsum.photos/seed/electricwire/300/300', 
     skus: ['CAB-THHN-12'], 
     category: 'Electricidad', 
-    ivaRate: 0.16, 
+    ivuRate: 0.16, 
     storeOwnerId: ADMIN_USER_ID,
     isEmergencyTaxExempt: false,
     hasVariations: true,
@@ -118,9 +119,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     ]
   },
   
-  { id: 'prod-garden-tools-another', name: 'Set Herramientas Jardín (Tienda Otro Cliente Ecommerce)', unitPrice: 75, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 50 }], description: 'Set completo para jardinería, palas, rastrillo, tijeras.', imageUrl: 'https://picsum.photos/seed/gardentools/300/300', skus: ['JAR-TLS-SET-01'], category: 'Jardinería', ivaRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
-  { id: 'prod-outdoor-lighting-another', name: 'Lámpara Solar Exterior (Tienda Otro Cliente Ecommerce)', unitPrice: 30, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 120 }], description: 'Lámpara solar LED para jardín, resistente al agua.', imageUrl: 'https://picsum.photos/seed/outdoorlight/300/300', skus: ['EXT-SOL-LMP-05'], category: 'Iluminación Exterior', ivaRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
-  { id: 'prod-plant-pot-another', name: 'Maceta Grande Terracota (Tienda Otro Cliente Ecommerce)', unitPrice: 40, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 60 }], description: 'Maceta de terracota de 50cm de diámetro, ideal para arbustos.', imageUrl: 'https://picsum.photos/seed/plantpot/300/300', skus: ['JAR-POT-TER-50'], category: 'Macetas', ivaRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
+  { id: 'prod-garden-tools-another', name: 'Set Herramientas Jardín (Tienda Otro Cliente Ecommerce)', unitPrice: 75, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 50 }], description: 'Set completo para jardinería, palas, rastrillo, tijeras.', imageUrl: 'https://picsum.photos/seed/gardentools/300/300', skus: ['JAR-TLS-SET-01'], category: 'Jardinería', ivuRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
+  { id: 'prod-outdoor-lighting-another', name: 'Lámpara Solar Exterior (Tienda Otro Cliente Ecommerce)', unitPrice: 30, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 120 }], description: 'Lámpara solar LED para jardín, resistente al agua.', imageUrl: 'https://picsum.photos/seed/outdoorlight/300/300', skus: ['EXT-SOL-LMP-05'], category: 'Iluminación Exterior', ivuRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: true },
+  { id: 'prod-plant-pot-another', name: 'Maceta Grande Terracota (Tienda Otro Cliente Ecommerce)', unitPrice: 40, stockByBranch: [{ branchId: ANOTHER_ECOMMERCE_CLIENT_ID, quantity: 60 }], description: 'Maceta de terracota de 50cm de diámetro, ideal para arbustos.', imageUrl: 'https://picsum.photos/seed/plantpot/300/300', skus: ['JAR-POT-TER-50'], category: 'Macetas', ivuRate: 0.16, storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID, isEmergencyTaxExempt: false },
   { 
     id: 'prod-bbq-grill-another', 
     name: 'FOXTAIL PARILLA PAILA (Tienda Otro Cliente Ecommerce)', 
@@ -130,7 +131,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     imageUrl: 'https://picsum.photos/seed/bbqgrill/300/300', 
     skus: ["675451027653", "415022"], 
     category: 'MISCELANEO', 
-    ivaRate: 0.16, 
+    ivuRate: 0.16, 
     storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID,
     barcode2: '',
     isActive: true,
@@ -173,6 +174,7 @@ export const INITIAL_DEPARTMENTS: Department[] = [
 ];
 
 export const INITIAL_CLIENTS: Client[] = [
+  { id: DEFAULT_CLIENT_ID, name: 'Consumidor', lastName: 'Final', email: 'consumidor@final.com', phone: '', address: '', clientType: 'Particular', isActive: true, category: 'Consumidor Final' },
   { id: 'client-1', name: 'Roberto', lastName: 'Gómez', email: 'roberto.gomez@example.com', phone: '555-1234', address: 'Calle Falsa 123, Ciudad Ejemplo', clientType: 'Particular', acquisitionSource: 'Referido', isActive: true, creditLimit: 500, paymentTerms: 'Neto 30', category: 'Cliente General', loyaltyLevel: 'Bronce' },
   { id: 'client-2', name: 'Lucía', lastName: 'Fernández', email: 'lucia.fernandez@example.com', phone: '555-5678', address: 'Avenida Siempre Viva 742, Ciudad Ejemplo', clientType: 'Particular', acquisitionSource: 'Búsqueda Web', isActive: true, creditLimit: 1000, paymentTerms: 'Contado', category: 'Cliente VIP', loyaltyLevel: 'Oro' },
   { id: 'client-3', name: 'Construcciones ABC', lastName: '', email: 'contacto@construabc.com', phone: '555-8765', address: 'Parque Industrial X, Nave 5', clientType: 'Empresa', companyName: 'Construcciones ABC S.A. de C.V.', taxId: 'CABC123456XYZ', contactPersonName: 'Ing. Carlos Torres', industry: 'Construcción', preferredCommunication: 'Email', isActive: true, creditLimit: 25000, paymentTerms: 'Neto 60', category: 'Contratista' },
@@ -373,14 +375,7 @@ export const DEFAULT_ECOMMERCE_SETTINGS: ECommerceSettings = {
     primaryColor: '#0D9488', // Teal-600
 };
 
-// Define initial suppliers
-export const INITIAL_SUPPLIERS: Supplier[] = [
-    { id: 'sup-maderas-norte', name: 'Maderas del Norte S.A.', contactName: 'Juan Pérez', email: 'ventas@maderasnorte.com', phone: '555-1010', address: 'Parque Industrial Norte Lote 5', storeOwnerId: ADMIN_USER_ID },
-    { id: 'sup-herrajes-sur', name: 'Herrajes del Sur Ltda.', contactName: 'Maria López', email: 'pedidos@herrajessur.com', phone: '555-2020', address: 'Av. Principal 234, Zona Sur', storeOwnerId: ADMIN_USER_ID },
-    { id: 'sup-pinturas-max', name: 'Pinturas MaxColor', contactName: 'Luis García', email: 'luis.garcia@maxcolor.com', phone: '555-3030', storeOwnerId: ADMIN_USER_ID },
-    { id: 'sup-aluminios-global', name: 'Aluminios Globales', email: 'info@aluminiosglobales.com', storeOwnerId: ADMIN_USER_ID },
-    { id: 'sup-mipad-pr', name: 'MIPAD DE PR, INC.', email: 'compras@mipad.pr', storeOwnerId: ANOTHER_ECOMMERCE_CLIENT_ID }, // Supplier for client's specific product
-];
+
 
 // Define initial supplier orders
 export const INITIAL_SUPPLIER_ORDERS: SupplierOrder[] = [
@@ -429,8 +424,8 @@ export const INITIAL_SUPPLIER_ORDERS: SupplierOrder[] = [
 
 
 export const INITIAL_NOTIFICATIONS: Notification[] = [
-    { id: 'notif-1', title: 'Nuevo Pedido Recibido', message: 'Pedido #order-1 de Cliente Shopper por $205.50.', timestamp: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), read: true, link: '/ecommerce/orders', type: 'new_order' },
-    { id: 'notif-2', title: 'Chat de Proyecto', message: 'Roberto Gómez: ¿Cómo va el avance con los gabinetes?', timestamp: new Date(new Date().setDate(new Date().getDate()-2)).toISOString(), read: false, link: '/pm/chat', type: 'chat_message' },
+    { id: 'notif-1', title: 'Nuevo Pedido Recibido', message: 'Pedido #order-1 de Cliente Shopper por $205.50.', timestamp: new Date(new Date().setDate(new Date().getDate()-1)).toISOString(), read: true, link: '/ecommerce/orders', type: 'new_order', icon: ShoppingCartIcon },
+    { id: 'notif-2', title: 'Chat de Proyecto', message: 'Roberto Gómez: ¿Cómo va el avance con los gabinetes?', timestamp: new Date(new Date().setDate(new Date().getDate()-2)).toISOString(), read: false, link: '/pm/chat', type: 'chat_message', icon: ChatBubbleLeftRightIcon },
     { id: 'notif-3', title: 'Bajo Stock: Termostato Inteligente', message: 'Quedan solo 5 unidades en Sucursal Central.', timestamp: new Date().toISOString(), read: false, type: 'low_stock', link: '/pos/inventory' }
 ];
 
@@ -516,6 +511,8 @@ export const APP_MODULES_CONFIG = [
       { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon },
       { type: 'link', name: 'Colaboradores', path: '/tienda/employees', icon: UsersIcon },
       { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: BuildingStorefrontIcon },
+      { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: UserGroupIcon },
+      { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon },
     ] as SidebarItemConfig[],
     subModulesAdmin: [] as SidebarItemConfig[],
   },

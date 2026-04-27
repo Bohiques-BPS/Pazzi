@@ -7,7 +7,7 @@ import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES,
 import { TrashIconMini, PlusIcon, ExclamationTriangleIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { POSProjectFormModal } from '../pos/POSProjectFormModal';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 
 interface ClientFormModalProps {
     isOpen: boolean;
@@ -22,6 +22,7 @@ const salespersonOptions = ['ADM ADM', 'Vendedor 1', 'Vendedor 2'];
 
 export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose, client}) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
     const { setClients, clients: allClients, projects } = useData();
     
     const [activeTab, setActiveTab] = useState('General');
@@ -109,8 +110,14 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             setFormData(prev => ({ ...prev, projectIds: selectedProjectIds }));
         } else if (type === 'checkbox') {
              setFormData(prev => ({...prev, [name]: (e.target as HTMLInputElement).checked}));
+        } else if (type === 'number') {
+            if (value === '') {
+                setFormData(prev => ({ ...prev, [name]: undefined }));
+            } else {
+                setFormData(prev => ({ ...prev, [name]: parseFloat(value) }));
+            }
         } else {
-            setFormData(prev => ({...prev, [name]: type === 'number' ? (parseFloat(value) || 0) : value}));
+            setFormData(prev => ({...prev, [name]: value}));
         }
     };
 
@@ -126,6 +133,21 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validation for tax exception date
+        // Convert rates to decimals for comparison if they are stored as percentages (e.g. 11.5 vs 0.115)
+        // In the form they seem to be percentages (0.01 step)
+        const currentMunicipalRate = formData.municipalTaxRate || 0;
+        const defaultRatePercent = (settings.defaultTaxRate || 0.115) * 100;
+        
+        const isTaxModified = Math.abs(currentMunicipalRate - defaultRatePercent) > 0.001;
+        const isTaxZero = currentMunicipalRate === 0;
+        
+        if ((isTaxZero || isTaxModified) && !formData.municipalTaxExemptionUntil) {
+            alert("La fecha de exención municipal es obligatoria si el impuesto es 0 o ha sido modificado.");
+            setActiveTab('Impuestos');
+            return;
+        }
         
         const isDuplicateEmail = allClients.some(
             c => c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
@@ -136,13 +158,31 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         }
 
         if (client) {
-            const updatedClient: Client = { ...client, ...formData };
+            const dataToSave = {
+                ...formData,
+                stateTaxRate: formData.stateTaxRate || 0,
+                municipalTaxRate: formData.municipalTaxRate || 0,
+                creditLimit: formData.creditLimit || 0,
+                chargeValue: formData.chargeValue || 0,
+                balance: formData.balance || 0,
+                loyaltyPoints: formData.loyaltyPoints || 0,
+            };
+            const updatedClient: Client = { ...client, ...dataToSave as any };
             setClients(prev => prev.map(c => c.id === client.id ? updatedClient : c));
             onClose(updatedClient);
         } else {
+            const dataToSave = {
+                ...formData,
+                stateTaxRate: formData.stateTaxRate || 0,
+                municipalTaxRate: formData.municipalTaxRate || 0,
+                creditLimit: formData.creditLimit || 0,
+                chargeValue: formData.chargeValue || 0,
+                balance: formData.balance || 0,
+                loyaltyPoints: formData.loyaltyPoints || 0,
+            };
             const newClient: Client = {
                 ...initialFormState, 
-                ...formData, 
+                ...dataToSave as any, 
                 id: `client-${Date.now()}`,
                 createdDate: new Date().toISOString().split('T')[0],
              };
@@ -211,8 +251,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             <fieldset className="border p-3 rounded dark:border-neutral-600">
                 <legend className="text-sm font-medium px-1">{t('client.taxes.responsibility')}</legend>
                 <div className="grid grid-cols-2 gap-4 pt-2">
-                     <div><label className="block text-sm font-medium">{t('client.taxes.state')}</label><input type="number" name="stateTaxRate" value={formData.stateTaxRate} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
-                     <div><label className="block text-sm font-medium">{t('client.taxes.municipal')}</label><input type="number" name="municipalTaxRate" value={formData.municipalTaxRate} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
+                     <div><label className="block text-sm font-medium">{t('client.taxes.state')}</label><input type="number" name="stateTaxRate" value={formData.stateTaxRate ?? ''} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
+                     <div><label className="block text-sm font-medium">{t('client.taxes.municipal')}</label><input type="number" name="municipalTaxRate" value={formData.municipalTaxRate ?? ''} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
                 </div>
             </fieldset>
             <div><label className="block text-sm font-medium">{t('client.taxes.tax_id')}</label><input type="text" name="taxId" value={formData.taxId} onChange={handleChange} className={inputFormStyle}/></div>
@@ -244,7 +284,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                             <label className="flex items-center text-sm cursor-pointer"><input type="radio" name="chargeValueType" value="percentage" checked={formData.chargeValueType === 'percentage'} onChange={handleChange} className="form-radio mr-1.5"/> %</label>
                             <label className="flex items-center text-sm cursor-pointer"><input type="radio" name="chargeValueType" value="fixed" checked={formData.chargeValueType === 'fixed'} onChange={handleChange} className="form-radio mr-1.5"/> $</label>
                         </div>
-                        <input type="number" name="chargeValue" value={formData.chargeValue} onChange={handleChange} className={`${inputFormStyle} w-24`} step="0.01" />
+                        <input type="number" name="chargeValue" value={formData.chargeValue ?? ''} onChange={handleChange} className={`${inputFormStyle} w-24`} step="0.01" />
                     </div>
                 </div>
                  <div className="mt-4">
@@ -258,7 +298,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const renderCobrosTab = () => (
         <div className="space-y-3">
              <div><label className="block text-sm font-medium">{t('client.payments.balance')}</label><input type="text" value={`$${(formData.balance || 0).toFixed(2)}`} className={`${inputFormStyle} bg-neutral-100 dark:bg-neutral-700`} readOnly/></div>
-             <div><label className="block text-sm font-medium">{t('client.payments.credit_limit')}</label><input type="number" name="creditLimit" value={formData.creditLimit} onChange={handleChange} className={inputFormStyle} placeholder="0.00 (Sin límite)"/></div>
+             <div><label className="block text-sm font-medium">{t('client.payments.credit_limit')}</label><input type="number" name="creditLimit" value={formData.creditLimit ?? ''} onChange={handleChange} className={inputFormStyle} /></div>
              <div><label className="block text-sm font-medium">{t('client.payments.terms')}</label><select name="paymentTerms" value={formData.paymentTerms} onChange={handleChange} className={inputFormStyle}>{paymentTermsOptions.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
              <div><label className="block text-sm font-medium">{t('client.payments.category')}</label><select name="category" value={formData.category} onChange={handleChange} className={inputFormStyle}>{clientCategoryOptions.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
              <div><label className="block text-sm font-medium">{t('client.payments.salesperson')}</label><select name="salesperson" value={formData.salesperson} onChange={handleChange} className={inputFormStyle}>{salespersonOptions.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
@@ -267,19 +307,13 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 <div><label className="block text-sm font-medium">{t('client.payments.business_type')}</label><input type="text" name="businessType" value={formData.businessType} onChange={handleChange} className={inputFormStyle}/></div>
                 <div><label className="block text-sm font-medium">{t('client.payments.zone')}</label><input type="text" name="zone" value={formData.zone} onChange={handleChange} className={inputFormStyle}/></div>
             </div>
-             <div className="pt-4 border-t dark:border-neutral-700 flex flex-col space-y-2">
+             <div className="pt-2 flex items-center space-x-6">
                 <label className="flex items-center text-sm"><input type="checkbox" name="showBalance" checked={!!formData.showBalance} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> {t('client.payments.show_balance')}</label>
-                
-                <div className="flex items-center p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-100 dark:border-red-800">
-                    <label className="flex items-center text-sm font-bold text-red-600 dark:text-red-400 w-full cursor-pointer">
-                        <input type="checkbox" name="isLoss" checked={!!formData.isLoss} onChange={handleChange} className="form-checkbox rounded mr-2 text-red-600 focus:ring-red-500"/>
-                        <ExclamationTriangleIcon className="w-4 h-4 mr-1.5"/>
-                        <span>Cliente en Pérdida (Bad Debt)</span>
-                    </label>
-                </div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 ml-1">
-                    * Al marcar esta opción, las facturas de este cliente se archivarán y solo serán visibles en el "Reporte de Pérdidas", excluyéndose de los reportes de ventas principales.
-                </p>
+                <label className="flex items-center text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded border border-red-200 dark:border-red-800">
+                    <input type="checkbox" name="isLoss" checked={!!formData.isLoss} onChange={handleChange} className="form-checkbox rounded mr-2 text-red-600 focus:ring-red-500"/>
+                    <ExclamationTriangleIcon className="w-4 h-4 mr-1"/>
+                    Cliente en Pérdida
+                </label>
              </div>
         </div>
     );
@@ -298,7 +332,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     
     const renderLoyaltyTab = () => (
         <div className="space-y-3 max-w-md">
-            <div><label className="block text-sm font-medium">{t('client.loyalty.points')}</label><input type="number" name="loyaltyPoints" value={formData.loyaltyPoints} onChange={handleChange} className={inputFormStyle}/></div>
+            <div><label className="block text-sm font-medium">{t('client.loyalty.points')}</label><input type="number" name="loyaltyPoints" value={formData.loyaltyPoints === 0 ? '' : formData.loyaltyPoints} onChange={handleChange} className={inputFormStyle}/></div>
             <div><label className="block text-sm font-medium">{t('client.loyalty.level')}</label><input type="text" name="loyaltyLevel" value={formData.loyaltyLevel} onChange={handleChange} className={inputFormStyle} placeholder="Ej: Bronce, Plata, Oro"/></div>
         </div>
     );

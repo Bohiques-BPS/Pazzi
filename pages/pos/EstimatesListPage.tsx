@@ -226,8 +226,8 @@ export const EstimatesListPage: React.FC = () => {
 
         const newTotalAmount = combinedItems.reduce((sum, item) => {
             const product = getProductById(item.id);
-            const ivaRate = product?.ivaRate ?? 0.16;
-            return sum + (item.unitPrice * item.quantity * (1 + ivaRate));
+            const ivuRate = product?.ivuRate ?? 0.16;
+            return sum + (item.unitPrice * item.quantity * (1 + ivuRate));
         }, 0);
         
         const originalIds = selected.map(e => `#${e.id.slice(-6)}`).join(', ');
@@ -290,13 +290,13 @@ export const EstimatesListPage: React.FC = () => {
     
         // Recalculate totals for the combined items
         const subtotal = combinedItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-        const defaultIVARate = 0.16;
-        const iva = combinedItems.reduce((taxSum, item) => {
+        const defaultIVURate = 0.16;
+        const ivu = combinedItems.reduce((taxSum, item) => {
             const product = getProductById(item.id);
-            const rate = product?.ivaRate ?? defaultIVARate;
+            const rate = product?.ivuRate ?? defaultIVURate;
             return taxSum + (item.unitPrice * item.quantity * rate);
         }, 0);
-        const totalAmount = subtotal + iva;
+        const totalAmount = subtotal + ivu;
     
         // --- PDF Generation using jsPDF ---
         const doc = new jsPDF();
@@ -363,8 +363,8 @@ export const EstimatesListPage: React.FC = () => {
         doc.text("Subtotal:", totalsX, y, { align: 'left' });
         doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
         y += 7;
-        doc.text("IVA:", totalsX, y, { align: 'left' });
-        doc.text(`$${iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+        doc.text("IVU:", totalsX, y, { align: 'left' });
+        doc.text(`$${ivu.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
         y += 7;
         doc.setFont("helvetica", "bold");
         doc.text("TOTAL ESTIMADO:", totalsX, y, { align: 'left' });

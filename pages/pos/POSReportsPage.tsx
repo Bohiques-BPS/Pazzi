@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '../../contexts/DataContext'; 
 import { Sale, Client, Employee } from '../../types'; 
-import { ChartBarIcon, ChartPieIcon, ArrowUpIcon, ArrowDownIcon, BanknotesIcon, UserGroupIcon, UsersIcon, ClockIcon, EyeIcon, EyeSlashIcon, ExclamationTriangleIcon } from '../../components/icons'; 
+import { ChartBarIcon, ChartPieIcon, ArrowUpIcon, ArrowDownIcon, BanknotesIcon, UserGroupIcon, UsersIcon, ClockIcon, EyeIcon, EyeSlashIcon } from '../../components/icons'; 
 import { BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; 
@@ -52,22 +52,15 @@ export const POSReportsPage: React.FC = () => {
     const [customStartDate, setCustomStartDate] = useState<string>(getISODateString(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
     const [customEndDate, setCustomEndDate] = useState<string>(getISODateString(new Date()));
     const [includeExternalSales, setIncludeExternalSales] = useState(false); // Default to excluding external sales
-    const [showLossReport, setShowLossReport] = useState(false); // New filter for Loss
 
     const filteredSales = useMemo(() => {
         const { start, end } = getDateRange(dateFilterKey, dateFilterKey === 'custom' ? new Date(customStartDate) : undefined, dateFilterKey === 'custom' ? new Date(customEndDate) : undefined);
         return sales.filter(s => {
             const inDateRange = new Date(s.date) >= start && new Date(s.date) <= end;
             const externalCheck = includeExternalSales ? true : !s.isExternal; // Filter external unless toggled
-            
-            // Loss Check
-            const client = s.clientId ? getClientById(s.clientId) : null;
-            const isClientLoss = client?.isLoss || false;
-            const lossCheck = showLossReport ? isClientLoss : !isClientLoss; // If showing loss report, only show loss clients. If not, exclude them.
-
-            return inDateRange && externalCheck && lossCheck;
+            return inDateRange && externalCheck;
         });
-    }, [sales, dateFilterKey, customStartDate, customEndDate, includeExternalSales, showLossReport, getClientById]);
+    }, [sales, dateFilterKey, customStartDate, customEndDate, includeExternalSales]);
     
     // Basic Stats
     const totalRevenue = useMemo(() => filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0), [filteredSales]);
@@ -173,27 +166,9 @@ export const POSReportsPage: React.FC = () => {
     return (
         <div className="p-4 md:p-6 space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
-                    {showLossReport ? 'Reporte de Pérdidas / Cuentas Incobrables' : t('reports.pos.title')}
-                </h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('reports.pos.title')}</h1>
                 
                 <div className="flex flex-wrap gap-2 items-center">
-                    {/* Loss Report Toggle */}
-                    <button
-                        onClick={() => setShowLossReport(!showLossReport)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center ${
-                            showLossReport 
-                                ? 'bg-red-600 text-white border border-red-700' 
-                                : 'bg-white dark:bg-neutral-800 text-red-600 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20'
-                        }`}
-                        title="Ver reporte de clientes marcados como pérdida"
-                    >
-                        <ExclamationTriangleIcon className="w-4 h-4 mr-1.5"/>
-                        {showLossReport ? 'Viendo Reporte de Pérdidas' : 'Ver Reporte de Pérdidas'}
-                    </button>
-
-                    <div className="h-6 w-px bg-neutral-300 dark:bg-neutral-600 mx-1 hidden sm:block"></div>
-
                     {/* External Sales Toggle */}
                     <button
                         onClick={() => setIncludeExternalSales(!includeExternalSales)}
@@ -223,7 +198,7 @@ export const POSReportsPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title={showLossReport ? "Total Pérdida" : t('reports.pos.net_sales')} value={`$${totalRevenue.toFixed(2)}`} icon={<ChartBarIcon className="w-5 h-5" />} />
+                <StatCard title={t('reports.pos.net_sales')} value={`$${totalRevenue.toFixed(2)}`} icon={<ChartBarIcon className="w-5 h-5" />} />
                 <StatCard title={t('reports.pos.total_returns')} value={`$${returnsData.totalAmount.toFixed(2)}`} subValue={`${returnsData.count} transacciones`} icon={<ArrowDownIcon className="w-5 h-5 text-red-500" />} />
                 <StatCard title={t('reports.pos.transactions')} value={totalTransactions.toString()} icon={<ChartPieIcon className="w-5 h-5" />} />
                 <StatCard title={t('reports.pos.avg_ticket')} value={`$${averageTicket.toFixed(2)}`} />

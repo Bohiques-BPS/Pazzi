@@ -1,195 +1,99 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User, UserRole } from '../types';
 
-import React, { useState, createContext, useContext, useEffect } from 'react';
-import { User, UserRole, EmployeePermissions, AlertSettings } from '../types';
-import { DEFAULT_USERS, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_USER_ID } from '../constants';
-import { db } from '../services/db';
-
-export interface AuthContextType {
+interface AuthContextType {
   currentUser: User | null;
-  login: (email: string, pass: string) => Promise<boolean>;
-  loginWithPin: (userId: string, pin: string) => Promise<boolean>;
-  register: (name: string, lastName: string, email: string, pass: string, role: UserRole, options?: { profilePictureUrl?: string; permissions?: EmployeePermissions }) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<any>;
+  register: (name: string, lastName: string, email: string, password: string, role: UserRole) => Promise<any>;
   logout: () => void;
-  allUsers: (User & { password?: string })[];
-  updateUserPassword: (userId: string, currentPasswordPlain: string, newPasswordPlain: string) => Promise<{success: boolean, message: string}>;
-  toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>; 
-  updateUserAlertSettings: (userId: string, newSettings: AlertSettings) => Promise<boolean>;
-  updateUser: (userId: string, updates: Partial<User & { password?: string; pin?: string }>) => Promise<boolean>;
-  isLoading: boolean;
+  loading: boolean;
 }
 
-export const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const API_URL = 'http://localhost:3001/api'; // Sincronizado con el backend
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<(User & { password?: string })[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // Initialize Data from DB
+  // Verificación de sesión al cargar la app
   useEffect(() => {
-    const initAuth = async () => {
-        try {
-            const storedUser = await db.migrateFromLocalStorage('pazziCurrentUser', null);
-            const storedAllUsers = await db.migrateFromLocalStorage('pazziAllUsers', [...DEFAULT_USERS]);
-            
-            setCurrentUser(storedUser);
-            setAllUsers(storedAllUsers);
-        } catch (e) {
-            console.error("Failed to load auth data", e);
-            setAllUsers([...DEFAULT_USERS]);
-        } finally {
-            setIsLoading(false);
+    const verifySession = async () => {
+      const token = localStorage.getItem('pazzi_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/auth/verify`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUser(userData);
+        } else {
+          localStorage.removeItem('pazzi_token');
         }
+      } catch (error) {
+        console.error("Error verificando sesión:", error);
+      } finally {
+        setLoading(false);
+      }
     };
-    initAuth();
+
+    verifySession();
   }, []);
 
-  // Persist Data on Change
-  useEffect(() => {
-    if (!isLoading) {
-        db.set('pazziCurrentUser', currentUser);
-    }
-  }, [currentUser, isLoading]);
-  
-  useEffect(() => {
-    if (!isLoading && allUsers.length > 0) {
-        db.set('pazziAllUsers', allUsers);
-    }
-  }, [allUsers, isLoading]);
+  const login = async (email: string, password: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-
-  const login = async (email: string, pass: string): Promise<boolean> => {
-    let userToLogin: User | null = null;
-
-    const existingUser = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pass);
-    if (existingUser) {
-        userToLogin = existingUser;
+      if (response.ok) {
+        const { token, user } = await response.json();
+        localStorage.setItem('pazzi_token', token);
+        setCurrentUser(user);
+        return { success: true };
+      }
+      const errorData = await response.json();
+      throw errorData;
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
     }
-
-    if (userToLogin) {
-        setCurrentUser(userToLogin);
-        return true;
-    }
-    
-    alert('Credenciales incorrectas.');
-    return false;
   };
 
-  const loginWithPin = async (userId: string, pin: string): Promise<boolean> => {
-    const userToLogin = allUsers.find(u => u.id === userId);
-    if (userToLogin && userToLogin.pin === pin) {
-        setCurrentUser(userToLogin);
-        return true;
-    }
-    return false;
-  };
+  const register = async (name: string, lastName: string, email: string, password: string, role: UserRole): Promise<any> => {
+    try {
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, lastName, email, password, role }),
+      });
 
-  const register = async (name: string, lastName: string, email: string, pass: string, role: UserRole, options?: { profilePictureUrl?: string; permissions?: EmployeePermissions }): Promise<boolean> => {
-    if (allUsers.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-      alert('El email ya está registrado.');
-      return false;
+      if (response.ok) {
+        return { success: true };
+      }
+      const errorData = await response.json();
+      throw errorData;
+    } catch (error) {
+      console.error("Registration error:", error);
+      throw error;
     }
-    // Ensure only valid assignable roles can be registered
-    if (![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT, UserRole.MANAGER, UserRole.EMPLOYEE].includes(role)) {
-        alert('Tipo de cuenta inválido para registro.');
-        return false;
-    }
-    const newUser: User & {password: string} = { 
-        id: `user-${Date.now()}`, 
-        email, 
-        name, 
-        lastName, 
-        role, 
-        password: pass, 
-        isEmergencyOrderActive: false, // Default for new users
-        profilePictureUrl: options?.profilePictureUrl || '',
-        permissions: options?.permissions,
-    };
-    setAllUsers(prev => [...prev, newUser]);
-    alert('Registro exitoso. Por favor, inicie sesión.');
-    return true;
   };
 
   const logout = () => {
+    localStorage.removeItem('pazzi_token');
     setCurrentUser(null);
   };
-  
-  const updateUser = async (userId: string, updates: Partial<User & { password?: string }>): Promise<boolean> => {
-    const userIndex = allUsers.findIndex(u => u.id === userId);
-    if (userIndex === -1) {
-        console.error("User not found for update");
-        return false;
-    }
-
-    const updatedUsers = [...allUsers];
-    updatedUsers[userIndex] = { ...updatedUsers[userIndex], ...updates };
-    setAllUsers(updatedUsers);
-    
-    if (currentUser && currentUser.id === userId) {
-        setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
-    }
-    return true;
-  };
-
-  const updateUserPassword = async (userId: string, currentPasswordPlain: string, newPasswordPlain: string): Promise<{success: boolean, message: string}> => {
-    const userIndex = allUsers.findIndex(u => u.id === userId);
-    if (userIndex === -1) {
-        return { success: false, message: "Usuario no encontrado." };
-    }
-    const userToUpdate = allUsers[userIndex];
-    if (userToUpdate.password !== currentPasswordPlain) {
-        return { success: false, message: "La contraseña actual es incorrecta." };
-    }
-    
-    const updatedUsers = [...allUsers];
-    updatedUsers[userIndex] = { ...userToUpdate, password: newPasswordPlain };
-    setAllUsers(updatedUsers);
-    
-    if (currentUser && currentUser.id === userId) {
-        setCurrentUser(prev => prev ? { ...prev } : null); // Password isn't stored in currentUser directly for display
-    }
-    
-    return { success: true, message: "Contraseña actualizada correctamente." };
-  };
-
-  const toggleUserEmergencyOrderMode = async (userId: string): Promise<boolean> => {
-    const userIndex = allUsers.findIndex(u => u.id === userId);
-    if (userIndex === -1) {
-        console.error("User not found for emergency mode toggle");
-        return false;
-    }
-    
-    const updatedUsers = [...allUsers];
-    const currentEmergencyStatus = updatedUsers[userIndex].isEmergencyOrderActive || false;
-    updatedUsers[userIndex] = { ...updatedUsers[userIndex], isEmergencyOrderActive: !currentEmergencyStatus };
-    setAllUsers(updatedUsers);
-    
-    if (currentUser && currentUser.id === userId) {
-        setCurrentUser(prev => prev ? { ...prev, isEmergencyOrderActive: !currentEmergencyStatus } : null);
-    }
-    return true;
-  };
-
-  const updateUserAlertSettings = async (userId: string, newSettings: AlertSettings): Promise<boolean> => {
-    const userIndex = allUsers.findIndex(u => u.id === userId);
-    if (userIndex === -1) {
-        console.error("User not found for updating alert settings");
-        return false;
-    }
-    
-    const updatedUsers = [...allUsers];
-    updatedUsers[userIndex] = { ...updatedUsers[userIndex], alertSettings: newSettings };
-    setAllUsers(updatedUsers);
-    
-    if (currentUser && currentUser.id === userId) {
-        setCurrentUser(prev => prev ? { ...prev, alertSettings: newSettings } : null);
-    }
-    return true;
-  };
-
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, register, logout, allUsers, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings, loginWithPin, updateUser, isLoading }}>
+    <AuthContext.Provider value={{ currentUser, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
@@ -197,6 +101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) throw new Error('useAuth debe usarse dentro de un AuthProvider');
   return context;
 };

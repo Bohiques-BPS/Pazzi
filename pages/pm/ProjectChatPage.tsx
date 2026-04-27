@@ -3,10 +3,9 @@ import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { useAuth } from '../../contexts/AuthContext'; // Adjusted path
 import { ProjectStatus, Client, Employee, UserRole } from '../../types'; // Adjusted path, Added UserRole
 import { ChatMessageItem } from './ChatMessageItem'; // Adjusted path
-import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon, SparklesIcon } from '../../components/icons'; // Adjusted path
-import { inputFormStyle, BUTTON_PRIMARY_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon } from '../../components/icons'; // Adjusted path
+import { inputFormStyle, BUTTON_PRIMARY_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { CallModal } from '../../components/CallModal'; // Added CallModal
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai"; // Added Gemini
 
 export const ProjectChatPage: React.FC = () => {
     const { projects: allProjectsContext, clients, employees: allEmployeesHook, chatMessages, addChatMessage, getChatMessagesForProject, getClientById, getEmployeeById } = useData();
@@ -19,7 +18,6 @@ export const ProjectChatPage: React.FC = () => {
     const [callType, setCallType] = useState<'video' | 'audio'>('video');
     const [callParticipants, setCallParticipants] = useState<string[]>([]);
 
-    const [isAiGenerating, setIsAiGenerating] = useState(false); // AI loading state
     const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
 
     const activeProjects = useMemo(() => {
@@ -61,51 +59,6 @@ export const ProjectChatPage: React.FC = () => {
         }
     };
 
-    const handleGenerateAiResponse = async () => {
-        if (!selectedProject || !currentUser || isAiGenerating || isEmployeeView) return;
-
-        setIsAiGenerating(true);
-        const lastClientMessages = projectMessages
-            .filter(msg => msg.senderId !== currentUser.id)
-            .slice(-3) 
-            .map(msg => `${msg.senderName}: ${msg.text}`)
-            .join('\n');
-
-        let contextPrompt = "El cliente no ha dicho nada recientemente.";
-        if (lastClientMessages) {
-            contextPrompt = `Historial reciente del chat (últimos mensajes del cliente/otra parte):\n${lastClientMessages}`;
-        } else if (selectedProject.description) {
-            contextPrompt = `El proyecto tiene la siguiente descripción: ${selectedProject.description}`;
-        }
-        
-        const prompt = `Eres un asistente virtual para Pazzi, una empresa de remodelaciones.
-Estás chateando sobre el proyecto: '${selectedProject.name}'.
-${contextPrompt}
-
-Por favor, genera una respuesta profesional y amigable. Si es una pregunta sobre el estado, intenta ser informativo si es posible, o indica que se verificará. Evita prometer cosas que no puedes asegurar.
-La respuesta debe ser solo el texto para enviar al cliente, sin introducciones como "Aquí tienes una respuesta:" o similar.`;
-
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-            const response: GenerateContentResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: prompt,
-            });
-            
-            const aiText = response.text;
-            if (aiText) {
-                setNewMessage(aiText.trim());
-            } else {
-                alert("La IA no pudo generar una respuesta en este momento.");
-            }
-        } catch (error) {
-            console.error("Error generating AI response:", error);
-            alert("Error al contactar con el servicio de IA. Por favor, inténtelo más tarde.");
-        } finally {
-            setIsAiGenerating(false);
-        }
-    };
-    
     if (!currentUser) {
         return <div className="p-6 text-center text-neutral-500 dark:text-neutral-400">Por favor, inicie sesión para usar el chat.</div>;
     }
@@ -225,18 +178,6 @@ La respuesta debe ser solo el texto para enviar al cliente, sin introducciones c
                         {/* Message Input */}
                         <div className="p-3 sm:p-4 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2 sm:space-x-3">
-                                {!isEmployeeView && ( // Only show AI button for Manager
-                                    <button
-                                        type="button"
-                                        onClick={handleGenerateAiResponse}
-                                        className={`${BUTTON_SECONDARY_SM_CLASSES} !py-2 !px-2.5 rounded-lg flex-shrink-0`}
-                                        disabled={isAiGenerating}
-                                        title="Generar respuesta con IA"
-                                        aria-label="Generar respuesta con IA"
-                                    >
-                                        <SparklesIcon className={`${isAiGenerating ? 'animate-pulse' : ''}`} />
-                                    </button>
-                                )}
                                 <textarea
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
@@ -246,16 +187,15 @@ La respuesta debe ser solo el texto para enviar al cliente, sin introducciones c
                                             handleSendMessage();
                                         }
                                     }}
-                                    placeholder={isAiGenerating ? "Generando respuesta AI..." : "Escribe un mensaje..."}
+                                    placeholder="Escribe un mensaje..."
                                     className={`${inputFormStyle} flex-grow !py-2 resize-none max-h-24`}
                                     rows={1}
                                     aria-label="Escribir mensaje"
-                                    disabled={isAiGenerating}
                                 />
                                 <button 
                                     type="submit" 
                                     className={`${BUTTON_PRIMARY_CLASSES} !py-2 !px-3 sm:!px-4 rounded-lg flex items-center justify-center flex-shrink-0`}
-                                    disabled={!newMessage.trim() || isAiGenerating}
+                                    disabled={!newMessage.trim()}
                                     aria-label="Enviar mensaje"
                                 >
                                     <PaperAirplaneIcon />

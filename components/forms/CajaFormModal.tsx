@@ -18,7 +18,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         name: '',
         branchId: activeBranches[0]?.id || '',
         isActive: true,
-        applyIVA: true,
+        applyIVU: true,
         isExternal: false,
     };
     const [formData, setFormData] = useState<CajaFormData>(initialFormData);
@@ -30,7 +30,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                     name: cajaToEdit.name,
                     branchId: cajaToEdit.branchId,
                     isActive: cajaToEdit.isActive,
-                    applyIVA: cajaToEdit.applyIVA,
+                    applyIVU: cajaToEdit.applyIVU,
                     isExternal: cajaToEdit.isExternal || false,
                 });
             } else {
@@ -107,20 +107,20 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                         />
                         Caja Activa
                     </label>
-                     <label htmlFor="applyIVA" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                     <label htmlFor="applyIVU" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
                         <input
                             type="checkbox"
-                            name="applyIVA"
-                            id="applyIVA"
-                            checked={formData.applyIVA}
+                            name="applyIVU"
+                            id="applyIVU"
+                            checked={formData.applyIVU}
                             onChange={handleChange}
                             className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded mr-2"
                         />
-                        Aplicar IVA por Defecto
+                        Aplicar IVU por Defecto
                     </label>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  "Aplicar IVA por Defecto" indica si las ventas procesadas en esta caja deben incluir IVA automáticamente. Esto puede ser ajustado por producto si necesario.
+                  "Aplicar IVU por Defecto" indica si las ventas procesadas en esta caja deben incluir IVU automáticamente. Esto puede ser ajustado por producto si necesario.
                 </p>
 
                 <div className="pt-2 border-t dark:border-neutral-700">
