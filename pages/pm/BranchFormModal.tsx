@@ -5,6 +5,7 @@ import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
+import { API_URL } from './api';
 
 interface BranchFormModalProps {
     isOpen: boolean;
@@ -59,8 +60,8 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
         try {
             const token = localStorage.getItem('pazzi_token');
             const url = branch
-                ? `http://localhost:3001/api/branches/${branch.id}`
-                : 'http://localhost:3001/api/branches';
+                ? `${API_URL}/branches/${branch.id}`
+                : `${API_URL}/branches`;
             
             const method = branch ? 'PUT' : 'POST';
 

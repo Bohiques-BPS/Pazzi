@@ -9,6 +9,8 @@ import { PhotoIcon, LockClosedIcon, BriefcaseIcon, CashBillIcon, KeyIcon, Camera
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 interface EmployeeFormModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -227,7 +229,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({isOpen, onC
                 const uploadFormData = new FormData();
                 uploadFormData.append('file', imageFile); 
 
-                const uploadResponse = await fetch('http://localhost:3001/api/upload', {
+                const uploadResponse = await fetch(`${API_URL}/upload`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
                     body: uploadFormData
@@ -242,8 +244,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({isOpen, onC
             }
 
             const url = employee 
-                ? `http://localhost:3001/api/employees/${employee.id}`
-                : 'http://localhost:3001/api/employees';
+                ? `${API_URL}/employees/${employee.id}`
+                : `${API_URL}/employees`;
             
             const method = employee ? 'PUT' : 'POST';
 

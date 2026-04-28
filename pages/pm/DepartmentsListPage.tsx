@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { API_URL } from './api';
 
 export const DepartmentsListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -24,7 +25,7 @@ export const DepartmentsListPage: React.FC = () => {
         const fetchDepartments = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/departments', {
+                const response = await fetch(`${API_URL}/departments`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -60,7 +61,7 @@ export const DepartmentsListPage: React.FC = () => {
     const confirmDelete = async () => {
         if(itemToDeleteId) {
             try {
-                const response = await fetch(`http://localhost:3001/api/departments/${itemToDeleteId}`, {
+                const response = await fetch(`${API_URL}/departments/${itemToDeleteId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`

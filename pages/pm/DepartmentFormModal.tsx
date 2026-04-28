@@ -5,6 +5,7 @@ import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { API_URL } from './api';
 
 interface DepartmentFormModalProps {
     isOpen: boolean;
@@ -41,8 +42,8 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
         try {
             const token = localStorage.getItem('pazzi_token');
             const url = department
-                ? `http://localhost:3001/api/departments/${department.id}`
-                : 'http://localhost:3001/api/departments';
+                ? `${API_URL}/departments/${department.id}`
+                : `${API_URL}/departments`;
             
             const method = department ? 'PUT' : 'POST';
 

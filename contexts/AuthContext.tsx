@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
+import { API_URL } from '../pages/pm/api';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -10,8 +11,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const API_URL = 'http://localhost:3001/api'; // Sincronizado con el backend
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);

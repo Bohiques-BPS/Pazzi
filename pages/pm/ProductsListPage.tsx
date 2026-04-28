@@ -12,6 +12,7 @@ import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, Cog6Too
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID, inputFormStyle } from '../../constants'; 
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
+import { API_URL } from './api';
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
@@ -51,7 +52,7 @@ export const ProductsListPage: React.FC = () => {
         const fetchProducts = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/products', {
+                const response = await fetch(`${API_URL}/products`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
@@ -122,7 +123,7 @@ export const ProductsListPage: React.FC = () => {
         if (itemToDeleteId) {
            
             try {
-                const response = await fetch(`http://localhost:3001/api/products/${itemToDeleteId}`, {
+                const response = await fetch(`${API_URL}/products/${itemToDeleteId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
@@ -171,8 +172,8 @@ export const ProductsListPage: React.FC = () => {
                         {product.imageUrl ? (
                             <img 
                                 src={product.imageUrl.startsWith('http') 
-                                    ? product.imageUrl 
-                                    : `http://localhost:3001${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}`
+                                    ? product.imageUrl
+                                    : `${API_URL.replace('/api', '')}${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}`
                                 } 
                                 alt={product.name} 
                                 className="w-full h-full object-cover" 

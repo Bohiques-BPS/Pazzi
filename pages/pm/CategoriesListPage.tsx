@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adjusted path
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
+import { API_URL } from './api';
 
 export const CategoriesListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -24,7 +25,7 @@ export const CategoriesListPage: React.FC = () => {
         const fetchCategories = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/categories', {
+                const response = await fetch(`${API_URL}/categories`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -63,7 +64,7 @@ export const CategoriesListPage: React.FC = () => {
     const confirmDelete = async () => {
         if (itemToDeleteId) {
             try {
-                const response = await fetch(`http://localhost:3001/api/categories/${itemToDeleteId}`, {
+                const response = await fetch(`${API_URL}/categories/${itemToDeleteId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
@@ -93,7 +94,7 @@ export const CategoriesListPage: React.FC = () => {
                         <img
                             src={(category as any).imageUrl.startsWith('http')
                                 ? (category as any).imageUrl
-                                : `http://localhost:3001${(category as any).imageUrl.startsWith('/') ? '' : '/'}${(category as any).imageUrl}`
+                                : `${API_URL.replace('/api', '')}${(category as any).imageUrl.startsWith('/') ? '' : '/'}${(category as any).imageUrl}`
                             }
                             alt={category.name} 
                             className="w-full h-full object-cover" 

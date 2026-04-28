@@ -17,6 +17,7 @@ import {
   INITIAL_DEPARTMENTS, INITIAL_TASKS, INITIAL_TASK_COMMENTS 
 } from '../constants';
 import { useAuth } from './AuthContext'; 
+import { API_URL } from '../pages/pm/api';
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons'; // Example icons for notifications
 
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
@@ -167,7 +168,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch('http://localhost:3001/api/categories', {
+                const response = await fetch(`${API_URL}/categories`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -188,7 +189,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchDepartments = async () => {
             try {
-                const response = await fetch('http://localhost:3001/api/departments', {
+                const response = await fetch(`${API_URL}/departments`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }

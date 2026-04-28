@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adjusted path
 import { BUTTON_PRIMARY_SM_CLASSES, EMPLOYEE_ROLES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { API_URL } from './api';
 
 export const EmployeesListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -24,7 +25,7 @@ export const EmployeesListPage: React.FC = () => {
         const fetchEmployees = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/employees', {
+                const response = await fetch(`${API_URL}/employees`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -59,7 +60,7 @@ export const EmployeesListPage: React.FC = () => {
     const confirmDelete = async () => {
         if (itemToDeleteId) {
             try {
-                const response = await fetch(`http://localhost:3001/api/employees/${itemToDeleteId}`, {
+                const response = await fetch(`${API_URL}/employees/${itemToDeleteId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`

@@ -10,6 +10,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { CategoryFormModal } from './CategoryFormModal';
 import { DepartmentFormModal } from './DepartmentFormModal';
 import { BranchFormModal } from './BranchFormModal';
+import { API_URL } from './api';
 
 interface ProductFormModalProps {
     isOpen: boolean;
@@ -299,7 +300,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                 const uploadFormData = new FormData();
                 uploadFormData.append('file', imageFile); 
 
-                const uploadResponse = await fetch('http://localhost:3001/api/upload', {
+                const uploadResponse = await fetch(`${API_URL}/upload`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
                     body: uploadFormData
@@ -314,8 +315,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             }
 
             const url = productToEdit
-                ? `http://localhost:3001/api/products/${productToEdit.id}`
-                : 'http://localhost:3001/api/products';
+                ? `${API_URL}/products/${productToEdit.id}`
+                : `${API_URL}/products`;
             
             const method = productToEdit ? 'PUT' : 'POST';
 

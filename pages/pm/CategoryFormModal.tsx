@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal'; // Adjusted path
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { CameraIcon, TrashIconMini } from '../../components/icons';
+import { API_URL } from './api';
 
 interface CategoryFormModalProps {
     isOpen: boolean;
@@ -68,7 +69,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                 const uploadFormData = new FormData();
                 uploadFormData.append('file', imageFile); 
 
-                const uploadResponse = await fetch('http://localhost:3001/api/upload', {
+                const uploadResponse = await fetch(`${API_URL}/upload`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
                     body: uploadFormData
@@ -83,8 +84,8 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
             }
 
             const url = category
-                ? `http://localhost:3001/api/categories/${category.id}`
-                : 'http://localhost:3001/api/categories';
+                ? `${API_URL}/categories/${category.id}`
+                : `${API_URL}/categories`;
             
             const method = category ? 'PUT' : 'POST';
 
@@ -152,7 +153,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                         <img
                             src={imagePreview.startsWith('http') || imagePreview.startsWith('data:')
                                 ? imagePreview
-                                : `http://localhost:3001${imagePreview.startsWith('/') ? '' : '/'}${imagePreview}`
+                                : `${API_URL.replace('/api', '')}${imagePreview.startsWith('/') ? '' : '/'}${imagePreview}`
                             }
                             alt="Preview" className="w-full h-full object-cover" />
                                 <button type="button" onClick={() => {setImageFile(null); setImagePreview(null);}} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-md"><TrashIconMini className="w-4 h-4" /></button>
