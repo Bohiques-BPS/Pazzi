@@ -162,25 +162,7 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Demo Accounts Section */}
-          <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700">
-            <h3 className="text-lg font-semibold text-center text-neutral-700 dark:text-neutral-300 mb-3">Cuentas de Demostración</h3>
-            <div className="flex space-x-3 overflow-x-auto py-2">
-                {demoUsers.map(user => (
-                    <button key={user.email} onClick={() => handleDemoLogin(user)} className="flex-shrink-0 w-60 p-2.5 bg-neutral-50 dark:bg-neutral-700 rounded-md border border-neutral-200 dark:border-neutral-600 text-left hover:border-primary dark:hover:border-primary transition-colors">
-                        <p className="font-medium text-neutral-700 dark:text-neutral-200 flex items-center text-base mb-0.5">
-                            <UserIconMini className="mr-1 h-4 w-4" />{user.name}
-                        </p>
-                        <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                            Email: <code className="bg-neutral-200 dark:bg-neutral-600 px-1 py-0.5 rounded text-xs">{user.email}</code>
-                        </p>
-                        <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                            Pass: <code className="bg-neutral-200 dark:bg-neutral-600 px-1 py-0.5 rounded text-xs">{user.pass}</code>
-                        </p>
-                    </button>
-                ))}
-            </div>
-          </div>
+          
 
           <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700 text-center">
               <Link to="/" className={`${authSecondaryLinkStyle} inline-flex items-center justify-center`}>
