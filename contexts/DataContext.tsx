@@ -18,7 +18,8 @@ import {
 } from '../constants';
 import { useAuth } from './AuthContext'; 
 import { API_URL } from '../pages/pm/api';
-import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons'; // Example icons for notifications
+import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons';
+import { posService } from '../services/pos';
 
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
 
@@ -195,7 +196,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     }
                 });
                 const data = await response.json();
-                // El backend de Pazzi devuelve directamente el array de departamentos
                 if (Array.isArray(data)) {
                     setDepartments(data);
                 }
@@ -204,6 +204,118 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
         };
         if (currentUser) fetchDepartments();
+    }, [currentUser]);
+
+    // Carga de sucursales desde el backend
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const res = await fetch(`${API_URL}/branches`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setBranches(data);
+            } catch (e) {
+                console.error("Error al cargar sucursales del servidor:", e);
+            }
+        };
+        if (currentUser) fetchBranches();
+    }, [currentUser]);
+
+    // Carga de cajas desde el backend
+    useEffect(() => {
+        const fetchCajas = async () => {
+            try {
+                const res = await fetch(`${API_URL}/cajas`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setCajas(data);
+            } catch (e) {
+                console.error("Error al cargar cajas del servidor:", e);
+            }
+        };
+        if (currentUser) fetchCajas();
+    }, [currentUser]);
+
+    // Carga de clientes desde el backend
+    useEffect(() => {
+        const fetchClients = async () => {
+            try {
+                const res = await fetch(`${API_URL}/clients`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setClients(data);
+            } catch (e) {
+                console.error("Error al cargar clientes del servidor:", e);
+            }
+        };
+        if (currentUser) fetchClients();
+    }, [currentUser]);
+
+    // Carga de empleados desde el backend
+    useEffect(() => {
+        const fetchEmployees = async () => {
+            try {
+                const res = await fetch(`${API_URL}/employees`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setEmployees(data);
+            } catch (e) {
+                console.error("Error al cargar empleados del servidor:", e);
+            }
+        };
+        if (currentUser) fetchEmployees();
+    }, [currentUser]);
+
+    // Carga de proveedores desde el backend
+    useEffect(() => {
+        const fetchSuppliers = async () => {
+            try {
+                const res = await fetch(`${API_URL}/suppliers`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setSuppliers(data);
+            } catch (e) {
+                console.error("Error al cargar proveedores del servidor:", e);
+            }
+        };
+        if (currentUser) fetchSuppliers();
+    }, [currentUser]);
+
+    // Carga de ventas desde el backend (últimas 200)
+    useEffect(() => {
+        const fetchSales = async () => {
+            try {
+                const res = await fetch(`${API_URL}/sales?limit=200`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setSalesInternal(data);
+            } catch (e) {
+                console.error("Error al cargar ventas del servidor:", e);
+            }
+        };
+        if (currentUser) fetchSales();
+    }, [currentUser]);
+
+    // Carga de productos desde el backend
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const res = await fetch(`${API_URL}/products?limit=200`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setProducts(data);
+            } catch (e) {
+                console.error("Error al cargar productos del servidor:", e);
+            }
+        };
+        if (currentUser) fetchProducts();
     }, [currentUser]);
 
     useEffect(() => { localStorage.setItem('pazziClients', JSON.stringify(clients)); }, [clients]);
@@ -258,19 +370,55 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setInventoryLogs(prev => [newLog, ...prev]);
     }, []);
 
-    const addEstimate = useCallback((estimateData: Omit<Estimate, 'id'>): Estimate => {
-        const newEstimate: Estimate = {
-            ...estimateData,
-            id: `est-${Date.now()}`,
-        };
-        setEstimates(prev => [newEstimate, ...prev]);
-        addNotification({
-            title: `Nuevo Estimado #${newEstimate.id.slice(-6)}`,
-            message: `Creado. Total: $${newEstimate.totalAmount.toFixed(2)}`,
-            type: 'generic',
-            link: '/pos/estimates'
-        });
-        return newEstimate;
+    const addEstimate = useCallback(async (estimateData: Omit<Estimate, 'id'>): Promise<Estimate> => {
+        try {
+            const apiEstimate = await posService.createEstimate({
+                clientId: estimateData.clientId,
+                branchId: estimateData.branchId,
+                status: estimateData.status || 'Borrador',
+                notes: estimateData.notes,
+                items: estimateData.items.map(item => ({
+                    productId: (item as any).productId || item.id,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    discountType: (item as any).discount?.type,
+                    discountValue: (item as any).discount?.value,
+                })),
+            });
+            const newEstimate: Estimate = {
+                ...apiEstimate,
+                id: apiEstimate.id,
+                date: apiEstimate.date || new Date().toISOString(),
+                clientId: apiEstimate.clientId,
+                items: estimateData.items,
+                totalAmount: apiEstimate.totalAmount || estimateData.totalAmount,
+                status: apiEstimate.status || estimateData.status,
+                employeeId: apiEstimate.employeeId || estimateData.employeeId,
+                branchId: apiEstimate.branchId || estimateData.branchId,
+            };
+            setEstimates(prev => [newEstimate, ...prev]);
+            addNotification({
+                title: `Nuevo Estimado #${newEstimate.id.slice(-6)}`,
+                message: `Creado. Total: $${newEstimate.totalAmount.toFixed(2)}`,
+                type: 'generic',
+                link: '/pos/estimates'
+            });
+            return newEstimate;
+        } catch (err) {
+            console.error('Error creando estimado via API, usando localStorage:', err);
+            const newEstimate: Estimate = {
+                ...estimateData,
+                id: `est-${Date.now()}`,
+            } as Estimate;
+            setEstimates(prev => [newEstimate, ...prev]);
+            addNotification({
+                title: `Nuevo Estimado #${newEstimate.id.slice(-6)}`,
+                message: `Creado. Total: $${newEstimate.totalAmount.toFixed(2)}`,
+                type: 'generic',
+                link: '/pos/estimates'
+            });
+            return newEstimate;
+        }
     }, [addNotification]);
     
     const addProject = useCallback((projectData: ProjectFormData): Project => {
@@ -463,73 +611,88 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return supplierOrders.filter(so => so.storeOwnerId === ownerId);
     }, [supplierOrders]);
 
-    const addSale = useCallback((saleData: Omit<Sale, 'id' | 'date' | 'branchId'>, branchId: string) => {
-        const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
-                                (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));
+    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'>, branchId: string) => {
+        try {
+            const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
+                                    (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));
 
-        const newSale: Sale = {
-            ...saleData,
-            id: `sale-${Date.now()}`,
-            date: new Date().toISOString(),
-            branchId: branchId,
-            paymentStatus: hasCreditPayment ? 'Pendiente de Pago' : 'Pagado',
-        };
-        setSalesInternal(prev => [...prev, newSale]);
-        setLastCompletedSale(newSale); 
-        
-        // Automatically record payments that are not credit
-        if (saleData.payments && saleData.payments.length > 0) {
-            const nonCreditPayments = saleData.payments.filter(p => p.method !== 'Crédito C.');
-            if (nonCreditPayments.length > 0) {
-                const newPayments: SalePayment[] = nonCreditPayments.map((p, index) => ({
-                    id: `sp-${Date.now()}-${index}`,
-                    saleId: newSale.id,
-                    paymentDate: newSale.date,
-                    amountPaid: p.amount,
-                    paymentMethodUsed: p.method,
-                    notes: 'Pago inicial de venta'
-                }));
-                setSalePayments(prev => [...prev, ...newPayments]);
+            const items = saleData.items.map(item => ({
+                productId: (item as any).productId || item.id,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                discountType: (item as any).discount?.type || undefined,
+                discountValue: (item as any).discount?.value || undefined,
+            }));
+
+            const apiSale = await posService.createSale({
+                totalAmount: saleData.totalAmount,
+                paymentMethod: saleData.paymentMethod,
+                paymentStatus: hasCreditPayment ? 'Pendiente' : 'Pagado',
+                cajaId: saleData.cajaId,
+                branchId,
+                clientId: saleData.clientId,
+                projectId: saleData.projectId,
+                isExternal: saleData.isExternal || false,
+                items,
+            });
+
+            for (const payment of (saleData.payments || []).filter(p => p.method !== 'Crédito C.')) {
+                try {
+                    await posService.addPayment(apiSale.id, {
+                        amountPaid: payment.amount,
+                        paymentMethodUsed: payment.method,
+                        notes: 'Pago desde POS',
+                    });
+                } catch (e) {
+                    console.error('Error registrando pago:', e);
+                }
             }
-        } else if (saleData.paymentMethod !== 'Crédito C.') {
-            // Single payment method that is not credit
-            const newPayment: SalePayment = {
-                id: `sp-${Date.now()}`,
-                saleId: newSale.id,
-                paymentDate: newSale.date,
-                amountPaid: saleData.totalAmount,
-                paymentMethodUsed: saleData.paymentMethod,
-                notes: 'Pago inicial de venta'
+
+            if (saleData.payments?.length === 0 || !saleData.payments) {
+                if (saleData.paymentMethod !== 'Crédito C.') {
+                    try {
+                        await posService.addPayment(apiSale.id, {
+                            amountPaid: saleData.totalAmount,
+                            paymentMethodUsed: saleData.paymentMethod,
+                            notes: 'Pago único desde POS',
+                        });
+                    } catch (e) {
+                        console.error('Error registrando pago único:', e);
+                    }
+                }
+            }
+
+            const newSale: Sale = {
+                ...apiSale,
+                id: apiSale.id,
+                date: apiSale.date || new Date().toISOString(),
+                items: saleData.items,
+                paymentMethod: saleData.paymentMethod,
+                clientId: saleData.clientId,
+                projectId: saleData.projectId,
+                cajaId: saleData.cajaId,
+                branchId,
+                paymentStatus: apiSale.paymentStatus || (hasCreditPayment ? 'Pendiente de Pago' : 'Pagado'),
             };
-            setSalePayments(prev => [...prev, newPayment]);
+            setSalesInternal(prev => [newSale, ...prev]);
+            setLastCompletedSale(newSale);
+            return newSale;
+        } catch (err) {
+            console.error('Error creando venta via API, usando localStorage:', err);
+            const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
+                                    (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));
+            const fallbackSale: Sale = {
+                ...saleData,
+                id: `sale-${Date.now()}`,
+                date: new Date().toISOString(),
+                branchId: branchId,
+                paymentStatus: hasCreditPayment ? 'Pendiente de Pago' : 'Pagado',
+            } as Sale;
+            setSalesInternal(prev => [...prev, fallbackSale]);
+            setLastCompletedSale(fallbackSale);
+            return fallbackSale;
         }
-
-        newSale.items.forEach(cartItem => {
-            if (currentUser && !cartItem.isService) {
-                const stockBefore = getProductStockForBranch(cartItem.id, branchId);
-                const stockAfter = stockBefore - cartItem.quantity;
-                updateProductStockForBranch(cartItem.id, branchId, stockAfter);
-                addInventoryLog({
-                    productId: cartItem.id,
-                    branchId: branchId,
-                    date: newSale.date,
-                    type: InventoryLogType.SALE_POS,
-                    quantityChange: -cartItem.quantity,
-                    stockBefore: stockBefore,
-                    stockAfter: stockAfter,
-                    referenceId: newSale.id,
-                    employeeId: currentUser.id,
-                    notes: `Venta #${newSale.id.slice(-6)}`
-                });
-            }
-        });
-         addNotification({
-            title: `Nueva Venta POS #${newSale.id.substring(0,6)}`,
-            message: `Total: $${newSale.totalAmount.toFixed(2)}, Método: ${newSale.paymentMethod}`,
-            type: 'new_order', 
-            link: `/pos/sales-history`
-        });
-    }, [getProductStockForBranch, updateProductStockForBranch, addNotification, setLastCompletedSale, addInventoryLog, currentUser, setSalePayments]);
+    }, [currentUser, setSalesInternal, setLastCompletedSale]);
 
     const processReturn = useCallback((originalSale: Sale, itemsToReturn: ReturnItemPayload[], employeeId: string, cajaId: string, branchId: string, reason: string) => {
         if (itemsToReturn.length === 0) return;
@@ -622,49 +785,67 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     const getClientById = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
 
-    const addLayaway = useCallback((layawayData: Omit<Layaway, 'id' | 'date'>, initialPayment: { amount: number; method: string }) => {
-        const newLayaway: Layaway = {
-            ...layawayData,
-            id: `lay-${Date.now()}`,
-            date: new Date().toISOString(),
-        };
-        setLayaways(prev => [...prev, newLayaway]);
-        
-        addSalePayment({
-            layawayId: newLayaway.id,
-            paymentDate: newLayaway.date,
-            amountPaid: initialPayment.amount,
-            paymentMethodUsed: initialPayment.method,
-            notes: 'Abono inicial de apartado.'
-        });
+    const addLayaway = useCallback(async (layawayData: Omit<Layaway, 'id' | 'date'>, initialPayment: { amount: number; method: string }) => {
+        try {
+            const apiLayaway = await posService.createLayaway({
+                clientId: layawayData.clientId,
+                branchId: layawayData.branchId,
+                totalAmount: layawayData.totalAmount,
+                notes: layawayData.notes,
+                items: layawayData.items.map(item => ({
+                    productId: (item as any).productId || item.id,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                })),
+            });
 
-        newLayaway.items.forEach(cartItem => {
-            if (currentUser && !cartItem.isService) {
-                const stockBefore = getProductStockForBranch(cartItem.id, newLayaway.branchId);
-                const stockAfter = stockBefore - cartItem.quantity;
-                updateProductStockForBranch(cartItem.id, newLayaway.branchId, stockAfter);
-                addInventoryLog({
-                    productId: cartItem.id,
-                    branchId: newLayaway.branchId,
-                    date: newLayaway.date,
-                    type: InventoryLogType.SALE_POS,
-                    quantityChange: -cartItem.quantity,
-                    stockBefore: stockBefore,
-                    stockAfter: stockAfter,
-                    referenceId: newLayaway.id,
-                    employeeId: currentUser.id,
-                    notes: `Apartado #${newLayaway.id.slice(-6)}`
-                });
+            if (initialPayment.amount > 0) {
+                try {
+                    await posService.addLayawayPayment(apiLayaway.id, {
+                        amountPaid: initialPayment.amount,
+                        paymentMethodUsed: initialPayment.method,
+                        notes: 'Abono inicial de apartado.',
+                    });
+                } catch (e) {
+                    console.error('Error registrando pago inicial del apartado:', e);
+                }
             }
-        });
 
-        addNotification({
-            title: `Nuevo Apartado #${newLayaway.id.slice(-6)}`,
-            message: `Total: $${newLayaway.totalAmount.toFixed(2)}, Cliente: ${getClientById(newLayaway.clientId)?.name}`,
-            type: 'generic',
-            link: '/pos/layaways'
-        });
-    }, [addSalePayment, currentUser, getProductStockForBranch, updateProductStockForBranch, addInventoryLog, addNotification, getClientById]);
+            const newLayaway: Layaway = {
+                ...layawayData,
+                id: apiLayaway.id,
+                date: apiLayaway.date || new Date().toISOString(),
+            } as Layaway;
+            setLayaways(prev => [...prev, newLayaway]);
+            addNotification({
+                title: `Nuevo Apartado #${newLayaway.id.slice(-6)}`,
+                message: `Total: $${newLayaway.totalAmount.toFixed(2)}, Cliente: ${getClientById(newLayaway.clientId)?.name}`,
+                type: 'generic',
+                link: '/pos/layaways'
+            });
+        } catch (err) {
+            console.error('Error creando apartado via API, usando localStorage:', err);
+            const newLayaway: Layaway = {
+                ...layawayData,
+                id: `lay-${Date.now()}`,
+                date: new Date().toISOString(),
+            } as Layaway;
+            setLayaways(prev => [...prev, newLayaway]);
+            addSalePayment({
+                layawayId: newLayaway.id,
+                paymentDate: newLayaway.date,
+                amountPaid: initialPayment.amount,
+                paymentMethodUsed: initialPayment.method,
+                notes: 'Abono inicial de apartado.'
+            });
+            addNotification({
+                title: `Nuevo Apartado #${newLayaway.id.slice(-6)}`,
+                message: `Total: $${newLayaway.totalAmount.toFixed(2)}, Cliente: ${getClientById(newLayaway.clientId)?.name}`,
+                type: 'generic',
+                link: '/pos/layaways'
+            });
+        }
+    }, [addSalePayment, getClientById, addNotification]);
 
 
     

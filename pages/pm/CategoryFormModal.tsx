@@ -7,6 +7,7 @@ import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES 
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { CameraIcon, TrashIconMini } from '../../components/icons';
 import { API_URL } from './api';
+import { toast } from 'react-hot-toast';
 
 interface CategoryFormModalProps {
     isOpen: boolean;
@@ -54,7 +55,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.name.trim() === '') {
-            console.error("Error: El nombre es obligatorio");
+            toast.error("El nombre de la categoría es obligatorio");
             return;
         }
 
@@ -108,13 +109,13 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                 } else {
                     setCategories(prev => [...prev, result]);
                 }
+                toast.success(category ? 'Categoría actualizada' : 'Categoría creada');
                 onClose();
             } else {
-                console.error("Error al guardar la categoría:", result.error);
+                toast.error(result.error || 'Error al guardar la categoría');
             }
         } catch (error) {
-            console.error("Error saving category:", error);
-            console.error("Error de conexión con el servidor.");
+            toast.error('Error de conexión con el servidor');
         } finally {
             setIsSubmitting(false);
         }

@@ -354,9 +354,12 @@ export interface InventoryLog {
     quantityChange: number;
     stockBefore: number;
     stockAfter: number;
-    referenceId?: string; // Sale ID, Order ID, Transfer ID, etc.
+    referenceId?: string;
     employeeId: string;
     notes?: string;
+    product?: { id: string; name: string };
+    branch?: { id: string; name: string };
+    employee?: { id: string; name: string; lastName: string };
 }
 
 export interface Order {
@@ -446,6 +449,7 @@ export interface SupplierOrder {
     amountPaid: number;
     paymentStatus: 'No Pagado' | 'Pagado Parcialmente' | 'Pagado Completo';
     paymentNotes?: string[];
+    supplier?: Supplier;
 }
 
 export type NotificationType = 'new_order' | 'chat_message' | 'low_stock' | 'generic';
@@ -476,7 +480,10 @@ export enum AppModule {
 export type CategoryFormData = Pick<Category, 'name'>;
 export type DepartmentFormData = Pick<Department, 'name'>;
 
-export type ProductFormData = Omit<Product, 'id' | 'stockByBranch'>;
+export type ProductFormData = Omit<Product, 'id' | 'stockByBranch'> & {
+  initialBranchId?: string;
+  initialStock?: number;
+};
 
 export type ClientFormData = Omit<Client, 'id' | 'createdDate'>;
 

@@ -11,6 +11,7 @@ import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
+import { API_URL } from '../../services/api';
 
 export const SuppliersListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -31,7 +32,7 @@ export const SuppliersListPage: React.FC = () => {
         const fetchSuppliers = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/suppliers', {
+                const response = await fetch(`${API_URL}/suppliers`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -73,7 +74,7 @@ export const SuppliersListPage: React.FC = () => {
     const confirmDelete = async () => {
         if (itemToDeleteId) {
             try {
-                const response = await fetch(`http://localhost:3001/api/suppliers/${itemToDeleteId}`, {
+                const response = await fetch(`${API_URL}/suppliers/${itemToDeleteId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`

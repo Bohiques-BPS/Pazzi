@@ -1,24 +1,44 @@
 
-import React, { useState } from 'react';
-import { Client, ClientFormData } from '../../types'; // Adjusted path
-import { useData } from '../../contexts/DataContext'; // Adjusted path
-import { DataTable, TableColumn } from '../../components/DataTable'; // Adjusted path
-import { ClientFormModal } from './ClientFormModal'; // Adjusted path
-import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
-import { PlusIcon, EditIcon, DeleteIcon, EyeIcon } from '../../components/icons'; // Adjusted path
-import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import React, { useState, useEffect } from 'react';
+import { Client, ClientFormData } from '../../types';
+import { useData } from '../../contexts/DataContext';
+import { DataTable, TableColumn } from '../../components/DataTable';
+import { ClientFormModal } from './ClientFormModal';
+import { ConfirmationModal } from '../../components/Modal';
+import { PlusIcon, EditIcon, DeleteIcon, EyeIcon } from '../../components/icons';
+import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal'; // Added import
+import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
+import { API_URL } from './api';
 
 export const ClientsListPage: React.FC = () => {
     const { t } = useTranslation();
     const { clients, setClients } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchClients = async () => {
+            setIsLoading(true);
+            try {
+                const res = await fetch(`${API_URL}/clients`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) setClients(data);
+            } catch (e) {
+                console.error('Error al cargar clientes:', e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchClients();
+    }, [setClients]);
 
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false); // Added detail modal state
@@ -52,9 +72,17 @@ export const ClientsListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
     
-    const confirmDelete = () => {
-        if(itemToDeleteId) {
-            setClients(prev => prev.filter(c => c.id !== itemToDeleteId));
+    const confirmDelete = async () => {
+        if (itemToDeleteId) {
+            try {
+                await fetch(`${API_URL}/clients/${itemToDeleteId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                setClients(prev => prev.filter(c => c.id !== itemToDeleteId));
+            } catch (e) {
+                console.error('Error al eliminar cliente:', e);
+            }
             setItemToDeleteId(null);
         }
         setShowDeleteConfirmModal(false);

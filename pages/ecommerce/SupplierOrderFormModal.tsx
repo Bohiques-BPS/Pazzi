@@ -6,6 +6,8 @@ import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS } from '../../constants';
 import { TrashIconMini } from '../../components/icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
+import { API_URL } from '../../services/api';
 
 interface SupplierOrderFormModalProps {
     isOpen: boolean;
@@ -79,12 +81,12 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
 
     const handleAddItem = () => {
         if (!currentItem.productId || currentItem.quantityOrdered <= 0 || currentItem.unitCost < 0) {
-            alert("Por favor, complete todos los campos del artículo correctamente.");
+            toast.error("Por favor, complete todos los campos del artículo correctamente.");
             return;
         }
         const productExists = formData.items.find(item => item.productId === currentItem.productId);
         if (productExists) {
-            alert("Este producto ya está en el pedido. Edite la cantidad existente si es necesario.");
+            toast.error("Este producto ya está en el pedido. Edite la cantidad existente si es necesario.");
             return;
         }
         setFormData(prev => ({ ...prev, items: [...prev.items, currentItem] }));
@@ -102,11 +104,11 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.supplierId) {
-            alert("Por favor, seleccione un proveedor.");
+            toast.error("Por favor, seleccione un proveedor.");
             return;
         }
         if (formData.items.length === 0) {
-            alert("El pedido debe contener al menos un artículo.");
+            toast.error("El pedido debe contener al menos un artículo.");
             return;
         }
 
@@ -114,8 +116,8 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         try {
             const token = localStorage.getItem('pazzi_token');
             const url = orderToEdit
-                ? `http://localhost:3001/api/supplier-orders/${orderToEdit.id}`
-                : 'http://localhost:3001/api/supplier-orders';
+                ? `${API_URL}/supplier-orders/${orderToEdit.id}`
+                : `${API_URL}/supplier-orders`;
             
             const method = orderToEdit ? 'PUT' : 'POST';
 
@@ -139,13 +141,13 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 } else {
                     setSupplierOrders(prev => [result, ...prev]);
                 }
+                toast.success(orderToEdit ? 'Pedido actualizado' : 'Pedido creado');
                 onClose();
             } else {
-                alert(result.error || "Error al guardar el pedido.");
+                toast.error(result.error || "Error al guardar el pedido.");
             }
         } catch (error) {
-            console.error("Error saving supplier order:", error);
-            alert("Error de conexión con el servidor.");
+            toast.error("Error de conexión con el servidor.");
         } finally {
             setIsSubmitting(false);
         }

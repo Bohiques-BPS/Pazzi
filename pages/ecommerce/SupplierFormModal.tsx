@@ -8,6 +8,7 @@ import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES,
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
+import { API_URL } from '../../services/api';
 
 interface SupplierFormModalProps {
     isOpen: boolean;
@@ -55,8 +56,8 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
         try {
             const token = localStorage.getItem('pazzi_token');
             const url = supplier
-                ? `http://localhost:3001/api/suppliers/${supplier.id}`
-                : 'http://localhost:3001/api/suppliers';
+                ? `${API_URL}/suppliers/${supplier.id}`
+                : `${API_URL}/suppliers`;
             
             const method = supplier ? 'PUT' : 'POST';
 
@@ -118,7 +119,15 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
-                        {isSubmitting ? 'Guardando...' : t('common.save')}
+                        {isSubmitting ? (
+                            <span className="flex items-center gap-2">
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                Guardando...
+                            </span>
+                        ) : t('common.save')}
                     </button>
                 </div>
             </form>

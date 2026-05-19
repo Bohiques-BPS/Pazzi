@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Client, ClientFormData, Project } from '../../types'; // Adjusted path
-import { useData } from '../../contexts/DataContext'; // Adjusted path
-import { Modal } from '../../components/Modal'; // Adjusted path
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, CLIENT_PRICE_LEVEL_OPTIONS } from '../../constants'; // Adjusted path
+import { Client, ClientFormData, Project } from '../../types';
+import { useData } from '../../contexts/DataContext';
+import { Modal } from '../../components/Modal';
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, CLIENT_PRICE_LEVEL_OPTIONS } from '../../constants';
 import { TrashIconMini, PlusIcon, ExclamationTriangleIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { POSProjectFormModal } from '../pos/POSProjectFormModal';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { API_URL } from './api';
+import { toast } from 'react-hot-toast';
 
 interface ClientFormModalProps {
     isOpen: boolean;
@@ -75,6 +77,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     };
     const [formData, setFormData] = useState<ClientFormData>(initialFormState);
     const [newImageUrl, setNewImageUrl] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -131,7 +134,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         setFormData(prev => ({ ...prev, images: prev.images?.filter(url => url !== urlToRemove) }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         // Validation for tax exception date
@@ -144,7 +147,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         const isTaxZero = currentMunicipalRate === 0;
         
         if ((isTaxZero || isTaxModified) && !formData.municipalTaxExemptionUntil) {
-            alert("La fecha de exención municipal es obligatoria si el impuesto es 0 o ha sido modificado.");
+            toast.error("La fecha de exención municipal es obligatoria si el impuesto es 0 o ha sido modificado.");
             setActiveTab('Impuestos');
             return;
         }
@@ -153,41 +156,71 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             c => c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
         );
         if (isDuplicateEmail) {
-            alert("Ya existe un cliente con este correo electrónico.");
+            toast.error("Ya existe un cliente con este correo electrónico.");
             return;
         }
 
-        if (client) {
-            const dataToSave = {
-                ...formData,
-                stateTaxRate: formData.stateTaxRate || 0,
-                municipalTaxRate: formData.municipalTaxRate || 0,
-                creditLimit: formData.creditLimit || 0,
-                chargeValue: formData.chargeValue || 0,
-                balance: formData.balance || 0,
-                loyaltyPoints: formData.loyaltyPoints || 0,
-            };
-            const updatedClient: Client = { ...client, ...dataToSave as any };
-            setClients(prev => prev.map(c => c.id === client.id ? updatedClient : c));
-            onClose(updatedClient);
-        } else {
-            const dataToSave = {
-                ...formData,
-                stateTaxRate: formData.stateTaxRate || 0,
-                municipalTaxRate: formData.municipalTaxRate || 0,
-                creditLimit: formData.creditLimit || 0,
-                chargeValue: formData.chargeValue || 0,
-                balance: formData.balance || 0,
-                loyaltyPoints: formData.loyaltyPoints || 0,
-            };
-            const newClient: Client = {
-                ...initialFormState, 
-                ...dataToSave as any, 
-                id: `client-${Date.now()}`,
-                createdDate: new Date().toISOString().split('T')[0],
-             };
-            setClients(prev => [...prev, newClient]);
-            onClose(newClient);
+        setIsSubmitting(true);
+
+        const dataToSave = {
+            ...formData,
+            stateTaxRate: formData.stateTaxRate || 0,
+            municipalTaxRate: formData.municipalTaxRate || 0,
+            creditLimit: formData.creditLimit || 0,
+            chargeValue: formData.chargeValue || 0,
+            balance: formData.balance || 0,
+            loyaltyPoints: formData.loyaltyPoints || 0,
+        };
+
+        try {
+            if (client) {
+                const res = await fetch(`${API_URL}/clients/${client.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    },
+                    body: JSON.stringify(dataToSave),
+                });
+                if (!res.ok) throw new Error('Error al actualizar cliente');
+                const updatedClient = await res.json();
+                setClients(prev => prev.map(c => c.id === client.id ? { ...c, ...updatedClient } : c));
+                toast.success('Cliente actualizado correctamente');
+                onClose(updatedClient);
+            } else {
+                const res = await fetch(`${API_URL}/clients`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                    },
+                    body: JSON.stringify(dataToSave),
+                });
+                if (!res.ok) throw new Error('Error al crear cliente');
+                const newClient = await res.json();
+                setClients(prev => [...prev, newClient]);
+                toast.success('Cliente creado correctamente');
+                onClose(newClient);
+            }
+        } catch (err) {
+            toast.error('Error al guardar cliente. Usando almacenamiento local.');
+            console.error('Error al guardar cliente:', err);
+            if (client) {
+                const updatedClient: Client = { ...client, ...dataToSave as any };
+                setClients(prev => prev.map(c => c.id === client.id ? updatedClient : c));
+                onClose(updatedClient);
+            } else {
+                const newClient: Client = {
+                    ...initialFormState, 
+                    ...dataToSave as any, 
+                    id: `client-${Date.now()}`,
+                    createdDate: new Date().toISOString().split('T')[0],
+                } as Client;
+                setClients(prev => [...prev, newClient]);
+                onClose(newClient);
+            }
+        } finally {
+            setIsSubmitting(false);
         }
     };
     
@@ -382,7 +415,17 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
 
                     <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4 flex-shrink-0">
                         <button type="button" onClick={() => onClose()} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                        <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
+                        <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
+                            {isSubmitting ? (
+                                <span className="flex items-center gap-2">
+                                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                    {t('common.saving') || 'Guardando...'}
+                                </span>
+                            ) : (t('common.save'))}
+                        </button>
                     </div>
                 </form>
             </Modal>

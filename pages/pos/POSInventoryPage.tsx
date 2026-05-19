@@ -9,6 +9,7 @@ import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal
 import { ListBulletIcon, Cog6ToothIcon } from '../../components/icons'; 
 import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { API_URL } from '../../services/api';
 
 export const POSInventoryPage: React.FC = () => {
     const { t } = useTranslation();
@@ -41,7 +42,7 @@ export const POSInventoryPage: React.FC = () => {
         const fetchLogs = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/inventory/logs', {
+                const response = await fetch(`${API_URL}/inventory/logs`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`

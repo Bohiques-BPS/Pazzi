@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Branch, BranchFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { API_URL } from '../../services/api';
 
 export const BranchesListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -19,12 +20,11 @@ export const BranchesListPage: React.FC = () => {
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    // Carga de sucursales desde el backend
-    React.useEffect(() => {
+    useEffect(() => {
         const fetchBranches = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/branches', {
+                const response = await fetch(`${API_URL}/branches`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -58,7 +58,7 @@ export const BranchesListPage: React.FC = () => {
     const confirmDelete = async () => {
         if (itemToDeleteId) {
             try {
-                const response = await fetch(`http://localhost:3001/api/branches/${itemToDeleteId}`, {
+                const response = await fetch(`${API_URL}/branches/${itemToDeleteId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`

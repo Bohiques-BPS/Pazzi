@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adjusted path
 import { BUTTON_PRIMARY_SM_CLASSES, EMPLOYEE_ROLES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 import { API_URL } from './api';
 
 export const EmployeesListPage: React.FC = () => {
@@ -68,11 +69,12 @@ export const EmployeesListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setEmployees(prev => prev.filter(e => e.id !== itemToDeleteId));
+                    toast.success('Empleado eliminado');
                 } else {
-                    alert("No se pudo eliminar el colaborador del servidor.");
+                    toast.error("No se pudo eliminar el colaborador del servidor.");
                 }
             } catch (error) {
-                console.error("Error al eliminar colaborador:", error);
+                toast.error("Error al eliminar el colaborador.");
             } finally {
                 setItemToDeleteId(null);
             }

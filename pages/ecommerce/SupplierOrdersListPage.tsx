@@ -11,6 +11,7 @@ import { PlusIcon, EditIcon, EyeIcon, Cog6ToothIcon, DeleteIcon } from '../../co
 import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, ADMIN_USER_ID } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
+import { API_URL } from '../../services/api';
 
 interface UpdateStatusModalProps {
     isOpen: boolean;
@@ -37,7 +38,7 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
         e.preventDefault();
         if (newStatus && newStatus !== order.status) {
             try {
-                const response = await fetch(`http://localhost:3001/api/supplier-orders/${order.id}/status`, {
+                const response = await fetch(`${API_URL}/supplier-orders/${order.id}/status`, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`,
@@ -131,7 +132,7 @@ export const SupplierOrdersListPage: React.FC = () => {
         const fetchOrders = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch('http://localhost:3001/api/supplier-orders', {
+                const response = await fetch(`${API_URL}/supplier-orders`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -154,7 +155,7 @@ export const SupplierOrdersListPage: React.FC = () => {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await fetch('http://localhost:3001/api/products', {
+                const response = await fetch(`${API_URL}/products`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -180,7 +181,7 @@ export const SupplierOrdersListPage: React.FC = () => {
     useEffect(() => {
         const fetchSuppliers = async () => {
             try {
-                const response = await fetch('http://localhost:3001/api/suppliers', {
+                const response = await fetch(`${API_URL}/suppliers`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
@@ -224,7 +225,7 @@ export const SupplierOrdersListPage: React.FC = () => {
     const confirmDelete = async () => {
         if (itemToDeleteId) {
             try {
-                const response = await fetch(`http://localhost:3001/api/supplier-orders/${itemToDeleteId}`, {
+                const response = await fetch(`${API_URL}/supplier-orders/${itemToDeleteId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`

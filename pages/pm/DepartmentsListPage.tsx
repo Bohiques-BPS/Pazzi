@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 import { API_URL } from './api';
 
 export const DepartmentsListPage: React.FC = () => {
@@ -69,12 +70,12 @@ export const DepartmentsListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setDepartments(prev => prev.filter(d => d.id !== itemToDeleteId));
+                    toast.success('Departamento eliminado');
                 } else {
-                    alert("Error al eliminar el departamento.");
+                    toast.error("Error al eliminar el departamento.");
                 }
             } catch (error) {
-                console.error("Error deleting department:", error);
-                alert("Error de conexión al intentar eliminar.");
+                toast.error("Error de conexión al intentar eliminar.");
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);

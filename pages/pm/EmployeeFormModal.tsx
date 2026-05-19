@@ -8,6 +8,7 @@ import { EMPLOYEE_ROLES, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRI
 import { PhotoIcon, LockClosedIcon, BriefcaseIcon, CashBillIcon, KeyIcon, CameraIcon, TrashIconMini, ExclamationTriangleIcon } from '../../components/icons'; // Added permission-related icons
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -266,13 +267,13 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({isOpen, onC
                 } else {
                     setEmployees(prev => [...prev, result]);
                 }
+                toast.success(employee ? 'Empleado actualizado' : 'Empleado creado');
                 onClose();
             } else {
-                alert(result.error || result.msg || "Error al guardar el colaborador.");
+                toast.error(result.error || "Error al guardar el colaborador.");
             }
         } catch (error) {
-            console.error("Error submitting employee:", error);
-            alert("Error de conexión con el servidor.");
+            toast.error("Error de conexión con el servidor.");
         } finally {
             setIsSubmitting(false);
         }
