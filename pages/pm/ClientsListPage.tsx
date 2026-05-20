@@ -10,7 +10,7 @@ import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 
 export const ClientsListPage: React.FC = () => {
     const { t } = useTranslation();

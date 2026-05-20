@@ -10,7 +10,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 
 interface ProjectFormModalProps {
     isOpen: boolean;

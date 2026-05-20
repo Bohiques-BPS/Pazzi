@@ -1,18 +1,45 @@
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+/** Alias retro-compatible. Nuevo código debe importar `API_BASE`. */
 export const API_URL = API_BASE;
 
 interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
+  /** Si true, no intenta refresh ante 401 (usado por el propio /auth/refresh). */
+  skipAuthRefresh?: boolean;
 }
 
 class ApiError extends Error {
   public status: number;
   public errors?: any[];
+  public code?: string;
 
-  constructor(message: string, status: number, errors?: any[]) {
+  constructor(message: string, status: number, errors?: any[], code?: string) {
     super(message);
     this.status = status;
     this.errors = errors;
+    this.code = code;
+  }
+}
+
+type ApiErrorListener = (err: ApiError) => void;
+const listeners: Set<ApiErrorListener> = new Set();
+
+/**
+ * Suscribirse a errores del API (útil para mostrar toasts globales sin
+ * acoplar `api.ts` al sistema de toasts).
+ */
+export function onApiError(listener: ApiErrorListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function emit(err: ApiError) {
+  for (const l of listeners) {
+    try {
+      l(err);
+    } catch {
+      // ignorar errores de listeners
+    }
   }
 }
 
@@ -49,7 +76,7 @@ async function refreshAuthToken(): Promise<string | null> {
 }
 
 async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-  const { params, ...fetchOptions } = options;
+  const { params, skipAuthRefresh, ...fetchOptions } = options;
   const token = localStorage.getItem('pazzi_token');
 
   let url = `${API_BASE}${endpoint}`;
@@ -73,7 +100,7 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
 
   let res = await fetch(url, { ...fetchOptions, headers });
 
-  if (res.status === 401 && token) {
+  if (res.status === 401 && token && !skipAuthRefresh) {
     const newToken = await refreshAuthToken();
     if (newToken) {
       headers.Authorization = `Bearer ${newToken}`;
@@ -82,31 +109,44 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
   }
 
   if (!res.ok) {
-    let errorData: any;
+    let errorData: any = {};
     try {
       errorData = await res.json();
     } catch {
       errorData = { error: `Error ${res.status}: ${res.statusText}` };
     }
-    throw new ApiError(
-      errorData.error || errorData.message || 'Error de conexión',
-      res.status,
-      errorData.errors
-    );
+
+    const message =
+      errorData.error ||
+      errorData.message ||
+      (res.status === 403 ? 'No tienes permisos para esta acción' :
+       res.status === 429 ? 'Demasiadas solicitudes. Intenta en unos minutos.' :
+       res.status === 500 ? 'Error interno del servidor' :
+       'Error de conexión');
+
+    const apiErr = new ApiError(message, res.status, errorData.errors, errorData.code);
+    emit(apiErr);
+    throw apiErr;
   }
 
-  return res.json();
+  // Algunos endpoints (ej. delete) pueden devolver 204 o cuerpo vacío
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const api = {
   get: <T>(endpoint: string, params?: Record<string, any>) =>
     request<T>(endpoint, { method: 'GET', params }),
 
-  post: <T>(endpoint: string, body?: any) =>
-    request<T>(endpoint, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  post: <T>(endpoint: string, body?: any, options?: ApiOptions) =>
+    request<T>(endpoint, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...options,
+    }),
 
   put: <T>(endpoint: string, body?: any) =>
-    request<T>(endpoint, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+    request<T>(endpoint, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
 
   delete: <T>(endpoint: string) =>
     request<T>(endpoint, { method: 'DELETE' }),
@@ -115,12 +155,14 @@ export const api = {
     const token = localStorage.getItem('pazzi_token');
     return fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     }).then(async (res) => {
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Error de conexión' }));
-        throw new ApiError(err.error, res.status);
+        const apiErr = new ApiError(err.error || 'Error al subir archivo', res.status, err.errors, err.code);
+        emit(apiErr);
+        throw apiErr;
       }
       return res.json() as Promise<T>;
     });

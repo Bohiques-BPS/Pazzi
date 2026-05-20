@@ -5,7 +5,7 @@ import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
 
 interface DepartmentFormModalProps {

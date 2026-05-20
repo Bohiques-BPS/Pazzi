@@ -8,7 +8,7 @@ import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adjusted path
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 
 export const CategoriesListPage: React.FC = () => {
     const { t } = useTranslation();

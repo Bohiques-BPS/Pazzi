@@ -23,6 +23,15 @@ export const posService = {
 
   voidSale: (saleId: string) => api.post<any>(`/sales/${saleId}/void`),
 
+  processReturn: (
+    saleId: string,
+    data: {
+      items: { productId: string; quantity: number; customRefundAmount?: number; returnToStock?: boolean }[];
+      reason: string;
+      refundMethod?: string;
+    }
+  ) => api.post<{ sale: any; refundAmount: number; message: string }>(`/sales/${saleId}/return`, data),
+
   createEstimate: (data: {
     clientId: string;
     branchId: string;

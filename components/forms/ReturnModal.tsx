@@ -5,6 +5,9 @@ import { useData } from '../../contexts/DataContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { MagnifyingGlassIcon, TrashIconMini } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
+import { authService } from '../../services/auth';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
 
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
 
@@ -212,17 +215,32 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
         return total;
     }, [itemsToReturnDetails, foundSale]);
 
-    const handleSubmit = () => {
+    const [authorizing, setAuthorizing] = useState(false);
+
+    const handleSubmit = async () => {
         if (!foundSale || itemsToReturnDetails.size === 0 || !adminPassword) {
-            setError('Por favor, complete todos los campos: encuentre una venta, seleccione artículos, y ingrese la contraseña de admin.');
+            setError('Complete todos los campos: encuentre una venta, seleccione artículos e ingrese el PIN de supervisor.');
+            return;
+        }
+
+        setAuthorizing(true);
+        setError('');
+        try {
+            // Verifica el PIN contra cualquier MANAGER del sistema.
+            await authService.verifySupervisorPin(adminPassword);
+        } catch (err) {
+            setAuthorizing(false);
+            if (err instanceof ApiError && err.status === 401) {
+                setError('PIN de supervisor incorrecto. Devolución no autorizada.');
+            } else {
+                setError(err instanceof ApiError ? err.message : 'Error al verificar PIN');
+            }
             return;
         }
 
         const itemsForProcessing = Array.from(itemsToReturnDetails.entries()).map(([itemId, details]) => {
             const originalItem = foundSale.items.find(i => i.id === itemId);
-            if (!originalItem) {
-                return null;
-            }
+            if (!originalItem) return null;
             return {
                 ...originalItem,
                 quantity: details.quantity,
@@ -231,6 +249,8 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
             };
         }).filter((item): item is (CartItem & ReturnItemDetails) => item !== null);
 
+        setAuthorizing(false);
+        // Pasamos el PIN ya verificado al callback (que llamará al endpoint /sales/:id/return)
         onProcessReturn(foundSale.id, itemsForProcessing, reason, adminPassword);
     };
 
@@ -341,13 +361,28 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                         </div>
 
                         <div>
-                            <label className="text-sm font-medium">Contraseña de Administrador para Autorizar</label>
-                            <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className={inputFormStyle} required />
+                            <label className="text-sm font-medium">PIN de supervisor para autorizar</label>
+                            <input
+                                type="password"
+                                value={adminPassword}
+                                onChange={e => setAdminPassword(e.target.value)}
+                                className={inputFormStyle}
+                                placeholder="****"
+                                inputMode="numeric"
+                                pattern="\d*"
+                                maxLength={6}
+                                required
+                            />
+                            <p className="text-xs text-neutral-500 mt-1">
+                                Cualquier administrador del sistema puede autorizar con su PIN.
+                            </p>
                         </div>
-                        
+
                         <div className="flex justify-end space-x-2 pt-4 border-t dark:border-neutral-600">
-                            <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                            <button onClick={handleSubmit} className={BUTTON_PRIMARY_SM_CLASSES}>Procesar Devolución</button>
+                            <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={authorizing}>Cancelar</button>
+                            <button onClick={handleSubmit} className={BUTTON_PRIMARY_SM_CLASSES} disabled={authorizing}>
+                                {authorizing ? 'Autorizando...' : 'Procesar devolución'}
+                            </button>
                         </div>
                     </div>
                 )}

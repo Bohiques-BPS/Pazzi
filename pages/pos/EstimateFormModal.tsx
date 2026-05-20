@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/Modal';
 import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
-import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS, ADMIN_USER_ID, INITIAL_BRANCHES } from '../../constants';
+import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { UserCircleIcon, TrashIconMini } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -19,7 +19,7 @@ interface EstimateFormModalProps {
 
 export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, onClose, estimateToEdit }) => {
     const { t } = useTranslation();
-    const { clients, products, setEstimates, getProductById } = useData();
+    const { clients, products, setEstimates, getProductById, branches } = useData();
     const { currentUser } = useAuth();
     const [isClientSearchModalOpen, setIsClientSearchModalOpen] = useState(false);
     
@@ -134,7 +134,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
             totalAmount: grandTotal,
             date: estimateToEdit ? estimateToEdit.date : new Date().toISOString(),
             employeeId: currentUser.id,
-            branchId: INITIAL_BRANCHES[0].id, // Assuming a default branch for now
+            branchId: branches.find(b => b.isActive)?.id || branches[0]?.id || '',
         };
 
         if (estimateToEdit) {

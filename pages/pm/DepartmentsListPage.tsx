@@ -9,7 +9,7 @@ import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 
 export const DepartmentsListPage: React.FC = () => {
     const { t } = useTranslation();

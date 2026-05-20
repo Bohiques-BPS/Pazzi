@@ -6,7 +6,7 @@ import { Modal } from '../../components/Modal'; // Adjusted path
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { CameraIcon, TrashIconMini } from '../../components/icons';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
 
 interface CategoryFormModalProps {

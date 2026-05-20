@@ -13,6 +13,10 @@ import { ECommerceSettingsProvider, useECommerceSettings } from './contexts/ECom
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AppContextProvider, useAppContext } from './contexts/AppContext';
 import { GlobalSettingsProvider, useGlobalSettings } from './contexts/GlobalSettingsContext'; // Imported
+import { useApiErrorToasts } from './hooks/useApiErrorToasts';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 
 
 // Layout Components
@@ -22,6 +26,7 @@ import { MainLayout } from './components/layout/MainLayout';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ActivateAccountPage } from './pages/auth/ActivateAccountPage';
 
 // General Pages
 import { LandingPage } from './pages/LandingPage';
@@ -109,12 +114,22 @@ const AppContent: React.FC = () => {
   const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const appContext = useAppContext();
   if (!appContext) throw new Error("AppContext not found for AppContent");
-  const { currentModule, setCurrentModule } = appContext; 
-  
+  const { currentModule, setCurrentModule } = appContext;
+
   const { settings } = useGlobalSettings();
+
+  // Toasts globales para errores del API (403/429/5xx)
+  useApiErrorToasts();
+
+  // Atajos de teclado globales
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+  useGlobalShortcuts({
+    onShowHelp: () => setShortcutsModalOpen(true),
+    enabled: !!currentUser,
+  });
 
   useEffect(() => {
       const root = document.documentElement;
@@ -369,12 +384,14 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <>
+    <ErrorBoundary>
+      <KeyboardShortcutsModal isOpen={shortcutsModalOpen} onClose={() => setShortcutsModalOpen(false)} />
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/activate" element={<ActivateAccountPage />} />
         <Route path="/store/:storeOwnerId" element={<EcommerceStorePage />} />
         <Route path="/store" element={<EcommerceStorePage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
@@ -447,7 +464,7 @@ const AppContent: React.FC = () => {
         {/* Catch-all for any other unmatched routes */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </ErrorBoundary>
   );
 }
 

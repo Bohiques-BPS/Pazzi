@@ -8,6 +8,12 @@ export enum UserRole {
   CLIENT_PROJECT = 'CLIENT_PROJECT', // Project client
 }
 
+export enum UserStatus {
+  INVITED = 'INVITED',
+  ACTIVE = 'ACTIVE',
+  DISABLED = 'DISABLED',
+}
+
 export enum Theme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -36,11 +42,14 @@ export interface User {
   name: string;
   lastName: string;
   role: UserRole;
+  status?: UserStatus;
   isEmergencyOrderActive: boolean;
+  /** Mapa de permisos granulares: { 'products.view': true, ... }. MANAGER recibe todos true. */
   permissions?: EmployeePermissions;
   profilePictureUrl?: string;
   alertSettings?: AlertSettings;
   pin?: string;
+  lastLoginAt?: string;
 }
 
 export interface Branch {
@@ -56,8 +65,15 @@ export interface Caja {
     name: string;
     branchId: string;
     isActive: boolean;
+    /** Etiqueta UI (PR usa "IVU"). En el BE el campo se llama `applyIVA`. Mantenemos ambos opcionales por compatibilidad. */
     applyIVU: boolean;
-    isExternal?: boolean; // New: Marks if sales from this register should be excluded from main reports
+    applyIVA?: boolean;
+    isExternal?: boolean;
+    currentSession?: {
+        id: string;
+        openedByUser?: { id: string; name: string; lastName: string };
+        openedAt: string;
+    } | null;
 }
 
 export interface ProductVariation {
@@ -194,10 +210,25 @@ export interface Client {
     isLoss?: boolean; // New: Marks client as a loss/bad debt
 }
 
-export interface EmployeePermissions {
-    viewProjectManagement: boolean;
-    manageProjects: boolean;
-    accessPOSCashier: boolean;
+/**
+ * Mapa flexible de permisos granulares. Las keys vienen del catálogo del backend
+ * (GET /api/permissions/catalog). MANAGER recibe automáticamente todos en true.
+ *
+ * Ejemplos de keys: 'products.view', 'pos.sell', 'caja.open', 'employees.manage'.
+ */
+export type EmployeePermissions = Record<string, boolean>;
+
+/** Una entrada del catálogo expuesto por el backend. */
+export interface PermissionDef {
+    key: string;
+    label: string;
+    description?: string;
+}
+
+export interface PermissionCategory {
+    key: string;
+    label: string;
+    permissions: PermissionDef[];
 }
 
 export interface Employee {

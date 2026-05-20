@@ -10,7 +10,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { CategoryFormModal } from './CategoryFormModal';
 import { DepartmentFormModal } from './DepartmentFormModal';
 import { BranchFormModal } from './BranchFormModal';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 
 interface ProductFormModalProps {
     isOpen: boolean;

@@ -1,93 +1,100 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useAuth } from '../../contexts/AuthContext';
-import { User, UserRole } from '../../types';
-import { RichTextEditor } from '../ui/RichTextEditor';
+import { cajasService, type CashMovement } from '../../services/cajas';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { ExclamationTriangleIcon } from '../icons';
 
 interface PayoutModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (amount: number, reason: string) => void;
+    cajaId: string;
+    /** Efectivo disponible en caja (para validación visual). El BE re-valida. */
     currentCashInDrawer: number;
+    onRecorded?: (movement: CashMovement) => void;
 }
 
-export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onConfirm, currentCashInDrawer }) => {
-    const { allUsers } = useAuth();
+export const PayoutModal: React.FC<PayoutModalProps> = ({
+    isOpen,
+    onClose,
+    cajaId,
+    currentCashInDrawer,
+    onRecorded,
+}) => {
+    const { currentUser } = useAuth();
     const [amount, setAmount] = useState('');
-    const [authorizedBy, setAuthorizedBy] = useState('');
-    const [comments, setComments] = useState('');
+    const [reason, setReason] = useState('');
     const [receiptCount, setReceiptCount] = useState('1');
     const [invoiceNumber, setInvoiceNumber] = useState('');
-    const [error, setError] = useState('');
-
-    const managers = useMemo(() => {
-        return allUsers.filter(u => u.role === UserRole.MANAGER);
-    }, [allUsers]);
+    const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             setAmount('');
-            setAuthorizedBy(managers.length > 0 ? managers[0].id : '');
-            setComments('');
+            setReason('');
             setReceiptCount('1');
             setInvoiceNumber('');
-            setError('');
+            setError(null);
         }
-    }, [isOpen, managers]);
+    }, [isOpen]);
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
+        setError(null);
         const payoutAmount = parseFloat(amount);
         if (isNaN(payoutAmount) || payoutAmount <= 0) {
-            setError('Por favor, ingrese un monto válido.');
+            setError('Ingrese un monto válido mayor a 0.');
             return;
         }
         if (payoutAmount > currentCashInDrawer) {
             setError(`El retiro no puede exceder el efectivo en caja ($${currentCashInDrawer.toFixed(2)}).`);
             return;
         }
-        if (!authorizedBy) {
-            setError('Debe seleccionar un administrador que autoriza.');
-            return;
-        }
-        if (!comments.trim()) {
-            setError('Debe escribir la razón del desembolso.');
+        if (!reason.trim()) {
+            setError('Escriba la razón del retiro.');
             return;
         }
 
-        const authorizingManager = managers.find(m => m.id === authorizedBy);
-        const fullReason = `
-            Razón: ${comments}.
-            Autorizado por: ${authorizingManager?.name || 'N/A'}.
-            ${invoiceNumber ? `Factura #: ${invoiceNumber}.` : ''}
-            ${receiptCount ? `Recibos: ${receiptCount}.` : ''}
-        `.trim().replace(/\s+/g, ' ');
-
-        onConfirm(payoutAmount, fullReason);
-        onClose();
+        setSubmitting(true);
+        try {
+            const movement = await cajasService.recordCashMovement(cajaId, {
+                type: 'PAYOUT',
+                amount: payoutAmount,
+                reason: reason.trim(),
+                receiptCount: parseInt(receiptCount, 10) || undefined,
+                invoiceNumber: invoiceNumber.trim() || undefined,
+                authorizedByUserId: currentUser?.role === 'MANAGER' ? currentUser.id : undefined,
+            });
+            toast.success(`Retiro de $${payoutAmount.toFixed(2)} registrado.`);
+            onRecorded?.(movement);
+            onClose();
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Error al registrar el retiro');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Desembolsos - Pay Out" size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title="Retiro de efectivo (Payout)" size="lg">
             <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="authorizedBy" className="block text-sm font-medium">Autorizado por</label>
-                        <select id="authorizedBy" value={authorizedBy} onChange={e => setAuthorizedBy(e.target.value)} className={inputFormStyle}>
-                            {managers.map(manager => (
-                                <option key={manager.id} value={manager.id}>{manager.name} {manager.lastName}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                         <label htmlFor="payoutAmount" className="block text-sm font-medium">Cantidad</label>
-                         <input
+                <div className="text-sm p-3 rounded-md bg-neutral-50 dark:bg-neutral-700/50 flex justify-between">
+                    <span className="text-neutral-600 dark:text-neutral-300">Efectivo disponible en caja:</span>
+                    <span className="font-semibold">${currentCashInDrawer.toFixed(2)}</span>
+                </div>
+
+                <div>
+                    <label htmlFor="payoutAmount" className="block text-sm font-medium">Monto a retirar</label>
+                    <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
+                        <input
                             type="number"
                             id="payoutAmount"
                             value={amount}
                             onChange={e => setAmount(e.target.value)}
-                            className={inputFormStyle}
+                            className={`${inputFormStyle} pl-7`}
                             placeholder="0.00"
                             min="0.01"
                             step="0.01"
@@ -96,17 +103,22 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
                         />
                     </div>
                 </div>
+
                 <div>
-                     <label htmlFor="payoutComments" className="block text-sm font-medium">Razón del Desembolso</label>
-                     <RichTextEditor
-                        value={comments}
-                        onChange={setComments}
-                        placeholder="Escriba el motivo del retiro de efectivo..."
-                     />
+                    <label htmlFor="payoutReason" className="block text-sm font-medium">Razón del retiro</label>
+                    <textarea
+                        id="payoutReason"
+                        value={reason}
+                        onChange={e => setReason(e.target.value)}
+                        rows={3}
+                        className={inputFormStyle}
+                        placeholder="Ej. Compra de suministros en ferretería..."
+                    />
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="receiptCount" className="block text-sm font-medium">Cantidad Recibos</label>
+                        <label htmlFor="receiptCount" className="block text-sm font-medium">Cantidad de recibos</label>
                         <input
                             type="number"
                             id="receiptCount"
@@ -117,8 +129,8 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
                             step="1"
                         />
                     </div>
-                     <div>
-                        <label htmlFor="invoiceNumber" className="block text-sm font-medium">Número de Factura</label>
+                    <div>
+                        <label htmlFor="invoiceNumber" className="block text-sm font-medium">Número de factura (opcional)</label>
                         <input
                             type="text"
                             id="invoiceNumber"
@@ -128,10 +140,24 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({ isOpen, onClose, onCon
                         />
                     </div>
                 </div>
-                 {error && <p className="text-xs text-center text-red-500">{error}</p>}
+
+                <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Registrado por: <strong>{currentUser?.name} {currentUser?.lastName}</strong>
+                    {currentUser?.role === 'MANAGER' && ' (autoautorizado)'}
+                </div>
+
+                {error && (
+                    <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
+                        <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" />
+                        {error}
+                    </div>
+                )}
+
                 <div className="flex justify-end space-x-2 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="button" onClick={handleConfirm} className={BUTTON_PRIMARY_SM_CLASSES}>Aceptar</button>
+                    <button type="button" onClick={handleConfirm} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
+                        {submitting ? 'Registrando...' : 'Registrar retiro'}
+                    </button>
                 </div>
             </div>
         </Modal>

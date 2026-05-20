@@ -8,16 +8,9 @@ import {
   Department, Layaway, LayawayStatus, ProjectFormData, Task, 
   TaskComment, TaskStatus 
 } from '../types';
-import { 
-   INITIAL_CLIENTS, INITIAL_EMPLOYEES, INITIAL_PROJECTS, 
-  INITIAL_SALES, INITIAL_ORDERS, INITIAL_VISITS,  
-  INITIAL_CHAT_MESSAGES, INITIAL_SUPPLIER_ORDERS, 
-  INITIAL_BRANCHES, ADMIN_USER_ID, INITIAL_NOTIFICATIONS, INITIAL_CAJAS, 
-  INITIAL_ESTIMATES, INITIAL_INVENTORY_LOGS, INITIAL_SALE_PAYMENTS, 
-  INITIAL_DEPARTMENTS, INITIAL_TASKS, INITIAL_TASK_COMMENTS 
-} from '../constants';
+import { ADMIN_USER_ID } from '../constants';
 import { useAuth } from './AuthContext'; 
-import { API_URL } from '../pages/pm/api';
+import { API_URL } from '../services/api';
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons';
 import { posService } from '../services/pos';
 
@@ -139,30 +132,33 @@ export interface DataContextType {
 export const DataContext = createContext<DataContextType | null>(null);
 
 export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-    const { currentUser } = useAuth(); 
+    const { currentUser } = useAuth();
+    // Datos de dominio: inicializados vacíos. Se llenan vía useEffect contra el backend.
+    // Antes había fallback a INITIAL_* + localStorage, lo cual mostraba dummy en producción.
     const [products, setProducts] = useState<Product[]>([]);
-    const [clients, setClients] = useState<Client[]>(() => JSON.parse(localStorage.getItem('pazziClients') || JSON.stringify(INITIAL_CLIENTS)));
-    const [employees, setEmployees] = useState<Employee[]>(() => JSON.parse(localStorage.getItem('pazziEmployees') || JSON.stringify(INITIAL_EMPLOYEES)));
-    const [projects, setProjects] = useState<Project[]>(() => JSON.parse(localStorage.getItem('pazziProjects') || JSON.stringify(INITIAL_PROJECTS)));
-    const [sales, setSalesInternal] = useState<Sale[]>(() => JSON.parse(localStorage.getItem('pazziSales') || JSON.stringify(INITIAL_SALES)));
-    const [salePayments, setSalePayments] = useState<SalePayment[]>(() => JSON.parse(localStorage.getItem('pazziSalePayments') || JSON.stringify(INITIAL_SALE_PAYMENTS)));
-    const [estimates, setEstimates] = useState<Estimate[]>(() => JSON.parse(localStorage.getItem('pazziEstimates') || JSON.stringify(INITIAL_ESTIMATES)));
-    const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>(() => JSON.parse(localStorage.getItem('pazziInventoryLogs') || JSON.stringify(INITIAL_INVENTORY_LOGS)));
-    const [orders, setOrders] = useState<Order[]>(() => JSON.parse(localStorage.getItem('pazziOrders') || JSON.stringify(INITIAL_ORDERS)));
-    const [visits, setVisits] = useState<Visit[]>(() => JSON.parse(localStorage.getItem('pazziVisits') || JSON.stringify(INITIAL_VISITS)));
+    const [clients, setClients] = useState<Client[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [sales, setSalesInternal] = useState<Sale[]>([]);
+    const [salePayments, setSalePayments] = useState<SalePayment[]>([]);
+    const [estimates, setEstimates] = useState<Estimate[]>([]);
+    const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [visits, setVisits] = useState<Visit[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => JSON.parse(localStorage.getItem('pazziChatMessages') || JSON.stringify(INITIAL_CHAT_MESSAGES)));
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>(() => JSON.parse(localStorage.getItem('pazziSupplierOrders') || JSON.stringify(INITIAL_SUPPLIER_ORDERS)));
-    const [branches, setBranches] = useState<Branch[]>(() => JSON.parse(localStorage.getItem('pazziBranches') || JSON.stringify(INITIAL_BRANCHES)));
-    const [cajas, setCajas] = useState<Caja[]>(() => JSON.parse(localStorage.getItem('pazziCajas') || JSON.stringify(INITIAL_CAJAS)));
-    const [notifications, setNotifications] = useState<Notification[]>(() => JSON.parse(localStorage.getItem('pazziNotifications') || JSON.stringify(INITIAL_NOTIFICATIONS)));
+    const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>([]);
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [cajas, setCajas] = useState<Caja[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [layaways, setLayaways] = useState<Layaway[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [taskComments, setTaskComments] = useState<TaskComment[]>([]);
+    // Estado UI session-local: legítimo persistir en localStorage (carrito en espera, último recibo)
     const [lastCompletedSale, setLastCompletedSale] = useState<Sale | null>(() => JSON.parse(localStorage.getItem('pazziLastSale') || 'null'));
     const [heldCarts, setHeldCarts] = useState<HeldCart[]>(() => JSON.parse(localStorage.getItem('pazziHeldCarts') || '[]'));
-    const [layaways, setLayaways] = useState<Layaway[]>(() => JSON.parse(localStorage.getItem('pazziLayaways') || '[]'));
-    const [tasks, setTasks] = useState<Task[]>(() => JSON.parse(localStorage.getItem('pazziTasks') || JSON.stringify(INITIAL_TASKS)));
-    const [taskComments, setTaskComments] = useState<TaskComment[]>(() => JSON.parse(localStorage.getItem('pazziTaskComments') || JSON.stringify(INITIAL_TASK_COMMENTS)));
 
 
     // Carga de categorías real desde el backend
@@ -214,7 +210,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setBranches(data);
+                if (Array.isArray(data)) setBranches(data);
             } catch (e) {
                 console.error("Error al cargar sucursales del servidor:", e);
             }
@@ -222,7 +218,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         if (currentUser) fetchBranches();
     }, [currentUser]);
 
-    // Carga de cajas desde el backend
+    // Carga de cajas desde el backend.
+    // Normaliza applyIVA (BE) → applyIVU (FE) para que el resto del código no se rompa.
     useEffect(() => {
         const fetchCajas = async () => {
             try {
@@ -230,7 +227,13 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setCajas(data);
+                if (Array.isArray(data)) {
+                    const normalized = data.map((c: any) => ({
+                        ...c,
+                        applyIVU: c.applyIVA ?? c.applyIVU ?? true,
+                    }));
+                    setCajas(normalized);
+                }
             } catch (e) {
                 console.error("Error al cargar cajas del servidor:", e);
             }
@@ -246,7 +249,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setClients(data);
+                if (Array.isArray(data)) setClients(data);
             } catch (e) {
                 console.error("Error al cargar clientes del servidor:", e);
             }
@@ -262,7 +265,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setEmployees(data);
+                if (Array.isArray(data)) setEmployees(data);
             } catch (e) {
                 console.error("Error al cargar empleados del servidor:", e);
             }
@@ -278,7 +281,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setSuppliers(data);
+                if (Array.isArray(data)) setSuppliers(data);
             } catch (e) {
                 console.error("Error al cargar proveedores del servidor:", e);
             }
@@ -294,7 +297,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setSalesInternal(data);
+                if (Array.isArray(data)) setSalesInternal(data);
             } catch (e) {
                 console.error("Error al cargar ventas del servidor:", e);
             }
@@ -310,7 +313,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setProducts(data);
+                if (Array.isArray(data)) setProducts(data);
             } catch (e) {
                 console.error("Error al cargar productos del servidor:", e);
             }
@@ -318,26 +321,154 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         if (currentUser) fetchProducts();
     }, [currentUser]);
 
-    useEffect(() => { localStorage.setItem('pazziClients', JSON.stringify(clients)); }, [clients]);
-    useEffect(() => { localStorage.setItem('pazziEmployees', JSON.stringify(employees)); }, [employees]);
-    useEffect(() => { localStorage.setItem('pazziProjects', JSON.stringify(projects)); }, [projects]);
-    useEffect(() => { localStorage.setItem('pazziSales', JSON.stringify(sales)); }, [sales]);
-    useEffect(() => { localStorage.setItem('pazziSalePayments', JSON.stringify(salePayments)); }, [salePayments]);
-    useEffect(() => { localStorage.setItem('pazziEstimates', JSON.stringify(estimates)); }, [estimates]);
-    useEffect(() => { localStorage.setItem('pazziInventoryLogs', JSON.stringify(inventoryLogs)); }, [inventoryLogs]);
-    useEffect(() => { localStorage.setItem('pazziOrders', JSON.stringify(orders)); }, [orders]);
-    useEffect(() => { localStorage.setItem('pazziVisits', JSON.stringify(visits)); }, [visits]);
-    useEffect(() => { localStorage.setItem('pazziChatMessages', JSON.stringify(chatMessages)); }, [chatMessages]);
-    useEffect(() => { localStorage.setItem('pazziSuppliers', JSON.stringify(suppliers)); }, [suppliers]);
-    useEffect(() => { localStorage.setItem('pazziSupplierOrders', JSON.stringify(supplierOrders)); }, [supplierOrders]);
-    useEffect(() => { localStorage.setItem('pazziBranches', JSON.stringify(branches)); }, [branches]);
-    useEffect(() => { localStorage.setItem('pazziCajas', JSON.stringify(cajas)); }, [cajas]);
-    useEffect(() => { localStorage.setItem('pazziNotifications', JSON.stringify(notifications)); }, [notifications]);
+    // Carga de proyectos
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const res = await fetch(`${API_URL}/projects`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setProjects(data);
+            } catch (e) {
+                console.error("Error al cargar proyectos del servidor:", e);
+            }
+        };
+        if (currentUser) fetchProjects();
+    }, [currentUser]);
+
+    // Carga de visitas
+    useEffect(() => {
+        const fetchVisits = async () => {
+            try {
+                const res = await fetch(`${API_URL}/visits`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setVisits(data);
+            } catch (e) {
+                console.error("Error al cargar visitas del servidor:", e);
+            }
+        };
+        if (currentUser) fetchVisits();
+    }, [currentUser]);
+
+    // Carga de tareas
+    useEffect(() => {
+        const fetchTasks = async () => {
+            try {
+                const res = await fetch(`${API_URL}/tasks`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setTasks(data);
+            } catch (e) {
+                console.error("Error al cargar tareas del servidor:", e);
+            }
+        };
+        if (currentUser) fetchTasks();
+    }, [currentUser]);
+
+    // Carga de estimates
+    useEffect(() => {
+        const fetchEstimates = async () => {
+            try {
+                const res = await fetch(`${API_URL}/estimates`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setEstimates(data);
+            } catch (e) {
+                console.error("Error al cargar cotizaciones del servidor:", e);
+            }
+        };
+        if (currentUser) fetchEstimates();
+    }, [currentUser]);
+
+    // Carga de layaways
+    useEffect(() => {
+        const fetchLayaways = async () => {
+            try {
+                const res = await fetch(`${API_URL}/layaways`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setLayaways(data);
+            } catch (e) {
+                console.error("Error al cargar apartados del servidor:", e);
+            }
+        };
+        if (currentUser) fetchLayaways();
+    }, [currentUser]);
+
+    // Carga de órdenes de proveedor
+    useEffect(() => {
+        const fetchSupplierOrders = async () => {
+            try {
+                const res = await fetch(`${API_URL}/supplier-orders`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setSupplierOrders(data);
+            } catch (e) {
+                console.error("Error al cargar órdenes de proveedor del servidor:", e);
+            }
+        };
+        if (currentUser) fetchSupplierOrders();
+    }, [currentUser]);
+
+    // Carga de notificaciones
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                const res = await fetch(`${API_URL}/notifications`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setNotifications(data);
+            } catch (e) {
+                console.error("Error al cargar notificaciones del servidor:", e);
+            }
+        };
+        if (currentUser) fetchNotifications();
+    }, [currentUser]);
+
+    // Carga de logs de inventario
+    useEffect(() => {
+        const fetchInventoryLogs = async () => {
+            try {
+                const res = await fetch(`${API_URL}/inventory/logs`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setInventoryLogs(data);
+            } catch (e) {
+                console.error("Error al cargar logs de inventario del servidor:", e);
+            }
+        };
+        if (currentUser) fetchInventoryLogs();
+    }, [currentUser]);
+
+    // Carga de órdenes (e-commerce)
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const res = await fetch(`${API_URL}/orders`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+                });
+                const data = await res.json();
+                if (Array.isArray(data)) setOrders(data);
+            } catch (e) {
+                console.error("Error al cargar órdenes del servidor:", e);
+            }
+        };
+        if (currentUser) fetchOrders();
+    }, [currentUser]);
+
+    // Persistencia local de estado UI session-local (no datos de dominio).
+    // El resto de entidades viven en el backend y se recargan en cada sesión.
     useEffect(() => { localStorage.setItem('pazziLastSale', JSON.stringify(lastCompletedSale)); }, [lastCompletedSale]);
     useEffect(() => { localStorage.setItem('pazziHeldCarts', JSON.stringify(heldCarts)); }, [heldCarts]);
-    useEffect(() => { localStorage.setItem('pazziLayaways', JSON.stringify(layaways)); }, [layaways]);
-    useEffect(() => { localStorage.setItem('pazziTasks', JSON.stringify(tasks)); }, [tasks]);
-    useEffect(() => { localStorage.setItem('pazziTaskComments', JSON.stringify(taskComments)); }, [taskComments]);
 
     const setSales = useCallback((updater: React.SetStateAction<Sale[]>) => {
         setSalesInternal(updater);

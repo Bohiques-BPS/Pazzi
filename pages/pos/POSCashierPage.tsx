@@ -40,6 +40,10 @@ import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
 import { DiscountAuthModal } from '../../components/forms/DiscountAuthModal';
 import { ReturnModal } from '../../components/forms/ReturnModal';
+import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
+import { cajasService, type CajaSession } from '../../services/cajas';
+import { posService } from '../../services/pos';
+import { toast } from '../../hooks/useToast';
 
 
 // Helper component for the live clock in the header
@@ -170,14 +174,34 @@ export const POSCashierPage: React.FC = () => {
         products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
         heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales
     } = useData();
-    const { currentUser, login, allUsers, logout, loginWithPin } = useAuth();
+    const { currentUser, login, logout } = useAuth();
+    // TODO M9: rehacer cambio de usuario en POS contra el BE real (no hay `allUsers`/`loginWithPin` en AuthContext).
+    // Por ahora: lista de cajeros = empleados del DataContext con permiso pos.access.
+    const allUsers: User[] = [];
+    const loginWithPin = async (_userId: string, _pin: string): Promise<boolean> => {
+        toast.error('Cambio de usuario por PIN está temporalmente deshabilitado.');
+        return false;
+    };
     const [barcodeInput, setBarcodeInput] = useState('');
     const productSearchRef = useRef<HTMLInputElement>(null);
     const barcodeInputRef = useRef<HTMLInputElement>(null);
 
     // Shift and security states
     const [isPosAuthenticated, setIsPosAuthenticated] = useState(false);
-    const [shiftState, setShiftState] = useState<{ active: boolean; openingAmount: number; startTime: string; payouts: {amount: number; reason: string}[] } | null>(null);
+    // currentSession refleja la CajaSession real del BE para la caja seleccionada.
+    const [currentSession, setCurrentSession] = useState<CajaSession | null>(null);
+    // shiftState es derivado (mantenemos forma compatible con el resto del componente).
+    const shiftState = useMemo(() => {
+        if (!currentSession) return null;
+        return {
+            active: true,
+            openingAmount: currentSession.openingFloat,
+            startTime: currentSession.openedAt,
+            payouts: (currentSession.movements || [])
+                .filter(m => m.type === 'PAYOUT')
+                .map(m => ({ amount: m.amount, reason: m.reason })),
+        };
+    }, [currentSession]);
     
     const [cart, setCart] = useState<CartItem[]>([]);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -220,31 +244,46 @@ export const POSCashierPage: React.FC = () => {
       }
     }, [isPosAuthenticated]);
 
-    // Check shift state after auth
-    useEffect(() => {
-      if (isPosAuthenticated) {
-        const savedShift = localStorage.getItem(`posShift_${currentUser?.id}_${selectedCajaId}`);
-        if (savedShift) {
-          setShiftState(JSON.parse(savedShift));
-        } else if (currentUser?.role === UserRole.MANAGER) {
-            // Auto-start shift for admins with 0 opening amount
-            handleStartShift(0);
-        } else {
-           setActiveModal('openShift');
+    // Cargar la sesión real de caja desde el BE cada vez que cambia la caja seleccionada.
+    // Si no hay sesión abierta, abrimos el OpenCajaModal (excepto si el usuario no tiene permiso).
+    const refreshCurrentSession = useCallback(async () => {
+        if (!selectedCajaId) {
+            setCurrentSession(null);
+            return;
         }
-      }
-    }, [isPosAuthenticated, currentUser, selectedCajaId]);
+        try {
+            const { session } = await cajasService.getCurrentSession(selectedCajaId);
+            setCurrentSession(session);
+        } catch {
+            setCurrentSession(null);
+        }
+    }, [selectedCajaId]);
 
-    // Persist shift state
     useEffect(() => {
-      if (shiftState && currentUser && selectedCajaId) {
-        localStorage.setItem(`posShift_${currentUser.id}_${selectedCajaId}`, JSON.stringify(shiftState));
-      }
-    }, [shiftState, currentUser, selectedCajaId]);
+        if (!isPosAuthenticated || !selectedCajaId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const { session } = await cajasService.getCurrentSession(selectedCajaId);
+                if (cancelled) return;
+                setCurrentSession(session);
+                if (!session) {
+                    // No hay turno abierto → invitar a abrirlo si tiene permiso
+                    setActiveModal('openShift');
+                }
+            } catch {
+                if (!cancelled) setCurrentSession(null);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isPosAuthenticated, selectedCajaId]);
 
 
     const handleInitialAuth = async (password: string): Promise<boolean> => {
-        if (currentUser && (allUsers.find(u => u.id === currentUser.id)?.password === password)) {
+        // Re-verifica la contraseña del usuario actual contra el BE.
+        if (!currentUser) return false;
+        const result = await login(currentUser.email, password);
+        if (result?.success === true) {
             setIsPosAuthenticated(true);
             setActiveModal(null);
             return true;
@@ -252,23 +291,21 @@ export const POSCashierPage: React.FC = () => {
         return false;
     };
     
-    const handleStartShift = (amount: number) => {
-        setShiftState({
-            active: true,
-            openingAmount: amount,
-            startTime: new Date().toISOString(),
-            payouts: []
-        });
+    // El "abrir turno" real lo hace el OpenCajaModal contra el BE; esta función queda como
+    // callback de éxito que refresca la sesión actual.
+    const handleShiftOpened = (session: CajaSession) => {
+        setCurrentSession(session);
         setActiveModal(null);
+        toast.success(`Turno abierto con $${session.openingFloat.toFixed(2)}`);
     };
 
     const handleSwitchUser = async (employee: User, pass: string): Promise<boolean> => {
-        const success = await login(employee.email, pass);
-        if(success) {
-            // Reset POS auth and shift state for the new user
+        const result = await login(employee.email, pass);
+        const success = result?.success === true;
+        if (success) {
+            // Reset POS auth y sesión para el nuevo usuario
             setIsPosAuthenticated(false);
-            setShiftState(null);
-            localStorage.removeItem(`posShift_${employee.id}_${selectedCajaId}`);
+            setCurrentSession(null);
         }
         return success;
     };
@@ -277,8 +314,7 @@ export const POSCashierPage: React.FC = () => {
         const success = await loginWithPin(userId, pin);
         if (success) {
             setIsPosAuthenticated(false);
-            setShiftState(null);
-            localStorage.removeItem(`posShift_${userId}_${selectedCajaId}`);
+            setCurrentSession(null);
         }
         return success;
     };
@@ -456,7 +492,9 @@ export const POSCashierPage: React.FC = () => {
     };
 
     const handleConfirmItemDelete = async (password: string): Promise<boolean> => {
-        if (currentUser && (allUsers.find(u => u.id === currentUser.id)?.password === password) && itemToDelete) {
+        if (!currentUser || !itemToDelete) return false;
+        const result = await login(currentUser.email, password);
+        if (result?.success === true) {
             updateQuantity(itemToDelete.id, 0);
             setActiveModal(null);
             setItemToDelete(null);
@@ -602,12 +640,10 @@ export const POSCashierPage: React.FC = () => {
         setActiveModal(null);
     };
     
-    const handleAddPayout = (amount: number, reason: string) => {
-        if (!shiftState) return;
-        setShiftState(prev => ({
-            ...prev!,
-            payouts: [...prev!.payouts, { amount, reason }]
-        }));
+    // El payout real se registra en el BE desde PayoutModal (M4-8).
+    // Esta función solo refresca la sesión actual para que shiftReportData se actualice.
+    const handleAddPayout = (_amount: number, _reason: string) => {
+        refreshCurrentSession();
     };
 
     const shiftReportData = useMemo(() => {
@@ -628,10 +664,8 @@ export const POSCashierPage: React.FC = () => {
     const handleEndShift = () => {
         // Here you would typically archive the shift report
         console.log("Shift Ended. Report:", shiftReportData);
-        if (currentUser && selectedCajaId) {
-            localStorage.removeItem(`posShift_${currentUser.id}_${selectedCajaId}`);
-        }
-        setShiftState(null);
+        // El cierre real ya lo hizo el BE vía EndShiftModal → cajasService.closeSession.
+        setCurrentSession(null);
         setActiveModal(null); // Close any active modals
     
         if (currentUser?.role === UserRole.MANAGER) {
@@ -644,25 +678,30 @@ export const POSCashierPage: React.FC = () => {
         }
     };
     
-    const handleProcessReturnFromModal = (originalSaleId: string, itemsToReturn: ReturnItemPayload[], reason: string, adminPassword: string) => {
-        const admin = allUsers.find(u => u.role === UserRole.MANAGER && u.password === adminPassword);
-        if (!admin) {
-            alert('Contraseña de administrador incorrecta. Devolución no autorizada.');
-            return;
+    const handleProcessReturnFromModal = async (
+        originalSaleId: string,
+        itemsToReturn: ReturnItemPayload[],
+        reason: string,
+        _supervisorPin: string,
+    ) => {
+        // La autorización del supervisor se hace ahora dentro del propio ReturnModal
+        // (o un POSActionAuthModal previo). Aquí sólo procesamos la devolución contra el BE.
+        try {
+            const result = await posService.processReturn(originalSaleId, {
+                items: itemsToReturn.map(it => ({
+                    productId: it.productId,
+                    quantity: it.quantity,
+                    customRefundAmount: it.customRefundAmount,
+                    returnToStock: it.returnToStock,
+                })),
+                reason,
+                refundMethod: 'Efectivo',
+            });
+            toast.success(result.message || `Devolución por $${result.refundAmount.toFixed(2)} procesada`);
+            setActiveModal(null);
+        } catch (err: any) {
+            toast.error(err?.message || 'Error al procesar la devolución');
         }
-
-        const originalSale = sales.find(s => s.id === originalSaleId);
-        if (!originalSale) {
-            alert('Venta original no encontrada.');
-            return;
-        }
-        if (!currentUser) {
-            alert('Usuario no encontrado.');
-            return;
-        }
-
-        processReturn(originalSale, itemsToReturn, currentUser.id, selectedCajaId, selectedBranchId, reason);
-        setActiveModal(null);
     };
 
 
@@ -696,20 +735,14 @@ export const POSCashierPage: React.FC = () => {
     }
     
     if (!shiftState?.active) {
+        const currentCajaForOpen = cajas.find(c => c.id === selectedCajaId);
         return (
-            <Modal isOpen={true} onClose={() => navigate('/')} title="Abrir Turno de Caja" size="sm">
-                <form onSubmit={(e) => { e.preventDefault(); handleStartShift(parseFloat(e.currentTarget.openingAmount.value)); }} className="space-y-4">
-                    <p className="text-sm">Ingrese el monto inicial de efectivo en la caja para comenzar el turno.</p>
-                    <div>
-                        <label className="block text-sm font-medium">Monto de Apertura</label>
-                        <input type="number" name="openingAmount" className={inputFormStyle} required autoFocus step="0.01" min="0" />
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                        <button type="button" onClick={() => navigate('/')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                        <button type="submit" className={BUTTON_SECONDARY_SM_CLASSES}>Iniciar Turno</button>
-                    </div>
-                </form>
-            </Modal>
+            <OpenCajaModal
+                isOpen={true}
+                onClose={() => navigate('/')}
+                caja={currentCajaForOpen ? { id: currentCajaForOpen.id, name: currentCajaForOpen.name } : null}
+                onOpened={handleShiftOpened}
+            />
         );
     }
     
@@ -965,8 +998,23 @@ export const POSCashierPage: React.FC = () => {
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
             <PaymentModal isOpen={activeModal === 'payment'} onClose={() => setActiveModal(null)} totalAmount={total} initialMethod={initialPaymentMethod} onFinalizeSale={handleFinalizeSale} />
             <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => setActiveModal(null)} onConfirm={handleConfirmItemDelete} title="Confirmar Eliminación" message="Ingrese su contraseña para eliminar el artículo del carrito." />
-            <EndShiftModal isOpen={activeModal === 'endShift'} onClose={() => setActiveModal(null)} onConfirm={handleEndShift} shiftData={shiftReportData} />
-            <PayoutModal isOpen={activeModal === 'payout'} onClose={() => setActiveModal(null)} onConfirm={handleAddPayout} currentCashInDrawer={(shiftState?.openingAmount || 0) + shiftReportData.cashSales - shiftReportData.payouts} />
+            {selectedCajaId && (
+                <EndShiftModal
+                    isOpen={activeModal === 'endShift'}
+                    onClose={() => setActiveModal(null)}
+                    cajaId={selectedCajaId}
+                    onClosed={() => handleEndShift()}
+                />
+            )}
+            {selectedCajaId && (
+                <PayoutModal
+                    isOpen={activeModal === 'payout'}
+                    onClose={() => setActiveModal(null)}
+                    cajaId={selectedCajaId}
+                    currentCashInDrawer={(shiftState?.openingAmount || 0) + shiftReportData.cashSales - shiftReportData.payouts}
+                    onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
+                />
+            )}
             <DiscountAuthModal 
                 isOpen={activeModal === 'discountAuth'} 
                 onClose={() => setActiveModal(null)} 

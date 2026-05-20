@@ -12,7 +12,7 @@ import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, Cog6Too
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID, inputFormStyle } from '../../constants'; 
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook

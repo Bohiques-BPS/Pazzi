@@ -8,7 +8,7 @@ import { TrashIconMini, PlusIcon, ExclamationTriangleIcon } from '../../componen
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { POSProjectFormModal } from '../pos/POSProjectFormModal';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
-import { API_URL } from './api';
+import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
 
 interface ClientFormModalProps {

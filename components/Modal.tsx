@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { XMarkIcon, ExclamationTriangleIcon } from './icons'; // Adjusted path
 import { BUTTON_SECONDARY_SM_CLASSES } from '../constants'; // Adjusted path
 
@@ -8,8 +8,22 @@ export interface ModalProps {
   title: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
+  /** Si true, no se cierra al presionar Esc. Útil para modales con datos sin guardar. */
+  disableEscClose?: boolean;
 }
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl' }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl', disableEscClose }) => {
+  useEffect(() => {
+    if (!isOpen || disableEscClose) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isOpen, onClose, disableEscClose]);
+
   if (!isOpen) return null;
 
   const sizeClasses: Record<string, string> = {

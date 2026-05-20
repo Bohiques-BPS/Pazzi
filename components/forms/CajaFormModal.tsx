@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Caja, CajaFormData, Branch } from '../../types';
+import { Caja, CajaFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { cajasService } from '../../services/cajas';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { ExclamationTriangleIcon } from '../icons';
 
 interface CajaFormModalProps {
     isOpen: boolean;
@@ -13,7 +17,7 @@ interface CajaFormModalProps {
 export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, cajaToEdit }) => {
     const { setCajas, cajas: allCajas, branches } = useData();
     const activeBranches = branches.filter(b => b.isActive);
-    
+
     const initialFormData: CajaFormData = {
         name: '',
         branchId: activeBranches[0]?.id || '',
@@ -22,26 +26,25 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         isExternal: false,
     };
     const [formData, setFormData] = useState<CajaFormData>(initialFormData);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (isOpen) {
-            if (cajaToEdit) {
-                setFormData({
-                    name: cajaToEdit.name,
-                    branchId: cajaToEdit.branchId,
-                    isActive: cajaToEdit.isActive,
-                    applyIVU: cajaToEdit.applyIVU,
-                    isExternal: cajaToEdit.isExternal || false,
-                });
-            } else {
-                // Reset to initial, ensuring branchId is valid if activeBranches exist
-                setFormData({
-                    ...initialFormData,
-                    branchId: activeBranches[0]?.id || ''
-                });
-            }
+        if (!isOpen) return;
+        if (cajaToEdit) {
+            setFormData({
+                name: cajaToEdit.name,
+                branchId: cajaToEdit.branchId,
+                isActive: cajaToEdit.isActive,
+                applyIVU: (cajaToEdit as any).applyIVA ?? cajaToEdit.applyIVU ?? true,
+                isExternal: cajaToEdit.isExternal || false,
+            });
+        } else {
+            setFormData({ ...initialFormData, branchId: activeBranches[0]?.id || '' });
         }
-    }, [cajaToEdit, isOpen, activeBranches, initialFormData]);
+        setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cajaToEdit, isOpen]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -52,91 +55,108 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
+
         if (formData.name.trim() === '') {
-            alert("El nombre de la caja es obligatorio.");
+            setError('El nombre de la caja es obligatorio.');
             return;
         }
         if (!formData.branchId) {
-            alert("Por favor, seleccione una sucursal para la caja.");
+            setError('Seleccione una sucursal para la caja.');
             return;
         }
-
-        const isDuplicateName = allCajas.some(c => c.name.toLowerCase() === formData.name.toLowerCase() && (!cajaToEdit || c.id !== cajaToEdit.id));
+        const isDuplicateName = allCajas.some(
+            c => c.name.toLowerCase() === formData.name.toLowerCase()
+                 && c.branchId === formData.branchId
+                 && (!cajaToEdit || c.id !== cajaToEdit.id)
+        );
         if (isDuplicateName) {
-            alert("Ya existe una caja con este nombre.");
+            setError('Ya existe una caja con ese nombre en esta sucursal.');
             return;
         }
 
-        if (cajaToEdit) {
-            setCajas(prev => prev.map(c => c.id === cajaToEdit.id ? { ...cajaToEdit, ...formData } : c));
-        } else {
-            const newCaja: Caja = { id: `caja-${Date.now()}`, ...formData };
-            setCajas(prev => [...prev, newCaja]);
+        // El BE espera `applyIVA`; el FE lo trabaja como `applyIVU` (misma idea, etiqueta PR).
+        const payload = {
+            name: formData.name.trim(),
+            branchId: formData.branchId,
+            isActive: formData.isActive,
+            applyIVA: formData.applyIVU,
+            isExternal: formData.isExternal,
+        };
+
+        setSubmitting(true);
+        try {
+            const saved = cajaToEdit
+                ? await cajasService.update(cajaToEdit.id, payload)
+                : await cajasService.create(payload);
+
+            // Normalizar applyIVA → applyIVU para el state local
+            const normalized: Caja = { ...(saved as any), applyIVU: (saved as any).applyIVA ?? true };
+
+            setCajas(prev => cajaToEdit
+                ? prev.map(c => c.id === cajaToEdit.id ? normalized : c)
+                : [...prev, normalized]);
+
+            toast.success(cajaToEdit ? 'Caja actualizada' : 'Caja creada');
+            onClose();
+        } catch (err) {
+            if (err instanceof ApiError) setError(err.message);
+            else setError('Error de conexión con el servidor');
+        } finally {
+            setSubmitting(false);
         }
-        onClose();
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={cajaToEdit ? 'Editar Caja (Terminal)' : 'Crear Caja (Terminal)'} size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title={cajaToEdit ? 'Editar caja (terminal)' : 'Crear caja (terminal)'} size="lg">
             <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                    <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
+                        <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" />
+                        {error}
+                    </div>
+                )}
+
                 <div>
-                    <label htmlFor="cajaName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre de la Caja</label>
-                    <input type="text" name="name" id="cajaName" value={formData.name} onChange={handleChange} className={inputFormStyle} required />
+                    <label htmlFor="cajaName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre de la caja</label>
+                    <input type="text" name="name" id="cajaName" value={formData.name} onChange={handleChange} className={inputFormStyle} required autoFocus />
                 </div>
                 <div>
-                    <label htmlFor="branchId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Sucursal Asignada</label>
+                    <label htmlFor="branchId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Sucursal asignada</label>
                     <select name="branchId" id="branchId" value={formData.branchId} onChange={handleChange} className={inputFormStyle} required>
-                        <option value="">Seleccionar Sucursal</option>
+                        <option value="">Seleccionar sucursal</option>
                         {activeBranches.map(branch => (
                             <option key={branch.id} value={branch.id}>{branch.name}</option>
                         ))}
                     </select>
-                    {activeBranches.length === 0 && <p className="text-xs text-red-500 mt-1">No hay sucursales activas. Por favor, active o cree una sucursal primero.</p>}
+                    {activeBranches.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1">No hay sucursales activas. Active o cree una sucursal primero.</p>
+                    )}
                 </div>
+
                 <div className="flex flex-wrap items-center gap-6 pt-2">
                     <label htmlFor="isActive" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                        <input
-                            type="checkbox"
-                            name="isActive"
-                            id="isActive"
-                            checked={formData.isActive}
-                            onChange={handleChange}
-                            className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded mr-2"
-                        />
-                        Caja Activa
+                        <input type="checkbox" name="isActive" id="isActive" checked={formData.isActive} onChange={handleChange} className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded mr-2" />
+                        Caja activa
                     </label>
-                     <label htmlFor="applyIVU" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                        <input
-                            type="checkbox"
-                            name="applyIVU"
-                            id="applyIVU"
-                            checked={formData.applyIVU}
-                            onChange={handleChange}
-                            className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded mr-2"
-                        />
-                        Aplicar IVU por Defecto
+                    <label htmlFor="applyIVU" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                        <input type="checkbox" name="applyIVU" id="applyIVU" checked={formData.applyIVU} onChange={handleChange} className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded mr-2" />
+                        Aplicar IVU por defecto
                     </label>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  "Aplicar IVU por Defecto" indica si las ventas procesadas en esta caja deben incluir IVU automáticamente. Esto puede ser ajustado por producto si necesario.
+                    "Aplicar IVU por defecto" indica si las ventas en esta caja incluyen IVU automáticamente. Puede ajustarse por producto.
                 </p>
 
                 <div className="pt-2 border-t dark:border-neutral-700">
                     <label htmlFor="isExternal" className="flex items-start text-sm font-medium text-neutral-700 dark:text-neutral-300 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-100 dark:border-amber-800 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            name="isExternal"
-                            id="isExternal"
-                            checked={formData.isExternal}
-                            onChange={handleChange}
-                            className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-neutral-300 dark:border-neutral-600 rounded mr-2 mt-0.5"
-                        />
+                        <input type="checkbox" name="isExternal" id="isExternal" checked={formData.isExternal} onChange={handleChange} className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-neutral-300 dark:border-neutral-600 rounded mr-2 mt-0.5" />
                         <div>
-                            <span className="block font-bold text-amber-700 dark:text-amber-400">Caja Externa / Fuera del Sistema</span>
+                            <span className="block font-bold text-amber-700 dark:text-amber-400">Caja externa / fuera del sistema</span>
                             <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-normal mt-1">
-                                Las ventas realizadas en esta caja se guardarán pero <strong>NO</strong> se incluirán en los reportes financieros estándar por defecto. Útil para ventas paralelas o de prueba.
+                                Las ventas se guardarán pero <strong>NO</strong> se incluirán en los reportes financieros estándar por defecto. Útil para ventas paralelas o de prueba.
                             </span>
                         </div>
                     </label>
@@ -144,7 +164,9 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
 
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={activeBranches.length === 0 && !cajaToEdit?.branchId}>Guardar Caja</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting || (activeBranches.length === 0 && !cajaToEdit?.branchId)}>
+                        {submitting ? 'Guardando...' : 'Guardar caja'}
+                    </button>
                 </div>
             </form>
         </Modal>
