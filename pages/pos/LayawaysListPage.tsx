@@ -1,146 +1,180 @@
-
-import React, { useState, useMemo } from 'react';
-import { Layaway, LayawayStatus } from '../../types';
-import { useData } from '../../contexts/DataContext';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { RecordLayawayPaymentModal } from '../../components/forms/RecordLayawayPaymentModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { BanknotesIcon, TrashIconMini } from '../../components/icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { layawaysService, type LayawayRecord, type LayawayStatus } from '../../services/layaways';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { PermissionGate } from '../../components/PermissionGate';
+
+interface LayawayRow extends LayawayRecord {
+    amountPaid: number;
+    balance: number;
+    clientName: string;
+    progressPct: number;
+}
 
 export const LayawaysListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { layaways, getClientById, salePayments, setLayaways } = useData();
+    const [layaways, setLayaways] = useState<LayawayRecord[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const [paymentModalLayaway, setPaymentModalLayaway] = useState<Layaway | null>(null);
-    const [cancelConfirmLayaway, setCancelConfirmLayaway] = useState<Layaway | null>(null);
-    const [completeConfirmLayaway, setCompleteConfirmLayaway] = useState<Layaway | null>(null);
+    const [paymentModalLayaway, setPaymentModalLayaway] = useState<LayawayRecord | null>(null);
+    const [cancelConfirmLayaway, setCancelConfirmLayaway] = useState<LayawayRecord | null>(null);
 
-    const layawayData = useMemo(() => {
-        return layaways.map(layaway => {
-            const payments = salePayments.filter(p => p.layawayId === layaway.id);
-            const amountPaid = payments.reduce((sum, p) => sum + p.amountPaid, 0);
-            const balance = layaway.totalAmount - amountPaid;
-            const client = getClientById(layaway.clientId);
-            return {
-                ...layaway,
-                amountPaid,
-                balance,
-                clientName: client ? `${client.name} ${client.lastName}` : 'N/A'
-            };
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [layaways, salePayments, getClientById]);
+    const refresh = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await layawaysService.getAll();
+            setLayaways(data);
+        } catch (err) {
+            if (err instanceof ApiError) toast.error(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-    const handleOpenPaymentModal = (layaway: Layaway) => {
-        setPaymentModalLayaway(layaway);
+    useEffect(() => { refresh(); }, [refresh]);
+
+    const layawayData = useMemo<LayawayRow[]>(() => {
+        return layaways
+            .map(l => {
+                const amountPaid = l.payments.reduce((sum, p) => sum + p.amountPaid, 0);
+                const balance = Math.max(0, l.totalAmount - amountPaid);
+                const clientName = l.client ? `${l.client.name} ${l.client.lastName || ''}`.trim() : 'N/A';
+                const progressPct = l.totalAmount > 0 ? Math.min(100, (amountPaid / l.totalAmount) * 100) : 0;
+                return { ...l, amountPaid, balance, clientName, progressPct };
+            })
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [layaways]);
+
+    const handlePaymentRecorded = (updated: LayawayRecord) => {
+        setLayaways(prev => prev.map(l => l.id === updated.id ? updated : l));
+        setPaymentModalLayaway(null);
     };
 
-    const handleOpenCancelModal = (layaway: Layaway) => {
-        setCancelConfirmLayaway(layaway);
-    };
-
-    const handleOpenCompleteModal = (layaway: Layaway) => {
-        setCompleteConfirmLayaway(layaway);
-    };
-
-    const confirmCancellation = () => {
+    const confirmCancellation = async () => {
         if (!cancelConfirmLayaway) return;
-        setLayaways(prev => prev.map(l => l.id === cancelConfirmLayaway.id ? { ...l, status: LayawayStatus.CANCELADO } : l));
-        // Note: Stock is not automatically returned. This would be a more complex feature.
-        setCancelConfirmLayaway(null);
-    };
-    
-    const confirmCompletion = () => {
-        if (!completeConfirmLayaway) return;
-        setLayaways(prev => prev.map(l => l.id === completeConfirmLayaway.id ? { ...l, status: LayawayStatus.COMPLETADO } : l));
-        setCompleteConfirmLayaway(null);
+        try {
+            const updated = await layawaysService.cancel(cancelConfirmLayaway.id);
+            setLayaways(prev => prev.map(l => l.id === updated.id ? updated : l));
+            toast.success('Apartado cancelado');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'Error al cancelar el apartado');
+        } finally {
+            setCancelConfirmLayaway(null);
+        }
     };
 
+    const statusBadge = (s: LayawayStatus) => {
+        const styles: Record<LayawayStatus, string> = {
+            Activo: 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100',
+            Completado: 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100',
+            Cancelado: 'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100',
+        };
+        return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${styles[s] || styles.Activo}`}>{s}</span>;
+    };
 
-    const columns: TableColumn<(typeof layawayData)[0]>[] = [
-        { header: t('pos.layaways.col.id'), accessor: (l) => l.id.slice(-8).toUpperCase() },
-        { header: t('pos.layaways.col.date'), accessor: (l) => new Date(l.date).toLocaleDateString() },
-        { header: t('pos.layaways.col.client'), accessor: 'clientName' },
-        { header: t('pos.layaways.col.total'), accessor: (l) => `$${l.totalAmount.toFixed(2)}` },
-        { header: t('pos.layaways.col.paid'), accessor: (l) => `$${l.amountPaid.toFixed(2)}` },
-        { header: t('pos.layaways.col.balance'), accessor: (l) => <span className="font-semibold text-red-600 dark:text-red-400">${l.balance.toFixed(2)}</span> },
+    const columns: TableColumn<LayawayRow>[] = [
+        { header: t('pos.layaways.col.id') || 'ID', accessor: (l) => l.id.slice(-8).toUpperCase() },
+        { header: t('pos.layaways.col.date') || 'Fecha', accessor: (l) => new Date(l.date).toLocaleDateString() },
+        { header: t('pos.layaways.col.client') || 'Cliente', accessor: 'clientName' },
+        { header: t('pos.layaways.col.total') || 'Total', accessor: (l) => `$${l.totalAmount.toFixed(2)}`, className: 'text-right' },
+        { header: t('pos.layaways.col.paid') || 'Pagado', accessor: (l) => `$${l.amountPaid.toFixed(2)}`, className: 'text-right' },
         {
-            header: t('pos.layaways.col.status'),
+            header: t('pos.layaways.col.balance') || 'Saldo',
             accessor: (l) => (
-                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    l.status === LayawayStatus.ACTIVO ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' :
-                    l.status === LayawayStatus.COMPLETADO ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' :
-                    'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100'
-                }`}>{l.status}</span>
-            )
+                <span className={`font-semibold ${l.balance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                    ${l.balance.toFixed(2)}
+                </span>
+            ),
+            className: 'text-right',
         },
+        {
+            header: 'Progreso',
+            accessor: (l) => (
+                <div className="w-24">
+                    <div className="text-xs text-neutral-500 mb-0.5">{l.progressPct.toFixed(0)}%</div>
+                    <div className="w-full bg-neutral-200 dark:bg-neutral-600 rounded-full h-1.5">
+                        <div
+                            className={`h-1.5 rounded-full ${l.progressPct >= 100 ? 'bg-green-500' : 'bg-primary'}`}
+                            style={{ width: `${l.progressPct}%` }}
+                        />
+                    </div>
+                </div>
+            ),
+        },
+        { header: 'Estado', accessor: (l) => statusBadge(l.status) },
     ];
 
     return (
         <div>
-            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">
-                {t('pos.layaways.title')}
-            </h1>
-            <DataTable<(typeof layawayData)[0]>
-                data={layawayData}
-                columns={columns}
-                actions={(layaway) => (
-                    <div className="flex space-x-1">
-                        <button
-                            onClick={() => handleOpenPaymentModal(layaway)}
-                            className="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={t('pos.layaways.register_payment')}
-                            disabled={layaway.status !== LayawayStatus.ACTIVO}
-                        >
-                            <BanknotesIcon className="w-4 h-4" />
-                        </button>
-                        {layaway.balance <= 0 && layaway.status === LayawayStatus.ACTIVO && (
-                             <button
-                                onClick={() => handleOpenCompleteModal(layaway)}
-                                className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-                                title={t('pos.layaways.mark_completed')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                            </button>
-                        )}
-                        <button
-                            onClick={() => handleOpenCancelModal(layaway)}
-                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={t('pos.layaways.cancel')}
-                            disabled={layaway.status !== LayawayStatus.ACTIVO}
-                        >
-                            <TrashIconMini className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
-            />
-            
+            <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
+                    {t('pos.layaways.title') || 'Apartados (Layaways)'}
+                </h1>
+            </div>
+
+            {loading && <LoadingSkeleton variant="table" rows={6} />}
+
+            {!loading && layawayData.length === 0 && (
+                <EmptyState
+                    title="Sin apartados"
+                    description="Aún no hay apartados registrados. Crea uno desde la caja registradora (POS)."
+                />
+            )}
+
+            {!loading && layawayData.length > 0 && (
+                <DataTable<LayawayRow>
+                    data={layawayData}
+                    columns={columns}
+                    actions={(layaway) => (
+                        <div className="flex space-x-1">
+                            <PermissionGate require={['layaways.recordPayment', 'layaways.manage']}>
+                                <button
+                                    onClick={() => setPaymentModalLayaway(layaway)}
+                                    className="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title={t('pos.layaways.register_payment') || 'Registrar abono'}
+                                    disabled={layaway.status !== 'Activo'}
+                                >
+                                    <BanknotesIcon className="w-4 h-4" />
+                                </button>
+                            </PermissionGate>
+                            <PermissionGate require="layaways.manage">
+                                <button
+                                    onClick={() => setCancelConfirmLayaway(layaway)}
+                                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title={t('pos.layaways.cancel') || 'Cancelar apartado'}
+                                    disabled={layaway.status !== 'Activo'}
+                                >
+                                    <TrashIconMini className="w-4 h-4" />
+                                </button>
+                            </PermissionGate>
+                        </div>
+                    )}
+                />
+            )}
+
             <RecordLayawayPaymentModal
                 isOpen={!!paymentModalLayaway}
                 onClose={() => setPaymentModalLayaway(null)}
                 layaway={paymentModalLayaway}
+                onPaymentRecorded={handlePaymentRecorded}
             />
 
             {cancelConfirmLayaway && (
-                 <ConfirmationModal
+                <ConfirmationModal
                     isOpen={!!cancelConfirmLayaway}
                     onClose={() => setCancelConfirmLayaway(null)}
                     onConfirm={confirmCancellation}
-                    title={t('pos.layaways.confirm_cancel.title')}
-                    message={t('pos.layaways.confirm_cancel.message', { id: cancelConfirmLayaway.id.slice(-6) })}
-                    confirmButtonText={t('confirm.delete.btn')}
-                    cancelButtonText={t('confirm.cancel.btn')}
-                />
-            )}
-            {completeConfirmLayaway && (
-                <ConfirmationModal
-                    isOpen={!!completeConfirmLayaway}
-                    onClose={() => setCompleteConfirmLayaway(null)}
-                    onConfirm={confirmCompletion}
-                    title={t('pos.layaways.confirm_complete.title')}
-                    message={t('pos.layaways.confirm_complete.message', { id: completeConfirmLayaway.id.slice(-6) })}
-                    confirmButtonText={t('common.confirm')}
-                    cancelButtonText={t('common.cancel')}
+                    title="Cancelar apartado"
+                    message={`¿Estás seguro de cancelar el apartado #${cancelConfirmLayaway.id.slice(-6).toUpperCase()}? Esta acción no se puede deshacer. Los pagos ya registrados quedarán pendientes de devolución manual.`}
+                    confirmButtonText="Sí, cancelar"
+                    cancelButtonText="No, mantener"
                 />
             )}
         </div>

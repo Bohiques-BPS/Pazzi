@@ -12,6 +12,11 @@ import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTI
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../../services/api';
+import { ReceiveSupplierOrderModal } from '../../components/forms/ReceiveSupplierOrderModal';
+import { SupplierPaymentModal } from '../../components/forms/SupplierPaymentModal';
+import { PermissionGate } from '../../components/PermissionGate';
+import { ArchiveBoxIcon, BanknotesIcon } from '../../components/icons';
+import type { SupplierOrderRecord } from '../../services/supplierOrders';
 
 interface UpdateStatusModalProps {
     isOpen: boolean;
@@ -121,6 +126,10 @@ export const SupplierOrdersListPage: React.FC = () => {
 
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+
+    // M19: recepción y pagos
+    const [orderForReceive, setOrderForReceive] = useState<SupplierOrderRecord | null>(null);
+    const [orderForPayment, setOrderForPayment] = useState<SupplierOrderRecord | null>(null);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<SupplierOrderStatus | 'Todos'>('Todos');
@@ -319,19 +328,49 @@ export const SupplierOrdersListPage: React.FC = () => {
                 <DataTable<SupplierOrder>
                     data={filteredOrders}
                     columns={columns}
-                    actions={(order) => (
-                        <div className="flex space-x-2">
-                            <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title="Ver/Editar">
-                                <EditIcon />
-                            </button>
-                            <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" title="Estado">
-                                <Cog6ToothIcon />
-                            </button>
-                            <button onClick={() => requestDelete(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title="Eliminar">
-                                <DeleteIcon />
-                            </button>
-                        </div>
-                    )}
+                    actions={(order) => {
+                        const isReceived = order.status === 'Recibido Completo';
+                        const isPaidFull = order.paymentStatus === 'Pagado Completo';
+                        return (
+                            <div className="flex space-x-1 items-center">
+                                <PermissionGate require="supplierOrders.manage">
+                                    <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title="Ver / Editar">
+                                        <EditIcon />
+                                    </button>
+                                </PermissionGate>
+                                <PermissionGate require="supplierOrders.receive">
+                                    <button
+                                        onClick={() => setOrderForReceive(order as unknown as SupplierOrderRecord)}
+                                        className="p-1 text-green-600 dark:text-green-400 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title={isReceived ? 'Ya recibida' : 'Recibir e ingresar a inventario'}
+                                        disabled={isReceived || order.status === 'Cancelado'}
+                                    >
+                                        <ArchiveBoxIcon />
+                                    </button>
+                                </PermissionGate>
+                                <PermissionGate require={['accounts.recordPayment', 'supplierOrders.manage']}>
+                                    <button
+                                        onClick={() => setOrderForPayment(order as unknown as SupplierOrderRecord)}
+                                        className="p-1 text-amber-600 dark:text-amber-400 hover:text-amber-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title={isPaidFull ? 'Pagado completo' : 'Registrar pago'}
+                                        disabled={isPaidFull || order.status === 'Cancelado'}
+                                    >
+                                        <BanknotesIcon />
+                                    </button>
+                                </PermissionGate>
+                                <PermissionGate require="supplierOrders.manage">
+                                    <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" title="Cambiar estado">
+                                        <Cog6ToothIcon />
+                                    </button>
+                                </PermissionGate>
+                                <PermissionGate require="supplierOrders.manage">
+                                    <button onClick={() => requestDelete(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title="Eliminar">
+                                        <DeleteIcon />
+                                    </button>
+                                </PermissionGate>
+                            </div>
+                        );
+                    }}
                 />
             )}
 
@@ -349,11 +388,29 @@ export const SupplierOrdersListPage: React.FC = () => {
                 orderToEdit={editingOrder} 
                 storeOwnerId={storeOwnerId}
             />
-            <UpdateStatusModal 
+            <UpdateStatusModal
                 isOpen={showStatusModal}
                 onClose={() => setShowStatusModal(false)}
                 order={orderForStatusUpdate}
                 onUpdate={handleUpdateStatus}
+            />
+            <ReceiveSupplierOrderModal
+                isOpen={!!orderForReceive}
+                onClose={() => setOrderForReceive(null)}
+                order={orderForReceive}
+                onReceived={(updated) => {
+                    setSupplierOrders(prev => prev.map(o => o.id === updated.id ? (updated as unknown as SupplierOrder) : o));
+                    setOrderForReceive(null);
+                }}
+            />
+            <SupplierPaymentModal
+                isOpen={!!orderForPayment}
+                onClose={() => setOrderForPayment(null)}
+                order={orderForPayment}
+                onPaid={(updated) => {
+                    setSupplierOrders(prev => prev.map(o => o.id === updated.id ? (updated as unknown as SupplierOrder) : o));
+                    setOrderForPayment(null);
+                }}
             />
         </div>
     );

@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from '../Modal';
-import { Client, Project, Sale, SalePayment, ProjectStatus } from '../../types';
-import { useData } from '../../contexts/DataContext';
-import { ChevronDownIcon } from '../icons';
+import { Client } from '../../types';
+import { clientsService, type ClientSummary } from '../../services/clients';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { EmptyState } from './EmptyState';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -10,141 +13,182 @@ interface ClientAccountModalProps {
     client: Client | null;
 }
 
-interface ProjectAccountDetails {
-    project: Project | { id: 'general'; name: 'Cuenta General' };
-    charges: number;
-    payments: number;
-    balance: number;
-    transactions: (Sale | SalePayment)[];
-}
+const SummaryCard: React.FC<{ label: string; value: string; tone?: 'default' | 'positive' | 'negative' }> = ({ label, value, tone = 'default' }) => (
+    <div className="p-3 rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-700/50">
+        <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</div>
+        <div className={`text-lg font-bold ${
+            tone === 'positive' ? 'text-green-600 dark:text-green-400' :
+            tone === 'negative' ? 'text-red-600 dark:text-red-400' :
+            'text-neutral-800 dark:text-neutral-100'
+        }`}>
+            {value}
+        </div>
+    </div>
+);
 
-const TransactionRow: React.FC<{ transaction: Sale | SalePayment }> = ({ transaction }) => {
-    const isSale = 'items' in transaction;
-    const date = isSale ? transaction.date : transaction.paymentDate;
-    const description = isSale ? `Venta POS #${transaction.id.slice(-6)}` : `Abono (${transaction.paymentMethodUsed})`;
-    const amount = isSale ? transaction.totalAmount : -transaction.amountPaid;
-
-    return (
-        <tr className="border-b border-neutral-200 dark:border-neutral-700 text-xs">
-            <td className="px-2 py-1.5 whitespace-nowrap">{new Date(date).toLocaleDateString()}</td>
-            <td className="px-2 py-1.5">{description}</td>
-            <td className={`px-2 py-1.5 text-right font-mono ${isSale ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                {isSale ? '+' : '-'}${Math.abs(amount).toFixed(2)}
-            </td>
-        </tr>
-    );
+const overdueStyle = (days: number) => {
+    if (days <= 0) return 'text-neutral-500';
+    if (days < 30) return 'text-amber-600 dark:text-amber-400';
+    if (days < 60) return 'text-orange-600 dark:text-orange-400';
+    return 'text-red-600 dark:text-red-400 font-bold';
 };
 
 export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client }) => {
-    const { sales, salePayments, projects } = useData();
-    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ general: true });
+    const [data, setData] = useState<ClientSummary | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    const accountData = useMemo(() => {
-        if (!client) return null;
+    useEffect(() => {
+        if (!isOpen || !client) return;
+        let cancelled = false;
+        setLoading(true);
+        clientsService.getSummary(client.id, { period: 90 })
+            .then(res => { if (!cancelled) setData(res); })
+            .catch(err => {
+                if (cancelled) return;
+                if (err instanceof ApiError) toast.error(err.message);
+            })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [isOpen, client]);
 
-        const clientSales = sales.filter(s => 
-            s.clientId === client.id && 
-            (s.paymentMethod === 'Crédito C.' || (s.payments && s.payments.some(p => p.method === 'Crédito C.')))
-        );
-        const clientProjects = projects.filter(p => p.clientId === client.id);
-        const allClientSaleIds = clientSales.map(s => s.id);
-        const allClientPayments = salePayments.filter(p => allClientSaleIds.includes(p.saleId));
-        
-        const projectBreakdowns: ProjectAccountDetails[] = clientProjects.map(project => {
-            const projectSales = clientSales.filter(s => s.projectId === project.id);
-            const projectSaleIds = projectSales.map(s => s.id);
-            const projectPayments = allClientPayments.filter(p => projectSaleIds.includes(p.saleId));
-            
-            const charges = projectSales.reduce((sum, s) => sum + s.totalAmount, 0);
-            const payments = projectPayments.reduce((sum, p) => sum + p.amountPaid, 0);
-            const balance = charges - payments;
-            
-            const transactions = [...projectSales, ...projectPayments].sort((a, b) => 
-                new Date('items' in a ? a.date : a.paymentDate).getTime() - new Date('items' in b ? b.date : b.paymentDate).getTime()
-            );
-
-            return { project, charges, payments, balance, transactions };
-        });
-
-        const generalSales = clientSales.filter(s => !s.projectId);
-        const generalSaleIds = generalSales.map(s => s.id);
-        const generalPayments = allClientPayments.filter(p => generalSaleIds.includes(p.saleId));
-        const generalCharges = generalSales.reduce((sum, s) => sum + s.totalAmount, 0);
-        const generalPaymentsTotal = generalPayments.reduce((sum, p) => sum + p.amountPaid, 0);
-        const generalBalance = generalCharges - generalPaymentsTotal;
-        const generalTransactions = [...generalSales, ...generalPayments].sort((a, b) => 
-            new Date('items' in a ? a.date : a.paymentDate).getTime() - new Date('items' in b ? b.date : b.paymentDate).getTime()
-        );
-
-        const generalBreakdown: ProjectAccountDetails = {
-            project: { id: 'general', name: 'Cuenta General' },
-            charges: generalCharges,
-            payments: generalPaymentsTotal,
-            balance: generalBalance,
-            transactions: generalTransactions
-        };
-        
-        const grandTotalBalance = projectBreakdowns.reduce((sum, p) => sum + p.balance, 0) + generalBalance;
-
-        return { projectBreakdowns, generalBreakdown, grandTotalBalance };
-    }, [client, sales, salePayments, projects]);
-
-    const toggleExpand = (sectionId: string) => {
-        setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
-    };
-
-    if (!isOpen || !client || !accountData) return null;
-
-    const { projectBreakdowns, generalBreakdown, grandTotalBalance } = accountData;
+    if (!isOpen || !client) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Estado de Cuenta: ${client.name} ${client.lastName}`} size="4xl">
-            <div className="space-y-4 max-h-[70vh] flex flex-col">
-                <div className="p-3 bg-neutral-100 dark:bg-neutral-900 rounded-lg flex justify-between items-center flex-shrink-0">
-                    <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Balance Total del Cliente:</h3>
-                    <span className={`text-2xl font-bold ${grandTotalBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                        ${grandTotalBalance.toFixed(2)}
-                    </span>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Estado de cuenta — ${client.name} ${client.lastName || ''}`} size="4xl">
+            {loading && <LoadingSkeleton variant="form" rows={6} />}
+
+            {!loading && data && (
+                <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <SummaryCard label="Total facturado" value={`$${data.summary.totalRevenue.toFixed(2)}`} />
+                        <SummaryCard label="Total pagado" value={`$${data.summary.totalPaid.toFixed(2)}`} tone="positive" />
+                        <SummaryCard
+                            label="Balance pendiente"
+                            value={`$${data.summary.totalBalance.toFixed(2)}`}
+                            tone={data.summary.totalBalance > 0 ? 'negative' : 'positive'}
+                        />
+                        <SummaryCard label="Ventas" value={data.summary.totalSalesCount.toString()} />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <SummaryCard label="Cotizaciones" value={data.summary.totalEstimates.toString()} />
+                        <SummaryCard label="Apartados" value={data.summary.totalLayaways.toString()} />
+                        <SummaryCard label="Proyectos" value={data.summary.totalProjects.toString()} />
+                        <SummaryCard
+                            label="C×C pendientes"
+                            value={`${data.summary.accountsReceivableCount} ($${data.summary.accountsReceivableTotal.toFixed(2)})`}
+                            tone={data.summary.accountsReceivableCount > 0 ? 'negative' : 'default'}
+                        />
+                    </div>
+
+                    <section>
+                        <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
+                            Cuentas por cobrar ({data.accountsReceivable.length})
+                        </h3>
+                        {data.accountsReceivable.length === 0 ? (
+                            <p className="text-sm text-neutral-500 py-2">Sin saldos pendientes.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-neutral-100 dark:bg-neutral-700/50">
+                                        <tr>
+                                            <th className="text-left p-2">Venta</th>
+                                            <th className="text-left p-2">Fecha</th>
+                                            <th className="text-right p-2">Total</th>
+                                            <th className="text-right p-2">Pagado</th>
+                                            <th className="text-right p-2">Saldo</th>
+                                            <th className="text-left p-2">Vence</th>
+                                            <th className="text-center p-2">Días vencido</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                                        {data.accountsReceivable.map(r => (
+                                            <tr key={r.saleId}>
+                                                <td className="p-2 font-mono text-xs">#{r.saleId.slice(-6).toUpperCase()}</td>
+                                                <td className="p-2">{new Date(r.saleDate).toLocaleDateString()}</td>
+                                                <td className="p-2 text-right">${r.totalAmount.toFixed(2)}</td>
+                                                <td className="p-2 text-right">${r.paid.toFixed(2)}</td>
+                                                <td className="p-2 text-right font-bold text-red-600 dark:text-red-400">${r.balance.toFixed(2)}</td>
+                                                <td className="p-2">{r.dueDate ? new Date(r.dueDate).toLocaleDateString() : '—'}</td>
+                                                <td className={`p-2 text-center ${overdueStyle(r.daysOverdue)}`}>
+                                                    {r.daysOverdue > 0 ? r.daysOverdue : '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
+
+                    {data.topProducts.length > 0 && (
+                        <section>
+                            <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
+                                Productos más comprados
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {data.topProducts.map(p => (
+                                    <div key={p.productId} className="p-2 border border-neutral-200 dark:border-neutral-600 rounded text-sm flex justify-between">
+                                        <span className="truncate">{p.name}</span>
+                                        <span className="font-bold text-primary">{p.totalQuantity}u</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {data.projects.length > 0 && (
+                        <section>
+                            <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
+                                Proyectos ({data.projects.length})
+                            </h3>
+                            <ul className="space-y-1 text-sm">
+                                {data.projects.map(p => (
+                                    <li key={p.id} className="flex justify-between p-2 bg-neutral-50 dark:bg-neutral-700/30 rounded">
+                                        <span>{p.name}</span>
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700">{p.status}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
+
+                    <section>
+                        <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
+                            Ventas recientes (últimos {data.summary.periodDays} días, {data.recentSales.length})
+                        </h3>
+                        {data.recentSales.length === 0 ? (
+                            <p className="text-sm text-neutral-500 py-2">Sin ventas en el período.</p>
+                        ) : (
+                            <div className="space-y-1 text-sm">
+                                {data.recentSales.map(s => (
+                                    <details key={s.id} className="p-2 bg-neutral-50 dark:bg-neutral-700/30 rounded">
+                                        <summary className="cursor-pointer flex justify-between items-center">
+                                            <span>
+                                                <span className="font-mono text-xs mr-2">#{s.id.slice(-6).toUpperCase()}</span>
+                                                {new Date(s.date).toLocaleDateString()} — {s.paymentMethod}
+                                            </span>
+                                            <span className={`font-bold ${s.isReturn ? 'text-orange-600' : 'text-primary'}`}>
+                                                {s.isReturn ? '−' : ''}${s.totalAmount.toFixed(2)}
+                                            </span>
+                                        </summary>
+                                        <ul className="mt-2 pl-4 text-xs text-neutral-500 space-y-0.5">
+                                            {s.items.map(it => (
+                                                <li key={it.id}>
+                                                    {it.product?.name || 'Producto'} × {it.quantity} — ${it.unitPrice.toFixed(2)}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </details>
+                                ))}
+                            </div>
+                        )}
+                    </section>
                 </div>
-                <div className="flex-grow overflow-y-auto pr-2 space-y-3">
-                    {[generalBreakdown, ...projectBreakdowns].map(breakdown => (
-                        <div key={breakdown.project.id} className="border border-neutral-200 dark:border-neutral-700 rounded-lg">
-                            <button onClick={() => toggleExpand(breakdown.project.id)} className="w-full p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between text-left hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-t-lg">
-                                <div className="flex-grow">
-                                    <h4 className="font-semibold text-primary">{breakdown.project.name}</h4>
-                                    {'status' in breakdown.project && <span className="text-xs text-neutral-500">{breakdown.project.status}</span>}
-                                </div>
-                                <div className="grid grid-cols-3 gap-x-4 mt-2 sm:mt-0 text-xs sm:text-sm text-center">
-                                    <div><span className="block text-neutral-500">Cargos</span><span className="font-medium">${breakdown.charges.toFixed(2)}</span></div>
-                                    <div><span className="block text-neutral-500">Abonos</span><span className="font-medium">${breakdown.payments.toFixed(2)}</span></div>
-                                    <div><span className="block text-neutral-500">Balance</span><span className={`font-bold ${breakdown.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>${breakdown.balance.toFixed(2)}</span></div>
-                                </div>
-                                <ChevronDownIcon className={`w-5 h-5 ml-4 flex-shrink-0 transition-transform ${expandedSections[breakdown.project.id] ? 'rotate-180' : ''}`} />
-                            </button>
-                            {expandedSections[breakdown.project.id] && (
-                                <div className="p-2 border-t border-neutral-200 dark:border-neutral-700">
-                                    {breakdown.transactions.length > 0 ? (
-                                        <table className="w-full">
-                                            <thead>
-                                                <tr className="text-xs text-left text-neutral-500 dark:text-neutral-400">
-                                                    <th className="px-2 py-1 font-medium">Fecha</th>
-                                                    <th className="px-2 py-1 font-medium">Descripción</th>
-                                                    <th className="px-2 py-1 font-medium text-right">Monto</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {breakdown.transactions.map((tx) => <TransactionRow key={tx.id} transaction={tx} />)}
-                                            </tbody>
-                                        </table>
-                                    ) : (
-                                        <p className="text-xs text-center text-neutral-500 py-2">No hay transacciones en este apartado.</p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
+            )}
+
+            {!loading && !data && (
+                <EmptyState title="Sin datos del cliente" description="No se pudo cargar el resumen del cliente." />
+            )}
         </Modal>
     );
 };

@@ -1,17 +1,24 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useData } from '../../contexts/DataContext'; // Adjusted path
-import { useAuth } from '../../contexts/AuthContext'; // Adjusted path
-import { ProjectStatus, Client, Employee, UserRole } from '../../types'; // Adjusted path, Added UserRole
-import { ChatMessageItem } from './ChatMessageItem'; // Adjusted path
-import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon } from '../../components/icons'; // Adjusted path
-import { inputFormStyle, BUTTON_PRIMARY_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
-import { CallModal } from '../../components/CallModal'; // Added CallModal
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { ProjectStatus, Employee, UserRole } from '../../types';
+import { ChatMessageItem } from './ChatMessageItem';
+import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon } from '../../components/icons';
+import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
+import { CallModal } from '../../components/CallModal';
+import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+
+const POLLING_INTERVAL_MS = 7000;
 
 export const ProjectChatPage: React.FC = () => {
-    const { projects: allProjectsContext, clients, employees: allEmployeesHook, chatMessages, addChatMessage, getChatMessagesForProject, getClientById, getEmployeeById } = useData();
+    const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
+    const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
+    const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
@@ -30,13 +37,31 @@ export const ProjectChatPage: React.FC = () => {
 
     const selectedProject = selectedProjectId ? allProjectsContext.find(p => p.id === selectedProjectId) : null;
 
-    const projectMessages = selectedProjectId ? getChatMessagesForProject(selectedProjectId) : [];
-
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     useEffect(scrollToBottom, [projectMessages]);
+
+    // Carga y polling de mensajes para el proyecto seleccionado
+    const fetchMessages = useCallback(async (projectId: string) => {
+        try {
+            const msgs = await chatService.getMessages(projectId);
+            setProjectMessages(msgs);
+        } catch (err) {
+            if (err instanceof ApiError) console.error('chat fetch:', err.message);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!selectedProjectId) {
+            setProjectMessages([]);
+            return;
+        }
+        fetchMessages(selectedProjectId);
+        const interval = setInterval(() => fetchMessages(selectedProjectId), POLLING_INTERVAL_MS);
+        return () => clearInterval(interval);
+    }, [selectedProjectId, fetchMessages]);
 
      // Auto-select first project if list changes and current selection is invalid or none
     useEffect(() => {
@@ -48,14 +73,22 @@ export const ProjectChatPage: React.FC = () => {
     }, [activeProjects, selectedProjectId]);
 
 
-    const handleSendMessage = () => {
-        if (newMessage.trim() && selectedProjectId && currentUser) {
-            addChatMessage({
+    const handleSendMessage = async () => {
+        if (!newMessage.trim() || !selectedProjectId || !currentUser) return;
+        const text = newMessage.trim();
+        setSending(true);
+        try {
+            const message = await chatService.sendMessage({
                 projectId: selectedProjectId,
-                senderId: currentUser.id,
-                text: newMessage.trim(),
+                text,
+                senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
             });
+            setProjectMessages(prev => [...prev, message]);
             setNewMessage('');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'Error al enviar mensaje');
+        } finally {
+            setSending(false);
         }
     };
 
@@ -192,14 +225,14 @@ export const ProjectChatPage: React.FC = () => {
                                     rows={1}
                                     aria-label="Escribir mensaje"
                                 />
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     className={`${BUTTON_PRIMARY_CLASSES} !py-2 !px-3 sm:!px-4 rounded-lg flex items-center justify-center flex-shrink-0`}
-                                    disabled={!newMessage.trim()}
+                                    disabled={!newMessage.trim() || sending}
                                     aria-label="Enviar mensaje"
                                 >
                                     <PaperAirplaneIcon />
-                                    <span className="ml-1.5 hidden sm:inline text-sm">Enviar</span>
+                                    <span className="ml-1.5 hidden sm:inline text-sm">{sending ? 'Enviando...' : 'Enviar'}</span>
                                 </button>
                             </form>
                         </div>

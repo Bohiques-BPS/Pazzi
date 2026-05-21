@@ -47,4 +47,10 @@ export const authService = {
 
   resendInvitation: (employeeId: string) =>
     api.post<{ message: string; expiresAt: string }>('/auth/resend-invitation', { employeeId }),
+
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>('/auth/forgot-password', { email }),
+
+  resetPassword: (token: string, password: string) =>
+    api.post<AuthResponse>('/auth/reset-password', { token, password }),
 };

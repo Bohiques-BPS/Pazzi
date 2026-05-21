@@ -1,25 +1,28 @@
-import React, { useMemo, useState } from 'react';
-import { useData } from '../../contexts/DataContext'; 
-import { Sale, Client, Employee } from '../../types'; 
-import { ChartBarIcon, ChartPieIcon, ArrowUpIcon, ArrowDownIcon, BanknotesIcon, UserGroupIcon, UsersIcon, ClockIcon, EyeIcon, EyeSlashIcon } from '../../components/icons'; 
+import React, { useState, useEffect, useCallback } from 'react';
+import { useData } from '../../contexts/DataContext';
+import { ChartBarIcon, ChartPieIcon, BanknotesIcon, UserGroupIcon, UsersIcon } from '../../components/icons';
 import { BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
-import { DataTable, TableColumn } from '../../components/DataTable';
-import { useTranslation } from '../../contexts/GlobalSettingsContext'; 
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { reportsService, type SalesReport } from '../../services/reports';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
 
-type DateFilterKey = "today" | "yesterday" | "this_month" | "last_month" | "custom";
+type DateFilterKey = 'today' | 'yesterday' | 'this_month' | 'last_month' | 'last_30_days' | 'last_90_days' | 'custom';
 
 const getISODateString = (date: Date): string => date.toISOString().split('T')[0];
 
-const getDateRange = (key: DateFilterKey, customStart?: Date, customEnd?: Date): { start: Date, end: Date } => {
+const getDateRange = (key: DateFilterKey, customStart?: string, customEnd?: string): { start: string; end: string } => {
     const today = new Date();
     let start = new Date(today);
     let end = new Date(today);
-
-    start.setHours(0,0,0,0);
-    end.setHours(23,59,59,999);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
 
     switch (key) {
-        case 'today': break;
+        case 'today':
+            break;
         case 'yesterday':
             start.setDate(today.getDate() - 1);
             end.setDate(today.getDate() - 1);
@@ -32,284 +35,255 @@ const getDateRange = (key: DateFilterKey, customStart?: Date, customEnd?: Date):
             start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             end = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
             break;
+        case 'last_30_days':
+            start.setDate(today.getDate() - 30);
+            break;
+        case 'last_90_days':
+            start.setDate(today.getDate() - 90);
+            break;
         case 'custom':
-            if (customStart && customEnd) {
-                start = new Date(customStart);
-                start.setHours(0, 0, 0, 0);
-                end = new Date(customEnd);
-                end.setHours(23, 59, 59, 999);
-            }
+            if (customStart) start = new Date(customStart + 'T00:00:00');
+            if (customEnd) end = new Date(customEnd + 'T23:59:59');
             break;
     }
-    return { start, end };
+    return { start: start.toISOString(), end: end.toISOString() };
 };
 
-export const POSReportsPage: React.FC = () => {
-    const { t } = useTranslation(); 
-    const { sales, cajas, employees, getClientById, getEmployeeById } = useData();
-
-    const [dateFilterKey, setDateFilterKey] = useState<DateFilterKey>('this_month');
-    const [customStartDate, setCustomStartDate] = useState<string>(getISODateString(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
-    const [customEndDate, setCustomEndDate] = useState<string>(getISODateString(new Date()));
-    const [includeExternalSales, setIncludeExternalSales] = useState(false); // Default to excluding external sales
-
-    const filteredSales = useMemo(() => {
-        const { start, end } = getDateRange(dateFilterKey, dateFilterKey === 'custom' ? new Date(customStartDate) : undefined, dateFilterKey === 'custom' ? new Date(customEndDate) : undefined);
-        return sales.filter(s => {
-            const inDateRange = new Date(s.date) >= start && new Date(s.date) <= end;
-            const externalCheck = includeExternalSales ? true : !s.isExternal; // Filter external unless toggled
-            return inDateRange && externalCheck;
-        });
-    }, [sales, dateFilterKey, customStartDate, customEndDate, includeExternalSales]);
-    
-    // Basic Stats
-    const totalRevenue = useMemo(() => filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0), [filteredSales]);
-    const totalTransactions = useMemo(() => filteredSales.length, [filteredSales]);
-    const averageTicket = useMemo(() => totalTransactions > 0 ? totalRevenue / totalTransactions : 0, [totalRevenue, totalTransactions]);
-    
-    // Returns Calculation
-    const returnsData = useMemo(() => {
-        const returns = filteredSales.filter(s => s.totalAmount < 0 || s.isReturn);
-        const totalAmount = returns.reduce((sum, s) => sum + Math.abs(s.totalAmount), 0);
-        
-        const byCaja: { [cajaId: string]: number } = {};
-        returns.forEach(r => {
-            byCaja[r.cajaId] = (byCaja[r.cajaId] || 0) + Math.abs(r.totalAmount);
-        });
-
-        return { totalAmount, count: returns.length, byCaja };
-    }, [filteredSales]);
-
-    // Sales By Register (Caja) - Serves as Rollover/Cash Flow indicator per box
-    const salesByCajaData = useMemo(() => {
-        const data: { [cajaId: string]: { name: string, total: number, cashTotal: number, isExternal: boolean } } = {};
-        
-        cajas.forEach(c => {
-            // Only include external cajas in the list if the filter is on
-            if (!c.isExternal || includeExternalSales) {
-                data[c.id] = { name: c.name, total: 0, cashTotal: 0, isExternal: !!c.isExternal };
-            }
-        });
-
-        filteredSales.forEach(s => {
-            if (!data[s.cajaId]) {
-                 // If sale exists but caja not in initial list (maybe deleted or strict filter), add if valid
-                 const cajaInfo = cajas.find(c => c.id === s.cajaId);
-                 if (cajaInfo && (!cajaInfo.isExternal || includeExternalSales)) {
-                     data[s.cajaId] = { name: cajaInfo.name, total: 0, cashTotal: 0, isExternal: !!cajaInfo.isExternal };
-                 } else if (!cajaInfo) {
-                     data[s.cajaId] = { name: s.cajaId, total: 0, cashTotal: 0, isExternal: false }; // Fallback
-                 }
-            }
-            
-            if (data[s.cajaId]) {
-                data[s.cajaId].total += s.totalAmount;
-                if (s.paymentMethod === 'Efectivo') {
-                    data[s.cajaId].cashTotal += s.totalAmount;
-                }
-            }
-        });
-
-        return Object.values(data);
-    }, [filteredSales, cajas, includeExternalSales]);
-
-    // Top Clients
-    const topClientsData = useMemo(() => {
-        const clientSales: { [clientId: string]: { name: string, total: number, count: number } } = {};
-        filteredSales.forEach(s => {
-            if (!s.clientId) return; 
-            if (!clientSales[s.clientId]) {
-                const client = getClientById(s.clientId);
-                clientSales[s.clientId] = { name: client ? `${client.name} ${client.lastName}` : 'N/A', total: 0, count: 0 };
-            }
-            clientSales[s.clientId].total += s.totalAmount;
-            clientSales[s.clientId].count++;
-        });
-        return Object.values(clientSales).sort((a, b) => b.total - a.total).slice(0, 5);
-    }, [filteredSales, getClientById]);
-
-    // Top Employees
-    const topEmployeesData = useMemo(() => {
-        const empSales: { [empId: string]: { name: string, total: number, count: number } } = {};
-        filteredSales.forEach(s => {
-            if (!empSales[s.employeeId]) {
-                const emp = getEmployeeById(s.employeeId);
-                empSales[s.employeeId] = { name: emp ? `${emp.name} ${emp.lastName}` : 'N/A', total: 0, count: 0 };
-            }
-            empSales[s.employeeId].total += s.totalAmount;
-            empSales[s.employeeId].count++;
-        });
-        return Object.values(empSales).sort((a, b) => b.total - a.total).slice(0, 5);
-    }, [filteredSales, getEmployeeById]);
-
-    // Highest Value Transactions
-    const topTransactionsData = useMemo(() => {
-        return [...filteredSales]
-            .sort((a, b) => b.totalAmount - a.totalAmount)
-            .slice(0, 5);
-    }, [filteredSales]);
-
-
-    const StatCard: React.FC<{ title: string; value: string; icon?: React.ReactNode; subValue?: string }> = ({ title, value, icon, subValue }) => (
-        <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
-            <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">{title}</h3>
-                {icon && <div className="text-primary dark:text-accent">{icon}</div>}
-            </div>
-            <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{value}</p>
-            {subValue && <p className="text-xs text-neutral-500 mt-1">{subValue}</p>}
+const Card: React.FC<{ icon: React.ReactNode; title: string; value: string; sub?: string }> = ({ icon, title, value, sub }) => (
+    <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 flex items-start gap-3">
+        <div className="text-primary">{icon}</div>
+        <div className="flex-1">
+            <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{title}</div>
+            <div className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{value}</div>
+            {sub && <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{sub}</div>}
         </div>
-    );
-    
-    const filterOptions: DateFilterKey[] = ['today', 'yesterday', 'this_month', 'last_month'];
+    </div>
+);
+
+export const POSReportsPage: React.FC = () => {
+    const { t } = useTranslation();
+    const { branches } = useData();
+
+    const [dateKey, setDateKey] = useState<DateFilterKey>('this_month');
+    const [customStart, setCustomStart] = useState(getISODateString(new Date()));
+    const [customEnd, setCustomEnd] = useState(getISODateString(new Date()));
+    const [branchId, setBranchId] = useState('');
+    const [report, setReport] = useState<SalesReport | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const loadReport = useCallback(async () => {
+        setLoading(true);
+        try {
+            const { start, end } = getDateRange(dateKey, customStart, customEnd);
+            const data = await reportsService.getSalesReport({
+                startDate: start,
+                endDate: end,
+                branchId: branchId || undefined,
+            });
+            setReport(data);
+        } catch (err) {
+            if (err instanceof ApiError) toast.error(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [dateKey, customStart, customEnd, branchId]);
+
+    useEffect(() => { loadReport(); }, [loadReport]);
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('reports.pos.title')}</h1>
-                
-                <div className="flex flex-wrap gap-2 items-center">
-                    {/* External Sales Toggle */}
-                    <button
-                        onClick={() => setIncludeExternalSales(!includeExternalSales)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center ${
-                            includeExternalSales 
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800' 
-                                : 'bg-white dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'
-                        }`}
-                        title="Incluir ventas de cajas externas"
-                    >
-                        {includeExternalSales ? <EyeIcon className="w-4 h-4 mr-1.5"/> : <EyeSlashIcon className="w-4 h-4 mr-1.5"/>}
-                        {includeExternalSales ? 'Cajas Externas Incluidas' : 'Cajas Externas Ocultas'}
-                    </button>
+        <div>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
+                    {t('pos.reports.title') || 'Reportes POS'}
+                </h1>
+            </div>
 
-                    <div className="h-6 w-px bg-neutral-300 dark:bg-neutral-600 mx-1 hidden sm:block"></div>
-
-                    {filterOptions.map(key => (
-                        <button 
-                            key={key}
-                            onClick={() => setDateFilterKey(key)}
-                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${dateFilterKey === key ? 'bg-primary text-white shadow-sm' : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
-                        >
-                            {t(`reports.filter.${key}`)}
-                        </button>
-                    ))}
+            {/* Filtros */}
+            <div className="flex flex-wrap gap-2 mb-4 items-end bg-neutral-50 dark:bg-neutral-700/50 p-3 rounded-md">
+                <div>
+                    <label className="block text-xs text-neutral-500 mb-1">Período</label>
+                    <select value={dateKey} onChange={e => setDateKey(e.target.value as DateFilterKey)} className={INPUT_SM_CLASSES}>
+                        <option value="today">Hoy</option>
+                        <option value="yesterday">Ayer</option>
+                        <option value="this_month">Mes actual</option>
+                        <option value="last_month">Mes anterior</option>
+                        <option value="last_30_days">Últimos 30 días</option>
+                        <option value="last_90_days">Últimos 90 días</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
                 </div>
+                {dateKey === 'custom' && (
+                    <>
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">Desde</label>
+                            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className={INPUT_SM_CLASSES} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">Hasta</label>
+                            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className={INPUT_SM_CLASSES} />
+                        </div>
+                    </>
+                )}
+                <div>
+                    <label className="block text-xs text-neutral-500 mb-1">Sucursal</label>
+                    <select value={branchId} onChange={e => setBranchId(e.target.value)} className={INPUT_SM_CLASSES}>
+                        <option value="">Todas</option>
+                        {branches.filter(b => b.isActive).map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <button onClick={loadReport} className={BUTTON_SECONDARY_SM_CLASSES}>Refrescar</button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title={t('reports.pos.net_sales')} value={`$${totalRevenue.toFixed(2)}`} icon={<ChartBarIcon className="w-5 h-5" />} />
-                <StatCard title={t('reports.pos.total_returns')} value={`$${returnsData.totalAmount.toFixed(2)}`} subValue={`${returnsData.count} transacciones`} icon={<ArrowDownIcon className="w-5 h-5 text-red-500" />} />
-                <StatCard title={t('reports.pos.transactions')} value={totalTransactions.toString()} icon={<ChartPieIcon className="w-5 h-5" />} />
-                <StatCard title={t('reports.pos.avg_ticket')} value={`$${averageTicket.toFixed(2)}`} />
-            </div>
+            {loading && <LoadingSkeleton variant="cards" count={4} />}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Sales & Returns by Register */}
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
-                    <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-4">{t('reports.pos.sales_by_register')}</h3>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                            <thead>
-                                <tr className="text-neutral-500 dark:text-neutral-400 border-b dark:border-neutral-700">
-                                    <th className="text-left py-2 font-medium">Caja</th>
-                                    <th className="text-right py-2 font-medium">Ventas Totales</th>
-                                    <th className="text-right py-2 font-medium">Efectivo (Rollover)</th>
-                                    <th className="text-right py-2 font-medium text-red-500">Devoluciones</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y dark:divide-neutral-700">
-                                {salesByCajaData.map(item => {
-                                    const cajaReturns = returnsData.byCaja[item.name] || 0;
-                                    return (
-                                        <tr key={item.name} className={item.isExternal ? 'bg-amber-50 dark:bg-amber-900/10' : ''}>
-                                            <td className="py-2 text-neutral-700 dark:text-neutral-200">
-                                                {item.name} {item.isExternal && <span className="text-xs text-amber-600 font-semibold ml-1">(Ext)</span>}
-                                            </td>
-                                            <td className="py-2 text-right font-medium">${item.total.toFixed(2)}</td>
-                                            <td className="py-2 text-right text-green-600 dark:text-green-400">${item.cashTotal.toFixed(2)}</td>
-                                            <td className="py-2 text-right text-red-600 dark:text-red-400">-${cajaReturns.toFixed(2)}</td>
+            {!loading && report && (
+                <div className="space-y-6">
+                    {/* Cards principales */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <Card icon={<BanknotesIcon className="w-6 h-6" />} title="Ingresos totales" value={`$${report.totalRevenue.toFixed(2)}`} />
+                        <Card icon={<ChartBarIcon className="w-6 h-6" />} title="Transacciones" value={report.totalTransactions.toString()} />
+                        <Card icon={<ChartPieIcon className="w-6 h-6" />} title="Ticket promedio" value={`$${report.avgTicket.toFixed(2)}`} />
+                        <Card icon={<UsersIcon className="w-6 h-6" />} title="Métodos de pago" value={report.byPaymentMethod.length.toString()} sub="distintos usados" />
+                    </div>
+
+                    {/* Por método de pago */}
+                    <section>
+                        <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">Por método de pago</h3>
+                        {report.byPaymentMethod.length === 0 ? (
+                            <p className="text-sm text-neutral-500">Sin datos.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-neutral-100 dark:bg-neutral-700/50">
+                                        <tr>
+                                            <th className="text-left p-2">Método</th>
+                                            <th className="text-right p-2">Ventas</th>
+                                            <th className="text-right p-2">Total</th>
+                                            <th className="text-right p-2">% del total</th>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Top Employees */}
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
-                    <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-4 flex items-center"><UsersIcon className="w-5 h-5 mr-2 text-primary"/> {t('reports.pos.top_employees')}</h3>
-                    <div className="space-y-3">
-                        {topEmployeesData.map((emp, idx) => (
-                            <div key={emp.name} className="flex justify-between items-center p-2 bg-neutral-50 dark:bg-neutral-700/30 rounded-md">
-                                <div className="flex items-center">
-                                    <span className="w-6 h-6 flex items-center justify-center bg-neutral-200 dark:bg-neutral-600 rounded-full text-xs font-bold mr-3 text-neutral-600 dark:text-neutral-300">{idx + 1}</span>
-                                    <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{emp.name}</span>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-sm font-bold text-primary dark:text-accent">${emp.total.toFixed(2)}</div>
-                                    <div className="text-xs text-neutral-500">{emp.count} ventas</div>
-                                </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                                        {report.byPaymentMethod.map(m => {
+                                            const sum = m._sum.totalAmount || 0;
+                                            const pct = report.totalRevenue > 0 ? (sum / report.totalRevenue) * 100 : 0;
+                                            return (
+                                                <tr key={m.paymentMethod}>
+                                                    <td className="p-2">{m.paymentMethod}</td>
+                                                    <td className="p-2 text-right">{m._count}</td>
+                                                    <td className="p-2 text-right">${sum.toFixed(2)}</td>
+                                                    <td className="p-2 text-right">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex-1 bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5">
+                                                                <div className="bg-primary h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                                                            </div>
+                                                            <span className="text-xs w-12 text-right">{pct.toFixed(1)}%</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
-                        ))}
-                        {topEmployeesData.length === 0 && <p className="text-sm text-neutral-500 text-center py-4">No hay datos disponibles.</p>}
-                    </div>
-                </div>
+                        )}
+                    </section>
 
-                {/* Top Clients */}
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
-                    <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-4 flex items-center"><UserGroupIcon className="w-5 h-5 mr-2 text-blue-500"/> {t('reports.pos.top_clients')}</h3>
-                    <div className="space-y-3">
-                        {topClientsData.map((client, idx) => (
-                            <div key={client.name} className="flex justify-between items-center p-2 bg-neutral-50 dark:bg-neutral-700/30 rounded-md">
-                                <div className="flex items-center">
-                                    <span className="w-6 h-6 flex items-center justify-center bg-neutral-200 dark:bg-neutral-600 rounded-full text-xs font-bold mr-3 text-neutral-600 dark:text-neutral-300">{idx + 1}</span>
-                                    <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{client.name}</span>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-sm font-bold text-blue-600 dark:text-blue-400">${client.total.toFixed(2)}</div>
-                                    <div className="text-xs text-neutral-500">{client.count} compras</div>
-                                </div>
-                            </div>
-                        ))}
-                        {topClientsData.length === 0 && <p className="text-sm text-neutral-500 text-center py-4">No hay datos disponibles.</p>}
-                    </div>
-                </div>
-
-                {/* Highest Value Transactions */}
-                <div className="bg-white dark:bg-neutral-800 p-5 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
-                    <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-4 flex items-center"><BanknotesIcon className="w-5 h-5 mr-2 text-green-600"/> {t('reports.pos.top_transactions')}</h3>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                            <thead>
-                                <tr className="text-neutral-500 dark:text-neutral-400 border-b dark:border-neutral-700">
-                                    <th className="text-left py-2 font-medium">ID Venta</th>
-                                    <th className="text-left py-2 font-medium">Fecha</th>
-                                    <th className="text-right py-2 font-medium">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y dark:divide-neutral-700">
-                                {topTransactionsData.map(sale => (
-                                    <tr key={sale.id} className={sale.isExternal ? 'bg-amber-50 dark:bg-amber-900/10' : ''}>
-                                        <td className="py-2 font-mono text-xs text-neutral-600 dark:text-neutral-300">
-                                            {sale.id.substring(0,8).toUpperCase()}
-                                            {sale.isExternal && <span className="ml-1 text-[10px] text-amber-600 font-bold">(EXT)</span>}
-                                        </td>
-                                        <td className="py-2 text-neutral-700 dark:text-neutral-200">{new Date(sale.date).toLocaleDateString()}</td>
-                                        <td className="py-2 text-right font-bold text-green-600 dark:text-green-400">${sale.totalAmount.toFixed(2)}</td>
-                                    </tr>
+                    {/* Top productos */}
+                    <section>
+                        <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2 flex items-center gap-2">
+                            <ChartBarIcon className="w-4 h-4" /> Top productos
+                        </h3>
+                        {report.topProducts.length === 0 ? (
+                            <p className="text-sm text-neutral-500">Sin datos.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {report.topProducts.map((p, i) => (
+                                    <div key={p.productId} className="p-2 border border-neutral-200 dark:border-neutral-600 rounded flex items-center gap-3">
+                                        <span className="text-lg font-bold text-neutral-400 w-6">{i + 1}</span>
+                                        <span className="flex-1 truncate">{p.name}</span>
+                                        <span className="font-bold text-primary">{p.totalQuantity}u</span>
+                                    </div>
                                 ))}
-                                {topTransactionsData.length === 0 && (
-                                    <tr>
-                                        <td colSpan={3} className="text-center py-4 text-neutral-500">No hay transacciones.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Top clientes */}
+                    <section>
+                        <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2 flex items-center gap-2">
+                            <UserGroupIcon className="w-4 h-4" /> Top clientes
+                        </h3>
+                        {report.topClients.length === 0 ? (
+                            <p className="text-sm text-neutral-500">Sin datos.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-neutral-100 dark:bg-neutral-700/50">
+                                        <tr>
+                                            <th className="text-left p-2">#</th>
+                                            <th className="text-left p-2">Cliente</th>
+                                            <th className="text-right p-2">Ventas</th>
+                                            <th className="text-right p-2">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                                        {report.topClients.map((c, i) => (
+                                            <tr key={c.clientId || i}>
+                                                <td className="p-2 text-neutral-400">{i + 1}</td>
+                                                <td className="p-2">{c.name}</td>
+                                                <td className="p-2 text-right">{c.salesCount}</td>
+                                                <td className="p-2 text-right font-semibold">${c.totalRevenue.toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Ventas por empleado */}
+                    <section>
+                        <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2 flex items-center gap-2">
+                            <UsersIcon className="w-4 h-4" /> Ventas por empleado
+                        </h3>
+                        {report.salesByEmployee.length === 0 ? (
+                            <p className="text-sm text-neutral-500">Sin datos.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-neutral-100 dark:bg-neutral-700/50">
+                                        <tr>
+                                            <th className="text-left p-2">Empleado</th>
+                                            <th className="text-right p-2">Ventas</th>
+                                            <th className="text-right p-2">Total</th>
+                                            <th className="text-right p-2">Ticket promedio</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                                        {report.salesByEmployee.map(e => {
+                                            const avg = e.salesCount > 0 ? e.totalRevenue / e.salesCount : 0;
+                                            return (
+                                                <tr key={e.employeeId}>
+                                                    <td className="p-2">{e.name}</td>
+                                                    <td className="p-2 text-right">{e.salesCount}</td>
+                                                    <td className="p-2 text-right font-semibold">${e.totalRevenue.toFixed(2)}</td>
+                                                    <td className="p-2 text-right text-neutral-500">${avg.toFixed(2)}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
                 </div>
-            </div>
+            )}
+
+            {!loading && !report && (
+                <EmptyState title="Sin datos del reporte" description="No se pudo cargar el reporte. Intenta cambiar los filtros." />
+            )}
         </div>
     );
 };

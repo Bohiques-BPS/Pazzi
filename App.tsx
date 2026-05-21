@@ -27,6 +27,8 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ActivateAccountPage } from './pages/auth/ActivateAccountPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 // General Pages
 import { LandingPage } from './pages/LandingPage';
@@ -392,6 +394,7 @@ const AppContent: React.FC = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/activate" element={<ActivateAccountPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/store/:storeOwnerId" element={<EcommerceStorePage />} />
         <Route path="/store" element={<EcommerceStorePage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
@@ -402,6 +405,7 @@ const AppContent: React.FC = () => {
             <Route element={<MainLayout />}>
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/configuration" element={<ConfigurationPage />} /> {/* New Route */}
+                <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/" element={<DashboardHomePage />} />
 
                 {/* E-commerce Client Routes */}

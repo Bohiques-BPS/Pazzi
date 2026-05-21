@@ -1,17 +1,22 @@
 
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Estimate, EstimateStatus, Client, Product, CartItem, EstimateFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { EstimateFormModal } from './EstimateFormModal';
 import { ConfirmationModal } from '../../components/Modal';
-import { PlusIcon, EditIcon, DeleteIcon, PrinterIcon } from '../../components/icons';
+import { PlusIcon, EditIcon, DeleteIcon, PrinterIcon, ShoppingCartIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { estimatesService } from '../../services/estimates';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { PermissionGate } from '../../components/PermissionGate';
 
 const generateEstimatePDF = async (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any) => {
     const doc = new jsPDF();
@@ -173,12 +178,44 @@ export const EstimatesListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = () => {
-        if (itemToDeleteId) {
-            setEstimates(prev => prev.filter(e => e.id !== itemToDeleteId));
-            setItemToDeleteId(null);
+    const confirmDelete = async () => {
+        if (!itemToDeleteId) {
+            setShowDeleteConfirmModal(false);
+            return;
         }
-        setShowDeleteConfirmModal(false);
+        try {
+            await estimatesService.delete(itemToDeleteId);
+            setEstimates(prev => prev.filter(e => e.id !== itemToDeleteId));
+            toast.success('Estimado eliminado');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'Error al eliminar estimado');
+        } finally {
+            setItemToDeleteId(null);
+            setShowDeleteConfirmModal(false);
+        }
+    };
+
+    const navigate = useNavigate();
+    const handleConvertToSale = async (estimate: Estimate) => {
+        if (estimate.status === EstimateStatus.COMBINADO) {
+            toast.warning('Este estimado ya fue convertido a venta');
+            return;
+        }
+        try {
+            // Validamos en el BE que el estimado es convertible antes de redirigir.
+            await estimatesService.getForConversion(estimate.id);
+            // Guardamos en sessionStorage los datos para que POSCashier los precargue.
+            sessionStorage.setItem('pazzi_estimate_to_convert', JSON.stringify({
+                estimateId: estimate.id,
+                clientId: estimate.clientId,
+                items: estimate.items,
+                notes: estimate.notes,
+            }));
+            toast.info('Cargando estimado en la caja...');
+            navigate('/pos/cashier');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo convertir el estimado');
+        }
     };
     
     const handlePrint = async (estimate: Estimate) => {
@@ -459,13 +496,44 @@ export const EstimatesListPage: React.FC = () => {
             <DataTable<Estimate>
                 data={sortedEstimates}
                 columns={columns}
-                actions={(estimate) => (
-                    <div className="flex space-x-1">
-                        <button onClick={() => handlePrint(estimate)} className="text-primary hover:text-secondary p-1" title={t('pos.estimates.print_pdf')}><PrinterIcon /></button>
-                        <button onClick={() => openModalForEdit(estimate)} className="text-blue-600 dark:text-blue-400 p-1" title={t('common.edit')}><EditIcon /></button>
-                        <button onClick={() => requestDelete(estimate.id)} className="text-red-600 dark:text-red-400 p-1" title={t('common.delete')}><DeleteIcon /></button>
-                    </div>
-                )}
+                actions={(estimate) => {
+                    const isClosed = estimate.status === EstimateStatus.COMBINADO;
+                    return (
+                        <div className="flex space-x-1">
+                            <PermissionGate require={['estimates.manage', 'pos.sell']}>
+                                <button
+                                    onClick={() => handleConvertToSale(estimate)}
+                                    className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={isClosed ? 'Ya convertido' : 'Convertir a venta'}
+                                    disabled={isClosed || estimate.status === EstimateStatus.RECHAZADO || estimate.status === EstimateStatus.EXPIRADO}
+                                >
+                                    <ShoppingCartIcon className="w-4 h-4" />
+                                </button>
+                            </PermissionGate>
+                            <button onClick={() => handlePrint(estimate)} className="text-primary hover:text-secondary p-1" title={t('pos.estimates.print_pdf')}><PrinterIcon /></button>
+                            <PermissionGate require="estimates.manage">
+                                <button
+                                    onClick={() => openModalForEdit(estimate)}
+                                    className="text-blue-600 dark:text-blue-400 p-1 disabled:opacity-30"
+                                    title={t('common.edit')}
+                                    disabled={isClosed}
+                                >
+                                    <EditIcon />
+                                </button>
+                            </PermissionGate>
+                            <PermissionGate require="estimates.manage">
+                                <button
+                                    onClick={() => requestDelete(estimate.id)}
+                                    className="text-red-600 dark:text-red-400 p-1 disabled:opacity-30"
+                                    title={t('common.delete')}
+                                    disabled={isClosed}
+                                >
+                                    <DeleteIcon />
+                                </button>
+                            </PermissionGate>
+                        </div>
+                    );
+                }}
                 selectedIds={selectedEstimateIds}
                 onSelectionChange={setSelectedEstimateIds}
             />

@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom'; // Added useNavigate
-import { useData } from '../../contexts/DataContext';
+import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { Product, CartItem, ECommerceSettings as StoreSettingsType, Order } from '../../types'; // Added Order type
+import { Product, CartItem, ECommerceSettings as StoreSettingsType } from '../../types';
 import { ShoppingCartIcon, PlusIcon, TrashIconMini } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants'; // Changed PREDEFINED_CLIENT_ID to ECOMMERCE_CLIENT_ID
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID } from '../../constants';
+import { publicStoreService, type PublicProduct } from '../../services/publicStore';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
 
-const ProductStoreCard: React.FC<{ product: Product; onAddToCart: (product: Product) => void; storePrimaryColor: string; }> = ({ product, onAddToCart, storePrimaryColor }) => {
+const ProductStoreCard: React.FC<{ product: PublicProduct; onAddToCart: (product: PublicProduct) => void; storePrimaryColor: string; }> = ({ product, onAddToCart, storePrimaryColor }) => {
     return (
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md overflow-hidden flex flex-col transition-all duration-300 hover:shadow-xl dark:hover:shadow-primary/20">
             <img 
@@ -37,32 +39,57 @@ const ProductStoreCard: React.FC<{ product: Product; onAddToCart: (product: Prod
 
 export const EcommerceStorePage: React.FC = () => {
     const { storeOwnerId } = useParams<{ storeOwnerId: string }>();
-    const { getProductsByStoreOwner, addOrder } = useData();
     const { getSettingsForClient } = useECommerceSettings();
-    const navigate = useNavigate(); // Added useNavigate hook
-    
+    const navigate = useNavigate();
+
     const [storeSettings, setStoreSettings] = useState<StoreSettingsType | null>(null);
-    const [storeProducts, setStoreProducts] = useState<Product[]>([]);
+    const [storeProducts, setStoreProducts] = useState<PublicProduct[]>([]);
+    const [loadingProducts, setLoadingProducts] = useState(true);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    
-    const effectiveStoreOwnerId = storeOwnerId || ECOMMERCE_CLIENT_ID; // Fallback to demo client if no ID in URL
 
+    const effectiveStoreOwnerId = storeOwnerId || ECOMMERCE_CLIENT_ID;
+
+    // Cargar productos públicos desde el BE (sin auth)
     useEffect(() => {
-        if (effectiveStoreOwnerId) {
-            setStoreSettings(getSettingsForClient(effectiveStoreOwnerId));
-            setStoreProducts(getProductsByStoreOwner(effectiveStoreOwnerId));
-        }
-    }, [effectiveStoreOwnerId, getSettingsForClient, getProductsByStoreOwner]);
+        let cancelled = false;
+        setLoadingProducts(true);
+        publicStoreService.getProducts({ storeOwnerId: effectiveStoreOwnerId, limit: 100 })
+            .then(data => { if (!cancelled) setStoreProducts(data); })
+            .catch(err => {
+                if (cancelled) return;
+                if (err instanceof ApiError) toast.error(err.message);
+            })
+            .finally(() => { if (!cancelled) setLoadingProducts(false); });
+        return () => { cancelled = true; };
+    }, [effectiveStoreOwnerId]);
 
-    const handleAddToCart = (product: Product) => {
+    // Cargar settings de la tienda (puede ser desde context legacy o BE)
+    useEffect(() => {
+        if (!effectiveStoreOwnerId) return;
+        // Primero el context (datos cacheados); en paralelo intenta BE público
+        setStoreSettings(getSettingsForClient(effectiveStoreOwnerId));
+        publicStoreService.getStoreSettings(effectiveStoreOwnerId)
+            .then(s => setStoreSettings(s as any))
+            .catch(() => { /* mantener fallback */ });
+    }, [effectiveStoreOwnerId, getSettingsForClient]);
+
+    const handleAddToCart = (product: PublicProduct) => {
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.id === product.id);
             if (existingItem) {
+                if (existingItem.quantity >= product.totalStock) {
+                    toast.warning(`Stock máximo disponible: ${product.totalStock}`);
+                    return prevCart;
+                }
                 return prevCart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
             }
-            return [...prevCart, { ...product, quantity: 1 }];
+            if (product.totalStock <= 0) {
+                toast.error('Producto sin stock disponible');
+                return prevCart;
+            }
+            return [...prevCart, { ...(product as unknown as Product), quantity: 1 }];
         });
     };
 

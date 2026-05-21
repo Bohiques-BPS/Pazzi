@@ -2,39 +2,47 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link as RouterLink, useLocation } from 'react-router-dom';
-import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { Order as OrderType, ECommerceSettings as StoreSettingsType } from '../../types';
+import { ECommerceSettings as StoreSettingsType } from '../../types';
 import { BUTTON_PRIMARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
-import { ArrowUturnLeftIcon, CreditCardIcon, BanknotesIcon, AthMovilIcon } from '../../components/icons'; // Added BanknotesIcon for other methods
+import { ArrowUturnLeftIcon, CreditCardIcon, BanknotesIcon, AthMovilIcon } from '../../components/icons';
+import { publicStoreService, type PublicOrderRecord } from '../../services/publicStore';
+import { ApiError } from '../../services/api';
 
 
 export const OrderConfirmationPage: React.FC = () => {
     const { orderId } = useParams<{ orderId: string }>();
     const location = useLocation();
-    const { state } = location;
-    const { getOrderById } = useData(); // Correctly destructure here
+    const { state } = location as { state?: { storeOwnerId?: string; email?: string } };
     const { getSettingsForClient } = useECommerceSettings();
 
-    const [order, setOrder] = useState<OrderType | null>(null);
+    const [order, setOrder] = useState<PublicOrderRecord | null>(null);
     const [storeSettings, setStoreSettings] = useState<StoreSettingsType | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const effectiveStoreOwnerId = state?.storeOwnerId || order?.storeOwnerId || ECOMMERCE_CLIENT_ID;
-
+    const effectiveStoreOwnerId = state?.storeOwnerId || ECOMMERCE_CLIENT_ID;
 
     useEffect(() => {
-        if (orderId) {
-            const fetchedOrder = getOrderById(orderId); // Now this function exists
-            setOrder(fetchedOrder || null);
-            if (fetchedOrder) {
-                 setStoreSettings(getSettingsForClient(fetchedOrder.storeOwnerId));
-            } else if (state?.storeOwnerId) { // Fallback if order not found yet but state has owner
-                setStoreSettings(getSettingsForClient(state.storeOwnerId));
-            } else {
-                setStoreSettings(getSettingsForClient(ECOMMERCE_CLIENT_ID)); // Ultimate fallback
-            }
+        if (!orderId) return;
+        const email = state?.email;
+        if (!email) {
+            setError('No se pudo verificar la orden (falta email).');
+            setLoading(false);
+            return;
         }
-    }, [orderId, getOrderById, getSettingsForClient, state?.storeOwnerId]);
+        setLoading(true);
+        publicStoreService.getOrder(orderId, email)
+            .then(o => {
+                setOrder(o);
+                setStoreSettings(getSettingsForClient(effectiveStoreOwnerId));
+            })
+            .catch(err => {
+                if (err instanceof ApiError) setError(err.message);
+                else setError('Error al cargar la orden');
+            })
+            .finally(() => setLoading(false));
+    }, [orderId, state?.email, getSettingsForClient, effectiveStoreOwnerId]);
 
     const storePrimaryColor = storeSettings?.primaryColor || DEFAULT_ECOMMERCE_SETTINGS.primaryColor;
 
@@ -46,8 +54,19 @@ export const OrderConfirmationPage: React.FC = () => {
     }
 
 
-    if (!order) {
+    if (loading) {
         return <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 flex flex-col items-center justify-center p-4 text-neutral-600 dark:text-neutral-300">Cargando confirmación de pedido...</div>;
+    }
+
+    if (error || !order) {
+        return (
+            <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 flex flex-col items-center justify-center p-4">
+                <p className="text-red-600 dark:text-red-400 mb-4">{error || 'No se encontró la orden.'}</p>
+                <RouterLink to={`/store/${effectiveStoreOwnerId}`} className={BUTTON_PRIMARY_CLASSES}>
+                    Volver a la tienda
+                </RouterLink>
+            </div>
+        );
     }
 
     return (
@@ -101,7 +120,7 @@ export const OrderConfirmationPage: React.FC = () => {
                         {order.items.map(item => (
                             <li key={item.id} className="flex justify-between items-center p-2 bg-neutral-50 dark:bg-neutral-700/50 rounded-md">
                                 <div>
-                                    <span className="font-medium text-neutral-600 dark:text-neutral-300">{item.name}</span>
+                                    <span className="font-medium text-neutral-600 dark:text-neutral-300">{item.product?.name || 'Producto'}</span>
                                     <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-1">(x{item.quantity})</span>
                                 </div>
                                 <span className="text-neutral-700 dark:text-neutral-200">${(item.unitPrice * item.quantity).toFixed(2)}</span>
