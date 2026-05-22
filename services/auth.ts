@@ -47,4 +47,10 @@ export const authService = {
 
   resendInvitation: (employeeId: string) =>
     api.post<{ message: string; expiresAt: string }>('/auth/resend-invitation', { employeeId }),
+
+  toggleEmergencyOrder: () =>
+    api.post<User>('/auth/toggle-emergency-order'),
+
+  updateAlertSettings: (settings: Record<string, unknown>) =>
+    api.put<{ message: string }>('/auth/alert-settings', settings),
 };

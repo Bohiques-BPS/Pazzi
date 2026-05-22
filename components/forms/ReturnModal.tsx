@@ -247,7 +247,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                 customRefundAmount: details.customRefundAmount,
                 returnToStock: details.returnToStock,
             };
-        }).filter((item): item is (CartItem & ReturnItemDetails) => item !== null);
+        }).filter((item): item is NonNullable<typeof item> => item !== null);
 
         setAuthorizing(false);
         // Pasamos el PIN ya verificado al callback (que llamará al endpoint /sales/:id/return)

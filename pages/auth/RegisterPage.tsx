@@ -29,12 +29,8 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
     try {
       const result = await register(name, lastName, email, password, role);
-      if (result && result.error) {
-        // Procesar error si viene como array de Zod o string
-        const msg = Array.isArray(result.error)
-          ? result.error[0]?.message || 'Error en los datos de registro'
-          : result.error;
-        setError(msg);
+      if ('error' in result) {
+        setError(result.error);
       } else {
         navigate('/login');
       }

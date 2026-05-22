@@ -72,10 +72,10 @@ export const ActivateAccountPage: React.FC = () => {
     setSubmitting(true);
     const result = await activate(token, password);
     setSubmitting(false);
-    if (result.success) {
-      navigate('/', { replace: true });
-    } else {
+    if ('error' in result) {
       setError(result.error);
+    } else {
+      navigate('/', { replace: true });
     }
   };
 

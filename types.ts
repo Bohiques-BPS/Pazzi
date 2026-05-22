@@ -103,6 +103,7 @@ export interface Product {
     imageUrl?: string;
     skus: string[];
     category?: string;
+    categoryId?: string;
     ivuRate?: number;
     storeOwnerId: string;
     isEmergencyTaxExempt: boolean;
@@ -148,6 +149,8 @@ export interface ProductStockInfo extends Product {
 export interface Category {
     id: string;
     name: string;
+    description?: string;
+    imageUrl?: string;
     storeOwnerId: string;
 }
 
@@ -508,7 +511,7 @@ export enum AppModule {
 
 
 // --- Form Data Types ---
-export type CategoryFormData = Pick<Category, 'name'>;
+export type CategoryFormData = Pick<Category, 'name'> & { description?: string; imageUrl?: string };
 export type DepartmentFormData = Pick<Department, 'name'>;
 
 export type ProductFormData = Omit<Product, 'id' | 'stockByBranch'> & {

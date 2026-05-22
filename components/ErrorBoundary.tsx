@@ -1,11 +1,9 @@
-import React from 'react';
+import React, { Component, type ReactNode, type ErrorInfo } from 'react';
 
 interface Props {
-  children: React.ReactNode;
-  /** UI alternativa cuando se atrapa un error. Si no se pasa, se usa el default amigable. */
-  fallback?: React.ReactNode | ((error: Error, reset: () => void) => React.ReactNode);
-  /** Callback para logging externo (Sentry, etc.). */
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  children: ReactNode;
+  fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
@@ -13,23 +11,14 @@ interface State {
   error: Error | null;
 }
 
-/**
- * Error boundary correcto (class component). Atrapa errores de render en
- * children. Para errores async, usa el manejo de errores del API (ApiError).
- *
- * Uso:
- *   <ErrorBoundary>
- *     <Routes>...</Routes>
- *   </ErrorBoundary>
- */
-export class ErrorBoundary extends React.Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[ErrorBoundary]', error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
@@ -55,7 +44,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-1 max-w-md">
             Ocurrió un error inesperado al mostrar esta pantalla.
           </p>
-          {import.meta.env.DEV && (
+          {process.env.NODE_ENV === 'development' && (
             <pre className="text-xs text-left bg-neutral-100 dark:bg-neutral-800 p-2 rounded mt-2 max-w-xl overflow-auto">
               {this.state.error.message}
             </pre>

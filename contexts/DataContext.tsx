@@ -35,7 +35,7 @@ export interface DataContextType {
   
   sales: Sale[]; 
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>; // Added setSales
-  addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string}, branchId: string) => void;
+  addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, payments?: { method: string; amount: number }[]}, branchId: string) => void;
   processReturn: (originalSale: Sale, itemsToReturn: ReturnItemPayload[], employeeId: string, cajaId: string, branchId: string, reason: string) => void;
   recordSalePayment: (saleId: string) => void; 
   lastCompletedSale: Sale | null; 
@@ -45,7 +45,7 @@ export interface DataContextType {
 
   estimates: Estimate[];
   setEstimates: React.Dispatch<React.SetStateAction<Estimate[]>>;
-  addEstimate: (estimateData: Omit<Estimate, 'id'>) => Estimate;
+  addEstimate: (estimateData: Omit<Estimate, 'id'>) => Promise<Estimate>;
 
   inventoryLogs: InventoryLog[];
   addInventoryLog: (logData: Omit<InventoryLog, 'id'>) => void;
@@ -742,7 +742,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return supplierOrders.filter(so => so.storeOwnerId === ownerId);
     }, [supplierOrders]);
 
-    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'>, branchId: string) => {
+    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, payments?: { method: string; amount: number }[]}, branchId: string) => {
         try {
             const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
                                     (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));

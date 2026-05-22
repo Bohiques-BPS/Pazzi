@@ -27,9 +27,9 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
         if (category) {
             setFormData({ 
                 name: category.name, 
-                description: (category as any).description || '' 
+                description: category.description || '' 
             });
-            setImagePreview((category as any).imageUrl || null);
+            setImagePreview(category.imageUrl || null);
         } else {
             setFormData({ name: '', description: '' });
             setImagePreview(null);

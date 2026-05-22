@@ -79,12 +79,8 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       const result = await login(email, password);
-      if (result && result.error) {
-        // Si es un array (errores de Zod), tomamos el primer mensaje. Si no, el string.
-        const msg = Array.isArray(result.error) 
-          ? result.error[0]?.message || 'Datos de inicio de sesión inválidos' 
-          : result.error;
-        setError(msg);
+      if ('error' in result) {
+        setError(result.error);
       }
     } catch (err: any) {
       const backendError = err?.error || err?.message;

@@ -89,7 +89,7 @@ const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: strin
         className={`flex-1 flex flex-col sm:flex-row items-center justify-center py-1.5 sm:py-2 px-1 sm:px-3 rounded-md text-white text-[10px] sm:text-sm font-semibold transition-colors ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
         style={{ minHeight: '40px' }}
     >
-        {React.cloneElement(icon as React.ReactElement, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
+        {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
         <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{text}</span>
     </button>
 );
@@ -100,7 +100,7 @@ const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: stri
         disabled={disabled}
         className={`flex-1 flex flex-col sm:flex-row items-center justify-center p-2 sm:p-4 rounded-md text-white font-semibold transition-colors text-xs sm:text-xl ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
     >
-        {icon && React.cloneElement(icon as React.ReactElement, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
+        {icon && React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
         <span>{text}</span>
     </button>
 );
@@ -570,13 +570,14 @@ export const POSCashierPage: React.FC = () => {
             items: cart,
             totalAmount: total,
             paymentMethod: paymentMethodString,
-            payments: payments, // Pass the breakdown of payments
+            paymentStatus: payments.some(p => p.method === 'Crédito C.') ? 'Pendiente de Pago' : 'Pagado',
+            payments,
             clientId: selectedClient?.id,
             projectId: selectedProjectId || undefined,
             cajaId: selectedCajaId,
             employeeId: currentUser.id,
-            isExternal: isExternalSale, // Mark sales from external registers
-        }, selectedBranchId);
+            isExternal: isExternalSale,
+        } as any, selectedBranchId);
 
         setActiveModal(null);
         clearCart();
@@ -689,7 +690,7 @@ export const POSCashierPage: React.FC = () => {
         try {
             const result = await posService.processReturn(originalSaleId, {
                 items: itemsToReturn.map(it => ({
-                    productId: it.productId,
+                    productId: (it as any).productId || it.id,
                     quantity: it.quantity,
                     customRefundAmount: it.customRefundAmount,
                     returnToStock: it.returnToStock,

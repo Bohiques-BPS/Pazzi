@@ -11,6 +11,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   getInvitation: (token: string) => Promise<InvitationInfo>;
   activate: (token: string, password: string) => Promise<{ success: true } | { success: false; error: string }>;
+  updateUserPassword: (userId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>;
+  updateUserAlertSettings: (userId: string, settings: Record<string, unknown>) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -112,8 +115,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const updateUserPassword = useCallback(async (_userId: string, currentPassword: string, newPassword: string) => {
+    try {
+      await authService.updatePassword(currentPassword, newPassword);
+      return { success: true as const, message: 'Contraseña actualizada correctamente.' };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar contraseña';
+      return { success: false as const, message: msg };
+    }
+  }, []);
+
+  const toggleUserEmergencyOrderMode = useCallback(async (_userId: string) => {
+    try {
+      const user = await authService.toggleEmergencyOrder();
+      setCurrentUser(user);
+      localStorage.setItem('pazzi_user', JSON.stringify(user));
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const updateUserAlertSettings = useCallback(async (_userId: string, settings: Record<string, unknown>) => {
+    try {
+      await authService.updateAlertSettings(settings);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate }}>
+    <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings }}>
       {children}
     </AuthContext.Provider>
   );
