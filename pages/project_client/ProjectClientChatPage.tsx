@@ -1,24 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Project, UserRole } from '../../types';
-import { ChatMessageItem } from '../pm/ChatMessageItem'; 
+import { ChatMessageItem } from '../pm/ChatMessageItem';
 import { PaperAirplaneIcon, ArrowUturnLeftIcon } from '../../components/icons';
-import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+
+const POLLING_INTERVAL_MS = 7000;
 
 export const ProjectClientChatPage: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
-    const { getProjectById, getChatMessagesForProject, addChatMessage } = useData();
+    const { getProjectById } = useData();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
 
     const [project, setProject] = useState<Project | null>(null);
     const [newMessage, setNewMessage] = useState('');
+    const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
+    const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const projectMessages = projectId ? getChatMessagesForProject(projectId) : [];
+    const fetchMessages = useCallback(async (pid: string) => {
+        try {
+            const msgs = await chatService.getMessages(pid);
+            setProjectMessages(msgs);
+        } catch (err) {
+            if (err instanceof ApiError && err.status !== 403) console.error('chat fetch:', err.message);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!projectId) return;
+        fetchMessages(projectId);
+        const interval = setInterval(() => fetchMessages(projectId), POLLING_INTERVAL_MS);
+        return () => clearInterval(interval);
+    }, [projectId, fetchMessages]);
 
     useEffect(() => {
         if (projectId && currentUser && currentUser.role === UserRole.CLIENT_PROJECT) {
@@ -43,14 +64,21 @@ export const ProjectClientChatPage: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [projectMessages]);
 
-    const handleSendMessage = () => {
-        if (newMessage.trim() && project && currentUser) {
-            addChatMessage({
+    const handleSendMessage = async () => {
+        if (!newMessage.trim() || !project || !currentUser) return;
+        setSending(true);
+        try {
+            const message = await chatService.sendMessage({
                 projectId: project.id,
-                senderId: currentUser.id,
                 text: newMessage.trim(),
+                senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
             });
+            setProjectMessages(prev => [...prev, message]);
             setNewMessage('');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'Error al enviar mensaje');
+        } finally {
+            setSending(false);
         }
     };
 
@@ -98,14 +126,14 @@ export const ProjectClientChatPage: React.FC = () => {
                     <div className="flex-grow">
                         <RichTextEditor value={newMessage} onChange={setNewMessage} placeholder="Escribe tu mensaje..." />
                     </div>
-                    <button 
-                        type="submit" 
+                    <button
+                        type="submit"
                         className={`${BUTTON_PRIMARY_CLASSES} !py-2 !px-3 sm:!px-4 rounded-lg flex items-center justify-center flex-shrink-0 self-end`}
-                        disabled={!newMessage.trim()}
+                        disabled={!newMessage.trim() || sending}
                         aria-label="Enviar mensaje"
                     >
                         <PaperAirplaneIcon />
-                        <span className="ml-1.5 hidden sm:inline text-sm">Enviar</span>
+                        <span className="ml-1.5 hidden sm:inline text-sm">{sending ? 'Enviando...' : 'Enviar'}</span>
                     </button>
                 </form>
             </div>

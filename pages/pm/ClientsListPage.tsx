@@ -1,16 +1,21 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Client, ClientFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { ClientFormModal } from './ClientFormModal';
 import { ConfirmationModal } from '../../components/Modal';
-import { PlusIcon, EditIcon, DeleteIcon, EyeIcon } from '../../components/icons';
+import { PlusIcon, EditIcon, DeleteIcon, EyeIcon, ClipboardDocumentListIcon, BanknotesIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
-import { API_URL } from '../../services/api';
+import { ClientPOSReportModal } from '../../components/ui/ClientPOSReportModal';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { clientsService } from '../../services/clients';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { PermissionGate } from '../../components/PermissionGate';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
 
 export const ClientsListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -22,36 +27,31 @@ export const ClientsListPage: React.FC = () => {
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchClients = async () => {
-            setIsLoading(true);
-            try {
-                const res = await fetch(`${API_URL}/clients`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
-                });
-                const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) setClients(data);
-            } catch (e) {
-                console.error('Error al cargar clientes:', e);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchClients();
+    const [clientForAccount, setClientForAccount] = useState<Client | null>(null);
+    const [clientForDetail, setClientForDetail] = useState<Client | null>(null);
+    const [clientForPOSReport, setClientForPOSReport] = useState<Client | null>(null);
+
+    const loadClients = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await clientsService.getAll();
+            setClients(data as Client[]);
+        } catch (err) {
+            if (err instanceof ApiError) toast.error(err.message);
+        } finally {
+            setIsLoading(false);
+        }
     }, [setClients]);
 
-    const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false); // Added detail modal state
-    const [selectedClientForAccount, setSelectedClientForAccount] = useState<Client | null>(null);
-    const [selectedClientForDetail, setSelectedClientForDetail] = useState<Client | null>(null); // Added detail modal state
+    useEffect(() => { loadClients(); }, [loadClients]);
 
-    const openModalForCreate = (initialData?: Partial<ClientFormData>) => { 
-        setEditingClient(null); 
+    const openModalForCreate = (initialData?: Partial<ClientFormData>) => {
+        setEditingClient(null);
         if (initialData) {
-            setEditingClient({ 
-                id: '', 
+            setEditingClient({
+                id: '',
                 ...initialData,
-                address: initialData.address || '', 
+                address: initialData.address || '',
                 billingAddress: initialData.billingAddress || '',
                 clientType: initialData.clientType || 'Particular',
                 companyName: initialData.companyName || '',
@@ -61,46 +61,41 @@ export const ClientsListPage: React.FC = () => {
                 clientNotes: initialData.clientNotes || '',
                 industry: initialData.industry || '',
                 acquisitionSource: initialData.acquisitionSource || '',
-            } as Client); 
+            } as Client);
         }
-        setShowFormModal(true); 
+        setShowFormModal(true);
     };
-    const openModalForEdit = (client: Client) => { setEditingClient(client); setShowFormModal(true); };
-    
+
+    const openModalForEdit = (client: Client) => {
+        setEditingClient(client);
+        setShowFormModal(true);
+    };
+
     const requestDelete = (clientId: string) => {
         setItemToDeleteId(clientId);
         setShowDeleteConfirmModal(true);
     };
-    
+
     const confirmDelete = async () => {
-        if (itemToDeleteId) {
-            try {
-                await fetch(`${API_URL}/clients/${itemToDeleteId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
-                });
-                setClients(prev => prev.filter(c => c.id !== itemToDeleteId));
-            } catch (e) {
-                console.error('Error al eliminar cliente:', e);
-            }
-            setItemToDeleteId(null);
+        if (!itemToDeleteId) {
+            setShowDeleteConfirmModal(false);
+            return;
         }
-        setShowDeleteConfirmModal(false);
+        try {
+            await clientsService.delete(itemToDeleteId);
+            setClients(prev => prev.filter(c => c.id !== itemToDeleteId));
+            toast.success('Cliente eliminado');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'Error al eliminar cliente');
+        } finally {
+            setItemToDeleteId(null);
+            setShowDeleteConfirmModal(false);
+        }
     };
-
-    const openAccountModal = (client: Client) => {
-        setSelectedClientForAccount(client);
-        setIsAccountModalOpen(true);
-    };
-
-    const openDetailModal = (client: Client) => {
-        setSelectedClientForDetail(client);
-        setIsDetailModalOpen(true);
-    }
 
     const columns: TableColumn<Client>[] = [
-        { 
-            header: t('common.name'), 
+        {
+            header: t('common.name'),
             accessor: (client) => (
                 <div className="flex items-center min-w-[120px]">
                     <span className="truncate sm:whitespace-normal">{client.name}</span>
@@ -110,7 +105,7 @@ export const ClientsListPage: React.FC = () => {
                         </span>
                     )}
                 </div>
-            ) 
+            ),
         },
         { header: t('client.field.lastname'), accessor: 'lastName' },
         { header: t('common.email'), accessor: 'email', noWrap: false },
@@ -118,31 +113,119 @@ export const ClientsListPage: React.FC = () => {
         { header: t('client.field.type'), accessor: (client) => client.clientType || 'N/A' },
         { header: t('client.field.company'), accessor: (client) => client.companyName || 'N/A', noWrap: false },
     ];
+
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
                 <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('client.list.title')}</h1>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon /> {t('client.list.create')}</button>
+                    <PermissionGate require="clients.create">
+                        <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
+                            <PlusIcon /> {t('client.list.create')}
+                        </button>
+                    </PermissionGate>
                 </div>
             </div>
-            <DataTable<Client> data={clients} columns={columns} actions={(client) => (
-                <>
-                    <button onClick={() => openDetailModal(client)} className="text-teal-600 dark:text-teal-400 p-1" aria-label={`Ver detalles de ${client.name}`}><EyeIcon /></button>
-                    {/* Account modal button separate or combined? Let's keep existing EyeIcon for account or detail? Previous code used EyeIcon for AccountModal. Let's change that to separate detail and account buttons if needed, or stick to previous behavior. The user requested detail view in previous turns. */}
-                    {/* Re-purposing EyeIcon for Account Modal as per previous code, adding a generic Details button if needed, or assume Account Modal shows details. The ClientDetailViewModal exists. */}
-                    
-                    {/* Let's show Account Modal on a different icon, maybe Banknotes? Or keep Eye for Account and add another for Details. */}
-                    {/* Actually, the prompt implies "Client Detail View" is useful. */}
-                    
-                    <button onClick={() => openModalForEdit(client)} className="text-blue-600 dark:text-blue-400 p-1" aria-label={`Editar ${client.name} ${client.lastName}`}><EditIcon /></button>
-                    <button onClick={() => requestDelete(client.id)} className="text-red-600 dark:text-red-400 p-1" aria-label={`Eliminar ${client.name} ${client.lastName}`}><DeleteIcon /></button>
-                </>
-            )} />
-            <ClientFormModal isOpen={showFormModal} onClose={() => setShowFormModal(false)} client={editingClient} />
-            <ClientAccountModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} client={selectedClientForAccount} />
-            <ClientDetailViewModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} client={selectedClientForDetail} />
-            
+
+            {isLoading && <LoadingSkeleton variant="table" rows={6} />}
+
+            {!isLoading && clients.length === 0 && (
+                <EmptyState
+                    title="Sin clientes"
+                    description="Aún no hay clientes registrados. Crea el primero para empezar."
+                    cta={
+                        <PermissionGate require="clients.create">
+                            <button onClick={() => openModalForCreate()} className={BUTTON_PRIMARY_SM_CLASSES}>
+                                + Crear primer cliente
+                            </button>
+                        </PermissionGate>
+                    }
+                />
+            )}
+
+            {!isLoading && clients.length > 0 && (
+                <DataTable<Client>
+                    data={clients}
+                    columns={columns}
+                    actions={(client) => (
+                        <div className="flex items-center gap-0.5">
+                            <PermissionGate require="clients.view">
+                                <button
+                                    onClick={() => setClientForDetail(client)}
+                                    className="text-teal-600 dark:text-teal-400 p-1 hover:text-teal-800"
+                                    title="Ver detalles"
+                                    aria-label={`Detalles de ${client.name}`}
+                                >
+                                    <EyeIcon />
+                                </button>
+                            </PermissionGate>
+                            <PermissionGate require="clients.viewAccount">
+                                <button
+                                    onClick={() => setClientForAccount(client)}
+                                    className="text-purple-600 dark:text-purple-400 p-1 hover:text-purple-800"
+                                    title="Estado de cuenta (vista 360°)"
+                                    aria-label={`Estado de cuenta de ${client.name}`}
+                                >
+                                    <BanknotesIcon className="w-4 h-4" />
+                                </button>
+                            </PermissionGate>
+                            <PermissionGate require="clients.viewAccount">
+                                <button
+                                    onClick={() => setClientForPOSReport(client)}
+                                    className="text-emerald-600 dark:text-emerald-400 p-1 hover:text-emerald-800"
+                                    title="Reporte de ventas POS"
+                                    aria-label={`Reporte POS de ${client.name}`}
+                                >
+                                    <ClipboardDocumentListIcon className="w-4 h-4" />
+                                </button>
+                            </PermissionGate>
+                            <PermissionGate require="clients.edit">
+                                <button
+                                    onClick={() => openModalForEdit(client)}
+                                    className="text-blue-600 dark:text-blue-400 p-1 hover:text-blue-800"
+                                    title="Editar"
+                                    aria-label={`Editar ${client.name} ${client.lastName}`}
+                                >
+                                    <EditIcon />
+                                </button>
+                            </PermissionGate>
+                            <PermissionGate require="clients.delete">
+                                <button
+                                    onClick={() => requestDelete(client.id)}
+                                    className="text-red-600 dark:text-red-400 p-1 hover:text-red-800"
+                                    title="Eliminar"
+                                    aria-label={`Eliminar ${client.name} ${client.lastName}`}
+                                >
+                                    <DeleteIcon />
+                                </button>
+                            </PermissionGate>
+                        </div>
+                    )}
+                />
+            )}
+
+            <ClientFormModal
+                isOpen={showFormModal}
+                onClose={() => { setShowFormModal(false); loadClients(); }}
+                client={editingClient}
+            />
+            <ClientAccountModal
+                isOpen={!!clientForAccount}
+                onClose={() => setClientForAccount(null)}
+                client={clientForAccount}
+            />
+            <ClientDetailViewModal
+                isOpen={!!clientForDetail}
+                onClose={() => setClientForDetail(null)}
+                client={clientForDetail}
+            />
+            <ClientPOSReportModal
+                isOpen={!!clientForPOSReport}
+                onClose={() => setClientForPOSReport(null)}
+                clientId={clientForPOSReport?.id || ''}
+                clientName={clientForPOSReport ? `${clientForPOSReport.name} ${clientForPOSReport.lastName || ''}` : undefined}
+            />
+
             <ConfirmationModal
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}

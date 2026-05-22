@@ -8,6 +8,7 @@ import { RichTextEditor } from '../ui/RichTextEditor';
 import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { PasswordInput } from '../ui/PasswordInput';
 
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
 
@@ -362,8 +363,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
 
                         <div>
                             <label className="text-sm font-medium">PIN de supervisor para autorizar</label>
-                            <input
-                                type="password"
+                            <PasswordInput
                                 value={adminPassword}
                                 onChange={e => setAdminPassword(e.target.value)}
                                 className={inputFormStyle}

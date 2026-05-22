@@ -16,7 +16,7 @@ import { API_URL } from '../../services/api';
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
-    const { products, setProducts, categories: dynamicCategories, addInventoryLog, branches } = useData(); 
+    const { products, setProducts, categories: dynamicCategories, branches } = useData();
     const { currentUser } = useAuth();
     
     const [showFormModal, setShowFormModal] = useState(false);
@@ -323,7 +323,6 @@ export const ProductsListPage: React.FC = () => {
                 onClose={() => setShowAdjustmentModal(false)}
                 product={productToAdjust}
                 branchId={branchForAdjustment}
-                addInventoryLog={addInventoryLog}
             />
         </div>
     );

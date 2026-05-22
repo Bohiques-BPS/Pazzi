@@ -433,15 +433,17 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         if (currentUser) fetchNotifications();
     }, [currentUser]);
 
-    // Carga de logs de inventario
+    // Carga de logs de inventario.
+    // Desde M6, el endpoint devuelve { items, total } en vez de array plano.
     useEffect(() => {
         const fetchInventoryLogs = async () => {
             try {
-                const res = await fetch(`${API_URL}/inventory/logs`, {
+                const res = await fetch(`${API_URL}/inventory/logs?limit=200`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data)) setInventoryLogs(data);
+                if (Array.isArray(data?.items)) setInventoryLogs(data.items);
+                else if (Array.isArray(data)) setInventoryLogs(data); // compat con shape viejo
             } catch (e) {
                 console.error("Error al cargar logs de inventario del servidor:", e);
             }

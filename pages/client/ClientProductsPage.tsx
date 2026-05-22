@@ -12,7 +12,7 @@ import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModa
 
 export const ClientProductsPage: React.FC = () => {
     const { currentUser } = useAuth();
-    const { products, setProducts, getCategoriesByStoreOwner, getProductsByStoreOwner, addProduct, addInventoryLog } = useData();
+    const { products, setProducts, getCategoriesByStoreOwner, getProductsByStoreOwner, addProduct } = useData();
     
     const [clientProducts, setClientProducts] = useState<Product[]>([]);
     const [clientCategories, setClientCategories] = useState<CategoryType[]>([]);
@@ -195,7 +195,6 @@ export const ClientProductsPage: React.FC = () => {
                 onClose={() => setShowAdjustmentModal(false)}
                 product={productToAdjust}
                 branchId={branchForAdjustment}
-                addInventoryLog={addInventoryLog}
             />
         </div>
     );

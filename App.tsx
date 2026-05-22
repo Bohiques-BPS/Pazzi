@@ -27,6 +27,8 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ActivateAccountPage } from './pages/auth/ActivateAccountPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 // General Pages
 import { LandingPage } from './pages/LandingPage';
@@ -87,6 +89,8 @@ import { ExclamationTriangleIcon } from './components/icons';
 // Constants
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, POS_BUTTON_RED_CLASSES, POS_BUTTON_YELLOW_CLASSES, BUTTON_PRIMARY_CLASSES } from './constants';
 import { Modal } from './components/Modal';
+import { authService } from './services/auth';
+import { PasswordInput } from './components/ui/PasswordInput';
 
 
 // --- PROTECTED ROUTE COMPONENT ---
@@ -173,81 +177,49 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser, loading, location.pathname, navigate, currentModule, setCurrentModule]);
   
-  const SettingsPage = () => { 
-      const { currentUser: authCurrentUser, updateUserPassword, toggleUserEmergencyOrderMode } = useAuth(); 
+  const SettingsPage = () => {
+      const { currentUser: authCurrentUser } = useAuth();
       const [currentPassword, setCurrentPassword] = useState('');
       const [newPassword, setNewPassword] = useState('');
       const [confirmNewPassword, setConfirmNewPassword] = useState('');
       const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
-      const [isEmergencyActive, setIsEmergencyActive] = useState(authCurrentUser?.isEmergencyOrderActive || false);
-      const [isAdminEmergencyModeConfirmationOpen, setIsAdminEmergencyModeConfirmationOpen] = useState(false);
-      const [adminEmergencyModeConfirmationInput, setAdminEmergencyModeConfirmationInput] = useState('');
+      const [submitting, setSubmitting] = useState(false);
 
-      useEffect(() => {
-          setIsEmergencyActive(authCurrentUser?.isEmergencyOrderActive || false);
-      }, [authCurrentUser?.isEmergencyOrderActive]);
+      if (!authCurrentUser) return null;
+
+      const validate = (): string | null => {
+          if (!currentPassword) return 'Ingresa tu contraseña actual.';
+          if (newPassword.length < 8) return 'La nueva contraseña debe tener al menos 8 caracteres.';
+          if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword))
+              return 'La contraseña debe contener letra y número.';
+          if (newPassword !== confirmNewPassword) return 'Las nuevas contraseñas no coinciden.';
+          if (newPassword === currentPassword) return 'La nueva contraseña debe ser distinta a la actual.';
+          return null;
+      };
 
       const handlePasswordChange = async (e: React.FormEvent) => {
           e.preventDefault();
           setMessage(null);
-          if (!authCurrentUser) return;
-          if (newPassword !== confirmNewPassword) {
-              setMessage({type: 'error', text: 'Las nuevas contraseñas no coinciden.'});
-              return;
-          }
-          if (newPassword.length < 6) {
-              setMessage({type: 'error', text: 'La nueva contraseña debe tener al menos 6 caracteres.'});
-              return;
-          }
-          const result = await updateUserPassword(authCurrentUser.id, currentPassword, newPassword);
-          if (result.success) {
-              setMessage({type: 'success', text: result.message});
+          const v = validate();
+          if (v) { setMessage({ type: 'error', text: v }); return; }
+          setSubmitting(true);
+          try {
+              await authService.updatePassword(currentPassword, newPassword);
+              setMessage({ type: 'success', text: 'Contraseña actualizada correctamente.' });
               setCurrentPassword('');
               setNewPassword('');
               setConfirmNewPassword('');
-          } else {
-              setMessage({type: 'error', text: result.message});
+          } catch (err: any) {
+              setMessage({ type: 'error', text: err?.message || 'Error al cambiar la contraseña' });
+          } finally {
+              setSubmitting(false);
           }
       };
 
-      const handleToggleUserEmergencyMode = async () => {
-        if (!authCurrentUser) return;
-        const success = await toggleUserEmergencyOrderMode(authCurrentUser.id);
-        if (success) {
-            setIsEmergencyActive(prev => !prev); 
-            setMessage({type: 'success', text: `Modo de pedido de emergencia ${!isEmergencyActive ? 'activado' : 'desactivado'}.`});
-        } else {
-            setMessage({type: 'error', text: 'No se pudo cambiar el modo de pedido de emergencia.'});
-        }
-        setTimeout(() => setMessage(null), 3000);
-    };
-    
-    const handleAdminEmergencyActivation = async () => {
-        if (!authCurrentUser || authCurrentUser.id !== ADMIN_USER_ID) return;
-        const success = await toggleUserEmergencyOrderMode(authCurrentUser.id);
-        if (success) {
-            setIsEmergencyActive(prev => !prev);
-            setMessage({ type: 'success', text: `Modo de emergencia para admin ${!isEmergencyActive ? 'activado' : 'desactivado'}.` });
-        } else {
-            setMessage({ type: 'error', text: 'No se pudo cambiar el modo de emergencia para admin.' });
-        }
-        setIsAdminEmergencyModeConfirmationOpen(false);
-        setAdminEmergencyModeConfirmationInput('');
-        setTimeout(() => setMessage(null), 3000);
-    };
-
-    const handleAdminEmergencyDeactivation = async () => {
-        if (!authCurrentUser || authCurrentUser.id !== ADMIN_USER_ID) return;
-        await handleAdminEmergencyActivation();
-    };
-
-      const isClientRole = authCurrentUser?.role === UserRole.CLIENT_ECOMMERCE || authCurrentUser?.role === UserRole.CLIENT_PROJECT;
-      const isAdminUser = authCurrentUser?.id === ADMIN_USER_ID;
-      
       return (
         <div className="max-w-2xl mx-auto">
             <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">Mi Cuenta</h1>
-            
+
             {message && (
                 <p className={`mb-4 p-3 rounded-md text-base ${message.type === 'success' ? 'bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-300'}`}>
                     {message.text}
@@ -255,130 +227,51 @@ const AppContent: React.FC = () => {
             )}
 
             <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md mb-6">
-                <h2 className="text-2xl font-semibold text-primary mb-4">Cambiar Contraseña</h2>
+                <h2 className="text-2xl font-semibold text-primary mb-1">
+                    {authCurrentUser.name} {authCurrentUser.lastName}
+                </h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{authCurrentUser.email}</p>
+
+                <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-4 mt-6">Cambiar Contraseña</h3>
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                     <div>
                         <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Contraseña Actual</label>
-                        <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className={inputFormStyle} required />
+                        <PasswordInput
+                            value={currentPassword}
+                            onChange={e => setCurrentPassword(e.target.value)}
+                            className={inputFormStyle}
+                            required
+                            autoComplete="current-password"
+                        />
                     </div>
                     <div>
                         <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Nueva Contraseña</label>
-                        <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className={inputFormStyle} required />
+                        <PasswordInput
+                            value={newPassword}
+                            onChange={e => setNewPassword(e.target.value)}
+                            className={inputFormStyle}
+                            required
+                            autoComplete="new-password"
+                        />
+                        <p className="text-xs text-neutral-500 mt-1">Mín. 8 caracteres con letra y número.</p>
                     </div>
                     <div>
                         <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Confirmar Nueva Contraseña</label>
-                        <input type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} className={inputFormStyle} required />
+                        <PasswordInput
+                            value={confirmNewPassword}
+                            onChange={e => setConfirmNewPassword(e.target.value)}
+                            className={inputFormStyle}
+                            required
+                            autoComplete="new-password"
+                        />
                     </div>
                     <div className="flex justify-end">
-                        <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Actualizar Contraseña</button>
+                        <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
+                            {submitting ? 'Guardando...' : 'Actualizar Contraseña'}
+                        </button>
                     </div>
                 </form>
             </div>
-            
-            {isClientRole && (
-                <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md mb-6">
-                    <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
-                        <ExclamationTriangleIcon className="w-5 h-5 mr-2 text-amber-500" /> Modo de Pedido de Emergencia (Cliente)
-                    </h2>
-                    <p className="text-base text-neutral-600 dark:text-neutral-300 mb-3">
-                        Al activar este modo, tus pedidos podrían ser marcados con prioridad o para atención especial debido a una urgencia.
-                    </p>
-                    <div className="flex items-center space-x-3">
-                        <button
-                            onClick={handleToggleUserEmergencyMode}
-                            className={`${
-                                isEmergencyActive 
-                                    ? POS_BUTTON_RED_CLASSES 
-                                    : POS_BUTTON_YELLOW_CLASSES 
-                            } font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150 text-base`}
-                            aria-pressed={isEmergencyActive}
-                        >
-                            {isEmergencyActive ? 'Desactivar Modo Emergencia' : 'Activar Modo Emergencia'}
-                        </button>
-                        <span className={`text-base font-medium px-2 py-1 rounded-full ${isEmergencyActive ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-100'}`}>
-                            Estado: {isEmergencyActive ? 'Activo' : 'Inactivo'}
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            {isAdminUser && (
-                <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md mb-6">
-                    <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
-                        <ExclamationTriangleIcon className="w-6 h-6 mr-2 text-red-600" /> Modo Emergencia Administrador
-                    </h2>
-                    <p className="text-base text-neutral-600 dark:text-neutral-300 mb-3">
-                        Activa o desactiva el modo de emergencia para la cuenta de administrador.
-                    </p>
-                    <div className="flex items-center space-x-3">
-                        {!isEmergencyActive ? (
-                            <button
-                                onClick={() => setIsAdminEmergencyModeConfirmationOpen(true)}
-                                className={`${BUTTON_PRIMARY_CLASSES} font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150 text-base`}
-                            >
-                                Activar Modo Emergencia Admin
-                            </button>
-                        ) : (
-                            <button
-                                onClick={handleAdminEmergencyDeactivation}
-                                className={`${POS_BUTTON_RED_CLASSES} font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150 text-base`}
-                            >
-                                Desactivar Modo Emergencia Admin
-                            </button>
-                        )}
-                        <span className={`text-base font-medium px-2.5 py-1.5 rounded-full ${isEmergencyActive ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-100'}`}>
-                            Estado Global Admin: {isEmergencyActive ? 'Activo' : 'Inactivo'}
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            <Modal
-                isOpen={isAdminEmergencyModeConfirmationOpen}
-                onClose={() => {
-                    setIsAdminEmergencyModeConfirmationOpen(false);
-                    setAdminEmergencyModeConfirmationInput('');
-                }}
-                title="Confirmar Activación de Modo Emergencia (Admin)"
-                size="md"
-            >
-                <div className="p-1">
-                    <div className="flex items-center justify-center mb-4">
-                        <ExclamationTriangleIcon className="w-12 h-12 text-red-500" />
-                    </div>
-                    <p className="text-base text-neutral-600 dark:text-neutral-300 mb-4 text-center">
-                        Para confirmar, escribe <strong className="text-red-600 dark:text-red-400">'activar'</strong> en el campo de abajo.
-                    </p>
-                    <input
-                        type="text"
-                        value={adminEmergencyModeConfirmationInput}
-                        onChange={(e) => setAdminEmergencyModeConfirmationInput(e.target.value)}
-                        className={`${sharedInputFormStyle} w-full text-center mb-4`}
-                        placeholder="Escribe 'activar' aquí"
-                        aria-label="Confirmación para activar modo emergencia"
-                    />
-                    <div className="flex justify-end space-x-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsAdminEmergencyModeConfirmationOpen(false);
-                                setAdminEmergencyModeConfirmationInput('');
-                            }}
-                            className={BUTTON_SECONDARY_SM_CLASSES}
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleAdminEmergencyActivation}
-                            className={BUTTON_PRIMARY_SM_CLASSES + (adminEmergencyModeConfirmationInput.toLowerCase() !== 'activar' ? ' opacity-50 cursor-not-allowed' : ' bg-red-600 hover:bg-red-700')}
-                            disabled={adminEmergencyModeConfirmationInput.toLowerCase() !== 'activar'}
-                        >
-                            Confirmar Activación
-                        </button>
-                    </div>
-                </div>
-            </Modal>
         </div>
       );
   };
@@ -392,6 +285,7 @@ const AppContent: React.FC = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/activate" element={<ActivateAccountPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/store/:storeOwnerId" element={<EcommerceStorePage />} />
         <Route path="/store" element={<EcommerceStorePage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
@@ -402,6 +296,7 @@ const AppContent: React.FC = () => {
             <Route element={<MainLayout />}>
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/configuration" element={<ConfigurationPage />} /> {/* New Route */}
+                <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/" element={<DashboardHomePage />} />
 
                 {/* E-commerce Client Routes */}

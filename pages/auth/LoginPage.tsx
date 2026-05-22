@@ -11,6 +11,7 @@ import {
     authSecondaryLinkStyle
 } from '../../constants';
 import { ArrowUturnLeftIcon, EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini } from '../../components/icons';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 
 const logoUrl = "https://picsum.photos/seed/pazziapplogo/120/40";
 const rightPanelImageUrl = "https://picsum.photos/seed/businessgrowth/400/300";
@@ -129,10 +130,10 @@ export const LoginPage: React.FC = () => {
             <div>
               <label htmlFor="password" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">Contraseña</label>
               <div className="relative mt-1">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <LockClosedIcon className="h-5 w-5 text-neutral-400" />
                 </div>
-                <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${authInputStyle} pl-10`} required autoComplete="current-password" />
+                <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${authInputStyle} pl-10`} required autoComplete="current-password" />
               </div>
             </div>
             <div className="flex items-center justify-between">

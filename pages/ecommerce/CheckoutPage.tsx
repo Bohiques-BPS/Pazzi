@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, Link as RouterLink, useParams } from 'react-router-dom'; // Added useNavigate
-import { useData } from '../../contexts/DataContext';
+import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { CartItem, Order, ECommerceSettings as StoreSettingsType } from '../../types'; // Added Order type
-import { BUTTON_PRIMARY_CLASSES, inputFormStyle, BUTTON_SECONDARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants'; // Changed PREDEFINED_CLIENT_ID
-import { CreditCardIcon, ArrowUturnLeftIcon } from '../../components/icons'; 
-import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { CartItem } from '../../types';
+import { BUTTON_PRIMARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
+import { CreditCardIcon, ArrowUturnLeftIcon } from '../../components/icons';
+import { publicStoreService } from '../../services/publicStore';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
 
 interface CheckoutLocationState {
     cart: CartItem[];
@@ -58,7 +59,6 @@ const PaymentMethodSelector: React.FC<{
 export const CheckoutPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { addOrder } = useData();
     const { getSettingsForClient } = useECommerceSettings();
 
     const { cart, cartTotal, storeOwnerId } = (location.state as CheckoutLocationState || {});
@@ -129,31 +129,38 @@ export const CheckoutPage: React.FC = () => {
         if (!validateForm()) return;
 
         setIsLoading(true);
-        
-        // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        setError(null);
 
         try {
-            const orderData: Omit<Order, 'id' | 'date' | 'storeOwnerId'> = {
-                ...customerDetails,
-                totalAmount: cartTotal,
-                items: cart,
-                status: 'Pendiente',
-                paymentMethod: selectedPaymentMethod, // Save the payment method
-            };
-            
-            // The addOrder function in DataContext will generate ID and date
-            // addOrder now expects the storeOwnerId as a second argument
-            const newOrderId = addOrder(orderData, effectiveStoreOwnerId); 
-
-            setIsLoading(false);
-            navigate(`/order-confirmation/${newOrderId}`, { 
-                state: { storeOwnerId: effectiveStoreOwnerId, orderId: newOrderId } // Pass orderId for confirmation page
+            // El BE valida productos/stock/total. El pago real se procesará después
+            // (la orden queda en 'Pendiente' hasta confirmación del operador).
+            const result = await publicStoreService.createOrder({
+                storeOwnerId: effectiveStoreOwnerId,
+                clientName: customerDetails.clientName,
+                clientEmail: customerDetails.clientEmail,
+                shippingAddress: customerDetails.shippingAddress,
+                city: customerDetails.city || undefined,
+                postalCode: customerDetails.postalCode || undefined,
+                paymentMethod: selectedPaymentMethod,
+                items: cart.map((it: CartItem) => ({
+                    productId: (it as any).id,
+                    quantity: it.quantity,
+                    unitPrice: it.unitPrice,
+                })),
             });
 
+            toast.success(result.message || '¡Orden creada con éxito!');
+            navigate(`/order-confirmation/${result.order.id}`, {
+                state: { storeOwnerId: effectiveStoreOwnerId, orderId: result.order.id, email: customerDetails.clientEmail },
+            });
         } catch (err) {
-            console.error("Error creating order:", err);
-            setError("Hubo un error al procesar tu pedido. Por favor, inténtalo de nuevo.");
+            const msg = err instanceof ApiError
+                ? (Array.isArray(err.errors) && err.errors.length > 0
+                    ? `${err.message}: ${err.errors.join('; ')}`
+                    : err.message)
+                : 'Hubo un error al procesar tu pedido. Por favor, inténtalo de nuevo.';
+            setError(msg);
+        } finally {
             setIsLoading(false);
         }
     };

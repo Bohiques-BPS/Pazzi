@@ -44,6 +44,7 @@ import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { posService } from '../../services/pos';
 import { toast } from '../../hooks/useToast';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 
 
 // Helper component for the live clock in the header
@@ -142,8 +143,7 @@ const POSActionAuthModal: React.FC<{
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">{message}</p>
                 <div>
                     <label className="block text-sm font-medium">Contraseña</label>
-                    <input
-                        type="password"
+                    <PasswordInput
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className={inputFormStyle}
@@ -616,6 +616,37 @@ export const POSCashierPage: React.FC = () => {
         setPosError(null);
         setActiveModal(null);
     };
+
+    // Precarga de estimado desde sessionStorage (set por EstimatesListPage "Convertir a venta")
+    useEffect(() => {
+        if (!isPosAuthenticated || !currentSession) return;
+        const stored = sessionStorage.getItem('pazzi_estimate_to_convert');
+        if (!stored) return;
+        try {
+            const parsed = JSON.parse(stored);
+            if (cart.length > 0 && !window.confirm('Tienes items en el carrito. ¿Reemplazarlos con los del estimado?')) {
+                sessionStorage.removeItem('pazzi_estimate_to_convert');
+                return;
+            }
+            const items: CartItem[] = (parsed.items || []).map((it: any) => ({
+                id: it.productId || it.id,
+                productId: it.productId || it.id,
+                name: it.product?.name || it.name || 'Producto',
+                quantity: it.quantity,
+                unitPrice: it.unitPrice,
+            }));
+            setCart(items);
+            if (parsed.clientId) {
+                const client = clients.find(c => c.id === parsed.clientId);
+                if (client) setSelectedClient(client);
+            }
+            toast.success(`Estimado cargado en el carrito (${items.length} items)`);
+            sessionStorage.removeItem('pazzi_estimate_to_convert');
+        } catch {
+            sessionStorage.removeItem('pazzi_estimate_to_convert');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPosAuthenticated, currentSession]);
 
     const handleCreateEstimateFromCart = () => {
         if (!currentUser || !selectedClient || cart.length === 0 || !selectedBranchId) {

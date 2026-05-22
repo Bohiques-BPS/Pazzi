@@ -5,7 +5,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext'; 
 import { LandingLayout } from '../../components/layout/LandingLayout'; 
 import { UserRole } from '../../types'; 
-import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constants'; 
+import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constants';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 
 export const RegisterPage: React.FC = () => {
   const [name, setName] = useState('');
@@ -71,11 +72,11 @@ export const RegisterPage: React.FC = () => {
           </div>
           <div>
             <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Contraseña</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={authInputStyle} required />
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} className={authInputStyle} required autoComplete="new-password" />
           </div>
           <div>
             <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Confirmar Contraseña</label>
-            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={authInputStyle} required />
+            <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={authInputStyle} required autoComplete="new-password" />
           </div>
           <div>
             <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Tipo de Cuenta</label>

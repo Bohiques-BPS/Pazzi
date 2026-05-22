@@ -9,8 +9,20 @@ import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { CategoryFormModal } from './CategoryFormModal';
 import { DepartmentFormModal } from './DepartmentFormModal';
-import { BranchFormModal } from './BranchFormModal';
+import { BranchFormModal } from '../../components/forms/BranchFormModal';
 import { API_URL } from '../../services/api';
+import { z } from 'zod';
+import { zodIssuesToFieldErrors } from '../../schemas/common.schema';
+
+// Subset del productSchema centrado en los campos que el form maneja directamente.
+// La validación de business (sucursales activas, fecha range, etc.) sigue en validateForm.
+const productFormZodSchema = z.object({
+    name: z.string().min(1, 'El nombre es requerido').max(200, 'Máximo 200 caracteres'),
+    unitPrice: z.number({ message: 'Debe ser un número' }).nonnegative('No puede ser negativo'),
+    costPrice: z.number().nonnegative('El costo no puede ser negativo').optional(),
+    ivuRate: z.number().min(0, 'No puede ser negativo').max(1, 'Máximo 100%').optional(),
+    barcode13Digits: z.string().max(13, 'Máximo 13 caracteres').optional().or(z.literal('')),
+});
 
 interface ProductFormModalProps {
     isOpen: boolean;
@@ -242,31 +254,40 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     };
 
     const validateForm = (): Record<string, string> => {
-        const errors: Record<string, string> = {};
-        if (!formData.name.trim()) errors.name = "El nombre es requerido";
-        if (!formData.category) errors.category = "Debe seleccionar una categoría";
-        if ((formData.unitPrice || 0) < 0) errors.unitPrice = "El precio no puede ser negativo";
-        
+        // Validación con Zod para campos atómicos
+        const zodResult = productFormZodSchema.safeParse({
+            name: formData.name,
+            unitPrice: Number(formData.unitPrice) || 0,
+            costPrice: formData.costPrice != null ? Number(formData.costPrice) : undefined,
+            ivuRate: formData.ivuRate != null ? Number(formData.ivuRate) : undefined,
+            barcode13Digits: formData.barcode13Digits || '',
+        });
+        const errors: Record<string, string> = zodResult.success
+            ? {}
+            : zodIssuesToFieldErrors(zodResult.error.issues);
+
+        // Reglas de negocio que no caben en el schema
+        if (!formData.category) errors.category = 'Debe seleccionar una categoría';
+
         const activeBranches = branches.filter(b => b.isActive);
 
         if (formData.unitPrice && formData.costPrice && formData.unitPrice < formData.costPrice) {
-            errors.unitPrice = "El precio de venta es menor al costo";
+            errors.unitPrice = 'El precio de venta es menor al costo';
         }
 
         if (!productToEdit && (formData.availableStock || 0) > 0 && activeBranches.length === 0) {
-            errors.availableStock = "No puede asignar inventario inicial porque no tiene sucursales activas. Cree una sucursal primero o deje el stock en 0.";
+            errors.availableStock = 'No puede asignar inventario inicial porque no tiene sucursales activas. Cree una sucursal primero o deje el stock en 0.';
         }
 
         if (!formData.creationDate) {
-            errors.creationDate = "La fecha de creación es obligatoria";
+            errors.creationDate = 'La fecha de creación es obligatoria';
         } else {
-            // Añadimos T00:00:00 para evitar problemas de zona horaria al validar
             const date = new Date(formData.creationDate + 'T00:00:00');
             const year = date.getFullYear();
             if (isNaN(date.getTime())) {
-                errors.creationDate = "El formato de la fecha es inválido";
+                errors.creationDate = 'El formato de la fecha es inválido';
             } else if (year < 1900 || year > 2100) {
-                errors.creationDate = "El año debe estar entre 1900 y 2100";
+                errors.creationDate = 'El año debe estar entre 1900 y 2100';
             }
         }
 
