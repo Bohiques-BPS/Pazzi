@@ -6,6 +6,7 @@ import { ApiError } from '../../services/api';
 import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constants';
 import { LandingLayout } from '../../components/layout/LandingLayout';
 import { LockClosedIcon, ExclamationTriangleIcon } from '../../components/icons';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 
 export const ResetPasswordPage: React.FC = () => {
     const [params] = useSearchParams();
@@ -69,9 +70,8 @@ export const ResetPasswordPage: React.FC = () => {
                     <div>
                         <label className="block text-base font-medium">Nueva contraseña</label>
                         <div className="relative mt-1">
-                            <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-                            <input
-                                type="password"
+                            <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 z-10" />
+                            <PasswordInput
                                 className={`${authInputStyle} pl-9`}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -89,9 +89,8 @@ export const ResetPasswordPage: React.FC = () => {
                     <div>
                         <label className="block text-base font-medium">Confirmar contraseña</label>
                         <div className="relative mt-1">
-                            <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-                            <input
-                                type="password"
+                            <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 z-10" />
+                            <PasswordInput
                                 className={`${authInputStyle} pl-9`}
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}

@@ -5,6 +5,7 @@ import { ApiError } from '../services/api';
 import { toast } from '../hooks/useToast';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
 import { LockClosedIcon, UserIcon as UserKeyIcon, ExclamationTriangleIcon } from '../components/icons';
+import { PasswordInput } from '../components/ui/PasswordInput';
 
 export const ProfilePage: React.FC = () => {
     const { currentUser, logout } = useAuth();
@@ -90,8 +91,7 @@ export const ProfilePage: React.FC = () => {
                 <form onSubmit={handleSubmit} className="space-y-3 max-w-md">
                     <div>
                         <label className="block text-sm font-medium">Contraseña actual</label>
-                        <input
-                            type="password"
+                        <PasswordInput
                             value={current}
                             onChange={(e) => setCurrent(e.target.value)}
                             className={inputFormStyle}
@@ -101,8 +101,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Nueva contraseña</label>
-                        <input
-                            type="password"
+                        <PasswordInput
                             value={next}
                             onChange={(e) => setNext(e.target.value)}
                             className={inputFormStyle}
@@ -114,8 +113,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Confirmar nueva contraseña</label>
-                        <input
-                            type="password"
+                        <PasswordInput
                             value={confirm}
                             onChange={(e) => setConfirm(e.target.value)}
                             className={inputFormStyle}

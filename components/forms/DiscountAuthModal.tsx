@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { authService } from '../../services/auth';
+import { PasswordInput } from '../ui/PasswordInput';
 import { ApiError } from '../../services/api';
 
 interface DiscountAuthModalProps {
@@ -89,8 +90,7 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
                 </div>
                 <div className="border-t pt-4 dark:border-neutral-700">
                     <label className="block text-sm font-medium">PIN de supervisor</label>
-                    <input
-                        type="password"
+                    <PasswordInput
                         value={supervisorPin}
                         onChange={e => setSupervisorPin(e.target.value)}
                         className={inputFormStyle}

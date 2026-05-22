@@ -44,6 +44,7 @@ import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { posService } from '../../services/pos';
 import { toast } from '../../hooks/useToast';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 
 
 // Helper component for the live clock in the header
@@ -142,8 +143,7 @@ const POSActionAuthModal: React.FC<{
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">{message}</p>
                 <div>
                     <label className="block text-sm font-medium">Contraseña</label>
-                    <input
-                        type="password"
+                    <PasswordInput
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className={inputFormStyle}
