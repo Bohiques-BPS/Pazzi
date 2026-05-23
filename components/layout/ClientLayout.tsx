@@ -14,6 +14,7 @@ import {
     ChatBubbleLeftRightIcon,
     MenuIcon, XMarkIcon
 } from '../icons';
+import logoWhite from '../../assets/logo_white.png';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -48,7 +49,9 @@ export const ClientLayout: React.FC<LayoutProps> = ({ children }) => {
                      <button onClick={() => setSidebarOpen(!sidebarOpen)} className="mr-3 p-2 rounded hover:bg-white/10 lg:hidden text-white">
                         {sidebarOpen ? <XMarkIcon /> : <MenuIcon />}
                     </button>
-                    <Link to="/client-dashboard" className="text-2xl font-bold">Pazzi</Link>
+                    <Link to="/client-dashboard" className="flex-shrink-0">
+                        <img src={logoWhite} alt="Pazzi Logo" className="h-8" />
+                    </Link>
                     <div className="flex items-center space-x-4">
                         <span className="hidden sm:inline">{currentUser?.name || currentUser?.email} (Cliente)</span>
                         <button onClick={handleLogout} className="bg-accent hover:bg-amber-600 text-white font-semibold py-1.5 px-3 rounded-md text-base transition duration-150">

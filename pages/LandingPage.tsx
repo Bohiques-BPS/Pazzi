@@ -3,19 +3,21 @@
 import React, { useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { LandingLayout } from '../components/layout/LandingLayout';
-import { 
-    BriefcaseIcon, 
-    LightBulbIcon, 
-    ChartPieIcon, 
-    ShieldCheckIcon, 
-    UserIcon, 
-    KeyIcon,  
-    MenuIcon, 
-    XMarkIcon, 
-    FacebookIcon, 
-    TwitterIcon,  
-    LinkedInIcon  
+import {
+    BriefcaseIcon,
+    LightBulbIcon,
+    ChartPieIcon,
+    ShieldCheckIcon,
+    UserIcon,
+    KeyIcon,
+    MenuIcon,
+    XMarkIcon,
+    FacebookIcon,
+    TwitterIcon,
+    LinkedInIcon
 } from '../components/icons';
+import logo from '../assets/logo.png';
+import logoWhite from '../assets/logo_white.png';
 
 const navLinks = [
     { name: 'Beneficios', href: '#benefits' },
@@ -37,7 +39,6 @@ const solutionItems = [
     { name: "E-commerce Integrado", description: "Lanza y gestiona tu tienda online, sincroniza productos, pedidos y clientes con el resto de tu operación.", image: "https://picsum.photos/seed/ecommerce-management/600/400", alt: "Gestionando una tienda e-commerce integrada con Pazzi." },
 ];
 
-const logoUrl = "https://picsum.photos/seed/pazziapplogo/120/40";
 
 export const LandingPage: React.FC = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
@@ -72,7 +73,7 @@ export const LandingPage: React.FC = () => {
                         <div className="flex items-center justify-between h-16">
                             <div className="flex items-center">
                                 <RouterLink to="/" className="flex items-center">
-                                    <img src={logoUrl} alt="Pazzi Logo" className="h-8" />
+                                    <img src={logo} alt="Pazzi Logo" className="h-8" />
                                 </RouterLink>
                             </div>
                             <div className="hidden md:flex items-center space-x-4">
@@ -235,7 +236,7 @@ export const LandingPage: React.FC = () => {
                     <div className="container mx-auto px-6">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                             <div>
-                                <img src={logoUrl} alt="Pazzi Logo" className="h-7 mb-3" />
+                                <img src={logoWhite} alt="Pazzi Logo" className="h-7 mb-3" />
                                 <p className="text-base">Simplificando la gestión de tu negocio para que puedas enfocarte en crecer.</p>
                             </div>
                             <div>

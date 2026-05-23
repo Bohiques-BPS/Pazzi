@@ -1,20 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext'; 
-import { useData } from '../../contexts/DataContext'; 
+import { useAuth } from '../../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
-import { AppModule, UserRole, Notification } from '../../types'; 
-import { APP_MODULES_CONFIG } from '../../constants'; 
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon } from '../icons'; 
+import { AppModule, UserRole, Notification } from '../../types';
+import { APP_MODULES_CONFIG } from '../../constants';
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon } from '../icons';
+import logo from '../../assets/logo.png';
+import logoWhite from '../../assets/logo_white.png';
 
 interface NavbarProps {
     onToggleSidebar: () => void;
     currentModule: AppModule;
     setCurrentModule: (module: AppModule) => void;
-}
-
-const logoUrl = "https://picsum.photos/seed/pazziapplogo/120/40"; 
+} 
 
 // Helper to format time relatively (simplified)
 const formatRelativeTime = (isoTimestamp: string) => {
@@ -188,7 +188,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
           {/* Logo */}
           <Link to={getLogoLink()} className="mr-1 sm:mr-3 flex-shrink-0">
-            <img src={logoUrl} alt="Pazzi Logo" className="h-6 sm:h-9" />
+            <img src={logo}      alt="Pazzi Logo" className="h-6 sm:h-9 dark:hidden" />
+            <img src={logoWhite} alt="Pazzi Logo" className="h-6 sm:h-9 hidden dark:block" />
           </Link>
 
           {/* Module Label */}

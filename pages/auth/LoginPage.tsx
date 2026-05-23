@@ -13,7 +13,8 @@ import {
 import { ArrowUturnLeftIcon, EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini } from '../../components/icons';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 
-const logoUrl = "https://picsum.photos/seed/pazziapplogo/120/40";
+import logo from '../../assets/logo.png';
+
 const rightPanelImageUrl = "https://picsum.photos/seed/businessgrowth/400/300";
 
 const demoUsers = [
@@ -105,7 +106,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-md">
           <div className="flex justify-center mb-6">
-            <img src={logoUrl} alt="Pazzi Logo" className="h-10" />
+            <img src={logo} alt="Pazzi Logo" className="h-10" />
           </div>
           <h2 className="text-3xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-6">
             Inicie sesión en su cuenta
