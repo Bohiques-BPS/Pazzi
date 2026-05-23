@@ -14,8 +14,8 @@ import { ArrowUturnLeftIcon, EnvelopeIcon, LockClosedIcon, UserIcon as UserIconM
 import { PasswordInput } from '../../components/ui/PasswordInput';
 
 import logo from '../../assets/logo.png';
-
-const rightPanelImageUrl = "https://picsum.photos/seed/businessgrowth/400/300";
+import logoWhite from '../../assets/logo_white.png';
+import banner from '../../assets/img/banner.png';
 
 const demoUsers = [
     { name: 'Admin (Gerente)', email: 'admin@pazzi.com', pass: 'password123' },
@@ -170,11 +170,18 @@ export const LoginPage: React.FC = () => {
         </div>
       </div>
       {/* Decorative Panel */}
-      <div className="hidden md:flex md:w-1/2 bg-slate-700 items-center justify-center p-10 flex-col">
-        <img src={rightPanelImageUrl} alt="Facilidad de Negocio" className="max-w-xs lg:max-w-sm rounded-lg shadow-2xl mb-8" />
-        <p className="text-2xl lg:text-3xl text-white text-center font-semibold leading-relaxed max-w-md">
-          Simplificamos la gestión de tu negocio para que te enfoques en crecer.
-        </p>
+      <div
+        className="hidden md:flex md:w-1/2 items-center justify-center p-10 flex-col bg-cover bg-center relative"
+        style={{ backgroundImage: `url(${banner})` }}
+      >
+        {/* dark overlay so text stays readable */}
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="relative z-10 flex flex-col items-center">
+          <img src={logoWhite} alt="Pazzi Logo" className="max-w-[180px] lg:max-w-[220px] mb-8 drop-shadow-lg" />
+          <p className="text-2xl lg:text-3xl text-white text-center font-semibold leading-relaxed max-w-md drop-shadow">
+            Simplificamos la gestión de tu negocio para que te enfoques en crecer.
+          </p>
+        </div>
       </div>
     </div>
   );
