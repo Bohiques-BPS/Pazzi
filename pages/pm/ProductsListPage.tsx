@@ -190,7 +190,7 @@ export const ProductsListPage: React.FC = () => {
                 const firstSku = p.skus?.[0];
                 return typeof firstSku === 'object' ? (firstSku as any).sku : (firstSku || 'N/A');
             }},
-            { header: t('product.category'), accessor: 'category' },
+            { header: t('product.category'), accessor: (p) => (p.category as any)?.name ?? p.category ?? 'N/A' },
         ];
 
         const branchColumns: TableColumn<Product>[] = activeBranches.map(branch => ({

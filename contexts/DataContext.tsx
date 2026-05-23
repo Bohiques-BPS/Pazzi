@@ -313,7 +313,15 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data)) setProducts(data);
+                if (Array.isArray(data)) setProducts(data.map((p: any) => ({
+                    ...p,
+                    category: typeof p.category === 'object' && p.category !== null
+                        ? p.category.name
+                        : p.category,
+                    skus: Array.isArray(p.skus)
+                        ? p.skus.map((s: any) => typeof s === 'string' ? s : s.sku)
+                        : p.skus,
+                })));
             } catch (e) {
                 console.error("Error al cargar productos del servidor:", e);
             }

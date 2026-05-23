@@ -283,7 +283,7 @@ export const POSCashierPage: React.FC = () => {
         // Re-verifica la contraseña del usuario actual contra el BE.
         if (!currentUser) return false;
         const result = await login(currentUser.email, password);
-        if (result?.success === true) {
+        if (!('error' in result)) {
             setIsPosAuthenticated(true);
             setActiveModal(null);
             return true;
@@ -301,7 +301,7 @@ export const POSCashierPage: React.FC = () => {
 
     const handleSwitchUser = async (employee: User, pass: string): Promise<boolean> => {
         const result = await login(employee.email, pass);
-        const success = result?.success === true;
+        const success = !('error' in result);
         if (success) {
             // Reset POS auth y sesión para el nuevo usuario
             setIsPosAuthenticated(false);

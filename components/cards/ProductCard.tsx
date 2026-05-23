@@ -84,7 +84,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
                     )}
 
                     <p><strong>SKUs:</strong> {product.skus?.join(', ') || 'N/A'}</p>
-                    <p><strong>Categoría:</strong> {product.category || 'N/A'}</p>
+                    <p><strong>Categoría:</strong> {
+                        (typeof product.category === 'object'
+                            ? (product.category as any)?.name
+                            : product.category) || 'N/A'
+                    }</p>
                     {product.material && <p><strong>Material:</strong> {product.material}</p>}
                     <p><strong>IVU:</strong> {product.ivuRate ? `${(product.ivuRate * 100).toFixed(0)}%` : 'N/A'}</p>
                 </div>
