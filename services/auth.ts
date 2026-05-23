@@ -48,17 +48,9 @@ export const authService = {
   resendInvitation: (employeeId: string) =>
     api.post<{ message: string; expiresAt: string }>('/auth/resend-invitation', { employeeId }),
 
-<<<<<<< HEAD
-  toggleEmergencyOrder: () =>
-    api.post<User>('/auth/toggle-emergency-order'),
-
-  updateAlertSettings: (settings: Record<string, unknown>) =>
-    api.put<{ message: string }>('/auth/alert-settings', settings),
-=======
   forgotPassword: (email: string) =>
     api.post<{ message: string }>('/auth/forgot-password', { email }),
 
   resetPassword: (token: string, password: string) =>
     api.post<AuthResponse>('/auth/reset-password', { token, password }),
->>>>>>> 3565821e8d26d7fa7dc91c83d882ee0c09b728ea
 };
