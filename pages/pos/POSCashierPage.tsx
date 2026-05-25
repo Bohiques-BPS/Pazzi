@@ -41,6 +41,7 @@ import { PayoutModal } from '../../components/forms/PayoutModal';
 import { DiscountAuthModal } from '../../components/forms/DiscountAuthModal';
 import { ReturnModal } from '../../components/forms/ReturnModal';
 import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
+import { authService } from '../../services/auth';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { posService } from '../../services/pos';
 import { toast } from '../../hooks/useToast';
@@ -207,6 +208,9 @@ export const POSCashierPage: React.FC = () => {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [selectedBranchId, setSelectedBranchId] = useState<string>('');
     const [selectedCajaId, setSelectedCajaId] = useState<string>('');
+    // True once useEffect([branches, cajas]) has run with loaded data.
+    // Lets us distinguish "still fetching" from "loaded but no active caja found".
+    const [cajaInitialized, setCajaInitialized] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [posError, setPosError] = useState<string | null>(null);
     const [generalDiscount, setGeneralDiscount] = useState<{ type: 'percentage' | 'fixed'; value: number } | null>(null);
@@ -280,15 +284,21 @@ export const POSCashierPage: React.FC = () => {
 
 
     const handleInitialAuth = async (password: string): Promise<boolean> => {
-        // Re-verifica la contraseña del usuario actual contra el BE.
         if (!currentUser) return false;
-        const result = await login(currentUser.email, password);
-        if (!('error' in result)) {
-            setIsPosAuthenticated(true);
-            setActiveModal(null);
-            return true;
+        try {
+            // Verifica la contraseña contra el BE sin crear nueva sesión ni emitir tokens.
+            // Usa el endpoint dedicado /auth/verify-password para no tener efectos secundarios
+            // (no cambia currentUser, no dispara re-fetches en DataContext, no revoca el JWT actual).
+            const { valid } = await authService.verifyPassword(password);
+            if (valid) {
+                setIsPosAuthenticated(true);
+                setActiveModal(null);
+                return true;
+            }
+            return false;
+        } catch {
+            return false;
         }
-        return false;
     };
     
     // El "abrir turno" real lo hace el OpenCajaModal contra el BE; esta función queda como
@@ -320,6 +330,9 @@ export const POSCashierPage: React.FC = () => {
     };
 
     useEffect(() => {
+        // Skip while DataContext hasn't loaded yet (both arrays still empty on mount)
+        if (!branches.length && !cajas.length) return;
+
         const firstActiveBranch = branches.find(b => b.isActive);
         if (firstActiveBranch) {
             setSelectedBranchId(firstActiveBranch.id);
@@ -328,6 +341,9 @@ export const POSCashierPage: React.FC = () => {
                 setSelectedCajaId(firstCajaForBranch.id);
             }
         }
+        // Mark as initialized: data was loaded; if selectedCajaId is still '' after this,
+        // it means there is genuinely no active caja configured for this store.
+        setCajaInitialized(true);
     }, [branches, cajas]);
 
     useEffect(() => {
@@ -767,12 +783,51 @@ export const POSCashierPage: React.FC = () => {
     }
     
     if (!shiftState?.active) {
+        if (!selectedCajaId) {
+            // Data has loaded but no active caja was found for this store
+            if (cajaInitialized) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-neutral-900 gap-4 p-6 text-center">
+                        <ExclamationTriangleIcon className="w-14 h-14 text-amber-500" />
+                        <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">No hay caja registradora activa</h2>
+                        <p className="text-neutral-500 dark:text-neutral-400 text-sm max-w-md">
+                            No se encontró ninguna caja activa para esta tienda.
+                            Ve a <strong>Configuración → Cajas Registradoras</strong> y asegúrate de que al menos una caja esté activa.
+                        </p>
+                        <div className="flex gap-3 mt-2">
+                            <button onClick={() => navigate('/settings')} className={BUTTON_PRIMARY_SM_CLASSES}>
+                                Ir a Configuración
+                            </button>
+                            <button onClick={() => navigate('/')} className={BUTTON_SECONDARY_SM_CLASSES}>
+                                Volver al inicio
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+            // Still fetching branches/cajas from backend
+            return (
+                <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-neutral-900">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3 flex-shrink-0"></div>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">Cargando punto de venta...</p>
+                </div>
+            );
+        }
         const currentCajaForOpen = cajas.find(c => c.id === selectedCajaId);
+        // Guard: if caja disappeared from state (race condition during refetch), show spinner
+        if (!currentCajaForOpen) {
+            return (
+                <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-neutral-900">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3 flex-shrink-0"></div>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">Cargando caja...</p>
+                </div>
+            );
+        }
         return (
             <OpenCajaModal
                 isOpen={true}
                 onClose={() => navigate('/')}
-                caja={currentCajaForOpen ? { id: currentCajaForOpen.id, name: currentCajaForOpen.name } : null}
+                caja={{ id: currentCajaForOpen.id, name: currentCajaForOpen.name }}
                 onOpened={handleShiftOpened}
             />
         );

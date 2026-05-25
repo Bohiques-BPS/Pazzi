@@ -33,6 +33,10 @@ export const authService = {
 
   verifyPin: (pin: string) => api.post<{ valid: boolean }>('/auth/verify-pin', { pin }),
 
+  /** Verifica la contraseña del usuario autenticado sin emitir nuevos tokens ni crear sesión. */
+  verifyPassword: (password: string) =>
+    api.post<{ valid: boolean }>('/auth/verify-password', { password }),
+
   verifySupervisorPin: (pin: string) =>
     api.post<{ valid: true; manager: { id: string; name: string; lastName: string; email: string } }>(
       '/auth/verify-supervisor-pin',
