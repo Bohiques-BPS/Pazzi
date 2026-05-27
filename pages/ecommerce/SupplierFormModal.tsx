@@ -106,7 +106,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                 </div>
                 <div>
                     <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.suppliers.form.email')}</label>
-                    <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={inputFormStyle} required />
+                    <input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className={inputFormStyle} />
                 </div>
                 <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.suppliers.form.phone')}</label>

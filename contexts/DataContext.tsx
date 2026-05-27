@@ -353,7 +353,10 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data)) setVisits(data);
+                if (Array.isArray(data)) setVisits(data.map((v: any) => ({
+                    ...v,
+                    date: typeof v.date === 'string' ? v.date.split('T')[0] : v.date,
+                })));
             } catch (e) {
                 console.error("Error al cargar visitas del servidor:", e);
             }

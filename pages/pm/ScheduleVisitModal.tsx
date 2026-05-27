@@ -90,9 +90,15 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                 ? await visitsService.update(visitToEdit.id, payload)
                 : await visitsService.create(payload);
 
+            const normalizedSaved = {
+                ...saved,
+                date: typeof (saved as any).date === 'string'
+                    ? (saved as any).date.split('T')[0]
+                    : (saved as any).date,
+            };
             setVisits(prev => visitToEdit
-                ? prev.map(v => v.id === visitToEdit.id ? (saved as unknown as Visit) : v)
-                : [...prev, saved as unknown as Visit]);
+                ? prev.map(v => v.id === visitToEdit.id ? (normalizedSaved as unknown as Visit) : v)
+                : [...prev, normalizedSaved as unknown as Visit]);
 
             toast.success(visitToEdit ? 'Visita actualizada' : 'Visita programada');
             onClose();

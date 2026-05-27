@@ -137,23 +137,9 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validation for tax exception date
-        // Convert rates to decimals for comparison if they are stored as percentages (e.g. 11.5 vs 0.115)
-        // In the form they seem to be percentages (0.01 step)
-        const currentMunicipalRate = formData.municipalTaxRate || 0;
-        const defaultRatePercent = (settings.defaultTaxRate || 0.115) * 100;
-        
-        const isTaxModified = Math.abs(currentMunicipalRate - defaultRatePercent) > 0.001;
-        const isTaxZero = currentMunicipalRate === 0;
-        
-        if ((isTaxZero || isTaxModified) && !formData.municipalTaxExemptionUntil) {
-            toast.error("La fecha de exención municipal es obligatoria si el impuesto es 0 o ha sido modificado.");
-            setActiveTab('Impuestos');
-            return;
-        }
-        
-        const isDuplicateEmail = allClients.some(
-            c => c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
+        // Solo verificar email duplicado si se proporcionó uno
+        const isDuplicateEmail = formData.email && allClients.some(
+            c => c.email && c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
         );
         if (isDuplicateEmail) {
             toast.error("Ya existe un cliente con este correo electrónico.");
@@ -261,11 +247,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 <div><label className="block text-sm font-medium">{t('client.field.zip')}</label><input type="text" name="zip" value={formData.zip} onChange={handleChange} className={inputFormStyle} /></div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-                 <div><label className="block text-sm font-medium">{t('common.phone')}</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputFormStyle} required/></div>
+                 <div><label className="block text-sm font-medium">{t('common.phone')}</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputFormStyle} /></div>
                  <div><label className="block text-sm font-medium">{t('common.phone')} 2</label><input type="tel" name="phone2" value={formData.phone2} onChange={handleChange} className={inputFormStyle} /></div>
             </div>
             <div><label className="block text-sm font-medium">{t('client.field.fax')}</label><input type="tel" name="fax" value={formData.fax} onChange={handleChange} className={inputFormStyle} /></div>
-            <div><label className="block text-sm font-medium">{t('common.email')}</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} required/></div>
+            <div><label className="block text-sm font-medium">{t('common.email')}</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} /></div>
             <div><label className="block text-sm font-medium">{t('client.field.contact_person')}</label><input type="text" name="contactPersonName" value={formData.contactPersonName} onChange={handleChange} className={inputFormStyle}/></div>
              <div className="grid grid-cols-2 gap-2">
                 <div><label className="block text-sm font-medium">{t('client.field.ssn')}</label><input type="text" name="socialSecurity" value={formData.socialSecurity} onChange={handleChange} className={inputFormStyle} /></div>
