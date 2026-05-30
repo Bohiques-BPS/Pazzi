@@ -220,7 +220,7 @@ export const ProjectsDashboardPage: React.FC = () => {
             .forEach(visit => {
                 const durationMinutes = parseTime(visit.endTime) - parseTime(visit.startTime);
                 if (durationMinutes > 0) {
-                    visit.assignedEmployeeIds.forEach(empId => {
+                    (visit.assignedEmployeeIds ?? []).forEach(empId => {
                         employeeHours[empId] = (employeeHours[empId] || 0) + durationMinutes;
                     });
                 }

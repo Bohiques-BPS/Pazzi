@@ -9,6 +9,7 @@ import { ReceivableEditModal } from './ReceivableEditModal';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { toast } from 'react-hot-toast';
 
 // ... (Keep RecordPaymentModal and PaymentReminderModal as they are) ...
 interface RecordPaymentModalProps {
@@ -54,7 +55,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
     const handleConfirm = () => {
         const paymentAmount = parseFloat(amount);
         if (isNaN(paymentAmount) || paymentAmount <= 0 || paymentAmount > sale.balance + 0.001) {
-            alert(`Monto inválido. No puede ser mayor al balance de $${sale.balance.toFixed(2)}.`);
+            toast.error(`Monto inválido. No puede ser mayor al balance de $${sale.balance.toFixed(2)}.`);
             return;
         }
         onConfirm(sale.id, paymentAmount, method, notes, attachment);
@@ -320,7 +321,7 @@ export const AccountsReceivablePage: React.FC = () => {
     const requestSendReminder = (sale: (typeof receivableData)[0]) => {
         const client = sale.clientId ? getClientById(sale.clientId) : null;
         if (!client || !client.email) {
-            alert("El cliente no tiene un correo electrónico registrado para enviar un recordatorio.");
+            toast.error('El cliente no tiene un correo electrónico registrado para enviar un recordatorio.');
             return;
         }
         setSaleForReminder(sale);
@@ -459,7 +460,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                              <div className="flex space-x-1">
                                                 <button onClick={() => requestSendReminder(sale)} className="text-orange-500 p-1" title={t('pos.receivable.action.reminder')}><EnvelopeIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => handleEditReceivable(sale)} className="text-blue-600 p-1" title={t('pos.receivable.action.edit')}><EditIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => alert("Función de Imprimir no implementada.")} className="text-blue-600 p-1" title={t('pos.receivable.action.print')}><PrinterIcon className="w-4 h-4"/></button>
+                                                <button onClick={() => toast('Función de imprimir aún no implementada.', { icon: '🖨️' })} className="text-blue-600 p-1" title={t('pos.receivable.action.print')}><PrinterIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => setPaymentModalSale(sale)} className="text-green-600 p-1" title={t('pos.receivable.action.payment')} disabled={sale.balance <= 0}><BanknotesIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => handleVoidReceivable(sale)} className="text-red-600 p-1" title={t('pos.receivable.action.void')}><TrashIconMini className="w-4 h-4"/></button>
                                             </div>

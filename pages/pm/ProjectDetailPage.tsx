@@ -13,6 +13,7 @@ import { CallModal } from '../../components/CallModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
+import { toast } from 'react-hot-toast';
 
 
 type ActiveTab = 'details' | 'chat' | 'tasks';
@@ -204,10 +205,10 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const handleAddSingleWorkDay = () => { if (!canEditDetails || !currentSingleWorkDay) return; const action = () => { if (!formData.workDays.includes(currentSingleWorkDay)) { setFormData(prev => ({ ...prev, workDays: [...prev.workDays, currentSingleWorkDay].sort() })); } }; checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentSingleWorkDay]); };
     const handleRemoveSingleWorkDay = (dateToRemove: string) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, workDays: prev.workDays.filter(d => d !== dateToRemove) })); };
     const handleWorkDayRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const { name, value } = e.target; setCurrentWorkDayRange(prev => ({...prev, [name]: value })); };
-    const handleAddWorkDayTimeRange = () => { if (!canEditDetails || !currentWorkDayRange.date || !currentWorkDayRange.startTime || !currentWorkDayRange.endTime) { alert("Por favor, complete todos los campos para el rango de trabajo."); return; } if (currentWorkDayRange.endTime <= currentWorkDayRange.startTime) { alert("La hora de fin debe ser posterior a la hora de inicio."); return; } const action = () => { setFormData(prev => ({ ...prev, workDayTimeRanges: [...prev.workDayTimeRanges, currentWorkDayRange].sort((a,b) => { if (a.date < b.date) return -1; if (a.date > b.date) return 1; return a.startTime.localeCompare(b.startTime); }) })); setCurrentWorkDayRange({...defaultWorkDayTime, date: defaultToday}); }; checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentWorkDayRange.date]); };
+    const handleAddWorkDayTimeRange = () => { if (!canEditDetails || !currentWorkDayRange.date || !currentWorkDayRange.startTime || !currentWorkDayRange.endTime) { toast.error('Por favor, complete todos los campos para el rango de trabajo.'); return; } if (currentWorkDayRange.endTime <= currentWorkDayRange.startTime) { toast.error('La hora de fin debe ser posterior a la hora de inicio.'); return; } const action = () => { setFormData(prev => ({ ...prev, workDayTimeRanges: [...prev.workDayTimeRanges, currentWorkDayRange].sort((a,b) => { if (a.date < b.date) return -1; if (a.date > b.date) return 1; return a.startTime.localeCompare(b.startTime); }) })); setCurrentWorkDayRange({...defaultWorkDayTime, date: defaultToday}); }; checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentWorkDayRange.date]); };
     const handleRemoveWorkDayTimeRange = (indexToRemove: number) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, workDayTimeRanges: prev.workDayTimeRanges.filter((_, index) => index !== indexToRemove) })); };
 
-    const handleAddCustomProduct = () => { if (!canEditDetails || !customProduct.name.trim() || customProduct.quantity <= 0) { alert("Por favor, ingrese un nombre y una cantidad válida."); return; } const newCustom: CustomProjectResource = { id: `custom-${Date.now()}`, ...customProduct }; setFormData(prev => ({ ...prev, customProducts: [...(prev.customProducts || []), newCustom] })); setCustomProduct({ name: '', quantity: 1, unitPrice: 0 }); };
+    const handleAddCustomProduct = () => { if (!canEditDetails || !customProduct.name.trim() || customProduct.quantity <= 0) { toast.error('Por favor, ingrese un nombre y una cantidad válida.'); return; } const newCustom: CustomProjectResource = { id: `custom-${Date.now()}`, ...customProduct }; setFormData(prev => ({ ...prev, customProducts: [...(prev.customProducts || []), newCustom] })); setCustomProduct({ name: '', quantity: 1, unitPrice: 0 }); };
     const handleRemoveCustomProduct = (id: string) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, customProducts: prev.customProducts?.filter(p => p.id !== id) })); };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -215,11 +216,11 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
         if (project) { // Update
             const updatedProjectData = { ...project, ...formData };
             setProjects(prev => prev.map(p => (p.id === project.id ? updatedProjectData : p)));
-            alert("Proyecto actualizado.");
+            toast.success('Proyecto actualizado.');
             onSuccess(updatedProjectData);
         } else { // Create
             const newProject = addProject(formData);
-            alert("Proyecto creado.");
+            toast.success('Proyecto creado.');
             onSuccess(newProject);
         }
     };

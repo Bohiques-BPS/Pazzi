@@ -4,6 +4,7 @@ import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { toast } from 'react-hot-toast';
 
 interface POSProjectFormModalProps {
   isOpen: boolean;
@@ -27,12 +28,12 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert("El nombre del proyecto es obligatorio.");
+      toast.error('El nombre del proyecto es obligatorio.');
       return;
     }
     if (!clientId) {
-        alert("Error: No se ha seleccionado un cliente.");
-        return;
+      toast.error('No se ha seleccionado un cliente.');
+      return;
     }
 
     const projectData: ProjectFormData = {
@@ -48,6 +49,7 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
     };
 
     const newProject = addProject(projectData);
+    toast.success('Proyecto creado exitosamente.');
     onProjectCreated(newProject);
   };
 

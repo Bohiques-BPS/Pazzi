@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Modal } from '../Modal';
+import { Modal, ConfirmationModal } from '../Modal';
 import { Task } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,6 +28,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [submitting, setSubmitting] = useState(false);
     const [sendingComment, setSendingComment] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
     const allEmployees = useMemo(() => getAllEmployees(), [getAllEmployees]);
 
@@ -65,7 +66,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     };
 
     const handleArchive = async () => {
-        if (!window.confirm('¿Está seguro que desea archivar esta tarea?')) return;
+        setShowArchiveConfirm(true);
+    };
+
+    const confirmArchive = async () => {
+        setShowArchiveConfirm(false);
         try {
             await tasksService.update(task.id, { archived: true });
             onArchive(task.id);
@@ -183,5 +188,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 </div>
             </div>
         </Modal>
+        <ConfirmationModal
+            isOpen={showArchiveConfirm}
+            onClose={() => setShowArchiveConfirm(false)}
+            onConfirm={confirmArchive}
+            title="Archivar tarea"
+            message="¿Está seguro que desea archivar esta tarea? La tarea ya no aparecerá en el tablero."
+            confirmButtonText="Archivar"
+        />
     );
 };

@@ -3,6 +3,7 @@ import { Modal } from '../Modal';
 import { HeldCart, CartItem } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { TrashIconMini } from '../icons';
+import { toast } from 'react-hot-toast';
 
 interface HeldCartsModalProps {
     isOpen: boolean;
@@ -27,7 +28,7 @@ export const HeldCartsModal: React.FC<HeldCartsModalProps> = ({
         if (success) {
             onClose();
         } else {
-            alert("El carrito actual está vacío. Añada productos para poner la venta en espera.");
+            toast.error('El carrito está vacío. Añada productos antes de poner la venta en espera.');
         }
     };
 

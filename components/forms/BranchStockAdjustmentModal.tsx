@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../Modal';
-import { Product } from '../../types';
+import { Product, Branch } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { inventoryService } from '../../services/inventory';
-import { ApiError } from '../../services/api';
+import { api, ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
 
@@ -24,12 +24,25 @@ interface AdjustmentState {
 
 export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProps> = ({ isOpen, onClose, product }) => {
     const { t } = useTranslation();
-    const { branches, setProducts } = useData();
+    const { branches: contextBranches, setBranches, setProducts } = useData();
+    const [localBranches, setLocalBranches] = useState<Branch[]>([]);
     const [adjustments, setAdjustments] = useState<AdjustmentState>({});
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const activeBranches = branches.filter(b => b.isActive);
+    // Hydrate localBranches from context; fall back to a direct fetch if context is empty
+    useEffect(() => {
+        if (!isOpen) return;
+        if (contextBranches.length > 0) {
+            setLocalBranches(contextBranches);
+            return;
+        }
+        api.get<Branch[]>('/branches')
+            .then(data => { setBranches(data); setLocalBranches(data); })
+            .catch(() => {});
+    }, [isOpen, contextBranches]);
+
+    const activeBranches = useMemo(() => localBranches.filter(b => b.isActive), [localBranches]);
 
     useEffect(() => {
         if (isOpen) {
@@ -73,7 +86,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
         for (const c of changes) {
             const stockBefore = product.stockByBranch.find(sb => sb.branchId === c.branchId)?.quantity ?? 0;
             if (stockBefore + c.adjustment < 0) {
-                const branchName = branches.find(b => b.id === c.branchId)?.name || c.branchId;
+                const branchName = localBranches.find(b => b.id === c.branchId)?.name || c.branchId;
                 setError(`Stock negativo en ${branchName}: ${stockBefore} + ${c.adjustment} = ${stockBefore + c.adjustment}`);
                 return;
             }

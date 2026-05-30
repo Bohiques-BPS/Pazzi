@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../components/Modal';
 import { ProductCard } from '../../components/cards/ProductCard';
 import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon } from '../../components/icons';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { toast } from 'react-hot-toast';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 
 export const ClientProductsPage: React.FC = () => {
@@ -64,7 +65,7 @@ export const ClientProductsPage: React.FC = () => {
             setBranchForAdjustment(branchId);
             setShowAdjustmentModal(true);
         } else {
-            alert("No tienes permiso para ajustar el stock de este producto.");
+            toast.error("No tienes permiso para ajustar el stock de este producto.");
         }
     };
 

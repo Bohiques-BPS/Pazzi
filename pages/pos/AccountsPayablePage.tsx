@@ -7,6 +7,7 @@ import { Modal, ConfirmationModal } from '../../components/Modal';
 import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon, PhotoIcon, DocumentArrowUpIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal';
+import { toast } from 'react-hot-toast';
 
 // ... (Keep RecordPaymentModal as is) ...
 interface RecordPaymentModalProps {
@@ -56,11 +57,11 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
         e.preventDefault();
         const amount = parseFloat(amountPaidInput);
         if (isNaN(amount) || amount <= 0) {
-            alert("Por favor, ingrese un monto de pago válido.");
+            toast.error('Por favor, ingrese un monto de pago válido.');
             return;
         }
-        if (amount > remainingBalance + 0.001) { // Epsilon for float issues
-            alert(`El monto pagado ($${amount.toFixed(2)}) no puede exceder el saldo pendiente ($${remainingBalance.toFixed(2)}).`);
+        if (amount > remainingBalance + 0.001) {
+            toast.error(`El monto ($${amount.toFixed(2)}) no puede exceder el saldo pendiente ($${remainingBalance.toFixed(2)}).`);
             return;
         }
         onRecordPayment(order.id, amount, invoiceRefInput, attachment);
@@ -241,10 +242,10 @@ export const AccountsPayablePage: React.FC = () => {
 
     const handleEditOrder = (order: SupplierOrder) => { setOrderToEdit(order); setShowEditOrderModal(true); };
     const handleCancelOrder = (orderId: string) => { setOrderToCancelId(orderId); setShowCancelConfirmModal(true); };
-    const confirmCancelOrder = () => { if (orderToCancelId) { updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO); } setOrderToCancelId(null); setShowCancelConfirmModal(false); };
+    const confirmCancelOrder = () => { if (orderToCancelId) { updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO); toast.success('Pedido cancelado.'); } setOrderToCancelId(null); setShowCancelConfirmModal(false); };
     
     const generatePayablePDF = async (order: SupplierOrder) => {
-        alert(`Generando PDF para pedido #${order.id.slice(0,8)}...`);
+        toast(`Generando PDF para pedido #${order.id.slice(0,8)}...`, { icon: '🖨️' });
     };
 
     return (

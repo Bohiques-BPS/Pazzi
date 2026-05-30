@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../Modal';
-import { Product } from '../../types';
+import { Product, Branch } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { inventoryService } from '../../services/inventory';
-import { ApiError } from '../../services/api';
+import { api, ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
 
@@ -27,8 +27,28 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
     defaultFromBranchId,
     onTransferred,
 }) => {
-    const { branches, setProducts } = useData();
-    const activeBranches = useMemo(() => branches.filter(b => b.isActive), [branches]);
+    const { branches: contextBranches, setBranches, setProducts } = useData();
+    const [localBranches, setLocalBranches] = useState<Branch[]>([]);
+
+    // Use context branches when available; otherwise fetch directly so the modal
+    // works even for employees who lack the branches.view/manage permission
+    // (which was required by the old route — now fixed, but keep fallback).
+    useEffect(() => {
+        if (!isOpen) return;
+        if (contextBranches.length > 0) {
+            setLocalBranches(contextBranches);
+            return;
+        }
+        // Fallback: fetch directly from the API
+        api.get<Branch[]>('/branches')
+            .then(data => {
+                setBranches(data);          // also hydrate the context for other consumers
+                setLocalBranches(data);
+            })
+            .catch(() => {/* non-fatal — selects will stay empty */});
+    }, [isOpen, contextBranches]);     // re-run when context populates after mount
+
+    const activeBranches = useMemo(() => localBranches.filter(b => b.isActive), [localBranches]);
 
     const [fromBranchId, setFromBranchId] = useState('');
     const [toBranchId, setToBranchId] = useState('');
@@ -104,6 +124,23 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Transferir stock — ${product.name}`} size="md">
+            {activeBranches.length < 2 ? (
+                <div className="p-4 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700 flex items-start gap-3">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                            {localBranches.length === 0
+                                ? 'Cargando sucursales…'
+                                : 'Se necesitan al menos 2 sucursales activas para realizar una transferencia.'}
+                        </p>
+                        {localBranches.length > 0 && localBranches.every(b => !b.isActive) && (
+                            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                                Todas las sucursales están marcadas como inactivas. Actívalas en Admin → Sucursales.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -185,6 +222,7 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
                     </button>
                 </div>
             </form>
+            )}
         </Modal>
     );
 };

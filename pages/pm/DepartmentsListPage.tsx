@@ -37,6 +37,7 @@ export const DepartmentsListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar departamentos:", error);
+                toast.error('Error al cargar los departamentos.');
             } finally {
                 setLoadingData(false);
             }
@@ -72,10 +73,11 @@ export const DepartmentsListPage: React.FC = () => {
                     setDepartments(prev => prev.filter(d => d.id !== itemToDeleteId));
                     toast.success('Departamento eliminado');
                 } else {
-                    toast.error("Error al eliminar el departamento.");
+                    const errData = await response.json().catch(() => ({}));
+                    toast.error(errData.error || 'Error al eliminar el departamento.');
                 }
             } catch (error) {
-                toast.error("Error de conexión al intentar eliminar.");
+                toast.error('Error de conexión al intentar eliminar.');
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);

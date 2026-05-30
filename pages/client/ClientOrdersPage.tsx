@@ -8,6 +8,7 @@ import { EyeIcon, Cog6ToothIcon } from '../../components/icons';
 import { OrderDetailModal } from '../ecommerce/OrderDetailModal'; // Reusing admin detail modal
 import { OrderStatusUpdateModal } from '../ecommerce/OrderStatusUpdateModal'; // Reusing admin status modal
 import { INPUT_SM_CLASSES } from '../../constants';
+import { toast } from 'react-hot-toast';
 
 export const ClientOrdersPage: React.FC = () => {
     const { currentUser } = useAuth();
@@ -51,7 +52,7 @@ export const ClientOrdersPage: React.FC = () => {
             updateContextOrderStatus(orderId, newStatus);
             // Optionally, refresh data or show a success message
         } else {
-            alert("No tienes permiso para actualizar este pedido.");
+            toast.error("No tienes permiso para actualizar este pedido.");
         }
     };
 

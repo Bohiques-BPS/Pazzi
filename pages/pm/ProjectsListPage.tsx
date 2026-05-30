@@ -9,6 +9,7 @@ import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon } from '
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 
 export const ProjectsListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -35,6 +36,7 @@ export const ProjectsListPage: React.FC = () => {
     const confirmDelete = () => {
         if (itemToDeleteId) {
             setProjects(prev => prev.filter(p => p.id !== itemToDeleteId));
+            toast.success('Proyecto eliminado.');
             setItemToDeleteId(null);
         }
         setShowDeleteConfirmModal(false);
@@ -43,15 +45,15 @@ export const ProjectsListPage: React.FC = () => {
     const handleGenerateInvoice = (project: Project) => {
         const success = generateInvoiceForProject(project.id);
         if (success) {
-            alert(`Factura generada para el proyecto "${project.name}".`);
+            toast.success(`Factura generada para el proyecto "${project.name}".`);
         } else {
-            alert(`No se pudo generar la factura para "${project.name}". Verifique que el proyecto esté completo.`);
+            toast.error(`No se pudo generar la factura para "${project.name}". Verifique que el proyecto esté completo.`);
         }
     };
     
     const handleViewInvoice = (project: Project) => {
         // In a real app, this would generate and open a PDF. Here, we'll just show an alert.
-        alert(`Mostrando factura para el proyecto "${project.name}".\nNº Factura: ${project.invoiceNumber}\nFecha: ${project.invoiceDate}\nMonto: $${project.invoiceAmount?.toFixed(2)}`);
+        toast(`Factura #${project.invoiceNumber} — ${project.invoiceDate} — $${project.invoiceAmount?.toFixed(2)}`, { icon: '🧾', duration: 5000 });
     };
 
     const filteredProjects = useMemo(() => {
@@ -156,7 +158,7 @@ export const ProjectsListPage: React.FC = () => {
                                     project={project}
                                     onViewProject={handleViewProject}
                                     onRequestDelete={requestDelete}
-                                    onViewQuotation={() => alert('Función "Ver Cotización" no implementada.')}
+                                    onViewQuotation={() => toast('Función "Ver Cotización" aún no implementada.', { icon: '📄' })}
                                     onGenerateInvoice={handleGenerateInvoice}
                                     onViewInvoice={handleViewInvoice}
                                     allEmployees={allEmployees}

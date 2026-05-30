@@ -11,6 +11,7 @@ import { CallModal } from '../../components/CallModal';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
+import { toast } from 'react-hot-toast';
 
 interface ProjectFormModalProps {
     isOpen: boolean;
@@ -287,11 +288,11 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
     const handleAddWorkDayTimeRange = () => {
         if (!canEditDetails || !currentWorkDayRange.date || !currentWorkDayRange.startTime || !currentWorkDayRange.endTime) {
-            alert("Por favor, complete todos los campos para el rango de trabajo.");
+            toast.error('Por favor, complete todos los campos para el rango de trabajo.');
             return;
         }
         if (currentWorkDayRange.endTime <= currentWorkDayRange.startTime) {
-            alert("La hora de fin debe ser posterior a la hora de inicio.");
+            toast.error('La hora de fin debe ser posterior a la hora de inicio.');
             return;
         }
 
@@ -369,7 +370,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.workMode === 'dateRange' && formData.workStartDate && formData.workEndDate && formData.workStartDate > formData.workEndDate) {
-            alert("La fecha de fin del rango de trabajo no puede ser anterior a la fecha de inicio.");
+            toast.error('La fecha de fin del rango de trabajo no puede ser anterior a la fecha de inicio.');
             return;
         }
         if (project) { 
@@ -383,12 +384,14 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                 paymentDueDate: project.paymentDueDate,
             };
             setProjects(prevProjects => prevProjects.map(p => p.id === project.id ? updatedProjectData : p));
-        } else { 
-            const newProjectData: Project = { 
-                id: `proj-${Date.now()}`, 
+            toast.success('Proyecto actualizado.');
+        } else {
+            const newProjectData: Project = {
+                id: `proj-${Date.now()}`,
                 ...formData,
             };
             setProjects(prevProjects => [...prevProjects, newProjectData]);
+            toast.success('Proyecto creado.');
         }
         onClose();
     };
@@ -397,7 +400,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
         if (project && canEditDetails) {
             const success = generateInvoiceForProject(project.id);
             if (success) {
-                alert("Factura generada exitosamente. Los detalles se actualizarán al reabrir el modal o en la lista de proyectos.");
+                toast.success('Factura generada exitosamente.');
             }
         }
     };

@@ -95,6 +95,9 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                 date: typeof (saved as any).date === 'string'
                     ? (saved as any).date.split('T')[0]
                     : (saved as any).date,
+                assignedEmployeeIds: Array.isArray((saved as any).employees)
+                    ? (saved as any).employees.map((e: any) => e.userId)
+                    : (Array.isArray((saved as any).assignedEmployeeIds) ? (saved as any).assignedEmployeeIds : []),
             };
             setVisits(prev => visitToEdit
                 ? prev.map(v => v.id === visitToEdit.id ? (normalizedSaved as unknown as Visit) : v)

@@ -57,4 +57,7 @@ export const authService = {
 
   resetPassword: (token: string, password: string) =>
     api.post<AuthResponse>('/auth/reset-password', { token, password }),
+
+  updateAlertSettings: (settings: Record<string, unknown>) =>
+    api.put<{ message: string }>('/auth/alert-settings', settings),
 };

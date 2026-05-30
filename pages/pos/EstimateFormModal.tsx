@@ -8,6 +8,7 @@ import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { UserCircleIcon, TrashIconMini } from '../../components/icons';
+import { toast } from 'react-hot-toast';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -117,15 +118,15 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.clientId) {
-            alert("Debe seleccionar un cliente.");
+            toast.error('Debe seleccionar un cliente.');
             return;
         }
         if (formData.items.length === 0) {
-            alert("El estimado debe contener al menos un producto.");
+            toast.error('El estimado debe contener al menos un producto.');
             return;
         }
         if (!currentUser) {
-            alert("Error de autenticación. No se puede guardar.");
+            toast.error('Error de autenticación. No se puede guardar.');
             return;
         }
 
@@ -139,9 +140,11 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
 
         if (estimateToEdit) {
             setEstimates(prev => prev.map(e => e.id === estimateToEdit.id ? { ...e, ...estimateData } : e));
+            toast.success('Cotización actualizada.');
         } else {
             const newEstimate: Estimate = { id: `est-${Date.now()}`, ...estimateData };
             setEstimates(prev => [...prev, newEstimate]);
+            toast.success('Cotización creada.');
         }
         onClose();
     };

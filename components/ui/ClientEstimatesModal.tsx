@@ -6,6 +6,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../co
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
+import { toast } from 'react-hot-toast';
 
 
 interface ClientEstimatesModalProps {
@@ -47,7 +48,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     const handleLoadToCart = () => {
         const selected = clientEstimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0) {
-            alert("Por favor seleccione al menos un estimado.");
+            toast.error('Por favor seleccione al menos un estimado.');
             return;
         }
 
@@ -69,7 +70,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     const handleGeneratePDF = () => {
         const selected = clientEstimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0 || !client) {
-            alert("Seleccione al menos un estimado y asegúrese de que haya un cliente asignado.");
+            toast.error('Seleccione al menos un estimado y asegúrese de que haya un cliente asignado.');
             return;
         }
     

@@ -35,7 +35,7 @@ import { UserSwitchModal } from '../../components/ui/UserSwitchModal';
 import { POSProjectFormModal } from './POSProjectFormModal';
 import { BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, POS_BUTTON_CYAN_CLASSES, BUTTON_PRIMARY_SM_CLASSES, DEFAULT_CLIENT_ID } from '../../constants';
 import { PaymentModal, PaymentMethod } from '../../components/forms/PaymentModal';
-import { Modal } from '../../components/Modal';
+import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
 import { DiscountAuthModal } from '../../components/forms/DiscountAuthModal';
@@ -224,6 +224,10 @@ export const POSCashierPage: React.FC = () => {
     
     const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
     const [initialPaymentMethod, setInitialPaymentMethod] = useState<PaymentMethod>('Efectivo');
+    const [pendingCartItems, setPendingCartItems] = useState<CartItem[] | null>(null);
+    const [showCartReplaceConfirm, setShowCartReplaceConfirm] = useState(false);
+    const [pendingEstimateData, setPendingEstimateData] = useState<{ items: CartItem[], clientId?: string } | null>(null);
+    const [showEstimateReplaceConfirm, setShowEstimateReplaceConfirm] = useState(false);
     const [discountTarget, setDiscountTarget] = useState<'general' | string | null>(null); // 'general' or product ID
 
     const posUsers = useMemo(() => {
@@ -570,7 +574,7 @@ export const POSCashierPage: React.FC = () => {
 
     const handleFinalizeSale = (payments: { method: string; amount: number }[]) => {
          if (cart.length === 0 || !currentUser || !selectedCajaId || !selectedBranchId) {
-            alert("No se puede completar la venta. Carrito vacío o falta información de empleado/caja/sucursal.");
+            toast.error('No se puede completar la venta. Carrito vacío o falta información de empleado/caja/sucursal.');
             return;
         }
         
@@ -624,13 +628,36 @@ export const POSCashierPage: React.FC = () => {
 
     const handleLoadEstimatesToCart = (items: CartItem[], estimateIds: string[]) => {
         if (cart.length > 0) {
-            if (!window.confirm("Cargar los estimados reemplazará los artículos en el carrito actual. ¿Desea continuar?")) {
-                return;
-            }
+            setPendingCartItems(items);
+            setShowCartReplaceConfirm(true);
+            return;
         }
         setCart(items);
         setPosError(null);
         setActiveModal(null);
+    };
+
+    const confirmCartReplace = () => {
+        if (pendingCartItems) {
+            setCart(pendingCartItems);
+            setPosError(null);
+            setActiveModal(null);
+        }
+        setPendingCartItems(null);
+        setShowCartReplaceConfirm(false);
+    };
+
+    const confirmEstimateReplace = () => {
+        if (pendingEstimateData) {
+            setCart(pendingEstimateData.items);
+            if (pendingEstimateData.clientId) {
+                const client = clients.find(c => c.id === pendingEstimateData!.clientId);
+                if (client) setSelectedClient(client);
+            }
+            toast.success(`Estimado cargado en el carrito (${pendingEstimateData.items.length} items)`);
+        }
+        setPendingEstimateData(null);
+        setShowEstimateReplaceConfirm(false);
     };
 
     // Precarga de estimado desde sessionStorage (set por EstimatesListPage "Convertir a venta")
@@ -640,10 +667,6 @@ export const POSCashierPage: React.FC = () => {
         if (!stored) return;
         try {
             const parsed = JSON.parse(stored);
-            if (cart.length > 0 && !window.confirm('Tienes items en el carrito. ¿Reemplazarlos con los del estimado?')) {
-                sessionStorage.removeItem('pazzi_estimate_to_convert');
-                return;
-            }
             const items: CartItem[] = (parsed.items || []).map((it: any) => ({
                 id: it.productId || it.id,
                 productId: it.productId || it.id,
@@ -651,13 +674,18 @@ export const POSCashierPage: React.FC = () => {
                 quantity: it.quantity,
                 unitPrice: it.unitPrice,
             }));
+            sessionStorage.removeItem('pazzi_estimate_to_convert');
+            if (cart.length > 0) {
+                setPendingEstimateData({ items, clientId: parsed.clientId });
+                setShowEstimateReplaceConfirm(true);
+                return;
+            }
             setCart(items);
             if (parsed.clientId) {
                 const client = clients.find(c => c.id === parsed.clientId);
                 if (client) setSelectedClient(client);
             }
             toast.success(`Estimado cargado en el carrito (${items.length} items)`);
-            sessionStorage.removeItem('pazzi_estimate_to_convert');
         } catch {
             sessionStorage.removeItem('pazzi_estimate_to_convert');
         }
@@ -666,7 +694,7 @@ export const POSCashierPage: React.FC = () => {
 
     const handleCreateEstimateFromCart = () => {
         if (!currentUser || !selectedClient || cart.length === 0 || !selectedBranchId) {
-            alert("Faltan datos para crear el estimado (cliente, productos, empleado o sucursal).");
+            toast.error('Faltan datos para crear el estimado (cliente, productos, empleado o sucursal).');
             return;
         }
 
@@ -683,7 +711,7 @@ export const POSCashierPage: React.FC = () => {
         
         addEstimate(newEstimateData);
         
-        alert(`Estimado creado exitosamente para ${selectedClient.name}.`);
+        toast.success(`Estimado creado para ${selectedClient.name}.`);
         clearCart();
         setActiveModal(null);
     };
@@ -767,7 +795,7 @@ export const POSCashierPage: React.FC = () => {
         { text: t('pos.return'), icon: <ArrowUturnLeftIcon />, color: POS_BUTTON_CYAN_CLASSES, onClick: () => setActiveModal('return') },
         { text: t('pos.estimate'), icon: <ClipboardDocumentListIcon />, color: 'bg-[#00897B]', onClick: () => selectedClient && setActiveModal('clientEstimates'), disabled: !selectedClient },
         { text: t('pos.layaway'), icon: <ArchiveBoxIcon />, color: 'bg-[#00ACC1]', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || !selectedClient },
-        { text: t('pos.reprint'), icon: <PrinterIcon />, color: 'bg-[#546E7A]', onClick: () => alert('Función "Reimprimir" no implementada.') },
+        { text: t('pos.reprint'), icon: <PrinterIcon />, color: 'bg-[#546E7A]', onClick: () => toast('Función de reimprimir aún no implementada.', { icon: '🖨️' }) },
         { 
             text: currentUser?.role === UserRole.MANAGER ? 'Salir' : t('pos.close_shift'), 
             icon: <ExitIcon />, 
@@ -1109,6 +1137,22 @@ export const POSCashierPage: React.FC = () => {
                 currentDiscount={currentDiscountForModal}
             />
             <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} />
+            <ConfirmationModal
+                isOpen={showCartReplaceConfirm}
+                onClose={() => { setPendingCartItems(null); setShowCartReplaceConfirm(false); }}
+                onConfirm={confirmCartReplace}
+                title="Reemplazar carrito"
+                message="Cargar los estimados reemplazará los artículos en el carrito actual. ¿Desea continuar?"
+                confirmButtonText="Sí, reemplazar"
+            />
+            <ConfirmationModal
+                isOpen={showEstimateReplaceConfirm}
+                onClose={() => { setPendingEstimateData(null); setShowEstimateReplaceConfirm(false); }}
+                onConfirm={confirmEstimateReplace}
+                title="Reemplazar carrito"
+                message="Tienes artículos en el carrito. ¿Reemplazarlos con los del estimado?"
+                confirmButtonText="Sí, reemplazar"
+            />
         </div>
     );
 };

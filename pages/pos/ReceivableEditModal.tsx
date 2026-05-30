@@ -6,6 +6,7 @@ import { useData } from '../../contexts/DataContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 
 interface ReceivableEditModalProps {
     isOpen: boolean;
@@ -40,6 +41,7 @@ export const ReceivableEditModal: React.FC<ReceivableEditModalProps> = ({ isOpen
         };
 
         setSales(prevSales => prevSales.map(s => s.id === saleToEdit.id ? updatedSale : s));
+        toast.success('Cuenta por cobrar actualizada.');
         onClose();
     };
 

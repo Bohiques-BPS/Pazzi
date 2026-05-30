@@ -9,6 +9,7 @@ import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
+import { toast } from 'react-hot-toast';
 
 export const BranchesListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -33,6 +34,7 @@ export const BranchesListPage: React.FC = () => {
                 if (Array.isArray(data)) setBranches(data);
             } catch (error) {
                 console.error("Error al cargar sucursales:", error);
+                toast.error('Error al cargar las sucursales.');
             } finally {
                 setLoadingData(false);
             }
@@ -66,11 +68,14 @@ export const BranchesListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setBranches(prev => prev.filter(b => b.id !== itemToDeleteId));
+                    toast.success('Sucursal desactivada');
                 } else {
-                    console.error("Error: No se pudo eliminar la sucursal.");
+                    const errData = await response.json().catch(() => ({}));
+                    toast.error(errData.error || 'No se pudo eliminar la sucursal.');
                 }
             } catch (error) {
-                console.error("Error al eliminar sucursal:", error);
+                console.error('Error al eliminar sucursal:', error);
+                toast.error('Error de conexión al intentar eliminar.');
             }
             setItemToDeleteId(null);
         }

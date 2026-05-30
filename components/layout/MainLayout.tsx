@@ -7,18 +7,28 @@ import { Sidebar } from './Sidebar'; // Adjusted path
 import { AppContext, useAppContext } from '../../contexts/AppContext'; // Adjusted path
 import { AppModule } from '../../types'; // Adjusted path
 import { APP_MODULES_CONFIG } from '../../constants'; // Adjusted path
+import { useAuth } from '../../contexts/AuthContext';
+import { recordPageVisit } from '../../utils/pageTracker';
 
 export const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const appContextValue = useAppContext(); 
-  
+  const appContextValue = useAppContext();
+  const { currentUser } = useAuth();
+
   if (!appContextValue) {
-      return <div>Error: AppContext not found.</div>; 
+      return <div>Error: AppContext not found.</div>;
   }
   const { currentModule, setCurrentModule } = appContextValue;
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Track page visits for dynamic quick access on the dashboard
+  useEffect(() => {
+    if (currentUser?.id) {
+      recordPageVisit(currentUser.id, location.pathname);
+    }
+  }, [location.pathname, currentUser?.id]);
 
   useEffect(() => {
     const currentPath = location.pathname;

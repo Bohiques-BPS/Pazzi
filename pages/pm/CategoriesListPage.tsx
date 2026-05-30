@@ -9,6 +9,7 @@ import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adju
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
 import { API_URL } from '../../services/api';
+import { toast } from 'react-hot-toast';
 
 export const CategoriesListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -36,6 +37,7 @@ export const CategoriesListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar categorías:", error);
+                toast.error('Error al cargar las categorías.');
             } finally {
                 setLoadingData(false);
             }
@@ -72,12 +74,14 @@ export const CategoriesListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setCategories(prev => prev.filter(c => c.id !== itemToDeleteId));
+                    toast.success('Categoría eliminada');
                 } else {
-                    alert("Error al eliminar la categoría.");
+                    const errData = await response.json().catch(() => ({}));
+                    toast.error(errData.error || 'Error al eliminar la categoría.');
                 }
             } catch (error) {
-                console.error("Error deleting category:", error);
-                alert("Error de conexión al intentar eliminar.");
+                console.error('Error deleting category:', error);
+                toast.error('Error de conexión al intentar eliminar.');
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);

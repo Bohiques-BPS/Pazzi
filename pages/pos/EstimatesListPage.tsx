@@ -226,14 +226,14 @@ export const EstimatesListPage: React.FC = () => {
 
     const handleCombine = () => {
         if (selectedEstimateIds.length < 2) {
-            alert("Seleccione al menos dos estimados para combinar.");
+            toast.error('Seleccione al menos dos estimados para combinar.');
             return;
         }
 
         const selected = sortedEstimates.filter(e => selectedEstimateIds.includes(e.id));
         const firstClientId = selected[0].clientId;
         if (!selected.every(e => e.clientId === firstClientId)) {
-            alert("Solo se pueden combinar estimados del mismo cliente.");
+            toast.error('Solo se pueden combinar estimados del mismo cliente.');
             return;
         }
 
@@ -242,7 +242,7 @@ export const EstimatesListPage: React.FC = () => {
 
     const confirmCombine = () => {
         if (!currentUser) {
-            alert("Error de autenticación.");
+            toast.error('Error de autenticación.');
             return;
         }
         const selected = estimates.filter(e => selectedEstimateIds.includes(e.id));
@@ -293,19 +293,19 @@ export const EstimatesListPage: React.FC = () => {
     const handleGeneratePDF = async () => {
         const selected = estimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0) {
-            alert("Seleccione al menos un estimado para generar el PDF.");
+            toast.error('Seleccione al menos un estimado para generar el PDF.');
             return;
         }
 
         const firstClientId = selected[0].clientId;
         if (!selected.every(e => e.clientId === firstClientId)) {
-            alert("Solo puede generar un PDF combinado para estimados del mismo cliente.");
+            toast.error('Solo puede generar un PDF combinado para estimados del mismo cliente.');
             return;
         }
-        
+
         const client = getClientById(firstClientId);
         if (!client) {
-            alert("No se pudo encontrar la información del cliente para los estimados seleccionados.");
+            toast.error('No se pudo encontrar la información del cliente para los estimados seleccionados.');
             return;
         }
     

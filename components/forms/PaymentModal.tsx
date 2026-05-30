@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../Modal';
 import { BanknotesIcon, CreditCardIcon, AthMovilIcon, DocumentTextIcon, ClipboardDocumentListIcon } from '../icons';
 import { BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_CLASSES } from '../../constants';
+import { toast } from 'react-hot-toast';
 
 export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'ATH Móvil' | 'Crédito C.' | 'Cheque' | 'Factura';
 
@@ -51,7 +52,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const handleAddPayment = () => {
         const amount = parseFloat(amountInput);
         if (isNaN(amount) || amount <= 0 || amount > balance + 0.001) {
-            alert('Monto inválido.');
+            toast.error('Monto inválido. Verifique el valor ingresado.');
             return;
         }
 

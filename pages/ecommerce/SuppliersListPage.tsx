@@ -82,13 +82,14 @@ export const SuppliersListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setSuppliers(prev => prev.filter(s => s.id !== itemToDeleteId));
-                    toast.success("Proveedor eliminado");
+                    toast.success('Proveedor eliminado');
                 } else {
-                    toast.error("Error al eliminar el proveedor.");
+                    const errData = await response.json().catch(() => ({}));
+                    toast.error(errData.error || 'Error al eliminar el proveedor.');
                 }
             } catch (error) {
-                console.error("Error deleting supplier:", error);
-                toast.error("Error de conexión.");
+                console.error('Error deleting supplier:', error);
+                toast.error('Error de conexión.');
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);

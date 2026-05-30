@@ -13,6 +13,7 @@ import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSE
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 import { API_URL } from '../../services/api';
+import { toast } from 'react-hot-toast';
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
@@ -72,6 +73,7 @@ export const ProductsListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar productos:", error);
+                toast.error('Error al cargar los productos.');
             } finally {
                 setLoadingData(false);
             }
@@ -91,7 +93,7 @@ export const ProductsListPage: React.FC = () => {
             setEditingProduct(product);
             setShowFormModal(true);
         } else {
-                       alert("No tienes permisos para editar este producto.");
+                       toast.error('No tienes permisos para editar este producto.');
 
         }
     };
@@ -103,7 +105,7 @@ export const ProductsListPage: React.FC = () => {
             setItemToDeleteId(productId);
             setShowDeleteConfirmModal(true);
         } else {
-                     alert("No tienes permisos para eliminar este producto.");
+                     toast.error('No tienes permisos para eliminar este producto.');
 
         }
     };
@@ -131,12 +133,14 @@ export const ProductsListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setProducts(prev => prev.filter(p => p.id !== itemToDeleteId));
+                    toast.success('Producto eliminado');
                 } else {
-                    const errData = await response.json();
-                    alert(errData.error || "No se pudo eliminar el producto del servidor.");
+                    const errData = await response.json().catch(() => ({}));
+                    toast.error(errData.error || 'No se pudo eliminar el producto.');
                 }
             } catch (error) {
-                console.error("Error al eliminar producto:", error);
+                console.error('Error al eliminar producto:', error);
+                toast.error('Error de conexión al intentar eliminar.');
             } finally {
                 setItemToDeleteId(null);
             }

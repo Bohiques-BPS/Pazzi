@@ -8,6 +8,7 @@ import { OrderDetailModal } from './OrderDetailModal'; // Adjusted path
 import { OrderStatusUpdateModal } from './OrderStatusUpdateModal'; // Adjusted path
 import { INPUT_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { toast } from 'react-hot-toast';
 
 export const EcommerceOrdersPage: React.FC = () => {
     const { t } = useTranslation();
@@ -38,7 +39,7 @@ export const EcommerceOrdersPage: React.FC = () => {
     
     const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
         updateContextOrderStatus(orderId, newStatus);
-        // Optionally, refresh data or show a success message
+        toast.success(`Estado actualizado a "${newStatus}".`);
     };
 
     const columns: TableColumn<Order>[] = [

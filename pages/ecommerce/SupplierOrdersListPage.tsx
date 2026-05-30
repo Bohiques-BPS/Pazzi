@@ -1,6 +1,5 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 import { SupplierOrder, SupplierOrderStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,7 +7,7 @@ import { DataTable, TableColumn } from '../../components/DataTable';
 import { SupplierOrderFormModal } from './SupplierOrderFormModal';
 import { Modal, ConfirmationModal } from '../../components/Modal'; 
 import { PlusIcon, EditIcon, EyeIcon, Cog6ToothIcon, DeleteIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, ADMIN_USER_ID } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../../services/api';
@@ -58,6 +57,7 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
                 }
             } catch (error) {
                 console.error("Error updating status:", error);
+                toast.error('Error de conexión al actualizar el estado.');
             }
         }
         onClose();
@@ -107,15 +107,13 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
 
 export const SupplierOrdersListPage: React.FC = () => {
     const { t } = useTranslation();
-    const location = useLocation();
     const { currentUser } = useAuth();
-    const { 
-        setSupplierOrders, 
+    const {
+        setSupplierOrders,
         setProducts,
         setSuppliers,
-        supplierOrders, 
-        updateSupplierOrderStatus, 
-        getSupplierOrdersByStoreOwner 
+        supplierOrders,
+        updateSupplierOrderStatus,
     } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingOrder, setEditingOrder] = useState<SupplierOrder | null>(null);
@@ -134,8 +132,7 @@ export const SupplierOrdersListPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<SupplierOrderStatus | 'Todos'>('Todos');
 
-    const isTiendaModule = location.pathname.startsWith('/tienda');
-    const storeOwnerId = isTiendaModule ? ADMIN_USER_ID : currentUser?.id;
+    const storeOwnerId = currentUser?.id;
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -181,6 +178,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar productos para órdenes:", error);
+                toast.error('Error al cargar los productos.');
             }
         };
         fetchProducts();
@@ -201,6 +199,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar proveedores para órdenes:", error);
+                toast.error('Error al cargar los proveedores.');
             }
         };
         fetchSuppliers();
@@ -248,6 +247,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error deleting order:", error);
+                toast.error('Error de conexión al intentar eliminar.');
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);
@@ -256,16 +256,14 @@ export const SupplierOrdersListPage: React.FC = () => {
     };
 
     const filteredOrders = useMemo(() => {
-        if (!storeOwnerId) return [];
-        const ordersByOwner = getSupplierOrdersByStoreOwner(storeOwnerId);
-        return ordersByOwner
-            .filter(order => 
+        return supplierOrders
+            .filter(order =>
                 (order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                  (order.supplier?.name || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
                 (statusFilter === 'Todos' || order.status === statusFilter)
             )
             .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-    }, [getSupplierOrdersByStoreOwner, storeOwnerId, searchTerm, statusFilter]);
+    }, [supplierOrders, searchTerm, statusFilter]);
 
 
     const columns: TableColumn<SupplierOrder>[] = [

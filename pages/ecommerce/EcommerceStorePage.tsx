@@ -111,7 +111,7 @@ export const EcommerceStorePage: React.FC = () => {
 
     const handleCheckout = () => {
         if (cart.length === 0) {
-            alert("Tu carrito está vacío.");
+            toast.error("Tu carrito está vacío.");
             return;
         }
         // Navigate to the checkout page with cart data

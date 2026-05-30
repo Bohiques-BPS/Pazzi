@@ -356,6 +356,10 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 if (Array.isArray(data)) setVisits(data.map((v: any) => ({
                     ...v,
                     date: typeof v.date === 'string' ? v.date.split('T')[0] : v.date,
+                    // Backend returns employees:[{userId}] relation; flatten to the expected string array
+                    assignedEmployeeIds: Array.isArray(v.employees)
+                        ? v.employees.map((e: any) => e.userId)
+                        : (Array.isArray(v.assignedEmployeeIds) ? v.assignedEmployeeIds : []),
                 })));
             } catch (e) {
                 console.error("Error al cargar visitas del servidor:", e);

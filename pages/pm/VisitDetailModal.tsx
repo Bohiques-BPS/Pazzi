@@ -18,7 +18,7 @@ export const VisitDetailModal: React.FC<VisitDetailModalProps> = ({ isOpen, onCl
     if (!isOpen || !visit) return null;
 
     const project = visit.projectId ? getProjectById(visit.projectId) : null;
-    const assignedEmployees = visit.assignedEmployeeIds.map(id => getEmployeeById(id)).filter(Boolean) as Employee[];
+    const assignedEmployees = (visit.assignedEmployeeIds ?? []).map(id => getEmployeeById(id)).filter(Boolean) as Employee[];
     
     const formatDate = (dateString: string) => new Date(dateString + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const formatTime = (timeString: string) => {

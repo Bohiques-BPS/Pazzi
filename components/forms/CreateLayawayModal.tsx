@@ -4,6 +4,7 @@ import { CartItem, Client } from '../../types';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { UserCircleIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
+import { toast } from 'react-hot-toast';
 
 interface CreateLayawayModalProps {
     isOpen: boolean;
@@ -43,15 +44,15 @@ export const CreateLayawayModal: React.FC<CreateLayawayModalProps> = ({
 
     const handleSubmit = () => {
         if (!selectedClient) {
-            alert("Se debe seleccionar un cliente para crear un apartado.");
+            toast.error('Se debe seleccionar un cliente para crear un apartado.');
             return;
         }
         if (initialDeposit <= 0) {
-            alert("El abono inicial debe ser mayor a cero.");
+            toast.error('El abono inicial debe ser mayor a cero.');
             return;
         }
         if (initialDeposit > total) {
-            alert("El abono inicial no puede ser mayor que el total de la venta.");
+            toast.error('El abono inicial no puede ser mayor que el total de la venta.');
             return;
         }
 

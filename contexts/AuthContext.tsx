@@ -139,11 +139,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateUserAlertSettings = useCallback(async (_userId: string, settings: Record<string, unknown>) => {
     try {
       await authService.updateAlertSettings(settings);
+      const updated = { ...currentUser!, alertSettings: settings } as User;
+      setCurrentUser(updated);
+      localStorage.setItem('pazzi_user', JSON.stringify(updated));
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [currentUser]);
 
   return (
     <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings }}>
