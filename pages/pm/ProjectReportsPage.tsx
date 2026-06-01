@@ -120,7 +120,7 @@ export const ProjectReportsPage: React.FC = () => {
 
     const employeeProjectData = useMemo(() => {
         let data = employees.map(emp => {
-            const assigned = projects.filter(p => p.assignedEmployeeIds.includes(emp.id) && (p.status === ProjectStatus.ACTIVE || p.status === ProjectStatus.PENDING));
+            const assigned = projects.filter(p => (p.assignedEmployeeIds ?? []).includes(emp.id) && (p.status === ProjectStatus.ACTIVE || p.status === ProjectStatus.PENDING));
             return {
                 id: emp.id,
                 employeeName: `${emp.name} ${emp.lastName}`,

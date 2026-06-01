@@ -12,6 +12,7 @@ import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
+import { projectsService, normalizeProjectFromApi } from '../../services/projects';
 
 interface ProjectFormModalProps {
     isOpen: boolean;
@@ -52,7 +53,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     });
     
     const [formData, setFormData] = useState<ProjectFormData>(getInitialFormData());
-    
+    const [submitting, setSubmitting] = useState(false);
+
     const [currentProduct, setCurrentProduct] = useState<string>('');
     const [currentQuantity, setCurrentQuantity] = useState<number>(1);
 
@@ -179,7 +181,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             if (!employee) continue;
 
             for (const otherProject of otherProjects) {
-                if (otherProject.assignedEmployeeIds.includes(empId) && isDateInProjectSchedule(dateStr, otherProject)) {
+                if ((otherProject.assignedEmployeeIds ?? []).includes(empId) && isDateInProjectSchedule(dateStr, otherProject)) {
                     conflictingAssignments.push({ project: otherProject, employee });
                 }
             }
@@ -367,33 +369,31 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     };
 
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.workMode === 'dateRange' && formData.workStartDate && formData.workEndDate && formData.workStartDate > formData.workEndDate) {
             toast.error('La fecha de fin del rango de trabajo no puede ser anterior a la fecha de inicio.');
             return;
         }
-        if (project) { 
-            const updatedProjectData = { 
-                ...project, 
-                ...formData,
-                invoiceGenerated: project.invoiceGenerated,
-                invoiceDate: project.invoiceDate,
-                invoiceNumber: project.invoiceNumber,
-                invoiceAmount: project.invoiceAmount,
-                paymentDueDate: project.paymentDueDate,
-            };
-            setProjects(prevProjects => prevProjects.map(p => p.id === project.id ? updatedProjectData : p));
-            toast.success('Proyecto actualizado.');
-        } else {
-            const newProjectData: Project = {
-                id: `proj-${Date.now()}`,
-                ...formData,
-            };
-            setProjects(prevProjects => [...prevProjects, newProjectData]);
-            toast.success('Proyecto creado.');
+        setSubmitting(true);
+        try {
+            if (project) {
+                const saved = await projectsService.update(project.id, formData);
+                const normalized = normalizeProjectFromApi(saved);
+                setProjects(prev => prev.map(p => p.id === project.id ? normalized : p));
+                toast.success('Proyecto actualizado.');
+            } else {
+                const saved = await projectsService.create(formData);
+                const normalized = normalizeProjectFromApi(saved);
+                setProjects(prev => [...prev, normalized]);
+                toast.success('Proyecto creado.');
+            }
+            onClose();
+        } catch (err: any) {
+            toast.error(err?.message || 'Error al guardar el proyecto.');
+        } finally {
+            setSubmitting(false);
         }
-        onClose();
     };
     
     const handleGenerateInvoiceClick = () => {
@@ -639,8 +639,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                     
                     {canEditDetails && (
                         <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
-                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                            <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.save')}</button>
+                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
+                            <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>{submitting ? 'Guardando...' : t('common.save')}</button>
                         </div>
                     )}
                     {!canEditDetails && (

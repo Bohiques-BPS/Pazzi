@@ -30,7 +30,7 @@ export const ProjectChatPage: React.FC = () => {
     const activeProjects = useMemo(() => {
         const baseProjects = allProjectsContext.filter(p => p.status === ProjectStatus.ACTIVE || p.status === ProjectStatus.PENDING);
         if (isEmployeeView && currentUser) {
-            return baseProjects.filter(p => p.assignedEmployeeIds.includes(currentUser.id));
+            return baseProjects.filter(p => (p.assignedEmployeeIds ?? []).includes(currentUser.id));
         }
         return baseProjects;
     }, [allProjectsContext, currentUser, isEmployeeView]);

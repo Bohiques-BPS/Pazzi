@@ -5,6 +5,8 @@ import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { PlusIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { tasksService } from '../../services/tasks';
+import { toast } from 'react-hot-toast';
 
 interface ProjectTaskBoardProps {
     projectId: string;
@@ -87,19 +89,28 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             return finalTasks;
         });
 
+        // Persist status change to backend
+        tasksService.update(draggedTask.id, { status: targetStatus }).catch(() => {
+            toast.error('No se pudo sincronizar el estado de la tarea.');
+        });
+
         setDraggedTask(null);
     };
 
-    const handleCreateTask = (status: TaskStatus) => {
+    const handleCreateTask = async (status: TaskStatus) => {
         if (!newTaskTitle.trim()) {
             setIsCreatingInStatus(null);
             return;
         }
-        addTask({
-            projectId,
-            title: newTaskTitle,
-            status,
-        });
+        try {
+            const saved = await tasksService.create({ projectId, title: newTaskTitle, status });
+            setTasks(prev => [...prev, {
+                ...saved,
+                assignedEmployeeIds: saved.assignedEmployeeIds || [],
+            } as unknown as Task]);
+        } catch {
+            toast.error('Error al crear la tarea.');
+        }
         setNewTaskTitle('');
         setIsCreatingInStatus(null);
     };

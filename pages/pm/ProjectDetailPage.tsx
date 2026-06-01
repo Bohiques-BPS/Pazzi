@@ -14,6 +14,7 @@ import { ConfirmationModal } from '../../components/Modal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
 import { toast } from 'react-hot-toast';
+import { projectsService, normalizeProjectFromApi } from '../../services/projects';
 
 
 type ActiveTab = 'details' | 'chat' | 'tasks';
@@ -129,6 +130,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     });
     
     const [formData, setFormData] = useState<ProjectFormData>(getInitialFormData());
+    const [submitting, setSubmitting] = useState(false);
     const [customProduct, setCustomProduct] = useState({ name: '', quantity: 1, unitPrice: 0 });
     const [currentProduct, setCurrentProduct] = useState<string>('');
     const [currentQuantity, setCurrentQuantity] = useState<number>(1);
@@ -185,7 +187,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
         for (const empId of employeeIds) {
             const employee = getEmployeeById(empId);
             if (!employee) continue;
-            for (const otherProject of otherProjects) { if (otherProject.assignedEmployeeIds.includes(empId) && isDateInProjectSchedule(dateStr, otherProject)) { conflictingAssignments.push({ project: otherProject, employee }); } }
+            for (const otherProject of otherProjects) { if ((otherProject.assignedEmployeeIds ?? []).includes(empId) && isDateInProjectSchedule(dateStr, otherProject)) { conflictingAssignments.push({ project: otherProject, employee }); } }
         }
         return conflictingAssignments;
     };
@@ -211,17 +213,27 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const handleAddCustomProduct = () => { if (!canEditDetails || !customProduct.name.trim() || customProduct.quantity <= 0) { toast.error('Por favor, ingrese un nombre y una cantidad válida.'); return; } const newCustom: CustomProjectResource = { id: `custom-${Date.now()}`, ...customProduct }; setFormData(prev => ({ ...prev, customProducts: [...(prev.customProducts || []), newCustom] })); setCustomProduct({ name: '', quantity: 1, unitPrice: 0 }); };
     const handleRemoveCustomProduct = (id: string) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, customProducts: prev.customProducts?.filter(p => p.id !== id) })); };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (project) { // Update
-            const updatedProjectData = { ...project, ...formData };
-            setProjects(prev => prev.map(p => (p.id === project.id ? updatedProjectData : p)));
-            toast.success('Proyecto actualizado.');
-            onSuccess(updatedProjectData);
-        } else { // Create
-            const newProject = addProject(formData);
-            toast.success('Proyecto creado.');
-            onSuccess(newProject);
+        setSubmitting(true);
+        try {
+            if (project) {
+                const saved = await projectsService.update(project.id, formData);
+                const normalized = normalizeProjectFromApi(saved);
+                setProjects(prev => prev.map(p => p.id === project.id ? normalized : p));
+                toast.success('Proyecto actualizado.');
+                onSuccess(normalized);
+            } else {
+                const saved = await projectsService.create(formData);
+                const normalized = normalizeProjectFromApi(saved);
+                setProjects(prev => [...prev, normalized]);
+                toast.success('Proyecto creado.');
+                onSuccess(normalized);
+            }
+        } catch (err: any) {
+            toast.error(err?.message || 'Error al guardar el proyecto.');
+        } finally {
+            setSubmitting(false);
         }
     };
     
@@ -437,8 +449,8 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
             </div>
             {canEditDetails && (
                 <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
-                    <button type="button" onClick={() => navigate('/pm/projects')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{project ? 'Guardar Cambios' : 'Crear Proyecto'}</button>
+                    <button type="button" onClick={() => navigate('/pm/projects')} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>{submitting ? 'Guardando...' : (project ? 'Guardar Cambios' : 'Crear Proyecto')}</button>
                 </div>
             )}
         </form>

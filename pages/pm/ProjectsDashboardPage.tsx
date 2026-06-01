@@ -294,7 +294,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                             {projectsInProgress.length > 0 ? (
                                 projectsInProgress.map(project => {
                                     const client = project.clientId ? getClientById(project.clientId) : null;
-                                    const assignedEmployees = project.assignedEmployeeIds
+                                    const assignedEmployees = (project.assignedEmployeeIds ?? [])
                                         .map(id => getEmployeeById(id))
                                         .filter(Boolean)
                                         .map(e => e?.name)
