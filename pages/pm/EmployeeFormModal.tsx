@@ -226,10 +226,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 finalImageUrl = uploadResult.url;
             }
 
-            const { confirmPin, enableLogin, permissions, ...rest } = formData;
+            const { confirmPin, enableLogin, permissions, salary, ...rest } = formData;
             const payload = {
                 ...rest,
                 profilePictureUrl: finalImageUrl,
+                salary: salary && salary > 0 ? salary : null,
                 // Solo enviar enableLogin si estamos creando o si se está habilitando por primera vez
                 ...(employee ? {} : { enableLogin: !!enableLogin }),
                 // Si hay user vinculado o estamos creando con login → mandar permissions
@@ -391,9 +392,18 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium">Puesto</label>
-                                <select name="role" value={formData.role} onChange={handleChange} className={inputFormStyle}>
-                                    {EMPLOYEE_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                                </select>
+                                <input
+                                    type="text"
+                                    name="role"
+                                    value={formData.role}
+                                    onChange={handleChange}
+                                    list="employee-roles-list"
+                                    placeholder="Ej: Vendedor, Cajero…"
+                                    className={inputFormStyle}
+                                />
+                                <datalist id="employee-roles-list">
+                                    {EMPLOYEE_ROLES.map(r => <option key={r} value={r} />)}
+                                </datalist>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">Departamento</label>
