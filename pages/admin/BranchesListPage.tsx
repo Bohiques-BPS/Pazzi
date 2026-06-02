@@ -68,7 +68,7 @@ export const BranchesListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setBranches(prev => prev.filter(b => b.id !== itemToDeleteId));
-                    toast.success('Sucursal desactivada');
+                    toast.success('Sucursal eliminada');
                 } else {
                     const errData = await response.json().catch(() => ({}));
                     toast.error(errData.error || 'No se pudo eliminar la sucursal.');
