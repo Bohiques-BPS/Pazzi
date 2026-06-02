@@ -102,6 +102,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     );
 
     return (
+        <>
         <Modal isOpen={true} onClose={onClose} title="Detalles de la tarea" size="2xl">
             <div className="space-y-4">
                 {error && (
@@ -196,5 +197,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             message="¿Está seguro que desea archivar esta tarea? La tarea ya no aparecerá en el tablero."
             confirmButtonText="Archivar"
         />
+        </>
     );
 };
