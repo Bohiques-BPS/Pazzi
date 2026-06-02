@@ -20,7 +20,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
 
     return (
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md flex flex-col overflow-hidden hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-200">
-            <img src={product.imageUrl || 'https://picsum.photos/seed/defaultprod/300/200'} alt={product.name} className="w-full h-40 object-cover" />
+            <div className="w-full h-44 bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center overflow-hidden">
+                <img
+                    src={product.imageUrl || 'https://picsum.photos/seed/defaultprod/300/200'}
+                    alt={product.name}
+                    className="w-full h-full object-contain p-2"
+                />
+            </div>
             <div className="p-3 flex flex-col flex-grow">
                 <div className="flex justify-between items-start mb-1">
                     <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 line-clamp-2 flex-grow leading-tight">{product.name}</h3>
