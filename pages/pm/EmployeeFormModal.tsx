@@ -11,6 +11,8 @@ import { employeesService, type EmployeeRecord } from '../../services/employees'
 import { permissionsService } from '../../services/permissions';
 import { authService } from '../../services/auth';
 import { API_URL, ApiError } from '../../services/api';
+import { employeePositionsService, employeeDepartmentsService, type LookupItem } from '../../services/employeeMeta';
+import { PlusIcon } from '../../components/icons';
 
 interface EmployeeFormModalProps {
     isOpen: boolean;
@@ -31,6 +33,55 @@ const fieldToTabMap: Record<string, string> = {
     confirmPin: 'Acceso y Empleo',
     role: 'Acceso y Empleo',
     salary: 'Acceso y Empleo',
+};
+
+// ── QuickCreateModal — mini-modal para crear puestos o departamentos ──────────
+interface QuickCreateModalProps {
+    isOpen: boolean;
+    title: string;
+    placeholder: string;
+    onClose: () => void;
+    onCreate: (name: string) => Promise<void>;
+}
+
+const QuickCreateModal: React.FC<QuickCreateModalProps> = ({ isOpen, title, placeholder, onClose, onCreate }) => {
+    const [name, setName] = useState('');
+    const [saving, setSaving] = useState(false);
+    if (!isOpen) return null;
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setSaving(true);
+        try {
+            await onCreate(name.trim());
+            setName('');
+            onClose();
+        } catch {
+            toast.error('Error al guardar. Intente de nuevo.');
+        } finally {
+            setSaving(false);
+        }
+    };
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder={placeholder}
+                    className={inputFormStyle}
+                    autoFocus
+                />
+                <div className="flex justify-end space-x-2">
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={saving}>Cancelar</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={saving || !name.trim()}>
+                        {saving ? 'Guardando...' : 'Crear'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
 };
 
 export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, onClose, employee }) => {
@@ -77,6 +128,10 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [positions, setPositions] = useState<LookupItem[]>([]);
+    const [empDepartments, setEmpDepartments] = useState<LookupItem[]>([]);
+    const [showPositionModal, setShowPositionModal] = useState(false);
+    const [showDeptModal, setShowDeptModal] = useState(false);
 
     // Cargar catálogo de permisos cuando se abre el modal
     useEffect(() => {
@@ -87,6 +142,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             .then(res => { if (!cancelled) setCatalog(res.categories); })
             .catch(() => { if (!cancelled) toast.error('No se pudo cargar el catálogo de permisos'); })
             .finally(() => { if (!cancelled) setCatalogLoading(false); });
+        employeePositionsService.getAll().then(data => { if (!cancelled) setPositions(data); }).catch(() => {});
+        employeeDepartmentsService.getAll().then(data => { if (!cancelled) setEmpDepartments(data); }).catch(() => {});
         return () => { cancelled = true; };
     }, [isOpen]);
 
@@ -287,6 +344,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
     }, [formData.permissions]);
 
     return (
+        <>
         <Modal isOpen={isOpen} onClose={onClose} title={employee ? (t('employee.form.edit') || 'Editar colaborador') : (t('employee.form.create') || 'Nuevo colaborador')} size="2xl">
             <form onSubmit={handleSubmit}>
                 <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4 -mx-4 px-4 overflow-x-auto">
@@ -392,22 +450,27 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium">Puesto</label>
-                                <input
-                                    type="text"
-                                    name="role"
-                                    value={formData.role}
-                                    onChange={handleChange}
-                                    list="employee-roles-list"
-                                    placeholder="Ej: Vendedor, Cajero…"
-                                    className={inputFormStyle}
-                                />
-                                <datalist id="employee-roles-list">
-                                    {EMPLOYEE_ROLES.map(r => <option key={r} value={r} />)}
-                                </datalist>
+                                <div className="flex gap-2">
+                                    <select name="role" value={formData.role} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
+                                        <option value="">-- Seleccionar --</option>
+                                        {positions.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                    </select>
+                                    <button type="button" onClick={() => setShowPositionModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title="Agregar nuevo puesto">
+                                        <PlusIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">Departamento</label>
-                                <input type="text" name="department" value={formData.department || ''} onChange={handleChange} className={inputFormStyle} />
+                                <div className="flex gap-2">
+                                    <select name="department" value={formData.department || ''} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
+                                        <option value="">-- Seleccionar --</option>
+                                        {empDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                                    </select>
+                                    <button type="button" onClick={() => setShowDeptModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title="Agregar nuevo departamento">
+                                        <PlusIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -558,5 +621,29 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 </div>
             </form>
         </Modal>
+
+        <QuickCreateModal
+            isOpen={showPositionModal}
+            title="Nuevo puesto"
+            placeholder="Ej: Cajero, Vendedor, Supervisor..."
+            onClose={() => setShowPositionModal(false)}
+            onCreate={async (name) => {
+                const created = await employeePositionsService.create(name);
+                setPositions(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+                setFormData(prev => ({ ...prev, role: created.name }));
+            }}
+        />
+        <QuickCreateModal
+            isOpen={showDeptModal}
+            title="Nuevo departamento"
+            placeholder="Ej: Ventas, Almacén, Administración..."
+            onClose={() => setShowDeptModal(false)}
+            onCreate={async (name) => {
+                const created = await employeeDepartmentsService.create(name);
+                setEmpDepartments(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+                setFormData(prev => ({ ...prev, department: created.name }));
+            }}
+        />
+        </>
     );
 };
