@@ -7,7 +7,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: true } | { success: false; error: string; code?: string }>;
-  register: (name: string, lastName: string, email: string, password: string, role: UserRole) => Promise<{ success: true } | { success: false; error: string }>;
+  register: (name: string, lastName: string, email: string, password: string, role: UserRole, extra?: { phone?: string; companyName?: string }) => Promise<{ success: true } | { success: false; error: string }>;
   logout: () => Promise<void>;
   getInvitation: (token: string) => Promise<InvitationInfo>;
   activate: (token: string, password: string) => Promise<{ success: true } | { success: false; error: string }>;
@@ -72,11 +72,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const register = useCallback(async (
-    name: string, lastName: string, email: string, password: string, role: UserRole
+    name: string, lastName: string, email: string, password: string, role: UserRole,
+    extra?: { phone?: string; companyName?: string }
   ) => {
     try {
       const { user, token, refreshToken } = await authService.register({
-        email, password, name, lastName, role,
+        email, password, name, lastName, role, ...extra,
       });
       persistSession(user, token, refreshToken);
       setCurrentUser(user);

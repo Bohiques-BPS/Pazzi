@@ -18,7 +18,7 @@ export const authService = {
   login: (email: string, password: string) =>
     api.post<AuthResponse>('/auth/login', { email, password }),
 
-  register: (data: { email: string; password: string; name: string; lastName: string; role?: UserRole }) =>
+  register: (data: { email: string; password: string; name: string; lastName: string; role?: UserRole; phone?: string; companyName?: string }) =>
     api.post<AuthResponse>('/auth/register', data),
 
   refresh: (refreshToken: string) =>
