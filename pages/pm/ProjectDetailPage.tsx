@@ -215,6 +215,18 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.name.trim()) {
+            toast.error('El nombre del proyecto es requerido.');
+            return;
+        }
+        if (!formData.clientId) {
+            toast.error('Debe seleccionar un cliente.');
+            return;
+        }
+        if (formData.workMode === 'dateRange' && formData.workStartDate && formData.workEndDate && formData.workStartDate > formData.workEndDate) {
+            toast.error('La fecha de inicio no puede ser posterior a la fecha de fin.');
+            return;
+        }
         setSubmitting(true);
         try {
             if (project) {

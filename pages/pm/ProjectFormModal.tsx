@@ -371,6 +371,14 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.name.trim()) {
+            toast.error('El nombre del proyecto es requerido.');
+            return;
+        }
+        if (!formData.clientId) {
+            toast.error('Debe seleccionar un cliente.');
+            return;
+        }
         if (formData.workMode === 'dateRange' && formData.workStartDate && formData.workEndDate && formData.workStartDate > formData.workEndDate) {
             toast.error('La fecha de fin del rango de trabajo no puede ser anterior a la fecha de inicio.');
             return;

@@ -10,6 +10,7 @@ import { DataTable, TableColumn } from '../../components/DataTable';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
+import { projectsService } from '../../services/projects';
 
 export const ProjectsListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -33,13 +34,18 @@ export const ProjectsListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = () => {
-        if (itemToDeleteId) {
+    const confirmDelete = async () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        try {
+            await projectsService.delete(itemToDeleteId);
             setProjects(prev => prev.filter(p => p.id !== itemToDeleteId));
             toast.success('Proyecto eliminado.');
+        } catch (err: any) {
+            toast.error(err?.message || 'No se pudo eliminar el proyecto.');
+        } finally {
             setItemToDeleteId(null);
+            setShowDeleteConfirmModal(false);
         }
-        setShowDeleteConfirmModal(false);
     };
 
     const handleGenerateInvoice = (project: Project) => {
