@@ -228,11 +228,12 @@ export const ClientsListPage: React.FC = () => {
 
             <ConfirmationModal
                 isOpen={showDeleteConfirmModal}
-                onClose={() => setShowDeleteConfirmModal(false)}
+                onClose={() => { setShowDeleteConfirmModal(false); setItemToDeleteId(null); }}
                 onConfirm={confirmDelete}
-                title={t('confirm.delete.title')}
-                message={t('confirm.delete.message')}
-                confirmButtonText={t('confirm.delete.btn')}
+                title="¿Eliminar cliente?"
+                message="Esta acción eliminará al cliente de la lista. ¿Deseas continuar?"
+                confirmButtonText="Sí, eliminar"
+                cancelButtonText="Cancelar"
             />
         </div>
     );

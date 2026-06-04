@@ -190,9 +190,9 @@ export const ProjectsListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title={t('confirm.delete.title')}
-                message={t('confirm.delete.message')}
-                confirmButtonText={t('confirm.delete.btn')}
+                title="¿Confirmar eliminación?"
+                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
+                confirmButtonText="Sí, eliminar"
             />
         </div>
     );

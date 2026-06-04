@@ -25,10 +25,10 @@ const demoUsers = [
 ];
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('pazzi_remembered_email') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem('pazzi_remembered_email'));
   const [loading, setLoading] = useState(false);
   const { login, currentUser } = useAuth();
   const navigate = useNavigate();
@@ -83,6 +83,13 @@ export const LoginPage: React.FC = () => {
       const result = await login(email, password);
       if ('error' in result) {
         setError(result.error);
+      } else {
+        // Persist or clear remembered email
+        if (rememberMe) {
+          localStorage.setItem('pazzi_remembered_email', email);
+        } else {
+          localStorage.removeItem('pazzi_remembered_email');
+        }
       }
     } catch (err: any) {
       const backendError = err?.error || err?.message;
