@@ -23,6 +23,14 @@ export interface TaskCommentRecord {
   senderName?: string;
 }
 
+export interface ChecklistItem {
+  id: string;
+  taskId: string;
+  text: string;
+  checked: boolean;
+  order: number;
+}
+
 export interface TaskRecord {
   id: string;
   title: string;
@@ -51,4 +59,13 @@ export const tasksService = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/tasks/${id}`),
+
+  addChecklistItem: (taskId: string, text: string) =>
+    api.post<ChecklistItem>(`/tasks/${taskId}/checklist`, { text }),
+
+  updateChecklistItem: (taskId: string, itemId: string, data: Partial<Pick<ChecklistItem, 'text' | 'checked'>>) =>
+    api.put<ChecklistItem>(`/tasks/${taskId}/checklist/${itemId}`, data),
+
+  deleteChecklistItem: (taskId: string, itemId: string) =>
+    api.delete<{ message: string }>(`/tasks/${taskId}/checklist/${itemId}`),
 };

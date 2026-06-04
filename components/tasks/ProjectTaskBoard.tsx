@@ -136,6 +136,11 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     ?.map(id => allEmployees.find(e => e.id === id))
                                     .filter((e): e is Employee => !!e) || [];
 
+                                const taskChecklists = ((task as any).checklists as any[]) || [];
+                                const checklistSummary = taskChecklists.length > 0
+                                    ? { total: taskChecklists.length, done: taskChecklists.filter((c: any) => c.checked).length }
+                                    : undefined;
+
                                 return (
                                 <TaskCard
                                     key={task.id}
@@ -145,6 +150,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     onClick={() => setSelectedTask(task)}
                                     commentCount={commentCount}
                                     assignedEmployees={assignedEmployees}
+                                    checklistSummary={checklistSummary}
                                     data-task-id={task.id}
                                 />
                             )})}

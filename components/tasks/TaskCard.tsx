@@ -2,10 +2,13 @@ import React from 'react';
 import { Task, Employee } from '../../types';
 import { ChatBubbleLeftRightIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '../icons';
 
+interface ChecklistSummary { total: number; done: number; }
+
 interface TaskCardProps extends React.HTMLAttributes<HTMLDivElement> {
     task: Task;
     commentCount: number;
     assignedEmployees: Employee[];
+    checklistSummary?: ChecklistSummary;
 }
 
 const PRIORITY_CONFIG = {
@@ -15,7 +18,7 @@ const PRIORITY_CONFIG = {
     low:    { label: 'Baja',    cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
 };
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assignedEmployees, ...props }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assignedEmployees, checklistSummary, ...props }) => {
     const priorityCfg = task.priority ? PRIORITY_CONFIG[task.priority] : null;
 
     const dueDateStr = task.dueDate ? task.dueDate.split('T')[0] : null;
@@ -24,7 +27,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
     const isOverdue = dueDate && dueDate < today && task.status !== 'Hecho';
     const isDueSoon = dueDate && !isOverdue && dueDate <= new Date(today.getTime() + 2 * 86400000);
 
-    const hasFooter = commentCount > 0 || assignedEmployees.length > 0 || dueDateStr;
+    const hasFooter = commentCount > 0 || assignedEmployees.length > 0 || dueDateStr || (checklistSummary && checklistSummary.total > 0);
 
     return (
         <div
@@ -64,6 +67,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
                                     : <CalendarDaysIcon className="w-3 h-3" />
                                 }
                                 {new Date(dueDateStr + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                            </span>
+                        )}
+
+                        {/* Checklist progress */}
+                        {checklistSummary && checklistSummary.total > 0 && (
+                            <span className={`flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded gap-0.5
+                                ${checklistSummary.done === checklistSummary.total
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-300'}`}
+                            >
+                                ☑ {checklistSummary.done}/{checklistSummary.total}
                             </span>
                         )}
 

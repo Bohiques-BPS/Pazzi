@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon, DeleteIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
-import { tasksService, type TaskCommentRecord } from '../../services/tasks';
+import { tasksService, type TaskCommentRecord, type ChecklistItem } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 
@@ -41,6 +41,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [error, setError] = useState<string | null>(null);
     const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [checklists, setChecklists] = useState<ChecklistItem[]>(((task as any).checklists as ChecklistItem[]) || []);
+    const [newCheckItem, setNewCheckItem] = useState('');
+    const [addingCheck, setAddingCheck] = useState(false);
 
     const allEmployees = useMemo(() => getAllEmployees(), [getAllEmployees]);
 
@@ -122,6 +125,35 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         }
     };
 
+    const handleAddCheckItem = async () => {
+        const text = newCheckItem.trim();
+        if (!text) return;
+        setAddingCheck(true);
+        try {
+            const item = await tasksService.addChecklistItem(task.id, text);
+            setChecklists(prev => [...prev, item]);
+            setNewCheckItem('');
+        } catch { toast.error('Error al añadir ítem'); }
+        finally { setAddingCheck(false); }
+    };
+
+    const handleToggleCheck = async (item: ChecklistItem) => {
+        const updated = { ...item, checked: !item.checked };
+        setChecklists(prev => prev.map(c => c.id === item.id ? updated : c));
+        try { await tasksService.updateChecklistItem(task.id, item.id, { checked: updated.checked }); }
+        catch { setChecklists(prev => prev.map(c => c.id === item.id ? item : c)); }
+    };
+
+    const handleDeleteCheckItem = async (itemId: string) => {
+        setChecklists(prev => prev.filter(c => c.id !== itemId));
+        try { await tasksService.deleteChecklistItem(task.id, itemId); }
+        catch { toast.error('Error al eliminar ítem'); }
+    };
+
+    const checkProgress = checklists.length > 0
+        ? Math.round((checklists.filter(c => c.checked).length / checklists.length) * 100)
+        : 0;
+
     const sortedComments = useMemo(
         () => [...comments].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
         [comments]
@@ -198,6 +230,72 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                         ))}
                     </div>
                 </fieldset>
+
+                {/* Checklist */}
+                <div className="border-t dark:border-neutral-700 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                            ☑️ Lista de verificación
+                            {checklists.length > 0 && (
+                                <span className="ml-2 text-xs font-normal text-neutral-500">
+                                    {checklists.filter(c => c.checked).length}/{checklists.length}
+                                </span>
+                            )}
+                        </h4>
+                    </div>
+                    {checklists.length > 0 && (
+                        <>
+                            <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-600 rounded-full mb-2 overflow-hidden">
+                                <div
+                                    className="h-full bg-green-500 rounded-full transition-all duration-300"
+                                    style={{ width: `${checkProgress}%` }}
+                                />
+                            </div>
+                            <ul className="space-y-1 mb-2">
+                                {checklists.map(item => (
+                                    <li key={item.id} className="flex items-center gap-2 group p-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-700/50">
+                                        <input
+                                            type="checkbox"
+                                            checked={item.checked}
+                                            onChange={() => handleToggleCheck(item)}
+                                            className="h-4 w-4 text-primary rounded border-neutral-300 focus:ring-primary flex-shrink-0"
+                                        />
+                                        <span className={`flex-1 text-sm ${item.checked ? 'line-through text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'}`}>
+                                            {item.text}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteCheckItem(item.id)}
+                                            className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 transition-opacity p-0.5"
+                                            aria-label="Eliminar ítem"
+                                        >
+                                            ✕
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    )}
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={newCheckItem}
+                            onChange={e => setNewCheckItem(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCheckItem(); } }}
+                            placeholder="Añadir un ítem..."
+                            className={inputFormStyle + ' flex-1 !py-1.5 text-sm'}
+                            disabled={addingCheck}
+                        />
+                        <button
+                            type="button"
+                            onClick={handleAddCheckItem}
+                            disabled={addingCheck || !newCheckItem.trim()}
+                            className={BUTTON_SECONDARY_SM_CLASSES}
+                        >
+                            Añadir
+                        </button>
+                    </div>
+                </div>
 
                 <div className="border-t dark:border-neutral-700 pt-4">
                     <h4 className="text-base font-semibold mb-2">Comentarios ({sortedComments.length})</h4>
