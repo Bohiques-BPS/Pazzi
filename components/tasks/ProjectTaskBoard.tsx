@@ -89,8 +89,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             return finalTasks;
         });
 
-        // Persist status change to backend
-        tasksService.update(draggedTask.id, { status: targetStatus }).catch(() => {
+        // Persist status + new order to backend
+        tasksService.update(draggedTask.id, { status: targetStatus, order: newOrder }).catch(() => {
             toast.error('No se pudo sincronizar el estado de la tarea.');
         });
 
@@ -177,8 +177,9 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 <TaskDetailModal
                     task={selectedTask}
                     onClose={() => setSelectedTask(null)}
-                    onSave={(taskId, updates) => updateTask(taskId, updates)}
-                    onArchive={(taskId) => updateTask(taskId, { archived: true })}
+                    onSave={(taskId, updates) => { updateTask(taskId, updates); setSelectedTask(null); }}
+                    onArchive={(taskId) => { updateTask(taskId, { archived: true }); setSelectedTask(null); }}
+                    onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setSelectedTask(null); }}
                 />
             )}
         </>

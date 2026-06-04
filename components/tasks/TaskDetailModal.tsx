@@ -4,7 +4,7 @@ import { Task } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
-import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from '../icons';
+import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon, DeleteIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
 import { tasksService, type TaskCommentRecord } from '../../services/tasks';
 import { ApiError } from '../../services/api';
@@ -15,20 +15,32 @@ interface TaskDetailModalProps {
     onClose: () => void;
     onSave: (taskId: string, updates: Partial<Omit<Task, 'id'>>) => void;
     onArchive: (taskId: string) => void;
+    onDelete?: (taskId: string) => void;
 }
 
-export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive }) => {
+const PRIORITY_OPTIONS: { value: Task['priority']; label: string; cls: string }[] = [
+    { value: null,     label: '— Sin prioridad', cls: '' },
+    { value: 'low',    label: '🔵 Baja',          cls: 'text-blue-600' },
+    { value: 'medium', label: '🟡 Media',          cls: 'text-yellow-600' },
+    { value: 'high',   label: '🟠 Alta',           cls: 'text-orange-600' },
+    { value: 'urgent', label: '🔴 Urgente',        cls: 'text-red-600' },
+];
+
+export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete }) => {
     const { currentUser } = useAuth();
     const { getAllEmployees } = useData();
     const [title, setTitle] = useState(task.title);
     const [description, setDescription] = useState(task.description || '');
     const [assignedIds, setAssignedIds] = useState<string[]>(task.assignedEmployeeIds || []);
+    const [dueDate, setDueDate] = useState<string>(task.dueDate ? task.dueDate.split('T')[0] : '');
+    const [priority, setPriority] = useState<Task['priority']>(task.priority ?? null);
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<TaskCommentRecord[]>(((task as any).comments as TaskCommentRecord[]) || []);
     const [submitting, setSubmitting] = useState(false);
     const [sendingComment, setSendingComment] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const allEmployees = useMemo(() => getAllEmployees(), [getAllEmployees]);
 
@@ -48,8 +60,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 title,
                 description,
                 assignedEmployeeIds: assignedIds,
+                dueDate: dueDate || null,
+                priority: priority || null,
             });
-            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds } as any);
+            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null } as any);
             toast.success('Tarea actualizada');
             onClose();
         } catch (err) {
@@ -78,6 +92,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             onClose();
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : 'Error al archivar la tarea');
+        }
+    };
+
+    const confirmDelete = async () => {
+        setShowDeleteConfirm(false);
+        try {
+            await tasksService.delete(task.id);
+            if (onDelete) onDelete(task.id);
+            toast.success('Tarea eliminada');
+            onClose();
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'Error al eliminar la tarea');
         }
     };
 
@@ -113,7 +139,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 )}
 
                 <div>
-                    <label className="block text-base font-medium">Título</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Título</label>
                     <input
                         type="text"
                         value={title}
@@ -121,8 +147,34 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                         className={inputFormStyle}
                     />
                 </div>
+
+                {/* Priority + Due date in a row */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Prioridad</label>
+                        <select
+                            value={priority ?? ''}
+                            onChange={e => setPriority((e.target.value || null) as Task['priority'])}
+                            className={inputFormStyle}
+                        >
+                            {PRIORITY_OPTIONS.map(opt => (
+                                <option key={opt.value ?? 'none'} value={opt.value ?? ''}>{opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha límite</label>
+                        <input
+                            type="date"
+                            value={dueDate}
+                            onChange={e => setDueDate(e.target.value)}
+                            className={inputFormStyle}
+                        />
+                    </div>
+                </div>
+
                 <div>
-                    <label className="block text-base font-medium">Descripción</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
                     <RichTextEditor
                         value={description}
                         onChange={setDescription}
@@ -177,9 +229,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 </div>
 
                 <div className="flex justify-between items-center pt-4 border-t dark:border-neutral-700">
-                    <button onClick={handleArchive} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center`}>
-                        <ArchiveBoxIcon className="w-4 h-4 mr-1" /> Archivar tarea
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={handleArchive} className={`${BUTTON_SECONDARY_SM_CLASSES} text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center`}>
+                            <ArchiveBoxIcon className="w-4 h-4 mr-1" /> Archivar
+                        </button>
+                        {onDelete && (
+                            <button onClick={() => setShowDeleteConfirm(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center`}>
+                                <DeleteIcon className="w-4 h-4 mr-1" /> Eliminar
+                            </button>
+                        )}
+                    </div>
                     <div className="space-x-2">
                         <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>Cancelar</button>
                         <button onClick={handleSave} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
@@ -194,8 +253,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             onClose={() => setShowArchiveConfirm(false)}
             onConfirm={confirmArchive}
             title="Archivar tarea"
-            message="¿Está seguro que desea archivar esta tarea? La tarea ya no aparecerá en el tablero."
+            message="La tarea no aparecerá en el tablero pero su historial se conserva."
             confirmButtonText="Archivar"
+        />
+        <ConfirmationModal
+            isOpen={showDeleteConfirm}
+            onClose={() => setShowDeleteConfirm(false)}
+            onConfirm={confirmDelete}
+            title="¿Eliminar tarea?"
+            message="Esta acción es permanente y eliminará también los comentarios. ¿Deseas continuar?"
+            confirmButtonText="Sí, eliminar"
         />
         </>
     );

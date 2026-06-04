@@ -10,6 +10,8 @@ export interface TaskPayload {
   assignedEmployeeIds?: string[];
   order?: number;
   archived?: boolean;
+  dueDate?: string | null;
+  priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
 }
 
 export interface TaskCommentRecord {
@@ -46,4 +48,7 @@ export const tasksService = {
 
   addComment: (id: string, text: string) =>
     api.post<TaskCommentRecord>(`/tasks/${id}/comments`, { text }),
+
+  delete: (id: string) =>
+    api.delete<{ message: string }>(`/tasks/${id}`),
 };

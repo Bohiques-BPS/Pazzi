@@ -597,6 +597,8 @@ export interface Task {
     archived: boolean;
     order: number; // For sorting within a column
     assignedEmployeeIds?: string[];
+    dueDate?: string | null;   // ISO date string (YYYY-MM-DD)
+    priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
 }
 
 export interface TaskComment {
