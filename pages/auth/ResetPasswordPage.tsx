@@ -4,8 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constants';
-import { LandingLayout } from '../../components/layout/LandingLayout';
-import { LockClosedIcon, ExclamationTriangleIcon } from '../../components/icons';
+import { LockClosedIcon, ExclamationTriangleIcon, ArrowUturnLeftIcon } from '../../components/icons';
+import logo from '../../assets/logo.png';
+import banner from '../../assets/img/banner.png';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 
 export const ResetPasswordPage: React.FC = () => {
@@ -55,9 +56,15 @@ export const ResetPasswordPage: React.FC = () => {
     };
 
     return (
-        <LandingLayout>
-            <div className="bg-white dark:bg-neutral-800 p-8 sm:p-10 rounded-xl shadow-2xl w-full max-w-md text-neutral-800 dark:text-neutral-100">
-                <h2 className="text-2xl font-semibold text-center mb-6">Crear nueva contraseña</h2>
+        <div className="min-h-screen flex bg-white dark:bg-neutral-800">
+          {/* Form panel */}
+          <div className="w-full md:w-1/2 flex flex-col items-center justify-center px-6 py-10">
+            <div className="w-full max-w-sm">
+              <div className="flex justify-center mb-6">
+                <img src={logo} alt="Pazzi" className="h-9" />
+              </div>
+                <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-1">Crear nueva contraseña</h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center mb-6">Elige una contraseña segura de al menos 8 caracteres.</p>
 
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-start text-red-700 text-sm mb-4">
@@ -107,9 +114,22 @@ export const ResetPasswordPage: React.FC = () => {
                 </form>
 
                 <p className="mt-6 text-center">
-                    <Link to="/login" className={authLinkStyle}>Volver a iniciar sesión</Link>
+                    <Link to="/login" className={`${authLinkStyle} inline-flex items-center gap-1`}>
+                      <ArrowUturnLeftIcon className="w-4 h-4" /> Volver a iniciar sesión
+                    </Link>
                 </p>
             </div>
-        </LandingLayout>
+          </div>
+
+          {/* Banner panel */}
+          <div className="hidden md:flex md:w-1/2 items-center justify-center relative overflow-hidden bg-primary dark:bg-neutral-900">
+            <img src={banner} alt="" className="w-full h-full object-cover opacity-80 dark:opacity-50" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/60 to-secondary/60 dark:from-neutral-900/80 dark:to-neutral-800/80" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center text-white">
+              <h3 className="text-3xl font-bold mb-3 drop-shadow">Nueva contraseña</h3>
+              <p className="text-base opacity-90 max-w-xs drop-shadow">Crea una contraseña segura para proteger tu cuenta.</p>
+            </div>
+          </div>
+        </div>
     );
 };
