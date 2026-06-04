@@ -21,28 +21,36 @@ const RichTextEditorButton: React.FC<{ onMouseDown: (e: React.MouseEvent) => voi
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeholder, disabled }) => {
     const editorRef = useRef<HTMLDivElement>(null);
+    const isFocused = useRef(false);
 
-    // Sync external value changes to the editor, but only if they differ.
-    // This prevents cursor jumps during typing.
+    // Set initial content only on mount
     useEffect(() => {
-        if (editorRef.current && editorRef.current.innerHTML !== value) {
+        if (editorRef.current) {
+            editorRef.current.innerHTML = value;
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Sync external value changes (e.g. form reset) ONLY when not focused
+    useEffect(() => {
+        if (editorRef.current && !isFocused.current && editorRef.current.innerHTML !== value) {
             editorRef.current.innerHTML = value;
         }
     }, [value]);
-    
+
     const handleInput = () => {
         if (editorRef.current) {
             onChange(editorRef.current.innerHTML);
         }
     };
-    
-    const execCmd = (command: string, value: string | null = null) => {
-        document.execCommand(command, false, value);
+
+    const execCmd = (command: string, val: string | null = null) => {
+        document.execCommand(command, false, val ?? undefined);
         editorRef.current?.focus();
     };
 
     const handleCommand = (e: React.MouseEvent, command: string) => {
-        e.preventDefault(); // Prevent editor from losing focus
+        e.preventDefault();
         execCmd(command);
     };
 
@@ -72,9 +80,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 ref={editorRef}
                 contentEditable={!disabled}
                 onInput={handleInput}
-                className="w-full px-3 py-1.5 text-base min-h-[100px] focus:outline-none"
-                dangerouslySetInnerHTML={{ __html: value }}
-                aria-placeholder={placeholder}
+                onFocus={() => { isFocused.current = true; }}
+                onBlur={() => { isFocused.current = false; }}
+                className="w-full px-3 py-1.5 text-base min-h-[100px] focus:outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-400 empty:before:pointer-events-none"
+                data-placeholder={placeholder}
+                suppressContentEditableWarning
             />
         </div>
     );
