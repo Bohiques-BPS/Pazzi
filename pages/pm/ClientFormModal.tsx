@@ -137,12 +137,23 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Solo verificar email duplicado si se proporcionó uno
+        if (!formData.name.trim()) {
+            toast.error('El nombre es requerido.');
+            return;
+        }
+        if (!formData.lastName.trim()) {
+            toast.error('El apellido es requerido.');
+            return;
+        }
+        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            toast.error('El formato del email no es válido.');
+            return;
+        }
         const isDuplicateEmail = formData.email && allClients.some(
             c => c.email && c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
         );
         if (isDuplicateEmail) {
-            toast.error("Ya existe un cliente con este correo electrónico.");
+            toast.error('Ya existe un cliente con este correo electrónico.');
             return;
         }
 
@@ -168,7 +179,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                     },
                     body: JSON.stringify(dataToSave),
                 });
-                if (!res.ok) throw new Error('Error al actualizar cliente');
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al actualizar cliente'); }
                 const updatedClient = await res.json();
                 setClients(prev => prev.map(c => c.id === client.id ? { ...c, ...updatedClient } : c));
                 toast.success('Cliente actualizado correctamente');
@@ -182,7 +193,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                     },
                     body: JSON.stringify(dataToSave),
                 });
-                if (!res.ok) throw new Error('Error al crear cliente');
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al crear cliente'); }
                 const newClient = await res.json();
                 setClients(prev => [...prev, newClient]);
                 toast.success('Cliente creado correctamente');
@@ -213,7 +224,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const renderGeneralTab = () => (
         <div className="space-y-3">
             <div><label className="block text-sm font-medium">{t('common.name')}</label><input type="text" name="name" value={formData.name} onChange={handleChange} className={inputFormStyle} required/></div>
-            <div><label className="block text-sm font-medium">{t('client.field.lastname')}</label><input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} /></div>
+            <div><label className="block text-sm font-medium">{t('client.field.lastname')}</label><input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} required /></div>
             <div>
                 <div className="flex justify-between items-center mb-1">
                     <label className="block text-sm font-medium">{t('client.field.projects')}</label>

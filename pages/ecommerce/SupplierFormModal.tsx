@@ -29,6 +29,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
         address: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [nameError, setNameError] = useState('');
 
     useEffect(() => {
         if (supplier && isOpen) {
@@ -51,6 +52,15 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setNameError('');
+        if (!formData.name.trim()) {
+            setNameError('El nombre del proveedor es requerido.');
+            return;
+        }
+        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            toast.error('El formato del email no es válido.');
+            return;
+        }
         setIsSubmitting(true);
 
         try {
@@ -98,7 +108,10 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label htmlFor="supplierName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.suppliers.form.name')}</label>
-                    <input type="text" name="name" id="supplierName" value={formData.name} onChange={handleChange} className={inputFormStyle} required />
+                    <input type="text" name="name" id="supplierName" value={formData.name}
+                        onChange={e => { handleChange(e); if (nameError) setNameError(''); }}
+                        className={`${inputFormStyle} ${nameError ? 'border-red-500 focus:ring-red-500' : ''}`} />
+                    {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
                 </div>
                 <div>
                     <label htmlFor="contactName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.suppliers.form.contact')}</label>
