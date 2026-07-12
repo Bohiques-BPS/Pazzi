@@ -41,6 +41,7 @@ import { PayoutModal } from '../../components/forms/PayoutModal';
 import { DiscountAuthModal } from '../../components/forms/DiscountAuthModal';
 import { ReturnModal } from '../../components/forms/ReturnModal';
 import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
+import { CajaFormModal } from '../../components/forms/CajaFormModal';
 import { authService } from '../../services/auth';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { posService } from '../../services/pos';
@@ -211,6 +212,8 @@ export const POSCashierPage: React.FC = () => {
     // True once useEffect([branches, cajas]) has run with loaded data.
     // Lets us distinguish "still fetching" from "loaded but no active caja found".
     const [cajaInitialized, setCajaInitialized] = useState(false);
+    // Modal para crear una caja sin salir del flujo del POS (cuando no hay ninguna).
+    const [showCreateCaja, setShowCreateCaja] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [posError, setPosError] = useState<string | null>(null);
     const [generalDiscount, setGeneralDiscount] = useState<{ type: 'percentage' | 'fixed'; value: number } | null>(null);
@@ -815,22 +818,36 @@ export const POSCashierPage: React.FC = () => {
             // Data has loaded but no active caja was found for this store
             if (cajaInitialized) {
                 return (
+                    <>
                     <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-neutral-900 gap-4 p-6 text-center">
                         <ExclamationTriangleIcon className="w-14 h-14 text-amber-500" />
-                        <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">No hay caja registradora activa</h2>
+                        <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">Aún no tienes una caja registradora</h2>
                         <p className="text-neutral-500 dark:text-neutral-400 text-sm max-w-md">
-                            No se encontró ninguna caja activa para esta tienda.
-                            Ve a <strong>Configuración → Cajas Registradoras</strong> y asegúrate de que al menos una caja esté activa.
+                            Para empezar a vender necesitas al menos una caja. Créala aquí mismo y sigue con tu venta —
+                            no perderás este flujo.
                         </p>
-                        <div className="flex gap-3 mt-2">
-                            <button onClick={() => navigate('/settings')} className={BUTTON_PRIMARY_SM_CLASSES}>
-                                Ir a Configuración
+                        <div className="flex flex-wrap justify-center gap-3 mt-2">
+                            <button onClick={() => setShowCreateCaja(true)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center gap-1`}>
+                                <KeyIcon className="w-4 h-4" /> Crear caja ahora
                             </button>
                             <button onClick={() => navigate('/')} className={BUTTON_SECONDARY_SM_CLASSES}>
                                 Volver al inicio
                             </button>
                         </div>
                     </div>
+                    {showCreateCaja && (
+                        <CajaFormModal
+                            isOpen={showCreateCaja}
+                            cajaToEdit={null}
+                            onClose={() => {
+                                // Al crear, CajaFormModal actualiza la lista de cajas del contexto.
+                                // El useEffect de auto-selección elige la nueva caja y el flujo
+                                // continúa solo hacia "abrir turno" (OpenCajaModal). Nunca sales del POS.
+                                setShowCreateCaja(false);
+                            }}
+                        />
+                    )}
+                    </>
                 );
             }
             // Still fetching branches/cajas from backend
