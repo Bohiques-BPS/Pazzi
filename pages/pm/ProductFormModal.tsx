@@ -927,10 +927,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                 onClose={() => setShowAddDepartmentModal(false)} 
                 department={null} 
             />
-            <BranchFormModal 
-                isOpen={showAddBranchModal} 
-                onClose={() => setShowAddBranchModal(false)} 
-                branch={null} 
+            <BranchFormModal
+                isOpen={showAddBranchModal}
+                onClose={(createdBranch) => {
+                    if (createdBranch) {
+                        setFormData(prev => ({ ...prev, initialBranchId: createdBranch.id }));
+                    }
+                    setShowAddBranchModal(false);
+                }}
+                branchToEdit={null}
             />
         </Modal>
     );

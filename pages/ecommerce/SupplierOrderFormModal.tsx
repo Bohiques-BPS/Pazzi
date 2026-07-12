@@ -8,6 +8,8 @@ import { TrashIconMini } from '../../components/icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../../services/api';
+import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
+import { SupplierFormModal } from './SupplierFormModal';
 
 interface SupplierOrderFormModalProps {
     isOpen: boolean;
@@ -129,6 +131,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         unitCost: 0,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showCreateSupplier, setShowCreateSupplier] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -148,7 +151,10 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             }
             setCurrentItem({ productId: '', quantityOrdered: 1, unitCost: 0 });
         }
-    }, [orderToEdit, isOpen, filteredSuppliers, initialFormData]);
+    // Solo al abrir o cambiar de orden. NO dependemos de `filteredSuppliers` para no reiniciar
+    // el formulario cuando se crea un proveedor inline.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orderToEdit, isOpen]);
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -219,16 +225,23 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
     };
 
     return (
+        <>
         <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? t('ecommerce.supplier_orders.form.edit_title') : t('ecommerce.supplier_orders.form.create_title')} size="4xl">
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="supplierId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.supplier')}</label>
-                        <select name="supplierId" id="supplierId" value={formData.supplierId} onChange={handleFormChange} className={inputFormStyle} required>
-                            <option value="">Seleccionar Proveedor</option>
-                            {filteredSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                    </div>
+                    <SelectWithCreate
+                        id="supplierId"
+                        name="supplierId"
+                        label={t('ecommerce.supplier_orders.col.supplier')}
+                        value={formData.supplierId}
+                        onChange={(v) => setFormData(prev => ({ ...prev, supplierId: v }))}
+                        options={filteredSuppliers.map(s => ({ value: s.id, label: s.name }))}
+                        onCreateClick={() => setShowCreateSupplier(true)}
+                        required
+                        placeholder="Seleccionar Proveedor"
+                        emptyHint="No hay proveedores. Usa + para crear uno sin perder esta orden."
+                        createTitle="Crear nuevo proveedor"
+                    />
                     <div>
                         <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.status')}</label>
                         <select name="status" id="status" value={formData.status} onChange={handleFormChange} className={inputFormStyle}>
@@ -329,5 +342,20 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 </div>
             </form>
         </Modal>
+        {showCreateSupplier && (
+            <SupplierFormModal
+                isOpen={showCreateSupplier}
+                supplier={null}
+                storeOwnerId={storeOwnerId}
+                onClose={(createdSupplier) => {
+                    if (createdSupplier) {
+                        setFormData(prev => ({ ...prev, supplierId: createdSupplier.id }));
+                        toast.success(`Proveedor "${createdSupplier.name}" creado y seleccionado.`);
+                    }
+                    setShowCreateSupplier(false);
+                }}
+            />
+        )}
+        </>
     );
 };

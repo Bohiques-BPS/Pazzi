@@ -70,19 +70,19 @@ const QuickLink: React.FC<{
 }> = ({ to, icon, text, visitCount }) => (
     <Link
         to={to}
-        className="relative flex flex-col items-center justify-center p-4 bg-white dark:bg-neutral-800 rounded-lg shadow-md hover:shadow-lg dark:hover:shadow-primary/20 transition-all duration-200 hover:-translate-y-1 group"
+        className="relative w-full min-w-0 overflow-hidden flex flex-col items-center justify-center p-4 bg-white dark:bg-neutral-800 rounded-lg shadow-md hover:shadow-lg dark:hover:shadow-primary/20 transition-all duration-200 hover:-translate-y-1 group"
     >
         {visitCount !== undefined && visitCount > 0 && (
             <span className="absolute top-2 right-2 text-xs text-neutral-400 dark:text-neutral-500 group-hover:text-primary transition-colors">
                 {visitCount}×
             </span>
         )}
-        <div className="text-primary dark:text-accent mb-2">
+        <div className="flex-shrink-0 text-primary dark:text-accent mb-2">
             {React.isValidElement(icon)
                 ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8' })
                 : icon}
         </div>
-        <span className="text-base font-semibold text-neutral-700 dark:text-neutral-200 text-center leading-tight">{text}</span>
+        <span className="w-full text-sm sm:text-base font-semibold text-neutral-700 dark:text-neutral-200 text-center leading-tight break-words">{text}</span>
     </Link>
 );
 
@@ -243,7 +243,7 @@ export const DashboardHomePage: React.FC = () => {
             </p>
 
             {/* Module cards */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
                 {APP_MODULES_CONFIG.filter(m => m.name !== AppModule.PROJECT_CLIENT_DASHBOARD).map(module => {
                     const descriptionText =
                         module.name === AppModule.TIENDA ? 'gestión de productos, clientes, inventario y más.' :
@@ -257,16 +257,18 @@ export const DashboardHomePage: React.FC = () => {
                             key={module.path}
                             id={`module-card-${module.name}`}
                             onClick={() => handleModuleClick(module.name)}
-                            className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-lg hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-300 text-left"
+                            className="w-full min-w-0 overflow-hidden bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-lg hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-300 text-left"
                         >
-                            <div className="flex items-center mb-2">
-                                {React.isValidElement(module.icon) &&
-                                    React.cloneElement(module.icon as React.ReactElement<{ className?: string }>, {
-                                        className: 'w-7 h-7 text-primary dark:text-accent',
-                                    })}
-                                <h2 className="text-2xl font-semibold text-primary ml-3">{module.name}</h2>
+                            <div className="flex items-center mb-2 min-w-0">
+                                <span className="flex-shrink-0">
+                                    {React.isValidElement(module.icon) &&
+                                        React.cloneElement(module.icon as React.ReactElement<{ className?: string }>, {
+                                            className: 'w-7 h-7 text-primary dark:text-accent',
+                                        })}
+                                </span>
+                                <h2 className="text-xl sm:text-2xl font-semibold text-primary ml-3 min-w-0 break-words hyphens-auto">{module.name}</h2>
                             </div>
-                            <p className="text-neutral-600 dark:text-neutral-300 text-base">
+                            <p className="text-neutral-600 dark:text-neutral-300 text-sm sm:text-base break-words">
                                 Accede a las herramientas de {descriptionText}
                             </p>
                         </button>

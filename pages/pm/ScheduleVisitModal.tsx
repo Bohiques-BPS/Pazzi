@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Visit, VisitFormData, VisitStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { VISIT_STATUS_OPTIONS, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
+import { ProjectFormModal } from './ProjectFormModal';
 import { visitsService } from '../../services/visits';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -24,6 +26,10 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
     });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Modal anidado para crear un proyecto sin salir del formulario de visita.
+    const [showCreateProject, setShowCreateProject] = useState(false);
+    // IDs de proyectos antes de abrir el modal de creación, para detectar el nuevo.
+    const projectIdsBeforeCreate = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (visitToEdit) {
@@ -113,6 +119,7 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
     };
 
     return (
+        <>
         <Modal isOpen={isOpen} onClose={onClose} title={visitToEdit ? 'Editar visita' : 'Programar visita'} size="xl">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
@@ -125,13 +132,20 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                     <label htmlFor="title" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Título de la visita</label>
                     <input type="text" name="title" id="title" value={formData.title} onChange={handleChange} className={inputFormStyle} required autoFocus />
                 </div>
-                <div>
-                    <label htmlFor="projectId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Vincular a proyecto (opcional)</label>
-                    <select name="projectId" id="projectId" value={formData.projectId} onChange={handleChange} className={inputFormStyle}>
-                        <option value="">Ninguno</option>
-                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                </div>
+                <SelectWithCreate
+                    id="projectId"
+                    name="projectId"
+                    label="Vincular a proyecto (opcional)"
+                    value={formData.projectId}
+                    onChange={(v) => setFormData(prev => ({ ...prev, projectId: v }))}
+                    options={projects.map(p => ({ value: p.id, label: p.name }))}
+                    onCreateClick={() => {
+                        projectIdsBeforeCreate.current = new Set(projects.map(p => p.id));
+                        setShowCreateProject(true);
+                    }}
+                    placeholder="Ninguno"
+                    createTitle="Crear nuevo proyecto"
+                />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label htmlFor="date" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha</label>
@@ -175,5 +189,21 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                 </div>
             </form>
         </Modal>
+        {showCreateProject && (
+            <ProjectFormModal
+                isOpen={showCreateProject}
+                project={null}
+                onClose={() => {
+                    // Detecta el proyecto recién creado (no estaba antes) y lo selecciona.
+                    const nuevo = projects.find(p => !projectIdsBeforeCreate.current.has(p.id));
+                    if (nuevo) {
+                        setFormData(prev => ({ ...prev, projectId: nuevo.id }));
+                        toast.success(`Proyecto "${nuevo.name}" creado y vinculado.`);
+                    }
+                    setShowCreateProject(false);
+                }}
+            />
+        )}
+        </>
     );
 };

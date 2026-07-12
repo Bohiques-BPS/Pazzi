@@ -10,7 +10,8 @@ import { toast } from 'react-hot-toast';
 
 interface BranchFormModalProps {
     isOpen: boolean;
-    onClose: () => void;
+    /** Devuelve la sucursal recién creada (si aplica) para poder seleccionarla en el form padre. */
+    onClose: (createdBranch?: Branch) => void;
     branchToEdit: Branch | null;
 }
 
@@ -86,7 +87,7 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
                     setBranches(prev => [...prev, result]);
                 }
                 toast.success(branchToEdit ? 'Sucursal actualizada' : 'Sucursal creada');
-                onClose();
+                onClose(branchToEdit ? undefined : result);
             } else {
                 toast.error(result.error || "Error al guardar la sucursal.");
             }
@@ -125,7 +126,7 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={isSubmitting}>{t('common.cancel')}</button>
+                    <button type="button" onClick={() => onClose()} className={BUTTON_SECONDARY_SM_CLASSES} disabled={isSubmitting}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
                         {isSubmitting ? (
                             <span className="flex items-center gap-2">

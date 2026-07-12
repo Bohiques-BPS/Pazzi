@@ -12,8 +12,20 @@ import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, Cog6Too
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID, inputFormStyle } from '../../constants'; 
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
+import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModal';
+import { productsService } from '../../services/products';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
+
+// Campos importables de producto + alias para el auto-mapeo heurístico de columnas.
+const PRODUCT_IMPORT_FIELDS: ImportFieldDef[] = [
+    { key: 'name', label: 'Nombre', required: true, aliases: ['producto', 'descripcion corta', 'articulo', 'item', 'nombre producto'] },
+    { key: 'unitPrice', label: 'Precio de venta', type: 'number', aliases: ['precio', 'precio venta', 'pvp', 'venta', 'price'] },
+    { key: 'costPrice', label: 'Costo', type: 'number', aliases: ['costo', 'precio costo', 'cost'] },
+    { key: 'description', label: 'Descripción', aliases: ['descripcion', 'detalle', 'desc'] },
+    { key: 'barcode13Digits', label: 'Código de barras', aliases: ['barcode', 'codigo barras', 'ean', 'upc', 'codigo'] },
+    { key: 'sku', label: 'SKU / Código', aliases: ['sku', 'codigo interno', 'referencia', 'ref', 'clave'] },
+];
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
@@ -23,6 +35,8 @@ export const ProductsListPage: React.FC = () => {
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [loadingData, setLoadingData] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
@@ -79,7 +93,7 @@ export const ProductsListPage: React.FC = () => {
             }
         };
         fetchProducts();
-    }, [setProducts]);
+    }, [setProducts, refreshKey]);
 
 
     const openModalForCreate = () => {
@@ -248,8 +262,15 @@ export const ProductsListPage: React.FC = () => {
                         <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tarjetas"><Squares2X2Icon className="w-5 h-5"/></button>
                         <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon className="w-5 h-5"/></button>
                     </div>
-                    <button 
-                        onClick={openModalForCreate} 
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
+                        title="Importar productos desde Excel o CSV"
+                    >
+                       📥 Importar
+                    </button>
+                    <button
+                        onClick={openModalForCreate}
                         className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}
                     >
                        <PlusIcon className="w-5 h-5"/> {t('product.list.add')}
@@ -328,6 +349,23 @@ export const ProductsListPage: React.FC = () => {
                 product={productToAdjust}
                 branchId={branchForAdjustment}
             />
+            {showImportModal && (
+                <ImportModal
+                    isOpen={showImportModal}
+                    onClose={() => setShowImportModal(false)}
+                    title="Importar productos"
+                    fields={PRODUCT_IMPORT_FIELDS}
+                    onImport={async (rows) => {
+                        // Mapear a la forma del backend: sku (columna) -> skus (array).
+                        const payloads = rows.map(r => {
+                            const { sku, ...rest } = r;
+                            return { ...rest, skus: sku ? [String(sku)] : [] };
+                        });
+                        return productsService.bulkImport(payloads);
+                    }}
+                    onDone={() => setRefreshKey(k => k + 1)}
+                />
+            )}
         </div>
     );
 };

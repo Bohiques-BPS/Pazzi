@@ -12,7 +12,8 @@ import { API_URL } from '../../services/api';
 
 interface SupplierFormModalProps {
     isOpen: boolean;
-    onClose: () => void;
+    /** Devuelve el proveedor recién creado (si aplica) para seleccionarlo en el form padre. */
+    onClose: (createdSupplier?: Supplier) => void;
     supplier: Supplier | null;
     storeOwnerId?: string;
 }
@@ -91,7 +92,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                     setSuppliers(prev => [...prev, result]);
                 }
                 toast.success(supplier ? "Proveedor actualizado" : "Proveedor creado");
-                onClose();
+                onClose(supplier ? undefined : result);
             } else {
                 toast.error(result.error || "Error al guardar el proveedor.");
             }
@@ -130,7 +131,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                     <RichTextEditor value={formData.address || ''} onChange={(value) => setFormData(prev => ({...prev, address: value}))} placeholder="" />
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                    <button type="button" onClick={() => onClose()} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
                         {isSubmitting ? (
                             <span className="flex items-center gap-2">

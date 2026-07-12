@@ -5,6 +5,7 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/Modal';
 import { ClientSearchModal } from '../../components/ClientSearchModal';
+import { ClientFormModal } from '../pm/ClientFormModal';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { UserCircleIcon, TrashIconMini } from '../../components/icons';
@@ -23,6 +24,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
     const { clients, products, setEstimates, getProductById, branches } = useData();
     const { currentUser } = useAuth();
     const [isClientSearchModalOpen, setIsClientSearchModalOpen] = useState(false);
+    const [showCreateClient, setShowCreateClient] = useState(false);
     
     const initialFormData: EstimateFormData = {
         clientId: '',
@@ -56,7 +58,10 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                 setFormData(initialFormData);
             }
         }
-    }, [estimateToEdit, isOpen, clients, initialFormData]);
+    // Solo al abrir o cambiar de estimado. NO dependemos de `clients` para no reiniciar
+    // el formulario (perder progreso) cuando se crea un cliente inline.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [estimateToEdit, isOpen]);
 
     const handleClientSelect = (client: Client) => {
         setSelectedClient(client);
@@ -222,13 +227,26 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                     </div>
                 </form>
             </Modal>
-            <ClientSearchModal 
+            <ClientSearchModal
                 isOpen={isClientSearchModalOpen}
                 onClose={() => setIsClientSearchModalOpen(false)}
                 clients={clients}
                 onClientSelect={handleClientSelect}
-                onOpenCreateClient={() => { /* Logic to open full client modal could go here */ }}
+                onOpenCreateClient={() => { setIsClientSearchModalOpen(false); setShowCreateClient(true); }}
             />
+            {showCreateClient && (
+                <ClientFormModal
+                    isOpen={showCreateClient}
+                    client={null}
+                    onClose={(newClient) => {
+                        if (newClient) {
+                            handleClientSelect(newClient);
+                            toast.success(`Cliente "${newClient.name} ${newClient.lastName}" creado y seleccionado.`);
+                        }
+                        setShowCreateClient(false);
+                    }}
+                />
+            )}
         </>
     );
 };

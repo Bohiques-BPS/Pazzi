@@ -9,6 +9,8 @@ import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraI
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
+import { ClientFormModal } from './ClientFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
@@ -54,6 +56,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     
     const [formData, setFormData] = useState<ProjectFormData>(getInitialFormData());
     const [submitting, setSubmitting] = useState(false);
+    // Modal anidado para crear un cliente sin salir del formulario de proyecto.
+    const [showCreateClient, setShowCreateClient] = useState(false);
 
     const [currentProduct, setCurrentProduct] = useState<string>('');
     const [currentQuantity, setCurrentQuantity] = useState<number>(1);
@@ -132,8 +136,11 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
             setCurrentSingleWorkDay(defaultToday);
             setCurrentWorkDayRange({...defaultWorkDayTime});
         }
+    // Solo reseteamos al abrir el modal o cambiar de proyecto. NO dependemos de `clients`
+    // ni de `projectRelevantProducts`: si el usuario crea un cliente inline, la lista cambia
+    // pero el formulario NO debe reiniciarse (perdería el progreso).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [project, isOpen, clients, initialTab, projectRelevantProducts]);
+    }, [project, isOpen, initialTab]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         if (isEmployeeView && activeTab === 'details') return; 
@@ -486,13 +493,20 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                     <label htmlFor="projectName" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.name')}</label>
                                     <input type="text" name="name" id="projectName" value={formData.name} onChange={handleChange} className={inputFormStyle} required/>
                                 </div>
-                                <div>
-                                    <label htmlFor="clientId" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.client')}</label>
-                                    <select name="clientId" id="clientId" value={formData.clientId} onChange={handleChange} className={inputFormStyle} required>
-                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
-                                        {clients.length === 0 && <option value="" disabled>No hay clientes</option>}
-                                    </select>
-                                </div>
+                                <SelectWithCreate
+                                    id="clientId"
+                                    name="clientId"
+                                    label={t('project.field.client')}
+                                    value={formData.clientId}
+                                    onChange={(v) => setFormData(prev => ({ ...prev, clientId: v }))}
+                                    options={clients.map(c => ({ value: c.id, label: `${c.name} ${c.lastName}` }))}
+                                    onCreateClick={() => setShowCreateClient(true)}
+                                    required
+                                    placeholder={clients.length === 0 ? 'No hay clientes' : undefined}
+                                    emptyHint="No hay clientes. Usa + para crear uno sin perder este formulario."
+                                    createTitle="Crear nuevo cliente"
+                                    disabled={!canEditDetails}
+                                />
                             </div>
                             <div>
                                 <label htmlFor="projectStatus" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.status')}</label>
@@ -758,6 +772,21 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                 }
                 confirmButtonText="Sí, Mover Proyectos"
                 cancelButtonText="No, Cancelar"
+            />
+        )}
+        {showCreateClient && (
+            <ClientFormModal
+                isOpen={showCreateClient}
+                client={null}
+                onClose={(newClient) => {
+                    // Al crear, ClientFormModal ya actualizó el contexto y devuelve el cliente.
+                    // Lo seleccionamos en el proyecto y volvemos al formulario intacto.
+                    if (newClient) {
+                        setFormData(prev => ({ ...prev, clientId: newClient.id }));
+                        toast.success(`Cliente "${newClient.name} ${newClient.lastName}" creado y seleccionado.`);
+                    }
+                    setShowCreateClient(false);
+                }}
             />
         )}
         </>

@@ -7,6 +7,8 @@ import { cajasService } from '../../services/cajas';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
+import { SelectWithCreate } from '../ui/SelectWithCreate';
+import { BranchFormModal } from './BranchFormModal';
 
 interface CajaFormModalProps {
     isOpen: boolean;
@@ -28,6 +30,8 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
     const [formData, setFormData] = useState<CajaFormData>(initialFormData);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Modal anidado para crear una sucursal sin salir del formulario de caja.
+    const [showCreateBranch, setShowCreateBranch] = useState(false);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -110,6 +114,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
     };
 
     return (
+        <>
         <Modal isOpen={isOpen} onClose={onClose} title={cajaToEdit ? 'Editar caja (terminal)' : 'Crear caja (terminal)'} size="lg">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
@@ -123,18 +128,19 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                     <label htmlFor="cajaName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre de la caja</label>
                     <input type="text" name="name" id="cajaName" value={formData.name} onChange={handleChange} className={inputFormStyle} required autoFocus />
                 </div>
-                <div>
-                    <label htmlFor="branchId" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Sucursal asignada</label>
-                    <select name="branchId" id="branchId" value={formData.branchId} onChange={handleChange} className={inputFormStyle} required>
-                        <option value="">Seleccionar sucursal</option>
-                        {activeBranches.map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.name}</option>
-                        ))}
-                    </select>
-                    {activeBranches.length === 0 && (
-                        <p className="text-xs text-red-500 mt-1">No hay sucursales activas. Active o cree una sucursal primero.</p>
-                    )}
-                </div>
+                <SelectWithCreate
+                    id="branchId"
+                    name="branchId"
+                    label="Sucursal asignada"
+                    value={formData.branchId}
+                    onChange={(v) => setFormData(prev => ({ ...prev, branchId: v }))}
+                    options={activeBranches.map(b => ({ value: b.id, label: b.name }))}
+                    onCreateClick={() => setShowCreateBranch(true)}
+                    required
+                    placeholder="Seleccionar sucursal"
+                    emptyHint="No hay sucursales activas. Usa + para crear una sin perder este formulario."
+                    createTitle="Crear nueva sucursal"
+                />
 
                 <div className="flex flex-wrap items-center gap-6 pt-2">
                     <label htmlFor="isActive" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -170,5 +176,19 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                 </div>
             </form>
         </Modal>
+        {showCreateBranch && (
+            <BranchFormModal
+                isOpen={showCreateBranch}
+                branchToEdit={null}
+                onClose={(createdBranch) => {
+                    if (createdBranch) {
+                        setFormData(prev => ({ ...prev, branchId: createdBranch.id }));
+                        toast.success(`Sucursal "${createdBranch.name}" creada y seleccionada.`);
+                    }
+                    setShowCreateBranch(false);
+                }}
+            />
+        )}
+        </>
     );
 };
