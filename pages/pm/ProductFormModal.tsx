@@ -501,14 +501,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="w-32 h-32 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-md flex items-center justify-center bg-neutral-50 dark:bg-neutral-800">
+                                        <label htmlFor="product-image-input" className="w-32 h-32 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-md flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title="Haz clic para elegir una imagen">
                                             <CameraIcon className="w-8 h-8 text-neutral-400" />
-                                        </div>
+                                        </label>
                                     )}
                                     <div className="flex flex-col space-y-2">
                                         <label className={BUTTON_SECONDARY_SM_CLASSES + " cursor-pointer"}>
                                             {t('product.image_file') || 'Elegir Imagen'}
-                                            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                            <input id="product-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                         </label>
                                         <p className="text-xs text-neutral-500">Opcional. PNG, JPG hasta 5MB</p>
                                     </div>

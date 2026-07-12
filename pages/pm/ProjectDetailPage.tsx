@@ -12,6 +12,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
+import { ClientFormModal } from './ClientFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
 import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
@@ -140,6 +141,8 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const [conflictDetails, setConflictDetails] = useState<{ conflictingProjects: { project: Project; employee: Employee }[]; date: string; actionToConfirm: () => void; } | null>(null);
     const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
     const [isClientDetailModalOpen, setIsClientDetailModalOpen] = useState(false);
+    // Modal anidado para crear un cliente sin salir del formulario de proyecto.
+    const [showCreateClient, setShowCreateClient] = useState(false);
 
     const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
     const canEditDetails = !isEmployeeView;
@@ -162,8 +165,11 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
         setCurrentQuantity(1);
         setCurrentSingleWorkDay(defaultToday);
         setCurrentWorkDayRange({...defaultWorkDayTime});
+    // Solo reseteamos al cambiar de proyecto. NO dependemos de `clients` ni de
+    // `projectRelevantProducts`: si el usuario crea un cliente inline, la lista cambia
+    // pero el formulario NO debe reiniciarse (perdería el progreso).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [project, clients, projectRelevantProducts]);
+    }, [project]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         if (isEmployeeView) return; 
@@ -288,9 +294,19 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                         <ChevronDownIcon className="w-4 h-4" />
                                     </div>
                                 </div>
-                                <button 
-                                    type="button" 
-                                    onClick={() => setIsClientDetailModalOpen(true)} 
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreateClient(true)}
+                                    disabled={!canEditDetails}
+                                    className="flex-shrink-0 p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Crear nuevo cliente"
+                                    aria-label="Crear nuevo cliente"
+                                >
+                                    <PlusIcon className="w-5 h-5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsClientDetailModalOpen(true)}
                                     disabled={!selectedClientDetails || !canEditDetails}
                                     className="p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     aria-label="Ver detalles del cliente"
@@ -466,11 +482,26 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                 </div>
             )}
         </form>
-        <ClientDetailViewModal 
-            isOpen={isClientDetailModalOpen} 
-            onClose={() => setIsClientDetailModalOpen(false)} 
-            client={selectedClientDetails} 
+        <ClientDetailViewModal
+            isOpen={isClientDetailModalOpen}
+            onClose={() => setIsClientDetailModalOpen(false)}
+            client={selectedClientDetails}
         />
+        {showCreateClient && (
+            <ClientFormModal
+                isOpen={showCreateClient}
+                client={null}
+                onClose={(newClient) => {
+                    // ClientFormModal ya actualizó el contexto y devuelve el cliente creado.
+                    // Lo seleccionamos y volvemos al formulario intacto (sin perder progreso).
+                    if (newClient) {
+                        setFormData(prev => ({ ...prev, clientId: newClient.id }));
+                        toast.success(`Cliente "${newClient.name} ${newClient.lastName}" creado y seleccionado.`);
+                    }
+                    setShowCreateClient(false);
+                }}
+            />
+        )}
         </>
     );
 };

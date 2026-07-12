@@ -413,13 +413,13 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="w-24 h-24 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-800">
+                                    <label htmlFor="employee-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title="Haz clic para elegir una imagen">
                                         <CameraIcon className="w-8 h-8 text-neutral-400" />
-                                    </div>
+                                    </label>
                                 )}
                                 <label className={BUTTON_SECONDARY_SM_CLASSES + ' cursor-pointer'}>
                                     Elegir Archivo
-                                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                    <input id="employee-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 </label>
                             </div>
                         </div>

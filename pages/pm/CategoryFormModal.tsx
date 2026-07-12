@@ -160,11 +160,11 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                                 <button type="button" onClick={() => {setImageFile(null); setImagePreview(null);}} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-md"><TrashIconMini className="w-4 h-4" /></button>
                             </div>
                         ) : (
-                            <div className="w-24 h-24 border-2 border-dashed border-neutral-300 rounded-md flex items-center justify-center bg-neutral-50"><CameraIcon className="w-6 h-6 text-neutral-400" /></div>
+                            <label htmlFor="category-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 rounded-md flex items-center justify-center bg-neutral-50 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title="Haz clic para elegir una imagen"><CameraIcon className="w-6 h-6 text-neutral-400" /></label>
                         )}
                         <label className={BUTTON_SECONDARY_SM_CLASSES + " cursor-pointer"}>
                             Elegir Imagen
-                            <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                            <input id="category-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                         </label>
                     </div>
                 </div>
