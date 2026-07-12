@@ -123,7 +123,7 @@ export const ResetPasswordPage: React.FC = () => {
 
           {/* Banner panel */}
           <div className="hidden md:flex md:w-1/2 items-center justify-center relative overflow-hidden bg-primary dark:bg-neutral-900">
-            <img src={banner} alt="" className="w-full h-full object-cover opacity-80 dark:opacity-50" />
+            <img src={banner} alt="" className="absolute inset-0 w-full h-full object-cover opacity-80 dark:opacity-50" />
             <div className="absolute inset-0 bg-gradient-to-br from-primary/60 to-secondary/60 dark:from-neutral-900/80 dark:to-neutral-800/80" />
             <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center text-white">
               <h3 className="text-3xl font-bold mb-3 drop-shadow">Nueva contraseña</h3>
