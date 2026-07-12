@@ -81,20 +81,24 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
     const [rows, setRows] = useState<Record<string, any>[]>([]);
     const [mapping, setMapping] = useState<Record<string, string>>({});
     const [importing, setImporting] = useState(false);
+    const [parsing, setParsing] = useState(false);
     const [result, setResult] = useState<ImportResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const reset = () => {
         setStep('upload'); setFileName(''); setHeaders([]); setRows([]);
-        setMapping({}); setImporting(false); setResult(null); setError(null);
+        setMapping({}); setImporting(false); setParsing(false); setResult(null); setError(null);
     };
 
     const handleClose = () => { reset(); onClose(); };
 
     const handleFile = async (file: File) => {
         setError(null);
+        setParsing(true);
         try {
+            // Cede el hilo para que el spinner pinte antes de parsear archivos grandes.
+            await new Promise(r => setTimeout(r, 30));
             const buf = await file.arrayBuffer();
             const wb = XLSX.read(buf, { type: 'array' });
             const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -111,6 +115,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             setStep('map');
         } catch (err: any) {
             setError('No se pudo leer el archivo. Asegúrate de que sea .xlsx o .csv válido.');
+        } finally {
+            setParsing(false);
         }
     };
 
@@ -147,6 +153,17 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
 
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title={title} size="3xl">
+            {(parsing || importing) && (
+                <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="animate-spin rounded-full h-14 w-14 border-4 border-white/30 border-t-white mb-4"></div>
+                    <p className="text-white font-semibold text-lg">
+                        {parsing ? 'Leyendo archivo…' : 'Importando datos…'}
+                    </p>
+                    {importing && rows.length > 0 && (
+                        <p className="text-white/80 text-sm mt-1">Procesando {rows.length} fila(s). No cierres esta ventana.</p>
+                    )}
+                </div>
+            )}
             {error && (
                 <div className="mb-3 p-3 rounded-md bg-red-50 border border-red-200 flex items-start text-red-700 text-sm">
                     <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" /> {error}
