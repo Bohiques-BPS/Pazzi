@@ -439,11 +439,36 @@ export interface ChatMessage {
     text: string;
 }
 
+export type ECommerceTemplate = 'Moderno' | 'Catalogo' | 'Clasico' | 'Minimalista';
+
 export interface ECommerceSettings {
     storeName: string;
     logoUrl: string;
-    template: 'Moderno' | 'Clasico' | 'Minimalista';
+    template: ECommerceTemplate;
     primaryColor: string;
+    // Tema / branding
+    secondaryColor?: string;
+    accentColor?: string;
+    bannerUrl?: string | null;
+    tagline?: string | null;
+    description?: string | null;
+    // Contacto / redes
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    whatsapp?: string | null;
+    address?: string | null;
+    facebook?: string | null;
+    instagram?: string | null;
+    // Comercial
+    currency?: string;
+    isActive?: boolean;
+    // Envío
+    shippingEnabled?: boolean;
+    shippingCost?: number;
+    freeShippingThreshold?: number | null;
+    shippingNote?: string | null;
+    // Pagos: lista separada por comas — "cash,card,transfer,whatsapp,ath"
+    paymentMethods?: string;
 }
 
 export interface Supplier {

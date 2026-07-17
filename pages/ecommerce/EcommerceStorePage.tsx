@@ -4,7 +4,7 @@ import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Product, CartItem, ECommerceSettings as StoreSettingsType } from '../../types';
 import { ShoppingCartIcon, PlusIcon, TrashIconMini } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
 import { publicStoreService, type PublicProduct } from '../../services/publicStore';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -129,6 +129,14 @@ export const EcommerceStorePage: React.FC = () => {
     }
 
     const storePrimaryColor = storeSettings.primaryColor || DEFAULT_ECOMMERCE_SETTINGS.primaryColor;
+    const storeAccent = (storeSettings as any).accentColor || storePrimaryColor;
+    const template = (storeSettings as any).template || 'Moderno';
+    // La grilla se adapta al template: Catálogo = más denso; Minimalista = más aire.
+    const gridClass = template === 'Catalogo'
+        ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3'
+        : template === 'Minimalista'
+        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8'
+        : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6';
 
     return (
         <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
@@ -160,10 +168,25 @@ export const EcommerceStorePage: React.FC = () => {
                 </div>
             </header>
 
+            {/* Hero / banner */}
+            {((storeSettings as any).bannerUrl || (storeSettings as any).tagline) && (
+                <div className="relative overflow-hidden" style={{ backgroundColor: storePrimaryColor }}>
+                    {(storeSettings as any).bannerUrl && (
+                        <img src={(storeSettings as any).bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                    )}
+                    <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 text-center text-white">
+                        <h2 className="text-2xl sm:text-4xl font-bold drop-shadow">{storeSettings.storeName}</h2>
+                        {(storeSettings as any).tagline && (
+                            <p className="mt-2 text-sm sm:text-lg opacity-95 max-w-2xl mx-auto drop-shadow">{(storeSettings as any).tagline}</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Product Listing */}
             <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {filteredProducts.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div className={gridClass}>
                         {filteredProducts.map(product => (
                             <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} />
                         ))}

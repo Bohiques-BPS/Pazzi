@@ -369,10 +369,28 @@ export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
 ];
 
 export const DEFAULT_ECOMMERCE_SETTINGS: ECommerceSettings = {
-    storeName: "Pazzi Tienda Online (Predeterminada)",
-    logoUrl: "https://picsum.photos/seed/pazzidefaultlogo/150/50",
+    storeName: "Mi Tienda",
+    logoUrl: "",
     template: 'Moderno',
-    primaryColor: '#0D9488', // Teal-600
+    primaryColor: '#0f766e',
+    secondaryColor: '#0891b2',
+    accentColor: '#f59e0b',
+    bannerUrl: '',
+    tagline: '',
+    description: '',
+    contactEmail: '',
+    contactPhone: '',
+    whatsapp: '',
+    address: '',
+    facebook: '',
+    instagram: '',
+    currency: '$',
+    isActive: true,
+    shippingEnabled: false,
+    shippingCost: 0,
+    freeShippingThreshold: null,
+    shippingNote: '',
+    paymentMethods: 'cash',
 };
 
 
