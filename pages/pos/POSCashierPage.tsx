@@ -362,7 +362,7 @@ export const POSCashierPage: React.FC = () => {
     // Set default client if none selected
     useEffect(() => {
         if (!selectedClient && clients.length > 0) {
-            const defaultClient = clients.find(c => c.id === DEFAULT_CLIENT_ID);
+            const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
             if (defaultClient) {
                 setSelectedClient(defaultClient);
             }
@@ -544,7 +544,7 @@ export const POSCashierPage: React.FC = () => {
 
     const clearCart = () => {
         setCart([]);
-        const defaultClient = clients.find(c => c.id === DEFAULT_CLIENT_ID);
+        const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
         setSelectedClient(defaultClient || null);
         setSelectedProjectId(null);
         setGeneralDiscount(null);
@@ -616,12 +616,12 @@ export const POSCashierPage: React.FC = () => {
                     setSelectedClient(client);
                 } else {
                     // If client not found, fallback to default or null
-                    const defaultClient = clients.find(c => c.id === DEFAULT_CLIENT_ID);
+                    const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
                     setSelectedClient(defaultClient || null);
                 }
             } else {
                 // If no clientId in recalled cart, reset to default
-                const defaultClient = clients.find(c => c.id === DEFAULT_CLIENT_ID);
+                const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
                 setSelectedClient(defaultClient || null);
             }
             setPosError(null);

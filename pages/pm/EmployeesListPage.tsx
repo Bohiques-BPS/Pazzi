@@ -61,9 +61,9 @@ export const EmployeesListPage: React.FC = () => {
         try {
             await employeesService.delete(itemToDeleteId);
             setEmployees(prev => prev.filter(e => e.id !== itemToDeleteId));
-            toast.success('Colaborador eliminado');
+            toast.success('Empleado eliminado');
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo eliminar el colaborador');
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo eliminar el empleado');
         } finally {
             setItemToDeleteId(null);
             setShowDeleteConfirmModal(false);
@@ -119,11 +119,11 @@ export const EmployeesListPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
-                <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('employee.list.title') || 'Colaboradores'}</h1>
+                <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('employee.list.title') || 'Empleados'}</h1>
                 <div className="flex items-center gap-2">
                     <PermissionGate require="employees.manage">
                         <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
-                            <PlusIcon /> {t('employee.list.create') || 'Crear colaborador'}
+                            <PlusIcon /> {t('employee.list.create') || 'Crear empleado'}
                         </button>
                     </PermissionGate>
                 </div>
@@ -133,11 +133,11 @@ export const EmployeesListPage: React.FC = () => {
 
             {!loadingData && employees.length === 0 && (
                 <EmptyState
-                    title="Sin colaboradores"
-                    description="Aún no hay colaboradores. Crea el primero para empezar."
+                    title="Sin empleados"
+                    description="Aún no hay empleados. Crea el primero para empezar."
                     cta={
                         <PermissionGate require="employees.manage">
-                            <button onClick={() => openModalForCreate()} className={BUTTON_PRIMARY_SM_CLASSES}>+ Crear primer colaborador</button>
+                            <button onClick={() => openModalForCreate()} className={BUTTON_PRIMARY_SM_CLASSES}>+ Crear primer empleado</button>
                         </PermissionGate>
                     }
                 />
@@ -199,7 +199,7 @@ export const EmployeesListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('confirm.delete.title') || 'Confirmar eliminación'}
-                message={t('confirm.delete.message') || '¿Estás seguro de eliminar este colaborador? Si tiene acceso al sistema, su cuenta también será eliminada.'}
+                message={t('confirm.delete.message') || '¿Estás seguro de eliminar este empleado? Si tiene acceso al sistema, su cuenta también será eliminada.'}
                 confirmButtonText={t('confirm.delete.btn') || 'Sí, eliminar'}
             />
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { Employee, EmployeeFormData, UserStatus, PermissionCategory, EmployeePermissions } from '../../types';
 import { useData } from '../../contexts/DataContext';
-import { Modal } from '../../components/Modal';
+import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EMPLOYEE_ROLES, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { LockClosedIcon, KeyIcon, CameraIcon, TrashIconMini, ExclamationTriangleIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
@@ -13,6 +13,9 @@ import { authService } from '../../services/auth';
 import { API_URL, ApiError } from '../../services/api';
 import { employeePositionsService, employeeDepartmentsService, type LookupItem } from '../../services/employeeMeta';
 import { PlusIcon } from '../../components/icons';
+import { rolesService, type Role } from '../../services/roles';
+import { RoleFormModal } from './RoleFormModal';
+import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
 
 interface EmployeeFormModalProps {
     isOpen: boolean;
@@ -93,6 +96,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
     const [catalogLoading, setCatalogLoading] = useState(false);
     const [linkedUser, setLinkedUser] = useState<EmployeeRecord['user']>(null);
     const [resending, setResending] = useState(false);
+    // Tras guardar con email cambiado, preguntamos si reenviar el correo de activación.
+    const [askResend, setAskResend] = useState(false);
 
     const tabs = [
         { id: 'Personal', label: t('employee.tab.personal') || 'Personal' },
@@ -132,6 +137,10 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
     const [empDepartments, setEmpDepartments] = useState<LookupItem[]>([]);
     const [showPositionModal, setShowPositionModal] = useState(false);
     const [showDeptModal, setShowDeptModal] = useState(false);
+    // Rol de permisos (centralizado). Los permisos vienen 100% del rol.
+    const [roles, setRoles] = useState<Role[]>([]);
+    const [permissionRoleId, setPermissionRoleId] = useState<string>('');
+    const [showRoleModal, setShowRoleModal] = useState(false);
 
     // Cargar catálogo de permisos cuando se abre el modal
     useEffect(() => {
@@ -144,6 +153,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             .finally(() => { if (!cancelled) setCatalogLoading(false); });
         employeePositionsService.getAll().then(data => { if (!cancelled) setPositions(data); }).catch(() => {});
         employeeDepartmentsService.getAll().then(data => { if (!cancelled) setEmpDepartments(data); }).catch(() => {});
+        rolesService.getAll().then(data => { if (!cancelled) setRoles(data); }).catch(() => {});
         return () => { cancelled = true; };
     }, [isOpen]);
 
@@ -154,6 +164,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             const empAny = employee as unknown as EmployeeRecord;
             const linked = empAny.user ?? null;
             setLinkedUser(linked);
+            setPermissionRoleId((linked as any)?.permissionRoleId || '');
             setFormData({
                 name: employee.name,
                 lastName: employee.lastName,
@@ -178,6 +189,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             });
         } else {
             setLinkedUser(null);
+            setPermissionRoleId('');
             setFormData(initialFormState);
         }
         setActiveTab('Personal');
@@ -284,14 +296,16 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             }
 
             const { confirmPin, enableLogin, permissions, salary, ...rest } = formData;
+            // Los permisos vienen del ROL (centralizado). Mandamos su snapshot como legacy.
+            const rolePerms = roles.find(r => r.id === permissionRoleId)?.permissions || {};
             const payload = {
                 ...rest,
                 profilePictureUrl: finalImageUrl,
                 salary: salary && salary > 0 ? salary : null,
                 // Solo enviar enableLogin si estamos creando o si se está habilitando por primera vez
                 ...(employee ? {} : { enableLogin: !!enableLogin }),
-                // Si hay user vinculado o estamos creando con login → mandar permissions
-                ...(enableLogin || linkedUser ? { permissions } : {}),
+                // Si hay user vinculado o estamos creando con login → mandar rol + snapshot de permisos
+                ...(enableLogin || linkedUser ? { permissionRoleId: permissionRoleId || null, permissions: rolePerms } : {}),
             };
 
             const saved = employee
@@ -302,12 +316,21 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 ? prev.map(emp => emp.id === employee.id ? (saved as unknown as Employee) : emp)
                 : [...prev, saved as unknown as Employee]);
 
+            // ¿Cambió el email de un empleado con cuenta de acceso? → preguntar si reenviar.
+            const emailChanged = !!employee && !!linkedUser && employee.email !== formData.email.trim();
+
             if (!employee && enableLogin) {
-                toast.success('Colaborador creado. Se envió una invitación por correo para activar su cuenta.');
+                toast.success('Empleado creado. Se envió una invitación por correo para activar su cuenta.');
             } else {
-                toast.success(employee ? 'Colaborador actualizado' : 'Colaborador creado');
+                toast.success(employee ? 'Empleado actualizado' : 'Empleado creado');
             }
-            onClose();
+
+            if (emailChanged) {
+                // No cerramos aún: mostramos la confirmación de reenvío.
+                setAskResend(true);
+            } else {
+                onClose();
+            }
         } catch (error) {
             if (error instanceof ApiError) {
                 if (error.status === 400 && Array.isArray(error.errors)) {
@@ -345,7 +368,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
 
     return (
         <>
-        <Modal isOpen={isOpen} onClose={onClose} title={employee ? (t('employee.form.edit') || 'Editar colaborador') : (t('employee.form.create') || 'Nuevo colaborador')} size="2xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={employee ? (t('employee.form.edit') || 'Editar empleado') : (t('employee.form.create') || 'Nuevo empleado')} size="2xl">
             <form onSubmit={handleSubmit}>
                 <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4 -mx-4 px-4 overflow-x-auto">
                     {tabs.map(tab => {
@@ -429,9 +452,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                     <div className={activeTab === 'Acceso y Empleo' ? 'space-y-4' : 'hidden'}>
                         <div>
                             <label className="block text-sm font-medium">Email (usuario)</label>
-                            <input type="email" name="email" value={formData.email} onChange={handleChange} className={`${inputFormStyle} ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : ''}`} disabled={!!employee} />
+                            <input type="email" name="email" value={formData.email} onChange={handleChange} className={`${inputFormStyle} ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : ''}`} />
                             {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
-                            {!!employee && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">El email no se puede cambiar para colaboradores existentes.</p>}
+                            {!!employee && linkedUser && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Si cambias el email, también se actualiza el correo de acceso del empleado.</p>}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 dark:border-neutral-600">
@@ -516,8 +539,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                                 <div>
                                     <div className="text-sm font-medium flex items-center"><LockClosedIcon className="w-4 h-4 mr-1" /> Habilitar acceso al sistema</div>
                                     <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                                        Se enviará un correo a {formData.email || 'el colaborador'} con un enlace para que cree su contraseña.
-                                        Si lo dejas desactivado, el colaborador solo será un registro de RRHH sin login.
+                                        Se enviará un correo a {formData.email || 'el empleado'} con un enlace para que cree su contraseña.
+                                        Si lo dejas desactivado, el empleado solo será un registro de RRHH sin login.
                                     </p>
                                 </div>
                             </label>
@@ -525,41 +548,42 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
 
                         {(formData.enableLogin || linkedUser) && (
                             <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Permisos granulares</h4>
-                                    <span className="text-xs text-neutral-500">{permsCount} permisos asignados</span>
+                                {/* Selector de ROL centralizado. Los permisos vienen 100% del rol. */}
+                                <SelectWithCreate
+                                    id="permissionRoleId"
+                                    label="Rol del empleado"
+                                    value={permissionRoleId}
+                                    onChange={setPermissionRoleId}
+                                    options={roles.map(r => ({ value: r.id, label: r.name }))}
+                                    onCreateClick={() => setShowRoleModal(true)}
+                                    placeholder="Sin rol asignado"
+                                    emptyHint="No hay roles. Usa + para crear uno (ej: Caja) con sus permisos."
+                                    createTitle="Crear nuevo rol"
+                                />
+
+                                <div className="flex items-center justify-between pt-2">
+                                    <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Permisos del rol (solo lectura)</h4>
+                                    <span className="text-xs text-neutral-500">
+                                        {Object.values(roles.find(r => r.id === permissionRoleId)?.permissions || {}).filter(Boolean).length} permiso(s)
+                                    </span>
                                 </div>
-                                {catalogLoading && (
-                                    <div className="text-sm text-neutral-500">Cargando catálogo de permisos...</div>
-                                )}
-                                {!catalogLoading && catalog.length === 0 && (
-                                    <div className="text-sm text-neutral-500">No se pudo cargar el catálogo de permisos.</div>
-                                )}
-                                {catalog.map(category => {
-                                    const perms = formData.permissions as EmployeePermissions || {};
-                                    const allOn = category.permissions.every(p => perms[p.key] === true);
-                                    const someOn = category.permissions.some(p => perms[p.key] === true);
+
+                                {!permissionRoleId ? (
+                                    <div className="text-sm text-neutral-500 bg-neutral-50 dark:bg-neutral-700/40 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md p-3">
+                                        Selecciona un rol arriba (o créalo con +). Los permisos se administran en el rol —
+                                        editarlo actualiza a todos los empleados que lo tengan.
+                                    </div>
+                                ) : catalog.map(category => {
+                                    const perms = roles.find(r => r.id === permissionRoleId)?.permissions || {};
                                     return (
                                         <fieldset key={category.key} className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
-                                            <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
+                                            <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
                                                 {category.label}
-                                                <button
-                                                    type="button"
-                                                    className="text-[10px] underline text-primary hover:text-secondary"
-                                                    onClick={() => toggleCategoryAll(category, !allOn)}
-                                                >
-                                                    {allOn ? 'Quitar todos' : someOn ? 'Marcar todos' : 'Marcar todos'}
-                                                </button>
                                             </legend>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5 mt-1">
                                                 {category.permissions.map(p => (
-                                                    <label key={p.key} className="flex items-center text-sm text-neutral-700 dark:text-neutral-300 gap-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={perms[p.key] === true}
-                                                            onChange={(e) => handlePermissionToggle(p.key, e.target.checked)}
-                                                            className="rounded text-primary focus:ring-primary"
-                                                        />
+                                                    <label key={p.key} className={`flex items-center text-sm gap-2 ${perms[p.key] ? 'text-neutral-700 dark:text-neutral-200' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                                                        <input type="checkbox" checked={perms[p.key] === true} disabled readOnly className="rounded" />
                                                         <span>{p.label}</span>
                                                     </label>
                                                 ))}
@@ -644,6 +668,28 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 setFormData(prev => ({ ...prev, department: created.name }));
             }}
         />
+        <ConfirmationModal
+            isOpen={askResend}
+            title="Correo actualizado"
+            message={`Cambiaste el correo a ${formData.email}. ¿Deseas enviar nuevamente el mensaje de activación a este correo?`}
+            confirmButtonText="Sí, reenviar"
+            cancelButtonText="No, gracias"
+            onConfirm={async () => { await handleResendInvitation(); }}
+            onClose={() => { setAskResend(false); onClose(); }}
+        />
+        {showRoleModal && (
+            <RoleFormModal
+                isOpen={showRoleModal}
+                roleToEdit={null}
+                onClose={(saved) => {
+                    setShowRoleModal(false);
+                    if (saved) {
+                        setRoles(prev => prev.some(r => r.id === saved.id) ? prev.map(r => r.id === saved.id ? saved : r) : [...prev, saved]);
+                        setPermissionRoleId(saved.id);
+                    }
+                }}
+            />
+        )}
         </>
     );
 };

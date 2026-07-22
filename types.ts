@@ -170,6 +170,7 @@ export interface Client {
     clientType: 'Particular' | 'Empresa';
     acquisitionSource?: string;
     isActive: boolean;
+    isDefault?: boolean; // Cliente "Público General" de mostrador (venta al público)
     creditLimit?: number;
     paymentTerms?: string;
     category?: string;

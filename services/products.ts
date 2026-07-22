@@ -22,7 +22,7 @@ export const productsService = {
     api.post<any>('/products', data),
 
   bulkImport: (items: any[]) =>
-    api.post<{ created: number; failedCount: number; failed: { row: number; error: string }[] }>('/products/import', { items }),
+    api.post<{ created: number; updated?: number; failedCount: number; failed: { row: number; error: string }[] }>('/products/import', { items }),
 
   update: (id: string, data: any) =>
     api.put<any>(`/products/${id}`, data),

@@ -51,6 +51,7 @@ import { CategoriesListPage } from './pages/pm/CategoriesListPage';
 import { DepartmentsListPage } from './pages/pm/DepartmentsListPage';
 import { ClientsListPage } from './pages/pm/ClientsListPage';
 import { EmployeesListPage } from './pages/pm/EmployeesListPage';
+import { RolesListPage } from './pages/pm/RolesListPage';
 import { ProjectsListPage } from './pages/pm/ProjectsListPage';
 import { ProjectDetailPage } from './pages/pm/ProjectDetailPage';
 import { ProjectCalendarPage } from './pages/pm/ProjectCalendarPage';
@@ -320,6 +321,7 @@ const AppContent: React.FC = () => {
                 <Route path="/tienda/departments" element={<DepartmentsListPage />} />
                 <Route path="/tienda/clients" element={<ClientsListPage />} />
                 <Route path="/tienda/employees" element={<EmployeesListPage />} />
+                <Route path="/tienda/roles" element={<RolesListPage />} />
                 <Route path="/tienda/branches" element={<BranchesListPage />} />
                 <Route path="/tienda/inventory" element={<POSInventoryPage />} />
                 <Route path="/tienda/suppliers" element={<SuppliersListPage />} />

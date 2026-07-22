@@ -78,7 +78,7 @@ export const TRANSLATIONS = {
         'Categorías': 'Categorías',
         'Departamentos': 'Departamentos',
         'Clientes': 'Clientes',
-        'Colaboradores': 'Colaboradores',
+        'Colaboradores': 'Empleados',
         'Sucursales': 'Sucursales',
         'Dashboard PM': 'Dashboard PM',
         'Proyectos': 'Proyectos',
@@ -173,10 +173,10 @@ export const TRANSLATIONS = {
         'branch.field.active': 'Sucursal Activa',
 
         // Employees
-        'employee.list.title': 'Gestión de Colaboradores',
-        'employee.list.create': 'Crear Colaborador',
-        'employee.form.create': 'Crear Colaborador',
-        'employee.form.edit': 'Editar Colaborador',
+        'employee.list.title': 'Gestión de Empleados',
+        'employee.list.create': 'Crear Empleado',
+        'employee.form.create': 'Crear Empleado',
+        'employee.form.edit': 'Editar Empleado',
         'employee.field.name': 'Nombre',
         'employee.field.lastname': 'Apellido',
         'employee.field.email': 'Email',

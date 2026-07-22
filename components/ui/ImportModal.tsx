@@ -17,6 +17,7 @@ export interface ImportFieldDef {
 
 export interface ImportResult {
     created: number;
+    updated?: number;
     failedCount: number;
     failed: { row: number; error: string }[];
 }
@@ -143,7 +144,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             const res = await onImport(mappedRows);
             setResult(res);
             setStep('result');
-            if (res.created > 0) { toast.success(`${res.created} registro(s) importado(s).`); onDone?.(); }
+            if (res.created > 0 || (res.updated ?? 0) > 0) {
+                const parts = [];
+                if (res.created > 0) parts.push(`${res.created} creado(s)`);
+                if ((res.updated ?? 0) > 0) parts.push(`${res.updated} actualizado(s)`);
+                toast.success(parts.join(', ') + '.');
+                onDone?.();
+            }
         } catch (err: any) {
             setError(err?.message || 'Error al importar.');
         } finally {
@@ -241,7 +248,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             {step === 'result' && result && (
                 <div className="space-y-4">
                     <div className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 text-green-700 dark:text-green-300">
-                        <p className="font-semibold">{result.created} registro(s) importado(s) correctamente.</p>
+                        <p className="font-semibold">
+                            {result.created} creado(s)
+                            {(result.updated ?? 0) > 0 && ` · ${result.updated} actualizado(s)`}.
+                        </p>
                         {result.failedCount > 0 && (
                             <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">{result.failedCount} fila(s) con errores (ver abajo).</p>
                         )}

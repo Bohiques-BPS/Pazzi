@@ -130,6 +130,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     
     const [newSpec, setNewSpec] = useState<CustomSpecification>({ name: '', value: '' });
     const [newPriceLevel, setNewPriceLevel] = useState<Partial<ProductPriceLevel>>({ levelName: '', price: 0 });
+    // % de ganancia sobre el costo para el nuevo nivel de precio (precio = costo * (1 + %/100)).
+    const [newLevelMargin, setNewLevelMargin] = useState<string>('');
     const [newVariation, setNewVariation] = useState<Partial<ProductVariation>>({ name: '', sku: '', unitPrice: 0 });
 
     useEffect(() => {
@@ -156,6 +158,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             setSkuInput('');
             setNewSpec({ name: '', value: '' });
             setNewPriceLevel({ levelName: '', price: 0 });
+            setNewLevelMargin('');
             setNewVariation({ name: '', sku: '', unitPrice: 0 });
             setFieldErrors({});
             setGeneralError(null);
@@ -219,6 +222,28 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     };
 
     // Price Levels Logic
+    // El usuario escribe un % de ganancia → calculamos el precio = costo * (1 + %/100).
+    const handleLevelMarginChange = (val: string) => {
+        setNewLevelMargin(val);
+        const m = parseFloat(val);
+        const cost = formData.costPrice || 0;
+        if (!isNaN(m) && cost > 0) {
+            const price = Math.round(cost * (1 + m / 100) * 100) / 100;
+            setNewPriceLevel(prev => ({ ...prev, price }));
+        }
+    };
+
+    // Si escribe el precio directo, derivamos el % de ganancia contra el costo.
+    const handleLevelPriceChange = (val: string) => {
+        const price = parseFloat(val);
+        setNewPriceLevel(prev => ({ ...prev, price: isNaN(price) ? 0 : price }));
+        const cost = formData.costPrice || 0;
+        if (!isNaN(price) && cost > 0) {
+            const m = Math.round(((price / cost) - 1) * 100 * 100) / 100;
+            setNewLevelMargin(String(m));
+        }
+    };
+
     const handleAddPriceLevel = () => {
         if (newPriceLevel.levelName && newPriceLevel.price !== undefined) {
             const newItem: ProductPriceLevel = {
@@ -228,6 +253,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             };
             setFormData(prev => ({ ...prev, priceLevels: [...(prev.priceLevels || []), newItem] }));
             setNewPriceLevel({ levelName: '', price: 0 });
+            setNewLevelMargin('');
         }
     };
 
@@ -807,13 +833,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                                     <option value="Precio Empleado">Precio Empleado</option>
                                                 </select>
                                             </div>
-                                            <div className="flex gap-2">
+                                            <div className="flex gap-2 items-end">
                                                 <div className="flex-grow">
-                                                    <label className="block text-xs font-medium">Precio Base</label>
-                                                    <input type="number" value={newPriceLevel.price} onChange={e => setNewPriceLevel(prev => ({...prev, price: parseFloat(e.target.value)}))} className={inputFormStyle} step="0.01" min="0" />
+                                                    <label className="block text-xs font-medium">Precio</label>
+                                                    <input type="number" value={newPriceLevel.price} onChange={e => handleLevelPriceChange(e.target.value)} className={inputFormStyle} step="0.01" min="0" />
                                                 </div>
-                                                <button type="button" onClick={handleAddPriceLevel} className={`${BUTTON_PRIMARY_SM_CLASSES} h-12 mt-auto`}>{t('common.add')}</button>
+                                                <div className="w-24">
+                                                    <label className="block text-xs font-medium">% Ganancia</label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            value={newLevelMargin}
+                                                            onChange={e => handleLevelMarginChange(e.target.value)}
+                                                            className={`${inputFormStyle} pr-6`}
+                                                            step="0.1"
+                                                            placeholder="10"
+                                                            disabled={!formData.costPrice}
+                                                            title={!formData.costPrice ? 'Define el costo del producto primero' : 'Ganancia sobre el costo'}
+                                                        />
+                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 text-sm pointer-events-none">%</span>
+                                                    </div>
+                                                </div>
+                                                <button type="button" onClick={handleAddPriceLevel} className={`${BUTTON_PRIMARY_SM_CLASSES} h-12`}>{t('common.add')}</button>
                                             </div>
+                                            <p className="text-xs text-neutral-500 dark:text-neutral-400 md:col-span-2">
+                                                {formData.costPrice
+                                                    ? <>Costo: <strong>${(formData.costPrice || 0).toFixed(2)}</strong>. Escribe el % de ganancia y el precio se calcula solo (ej: 10% → ${((formData.costPrice || 0) * 1.1).toFixed(2)}).</>
+                                                    : <>Define el <strong>Costo</strong> del producto (pestaña Precios) para calcular el precio por % de ganancia.</>}
+                                            </p>
                                         </div>
                                     </fieldset>
                                     {formData.priceLevels && formData.priceLevels.length > 0 && (
@@ -824,7 +871,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                                     <li key={pl.id} className="flex justify-between items-center p-2 bg-white dark:bg-neutral-700 rounded shadow-sm">
                                                         <span>{pl.levelName}</span>
                                                         <div className="flex items-center gap-4">
-                                                            <span className="font-semibold">${pl.price.toFixed(2)}</span>
+                                                            <span className="font-semibold">
+                                                                ${pl.price.toFixed(2)}
+                                                                {(formData.costPrice || 0) > 0 && (
+                                                                    <span className="ml-1 text-xs font-normal text-green-600 dark:text-green-400">
+                                                                        ({(((pl.price / (formData.costPrice || 1)) - 1) * 100).toFixed(1)}%)
+                                                                    </span>
+                                                                )}
+                                                            </span>
                                                             <button type="button" onClick={() => handleRemovePriceLevel(pl.id)} className="text-red-500 hover:text-red-700"><TrashIconMini/></button>
                                                         </div>
                                                     </li>

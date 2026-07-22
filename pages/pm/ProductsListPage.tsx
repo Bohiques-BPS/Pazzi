@@ -18,13 +18,27 @@ import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
 
 // Campos importables de producto + alias para el auto-mapeo heurístico de columnas.
+// categoryName / departmentName / supplierName se resuelven por NOMBRE en el backend
+// (crea la categoría/división/proveedor si no existe y enlaza el id al producto).
 const PRODUCT_IMPORT_FIELDS: ImportFieldDef[] = [
-    { key: 'name', label: 'Nombre', required: true, aliases: ['producto', 'descripcion corta', 'articulo', 'item', 'nombre producto'] },
-    { key: 'unitPrice', label: 'Precio de venta', type: 'number', aliases: ['precio', 'precio venta', 'pvp', 'venta', 'price'] },
-    { key: 'costPrice', label: 'Costo', type: 'number', aliases: ['costo', 'precio costo', 'cost'] },
-    { key: 'description', label: 'Descripción', aliases: ['descripcion', 'detalle', 'desc'] },
-    { key: 'barcode13Digits', label: 'Código de barras', aliases: ['barcode', 'codigo barras', 'ean', 'upc', 'codigo'] },
-    { key: 'sku', label: 'SKU / Código', aliases: ['sku', 'codigo interno', 'referencia', 'ref', 'clave'] },
+    { key: 'name', label: 'Nombre', required: true, aliases: ['descripcion', 'producto', 'articulo', 'item', 'nombre producto'] },
+    { key: 'categoryName', label: 'Categoría (por nombre)', aliases: ['categoria', 'category', 'rubro'] },
+    { key: 'departmentName', label: 'División / Departamento', aliases: ['division', 'departamento', 'department'] },
+    { key: 'supplierName', label: 'Proveedor (por nombre)', aliases: ['suplidor1', 'suplidor', 'proveedor', 'supplier'] },
+    { key: 'unitPrice', label: 'Precio de venta', type: 'number', aliases: ['precioventa', 'precio venta', 'precio', 'pvp', 'venta', 'price'] },
+    { key: 'costPrice', label: 'Costo', type: 'number', aliases: ['costoreal', 'costo real', 'costo', 'cost'] },
+    { key: 'initialStock', label: 'Stock inicial', type: 'number', aliases: ['balanceinicial', 'balance inicial', 'stock inicial', 'existencia', 'cantidad'] },
+    { key: 'sku', label: 'SKU / Referencia', aliases: ['referencia', 'sku', 'codigo interno', 'ref', 'clave'] },
+    { key: 'barcode13Digits', label: 'Código de barras', aliases: ['barcode', 'codigo barras', 'ean', 'upc', 'bcde13', 'codigo'] },
+    { key: 'barcode2', label: 'Código de barras 2', aliases: ['barcode2', 'codigo barras 2'] },
+    { key: 'chainCode', label: 'Código de cadena', aliases: ['bccadena', 'codigo cadena', 'chain'] },
+    { key: 'family', label: 'Familia', aliases: ['familia', 'family'] },
+    { key: 'manufacturer', label: 'Marca / Fabricante', aliases: ['marca', 'fabricante', 'manufacturer', 'brand'] },
+    { key: 'physicalLocation', label: 'Localización', aliases: ['localizacion', 'ubicacion', 'location'] },
+    { key: 'weight', label: 'Peso', type: 'number', aliases: ['peso', 'weight'] },
+    { key: 'description', label: 'Descripción larga', aliases: ['longdesc', 'descripcion larga', 'detalle'] },
+    { key: 'isActive', label: 'Activo', type: 'boolean', aliases: ['activo', 'active'] },
+    { key: 'isService', label: 'Es servicio', type: 'boolean', aliases: ['esservicio', 'es servicio', 'servicio', 'service'] },
 ];
 
 export const ProductsListPage: React.FC = () => {
@@ -50,9 +64,20 @@ export const ProductsListPage: React.FC = () => {
 
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE_CARD_VIEW = 10;
+    const [totalCount, setTotalCount] = useState(0);
+    const PAGE_SIZE = 24;
+
+    // Debounce de la búsqueda para no pegarle al backend en cada tecla.
+    useEffect(() => {
+        const id = setTimeout(() => setDebouncedSearch(searchTerm), 350);
+        return () => clearTimeout(id);
+    }, [searchTerm]);
+
+    // Al cambiar búsqueda o categoría, volver a la página 1.
+    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selectedCategory]);
 
     // Sincronizamos globalProducts directamente con el estado products que viene del fetch
     const globalProducts = products;
@@ -67,14 +92,25 @@ export const ProductsListPage: React.FC = () => {
         const fetchProducts = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch(`${API_URL}/products`, {
+                // Paginación + búsqueda + categoría del lado del servidor (soporta catálogos grandes).
+                const params = new URLSearchParams();
+                params.set('page', String(currentPage));
+                params.set('limit', String(PAGE_SIZE));
+                if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+                if (selectedCategory !== 'Todos') {
+                    const cat = dynamicCategories.find(c => c.name === selectedCategory);
+                    if (cat) params.set('categoryId', cat.id);
+                }
+                const response = await fetch(`${API_URL}/products?${params.toString()}`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
                     }
                 });
                 const data = await response.json();
-                
+                const total = Number(response.headers.get('X-Total-Count'));
+                setTotalCount(Number.isFinite(total) ? total : 0);
+
                 if (Array.isArray(data)) {
                     // Normalizamos los productos para que la categoría sea un string (el nombre)
                     const normalized = data.map((p: any) => ({
@@ -93,7 +129,7 @@ export const ProductsListPage: React.FC = () => {
             }
         };
         fetchProducts();
-    }, [setProducts, refreshKey]);
+    }, [setProducts, refreshKey, currentPage, debouncedSearch, selectedCategory, dynamicCategories]);
 
 
     const openModalForCreate = () => {
@@ -162,24 +198,10 @@ export const ProductsListPage: React.FC = () => {
         setShowDeleteConfirmModal(false);
     };
 
-    const filteredProducts = useMemo(() => {
-        return globalProducts 
-            .filter(p => {
-                const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                     (p.skus && p.skus.some(s => s.toLowerCase().includes(searchTerm.toLowerCase())));
-                
-                const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
-
-                return matchesSearch && matchesCategory;
-            });
-    }, [globalProducts, searchTerm, selectedCategory]);
-
-    const paginatedCardProducts = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE_CARD_VIEW;
-        return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE_CARD_VIEW);
-    }, [filteredProducts, currentPage]);
-    
-    const totalCardPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE_CARD_VIEW);
+    // El backend ya devuelve la página filtrada por búsqueda/categoría → usamos los datos tal cual.
+    const filteredProducts = globalProducts;
+    const paginatedCardProducts = globalProducts;
+    const totalCardPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
     const tableColumns = useMemo((): TableColumn<Product>[] => {
         const staticColumns: TableColumn<Product>[] = [
@@ -239,7 +261,7 @@ export const ProductsListPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('product.list.title')}</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('product.list.title')} {totalCount > 0 && <span className="text-base font-normal text-neutral-500">({totalCount})</span>}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <input 
                         type="text" 
@@ -312,6 +334,7 @@ export const ProductsListPage: React.FC = () => {
                     )}
                 </>
             ) : !loadingData && (
+                <>
                  <DataTable<Product>
                     data={filteredProducts}
                     columns={tableColumns}
@@ -323,6 +346,14 @@ export const ProductsListPage: React.FC = () => {
                         </div>
                     )}
                 />
+                {totalCardPages > 1 && (
+                    <div className="mt-6 flex justify-center items-center space-x-2">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.previous')}</button>
+                        <span className="text-sm text-neutral-600 dark:text-neutral-300">{t('common.page_of', { current: currentPage, total: totalCardPages })}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(totalCardPages, p + 1))} disabled={currentPage === totalCardPages} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.next')}</button>
+                    </div>
+                )}
+                </>
             )}
             <ProductFormModal 
                 isOpen={showFormModal} 
