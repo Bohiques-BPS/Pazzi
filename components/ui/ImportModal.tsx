@@ -97,13 +97,14 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
     const [mapping, setMapping] = useState<Record<string, string>>({});
     const [importing, setImporting] = useState(false);
     const [parsing, setParsing] = useState(false);
+    const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
     const [result, setResult] = useState<ImportResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const reset = () => {
         setStep('upload'); setFileName(''); setHeaders([]); setRows([]);
-        setMapping({}); setImporting(false); setParsing(false); setResult(null); setError(null);
+        setMapping({}); setImporting(false); setParsing(false); setResult(null); setError(null); setProgress(null);
     };
 
     const handleClose = () => { reset(); onClose(); };
@@ -154,14 +155,28 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             return;
         }
         setImporting(true); setError(null);
+        setProgress({ done: 0, total: mappedRows.length });
         try {
-            const res = await onImport(mappedRows);
-            setResult(res);
+            // Importar por lotes: evita "payload too large" y timeouts con miles de filas.
+            const CHUNK = 400;
+            const agg: ImportResult = { created: 0, updated: 0, failedCount: 0, failed: [] };
+            for (let i = 0; i < mappedRows.length; i += CHUNK) {
+                const chunk = mappedRows.slice(i, i + CHUNK);
+                const res = await onImport(chunk);
+                agg.created += res.created || 0;
+                agg.updated = (agg.updated || 0) + (res.updated || 0);
+                agg.failedCount += res.failedCount || 0;
+                if (res.failed?.length && agg.failed.length < 300) {
+                    agg.failed.push(...res.failed.map(f => ({ row: f.row + i, error: f.error })));
+                }
+                setProgress({ done: Math.min(i + CHUNK, mappedRows.length), total: mappedRows.length });
+            }
+            setResult(agg);
             setStep('result');
-            if (res.created > 0 || (res.updated ?? 0) > 0) {
+            if (agg.created > 0 || (agg.updated ?? 0) > 0) {
                 const parts = [];
-                if (res.created > 0) parts.push(`${res.created} creado(s)`);
-                if ((res.updated ?? 0) > 0) parts.push(`${res.updated} actualizado(s)`);
+                if (agg.created > 0) parts.push(`${agg.created} creado(s)`);
+                if ((agg.updated ?? 0) > 0) parts.push(`${agg.updated} actualizado(s)`);
                 toast.success(parts.join(', ') + '.');
                 onDone?.();
             }
@@ -169,6 +184,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             setError(err?.message || 'Error al importar.');
         } finally {
             setImporting(false);
+            setProgress(null);
         }
     };
 
@@ -180,8 +196,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                     <p className="text-white font-semibold text-lg">
                         {parsing ? 'Leyendo archivo…' : 'Importando datos…'}
                     </p>
-                    {importing && rows.length > 0 && (
-                        <p className="text-white/80 text-sm mt-1">Procesando {rows.length} fila(s). No cierres esta ventana.</p>
+                    {importing && progress && (
+                        <>
+                            <p className="text-white/80 text-sm mt-1">Procesando {progress.done.toLocaleString()} de {progress.total.toLocaleString()} fila(s). No cierres esta ventana.</p>
+                            <div className="w-64 h-2 bg-white/20 rounded-full mt-3 overflow-hidden">
+                                <div className="h-full bg-white transition-all" style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
+                            </div>
+                        </>
                     )}
                 </div>
             )}
