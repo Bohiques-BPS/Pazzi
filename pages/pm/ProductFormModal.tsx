@@ -10,6 +10,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { CategoryFormModal } from './CategoryFormModal';
 import { DepartmentFormModal } from './DepartmentFormModal';
 import { BranchFormModal } from '../../components/forms/BranchFormModal';
+import { ADVANCED_PRODUCT_FIELDS, ADVANCED_PRODUCT_GROUPS } from '../../config/advancedProductFields';
 import { API_URL } from '../../services/api';
 import { z } from 'zod';
 import { zodIssuesToFieldErrors } from '../../schemas/common.schema';
@@ -449,6 +450,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
         { id: 'Niveles de Precio', label: t('product.tab.prices') },
         { id: 'Variaciones', label: t('product.tab.variations') },
         { id: 'Configuración POS', label: t('product.tab.pos') },
+        { id: 'Avanzado', label: 'Avanzado' },
     ];
 
     const tabsWithErrors = useMemo(() => {
@@ -960,6 +962,49 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                     <span className="text-sm">{t('product.field.pos_barcode')}</span>
                                 </label>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'Avanzado' && (
+                        <div className="space-y-5">
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                Campos opcionales (traídos del sistema anterior / importación). Déjalos vacíos si no aplican.
+                            </p>
+                            {ADVANCED_PRODUCT_GROUPS.map(group => (
+                                <fieldset key={group} className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
+                                    <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">{group}</legend>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 mt-1">
+                                        {ADVANCED_PRODUCT_FIELDS.filter(f => f.group === group).map(f => {
+                                            const val = (formData as any)[f.key];
+                                            if (f.type === 'boolean') {
+                                                return (
+                                                    <label key={f.key} className="flex items-center gap-2 text-sm">
+                                                        <input type="checkbox" checked={!!val} onChange={e => setFormData(prev => ({ ...prev, [f.key]: e.target.checked }))} className="h-4 w-4 rounded text-primary" />
+                                                        <span>{f.label}</span>
+                                                    </label>
+                                                );
+                                            }
+                                            const inputType = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text';
+                                            const inputValue = f.type === 'date' ? (val ? String(val).slice(0, 10) : '') : (val ?? '');
+                                            return (
+                                                <div key={f.key}>
+                                                    <label className="block text-xs font-medium mb-0.5">{f.label}</label>
+                                                    <input
+                                                        type={inputType}
+                                                        value={inputValue}
+                                                        step={f.type === 'number' ? 'any' : undefined}
+                                                        onChange={e => {
+                                                            const v = e.target.value;
+                                                            setFormData(prev => ({ ...prev, [f.key]: f.type === 'number' ? (v === '' ? undefined : parseFloat(v)) : (v === '' ? undefined : v) }));
+                                                        }}
+                                                        className={inputFormStyle}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </fieldset>
+                            ))}
                         </div>
                     )}
                 </div>

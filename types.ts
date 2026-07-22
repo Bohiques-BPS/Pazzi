@@ -138,6 +138,25 @@ export interface Product {
     hasPriceLevels?: boolean;
     priceLevels?: ProductPriceLevel[];
     customSpecifications?: CustomSpecification[]; // New field
+
+    // ── Campos avanzados / importación (todos opcionales) ──
+    supplier2Name?: string;
+    priceLevel1?: number; priceLevel2?: number; priceLevel3?: number;
+    handlingCost?: number; supplierCost?: number; lastCost?: number;
+    taxValue?: number; specialTax?: number;
+    reorderMin?: number; reorderMax?: number; leadTimeDays?: number;
+    orderMethod?: string; suggestedOrder?: number; suggestedPurchase?: number;
+    suggestedOrderCost?: number; suggestedOrderUnit?: number;
+    unitsPerReceipt?: number; unitsPerSale?: number; conversionFactor?: number; weightType?: string;
+    model?: string; yearFrom?: number; yearTo?: number; isOriginal?: boolean; substitute?: string; serie?: string;
+    cityTaxable?: boolean; stateTaxable?: boolean; isFood?: boolean;
+    isWic?: boolean; isSss?: boolean; isCoop?: boolean; isAlcohol?: boolean; isTobacco?: boolean; isSpecial?: boolean;
+    commissionType?: string; commissionValue?: number;
+    fifoCount?: boolean; isPerpetual?: boolean; printLabel?: boolean; manualPrice?: boolean;
+    allowDiscount?: boolean; isEcommerce?: boolean; isRaffle?: boolean;
+    priceFlag?: string; companyId?: string; spareNum?: number; spareText?: string; productComment?: string;
+    receivedQty?: number; orderedQty?: number; soldQty?: number; purchasedQty?: number; reservedQty?: number;
+    lastSaleDate?: string; lastReceiptDate?: string; minAlertDate?: string;
 }
 
 export interface ProductStockInfo extends Product {

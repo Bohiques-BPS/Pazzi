@@ -10,7 +10,7 @@ export interface ImportFieldDef {
     key: string;
     label: string;
     required?: boolean;
-    type?: 'string' | 'number' | 'boolean';
+    type?: 'string' | 'number' | 'boolean' | 'date';
     /** Nombres de columna candidatos para el auto-mapeo heurístico. */
     aliases?: string[];
 }
@@ -71,6 +71,20 @@ function coerce(value: any, type?: string): any {
     if (type === 'boolean') {
         const v = String(value).trim().toLowerCase();
         return ['1', 'true', 'si', 'sí', 'yes', 'x', 'verdadero'].includes(v);
+    }
+    if (type === 'date') {
+        // Excel guarda fechas como número serial (días desde 1899-12-30). Lo convertimos a fecha real.
+        let d: Date | null = null;
+        const raw = String(value).trim();
+        if (/^\d+(\.\d+)?$/.test(raw)) {
+            const serial = parseFloat(raw);
+            if (serial > 0) d = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+        } else {
+            const parsed = new Date(raw);
+            if (!isNaN(parsed.getTime())) d = parsed;
+        }
+        if (!d || isNaN(d.getTime())) return undefined;
+        return d.toISOString().slice(0, 10); // YYYY-MM-DD
     }
     return String(value).trim();
 }
@@ -159,7 +173,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} title={title} size="3xl">
+        <Modal isOpen={isOpen} onClose={handleClose} title={title} size="6xl">
             {(parsing || importing) && (
                 <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="animate-spin rounded-full h-14 w-14 border-4 border-white/30 border-t-white mb-4"></div>
@@ -199,9 +213,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             {step === 'map' && (
                 <div className="space-y-4">
                     <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                        Archivo <strong>{fileName}</strong> — {rows.length} fila(s). Confirma o corrige el mapeo de columnas:
+                        Archivo <strong>{fileName}</strong> — {rows.length} fila(s).{' '}
+                        <strong>{fields.filter(f => mapping[f.key]).length}</strong> de {fields.length} campos mapeados.
+                        Confirma o corrige el mapeo (desplázate para ver todos):
                     </p>
-                    <div className="max-h-64 overflow-y-auto border rounded-md dark:border-neutral-700">
+                    <div className="max-h-[62vh] overflow-y-auto border rounded-md dark:border-neutral-700">
                         <table className="min-w-full text-sm">
                             <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
                                 <tr>

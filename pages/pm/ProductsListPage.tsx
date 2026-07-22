@@ -13,6 +13,7 @@ import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSE
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModal';
+import { ADVANCED_PRODUCT_FIELDS } from '../../config/advancedProductFields';
 import { productsService } from '../../services/products';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
@@ -39,6 +40,14 @@ const PRODUCT_IMPORT_FIELDS: ImportFieldDef[] = [
     { key: 'description', label: 'Descripción larga', aliases: ['longdesc', 'descripcion larga', 'detalle'] },
     { key: 'isActive', label: 'Activo', type: 'boolean', aliases: ['activo', 'active'] },
     { key: 'isService', label: 'Es servicio', type: 'boolean', aliases: ['esservicio', 'es servicio', 'servicio', 'service'] },
+    { key: 'creationDate', label: 'Fecha de creación', type: 'date', aliases: ['fechacreado', 'fecha creado', 'creado'] },
+    // Campos avanzados (config compartido con el formulario).
+    ...ADVANCED_PRODUCT_FIELDS.map(f => ({
+        key: f.key,
+        label: f.label,
+        type: (f.type === 'text' ? 'string' : f.type) as 'string' | 'number' | 'boolean' | 'date',
+        aliases: f.aliases,
+    })),
 ];
 
 export const ProductsListPage: React.FC = () => {
