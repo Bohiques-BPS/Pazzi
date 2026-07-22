@@ -274,8 +274,8 @@ export const ProductsListPage: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <input 
                         type="text" 
-                        placeholder={t('common.search') + "..."}
-                        value={searchTerm} 
+                        placeholder="Buscar por nombre, SKU, código de barras, categoría, proveedor…"
+                        value={searchTerm}
                         onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1);}}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
                         aria-label="Buscar productos"
