@@ -16,6 +16,7 @@ import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModa
 import { ADVANCED_PRODUCT_FIELDS } from '../../config/advancedProductFields';
 import { productsService } from '../../services/products';
 import { API_URL } from '../../services/api';
+import logo from '../../assets/logo.png';
 import { toast } from 'react-hot-toast';
 
 // Campos importables de producto + alias para el auto-mapeo heurístico de columnas.
@@ -224,11 +225,12 @@ export const ProductsListPage: React.FC = () => {
                                     ? product.imageUrl
                                     : `${API_URL.replace('/api', '')}${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}`
                                 } 
-                                alt={product.name} 
-                                className="w-full h-full object-cover" 
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { const t = e.target as HTMLImageElement; if (!t.dataset.fallback) { t.dataset.fallback = '1'; t.src = logo; t.className = 'w-full h-full object-contain p-1 opacity-60'; } }}
                             />
                         ) : (
-                            <div className="text-neutral-400 text-[8px] font-bold">N/A</div>
+                            <img src={logo} alt="" className="w-full h-full object-contain p-1 opacity-50" />
                         )}
                     </div>
                 ),

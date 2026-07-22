@@ -3,6 +3,8 @@ import { Product } from '../../types'; // Adjusted path
 import { EllipsisVerticalIcon, ListBulletIcon as HistoryIcon, Cog6ToothIcon as AdjustIcon, EditIcon, DeleteIcon } from '../icons'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // For getting default branch stock (optional display)
 import { ADMIN_USER_ID } from '../../constants';
+import { API_URL } from '../../services/api';
+import logo from '../../assets/logo.png';
 
 interface ProductCardProps {
     product: Product;
@@ -22,9 +24,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md flex flex-col overflow-hidden hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-200">
             <div className="w-full h-44 bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center overflow-hidden">
                 <img
-                    src={product.imageUrl || 'https://picsum.photos/seed/defaultprod/300/200'}
+                    src={product.imageUrl
+                        ? (product.imageUrl.startsWith('http')
+                            ? product.imageUrl
+                            : `${API_URL.replace('/api', '')}${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}`)
+                        : logo}
                     alt={product.name}
-                    className="w-full h-full object-contain p-2"
+                    className={product.imageUrl ? 'w-full h-full object-contain p-2' : 'h-20 object-contain opacity-60'}
+                    onError={(e) => { const t = e.target as HTMLImageElement; if (!t.dataset.fallback) { t.dataset.fallback = '1'; t.src = logo; t.className = 'h-20 object-contain opacity-60'; } }}
                 />
             </div>
             <div className="p-3 flex flex-col flex-grow">

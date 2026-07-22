@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Product } from '../../types';
 import { MagnifyingGlassIcon } from '../icons';
+import logo from '../../assets/logo.png';
 
 interface ProductAutocompleteProps {
     products: Product[];
@@ -170,7 +171,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 aria-selected={activeIndex === index}
                             >
                                 <img 
-                                    src={product.imageUrl || 'https://picsum.photos/seed/defaultprod/50/50'} 
+                                    src={product.imageUrl || logo} 
                                     alt={product.name} 
                                     className="w-10 h-10 object-cover rounded flex-shrink-0"
                                 />

@@ -42,6 +42,7 @@ import { DiscountAuthModal } from '../../components/forms/DiscountAuthModal';
 import { ReturnModal } from '../../components/forms/ReturnModal';
 import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
 import { CajaFormModal } from '../../components/forms/CajaFormModal';
+import logo from '../../assets/logo.png';
 import { authService } from '../../services/auth';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { posService } from '../../services/pos';
@@ -1000,7 +1001,7 @@ export const POSCashierPage: React.FC = () => {
                                         <div className="flex w-full sm:col-span-6 items-center gap-3">
                                             <div className="flex-shrink-0">
                                                 <img 
-                                                    src={item.imageUrl || 'https://picsum.photos/seed/defaultprod/100/100'} 
+                                                    src={item.imageUrl || logo}
                                                     alt={item.name} 
                                                     className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-md shadow-sm" 
                                                 />
