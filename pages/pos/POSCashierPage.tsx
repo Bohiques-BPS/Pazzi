@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,8 +24,15 @@ import {
     ArrowLeftOnRectangleIcon as ExitIcon,
     TagIcon,
     ArrowUturnLeftIcon,
+    CameraIcon,
 } from '../../components/icons';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
+import { productsService } from '../../services/products';
+
+// Lazy: ZXing solo se descarga al abrir la cámara (no infla el bundle inicial del POS).
+const CameraScanModal = lazy(() =>
+    import('../../components/ui/CameraScanModal').then(m => ({ default: m.CameraScanModal }))
+);
 import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ClientFormModal } from '../pm/ClientFormModal';
 import { HeldCartsModal } from '../../components/ui/HeldCartsModal';
@@ -185,9 +192,8 @@ export const POSCashierPage: React.FC = () => {
         toast.error('Cambio de usuario por PIN está temporalmente deshabilitado.');
         return false;
     };
-    const [barcodeInput, setBarcodeInput] = useState('');
     const productSearchRef = useRef<HTMLInputElement>(null);
-    const barcodeInputRef = useRef<HTMLInputElement>(null);
+    const [showScanCamera, setShowScanCamera] = useState(false);
 
     // Shift and security states
     const [isPosAuthenticated, setIsPosAuthenticated] = useState(false);
@@ -219,8 +225,6 @@ export const POSCashierPage: React.FC = () => {
     const [posError, setPosError] = useState<string | null>(null);
     const [generalDiscount, setGeneralDiscount] = useState<{ type: 'percentage' | 'fixed'; value: number } | null>(null);
 
-    
-    const [branchProducts, setBranchProducts] = useState<Product[]>([]);
     
     // Modal states
     type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | null;
@@ -354,12 +358,6 @@ export const POSCashierPage: React.FC = () => {
         setCajaInitialized(true);
     }, [branches, cajas]);
 
-    useEffect(() => {
-        if (selectedBranchId) {
-            setBranchProducts(getProductsWithStockForBranch(selectedBranchId));
-        }
-    }, [selectedBranchId, getProductsWithStockForBranch, products]);
-
     // Set default client if none selected
     useEffect(() => {
         if (!selectedClient && clients.length > 0) {
@@ -475,33 +473,62 @@ export const POSCashierPage: React.FC = () => {
             }
             return [...prev, { ...product, quantity: 1 }];
         });
-        if (barcodeInputRef.current) {
-            barcodeInputRef.current.focus();
-        } else if (productSearchRef.current) {
+        if (productSearchRef.current) {
             productSearchRef.current.focus();
         }
     };
 
-    const handleBarcodeScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            const barcode = barcodeInput.trim();
-            if (barcode) {
-                const product = branchProducts.find(p => 
-                    p.barcode13Digits === barcode || 
-                    p.barcode2 === barcode ||
-                    (p.skus && p.skus.includes(barcode))
-                );
-                
-                if (product) {
-                    addProductToCart(product);
-                    setBarcodeInput('');
-                } else {
-                    setBarcodeInput('');
-                }
-            }
+    // Búsqueda de productos contra el servidor: siempre datos frescos (incluye productos
+    // recién creados) y busca por nombre, código de barras, SKU, categoría, etc.
+    const searchProductsRemote = useCallback(async (term: string): Promise<Product[]> => {
+        try {
+            const data = await productsService.getAll({ search: term, limit: 15 });
+            if (!Array.isArray(data)) return [];
+            return data.map((p: any) => {
+                const stockByBranch = Array.isArray(p.stockByBranch)
+                    ? p.stockByBranch.map((sb: any) => ({ branchId: sb.branchId, quantity: sb.quantity }))
+                    : [];
+                const stockEntry = stockByBranch.find((sb: any) => sb.branchId === selectedBranchId);
+                const totalStock = stockByBranch.reduce((sum: number, sb: any) => sum + sb.quantity, 0);
+                return {
+                    ...p,
+                    category: typeof p.category === 'object' && p.category ? p.category.name : p.category,
+                    skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s.sku) : [],
+                    stockByBranch,
+                    stockAtBranch: stockEntry ? stockEntry.quantity : 0,
+                    totalStockAcrossAllBranches: totalStock,
+                } as Product;
+            });
+        } catch (e) {
+            console.error('Error al buscar productos en la caja:', e);
+            return [];
         }
-    };
-    
+    }, [selectedBranchId]);
+
+    // Código detectado por la cámara: busca el producto exacto y lo agrega al carrito.
+    const handleCameraScan = useCallback(async (rawCode: string) => {
+        setShowScanCamera(false);
+        const code = rawCode.trim();
+        if (!code) return;
+        const results = await searchProductsRemote(code);
+        const exact = results.find(p =>
+            p.barcode13Digits === code ||
+            p.barcode2 === code ||
+            p.supplierProductCode === code ||
+            p.chainCode === code ||
+            (p.skus && p.skus.includes(code))
+        );
+        const product = exact || (results.length === 1 ? results[0] : null);
+        if (product) {
+            addProductToCart(product);
+            toast.success(`${product.name} agregado`);
+        } else if (results.length > 1) {
+            toast.error(`El código "${code}" coincide con varios productos. Búscalo por nombre.`);
+        } else {
+            toast.error(`No se encontró un producto con el código "${code}".`);
+        }
+    }, [searchProductsRemote]);
+
     const updateQuantity = (productId: string, quantity: number) => {
         setPosError(null);
         setCart(prev => {
@@ -549,9 +576,7 @@ export const POSCashierPage: React.FC = () => {
         setSelectedClient(defaultClient || null);
         setSelectedProjectId(null);
         setGeneralDiscount(null);
-        if (barcodeInputRef.current) {
-            barcodeInputRef.current.focus();
-        } else if (productSearchRef.current) {
+        if (productSearchRef.current) {
             productSearchRef.current.focus();
         }
         setPosError(null);
@@ -965,31 +990,29 @@ export const POSCashierPage: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <div className="p-3 border-b dark:border-neutral-700 space-y-3">
-                        {/* Barcode Scanner Input */}
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <svg className="h-5 w-5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                                </svg>
+                    <div className="p-3 border-b dark:border-neutral-700">
+                        <div className="flex items-center gap-2">
+                            <div className="flex-grow min-w-0">
+                                <ProductAutocomplete
+                                    onProductSelect={addProductToCart}
+                                    inputRef={productSearchRef}
+                                    onRemoteSearch={searchProductsRemote}
+                                    disabled={!isShiftActive}
+                                    autoFocus
+                                    placeholder="Buscar por nombre, código de barras o SKU…"
+                                />
                             </div>
-                            <input
-                                ref={barcodeInputRef}
-                                type="text"
-                                value={barcodeInput}
-                                onChange={(e) => setBarcodeInput(e.target.value)}
-                                onKeyDown={handleBarcodeScan}
-                                placeholder={t('pos.barcode_placeholder')}
+                            <button
+                                type="button"
+                                onClick={() => setShowScanCamera(true)}
                                 disabled={!isShiftActive}
-                                className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-md leading-5 bg-white dark:bg-neutral-700 dark:border-neutral-600 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm h-12 font-mono"
-                                autoFocus
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                <span className="text-[10px] text-neutral-400 uppercase font-bold">{t('pos.barcode_scan')}</span>
-                            </div>
+                                title="Escanear con la cámara"
+                                aria-label="Escanear con la cámara"
+                                className="flex-shrink-0 h-12 w-11 flex items-center justify-center rounded-md border border-neutral-300 dark:border-neutral-600 text-neutral-500 dark:text-neutral-400 hover:text-primary hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <CameraIcon className="w-5 h-5" />
+                            </button>
                         </div>
-
-                        <ProductAutocomplete products={branchProducts} onProductSelect={addProductToCart} inputRef={productSearchRef} placeholder={t('pos.search_placeholder')} />
                     </div>
                     <div className="flex-grow overflow-y-auto">
                         {cart.length === 0 ? (
@@ -1130,6 +1153,11 @@ export const POSCashierPage: React.FC = () => {
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
             <PaymentModal isOpen={activeModal === 'payment'} onClose={() => setActiveModal(null)} totalAmount={total} initialMethod={initialPaymentMethod} onFinalizeSale={handleFinalizeSale} />
+            {showScanCamera && (
+                <Suspense fallback={null}>
+                    <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title="Escanear producto" />
+                </Suspense>
+            )}
             <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => setActiveModal(null)} onConfirm={handleConfirmItemDelete} title="Confirmar Eliminación" message="Ingrese su contraseña para eliminar el artículo del carrito." />
             {selectedCajaId && (
                 <EndShiftModal

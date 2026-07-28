@@ -76,16 +76,17 @@ export const ADVANCED_PRODUCT_FIELDS: AdvancedProductField[] = [
     { key: 'productComment', label: 'Comentario', type: 'text', group: 'Configuración', aliases: ['prodcoment'] },
 
     // ── Fechas (se convierten del formato serial de Excel a fecha real) ──
-    { key: 'lastSaleDate', label: 'Última venta', type: 'date', group: 'Fechas', aliases: ['ultimaventa'] },
-    { key: 'lastReceiptDate', label: 'Último recibo', type: 'date', group: 'Fechas', aliases: ['ultimorecibo'] },
-    { key: 'minAlertDate', label: 'Fecha aviso mínimo', type: 'date', group: 'Fechas', aliases: ['fechaavisominimo'] },
+    { key: 'lastSaleDate', label: 'Última venta', type: 'date', group: 'Fechas', aliases: ['ultimaventa', 'fechaultimaventa', 'ultventa', 'ultimavta', 'fechaventa', 'lastsale', 'lastsaledate', 'lastselldate'] },
+    { key: 'lastReceiptDate', label: 'Último recibo', type: 'date', group: 'Fechas', aliases: ['ultimorecibo', 'fechaultimorecibo', 'ultrecibo', 'lastreceipt', 'lastreceiptdate', 'fecharecibo'] },
+    { key: 'minAlertDate', label: 'Fecha aviso mínimo', type: 'date', group: 'Fechas', aliases: ['fechaavisominimo', 'fechaaviso', 'minalertdate', 'fechaalertaminima'] },
 
     // ── Contadores heredados (informativo) ──
-    { key: 'receivedQty', label: 'Recibido', type: 'number', group: 'Contadores heredados', aliases: ['recibido'] },
-    { key: 'orderedQty', label: 'Ordenado', type: 'number', group: 'Contadores heredados', aliases: ['ordenado'] },
-    { key: 'soldQty', label: 'Vendido', type: 'number', group: 'Contadores heredados', aliases: ['vendido'] },
-    { key: 'purchasedQty', label: 'Comprado', type: 'number', group: 'Contadores heredados', aliases: ['comprado'] },
-    { key: 'reservedQty', label: 'Reservado', type: 'number', group: 'Contadores heredados', aliases: ['reservado'] },
+    // aliases normalizados (sin espacios/acentos): se busca por igualdad o substring (≥3 chars).
+    { key: 'receivedQty', label: 'Recibido', type: 'number', group: 'Contadores heredados', aliases: ['recibido', 'recibida', 'recibidos', 'recibidas', 'cantrecibida', 'cantidadrecibida', 'unidadesrecibidas', 'qtyreceived', 'received'] },
+    { key: 'orderedQty', label: 'Ordenado', type: 'number', group: 'Contadores heredados', aliases: ['ordenado', 'ordenada', 'ordenados', 'ordenadas', 'cantordenada', 'cantidadordenada', 'unidadesordenadas', 'qtyordered', 'ordered'] },
+    { key: 'soldQty', label: 'Vendido', type: 'number', group: 'Contadores heredados', aliases: ['vendido', 'vendida', 'vendidos', 'vendidas', 'cantvendida', 'cantidadvendida', 'cantvendido', 'cantidadvendidos', 'unidadesvendidas', 'unidvendidas', 'totalvendido', 'totalvendidas', 'qtysold', 'soldqty', 'unitssold'] },
+    { key: 'purchasedQty', label: 'Comprado', type: 'number', group: 'Contadores heredados', aliases: ['comprado', 'comprada', 'comprados', 'compradas', 'cantcomprada', 'cantidadcomprada', 'totalcomprado', 'qtypurchased', 'purchased'] },
+    { key: 'reservedQty', label: 'Reservado', type: 'number', group: 'Contadores heredados', aliases: ['reservado', 'reservada', 'reservados', 'reservadas', 'cantreservada', 'cantidadreservada', 'qtyreserved', 'reserved'] },
 ];
 
 /** Grupos en orden, para renderizar por secciones. */

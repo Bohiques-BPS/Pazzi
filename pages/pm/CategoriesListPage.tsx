@@ -128,6 +128,9 @@ export const CategoriesListPage: React.FC = () => {
                 </span>
             ),
             className: 'text-center w-24',
+            sortable: true,
+            sortKey: 'products',
+            sortValue: (category) => category._count?.products ?? 0,
         },
     ], [t]);
 

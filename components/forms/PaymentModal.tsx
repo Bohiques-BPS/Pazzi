@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Modal } from '../Modal';
 import { BanknotesIcon, CreditCardIcon, AthMovilIcon, DocumentTextIcon, ClipboardDocumentListIcon } from '../icons';
 import { BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_CLASSES } from '../../constants';
@@ -19,27 +19,49 @@ interface PaymentModalProps {
   onFinalizeSale: (paymentMethods: Payment[]) => void;
 }
 
-const paymentButtons: { name: PaymentMethod; icon: React.ReactNode }[] = [
-    { name: 'Efectivo', icon: <BanknotesIcon /> },
-    { name: 'Tarjeta', icon: <CreditCardIcon /> },
-    { name: 'ATH Móvil', icon: <AthMovilIcon /> },
-    { name: 'Crédito C.', icon: <ClipboardDocumentListIcon /> },
-    { name: 'Cheque', icon: <DocumentTextIcon /> },
+// El orden define el atajo: índice 0 → F1, 1 → F2, etc.
+const paymentButtons: { name: PaymentMethod; icon: React.ReactNode; shortcut: string }[] = [
+    { name: 'Efectivo', icon: <BanknotesIcon />, shortcut: 'F1' },
+    { name: 'Tarjeta', icon: <CreditCardIcon />, shortcut: 'F2' },
+    { name: 'ATH Móvil', icon: <AthMovilIcon />, shortcut: 'F3' },
+    { name: 'Crédito C.', icon: <ClipboardDocumentListIcon />, shortcut: 'F4' },
+    { name: 'Cheque', icon: <DocumentTextIcon />, shortcut: 'F5' },
 ];
+
+// Denominaciones rápidas de efectivo (billetes comunes).
+const CASH_QUICK_AMOUNTS = [5, 10, 20, 50, 100];
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, totalAmount, initialMethod, onFinalizeSale }) => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(initialMethod);
     const [amountInput, setAmountInput] = useState('');
+    // Vuelto a devolver: el efectivo entregado por encima del saldo. Es solo informativo
+    // (NO se registra como pago; el cajón solo retiene el monto de la venta).
+    const [changeDue, setChangeDue] = useState(0);
+    const amountInputRef = useRef<HTMLInputElement>(null);
+    // Siempre apunta a la acción actual de Enter (evita closures obsoletos en el listener global).
+    const onEnterRef = useRef<() => void>(() => {});
 
     const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
     const balance = totalAmount - totalPaid;
     const isFullyPaid = balance <= 0.001; // Using a small epsilon for float comparison
+    const isCash = selectedMethod === 'Efectivo';
+
+    // Vuelto en vivo mientras se escribe el monto de efectivo (antes de "Agregar Pago").
+    const previewChange = isCash ? Math.max(0, (parseFloat(amountInput) || 0) - balance) : 0;
+
+    const focusAmount = () => {
+        setTimeout(() => {
+            amountInputRef.current?.focus();
+            amountInputRef.current?.select();
+        }, 0);
+    };
 
     useEffect(() => {
         if (isOpen) {
             setPayments([]);
             setSelectedMethod(initialMethod);
+            setChangeDue(0);
         }
     }, [isOpen, initialMethod]);
 
@@ -49,18 +71,50 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         }
     }, [balance, isOpen]);
 
+    // Atajos de teclado: F1..F5 seleccionan método; Enter agrega el pago o finaliza la venta.
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e: KeyboardEvent) => {
+            const idx = paymentButtons.findIndex(b => b.shortcut === e.key);
+            if (idx >= 0) {
+                e.preventDefault();
+                setSelectedMethod(paymentButtons[idx].name);
+                focusAmount();
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                onEnterRef.current();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [isOpen]);
+
     const handleAddPayment = () => {
         const amount = parseFloat(amountInput);
-        if (isNaN(amount) || amount <= 0 || amount > balance + 0.001) {
+        if (isNaN(amount) || amount <= 0) {
             toast.error('Monto inválido. Verifique el valor ingresado.');
             return;
         }
+        // El efectivo puede exceder el saldo (se devuelve vuelto). Otros métodos no.
+        if (!isCash && amount > balance + 0.001) {
+            toast.error('El monto no puede superar el saldo pendiente para este método.');
+            return;
+        }
 
-        setPayments(prev => [...prev, { method: selectedMethod, amount }]);
+        // El monto registrado nunca excede el saldo: el excedente en efectivo es vuelto,
+        // no dinero que quede en la caja. Así la conciliación de caja cuadra.
+        const applied = isCash ? Math.min(amount, balance) : amount;
+        const change = isCash ? Math.max(0, amount - balance) : 0;
+
+        setPayments(prev => [...prev, { method: selectedMethod, amount: applied }]);
+        setChangeDue(change);
     };
-    
+
     const handleRemovePayment = (index: number) => {
         setPayments(prev => prev.filter((_, i) => i !== index));
+        setChangeDue(0);
     };
 
     const handleFinalize = () => {
@@ -76,16 +130,32 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             onFinalizeSale(payments);
         }
     };
-    
+
+    // Enter: si aún falta saldo, agrega el pago; si ya está pagado, finaliza la venta.
+    onEnterRef.current = () => {
+        if (isFullyPaid) {
+            handleFinalize();
+        } else {
+            handleAddPayment();
+        }
+    };
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Procesar Venta" size="3xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left Panel: Totals & Applied Payments */}
                 <div className="flex flex-col space-y-4">
-                    <div className="bg-red-50 dark:bg-red-900/30 text-center p-4 rounded-lg">
-                        <p className="text-sm font-medium text-red-700 dark:text-red-300">Saldo Pendiente</p>
-                        <p className="text-4xl font-bold text-red-600 dark:text-red-400">${balance.toFixed(2)}</p>
-                    </div>
+                    {changeDue > 0.001 ? (
+                        <div className="bg-green-50 dark:bg-green-900/30 text-center p-4 rounded-lg">
+                            <p className="text-sm font-medium text-green-700 dark:text-green-300">Cambio a devolver</p>
+                            <p className="text-4xl font-bold text-green-600 dark:text-green-400">${changeDue.toFixed(2)}</p>
+                        </div>
+                    ) : (
+                        <div className="bg-red-50 dark:bg-red-900/30 text-center p-4 rounded-lg">
+                            <p className="text-sm font-medium text-red-700 dark:text-red-300">Saldo Pendiente</p>
+                            <p className="text-4xl font-bold text-red-600 dark:text-red-400">${Math.max(0, balance).toFixed(2)}</p>
+                        </div>
+                    )}
                     <div>
                         <h3 className="font-semibold text-neutral-700 dark:text-neutral-200">Pagos Aplicados:</h3>
                         <div className="mt-2 space-y-2 text-sm max-h-40 overflow-y-auto pr-2">
@@ -114,17 +184,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                 <div className="space-y-4">
                     <h3 className="font-semibold text-neutral-700 dark:text-neutral-200">Seleccione Método y Monto:</h3>
                     <div className="grid grid-cols-2 gap-2">
-                        {paymentButtons.map(({ name }) => (
+                        {paymentButtons.map(({ name, shortcut }) => (
                             <button
                                 key={name}
                                 type="button"
-                                onClick={() => setSelectedMethod(name)}
-                                className={`p-2 border rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-neutral-800 ${
+                                onClick={() => { setSelectedMethod(name); focusAmount(); }}
+                                title={`Atajo: ${shortcut}`}
+                                className={`relative p-2 border rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-neutral-800 ${
                                     selectedMethod === name
                                         ? 'border-teal-500 ring-2 ring-teal-300 dark:ring-teal-600 bg-teal-50 dark:bg-teal-900/50'
                                         : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700'
                                 }`}
                             >
+                                <span className="absolute top-1 left-1.5 text-[10px] font-bold text-neutral-400 dark:text-neutral-500">{shortcut}</span>
                                 {name}
                             </button>
                         ))}
@@ -137,6 +209,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                         <div className="flex items-center gap-2">
                             <input
                                 id="paymentAmount"
+                                ref={amountInputRef}
                                 type="number"
                                 value={amountInput}
                                 onChange={(e) => setAmountInput(e.target.value)}
@@ -153,6 +226,36 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                 Agregar Pago
                             </button>
                         </div>
+
+                        {/* Efectivo: montos rápidos (billetes) + vuelto en vivo */}
+                        {isCash && (
+                            <div className="pt-2 space-y-2">
+                                <div className="flex flex-wrap gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAmountInput(balance > 0 ? balance.toFixed(2) : '0.00')}
+                                        className="px-2.5 py-1 text-xs font-semibold rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/40"
+                                    >
+                                        Exacto
+                                    </button>
+                                    {CASH_QUICK_AMOUNTS.map(amt => (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            onClick={() => setAmountInput(String(amt))}
+                                            className="px-2.5 py-1 text-xs font-semibold rounded-md border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                        >
+                                            ${amt}
+                                        </button>
+                                    ))}
+                                </div>
+                                {previewChange > 0.001 && (
+                                    <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                                        Vuelto: ${previewChange.toFixed(2)}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -167,7 +270,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                     className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400`}
                     disabled={balance > 0.001}
                 >
-                    Finalizar Venta
+                    Finalizar Venta <span className="ml-1 text-xs opacity-80">(Enter)</span>
                 </button>
             </div>
         </Modal>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pazzi - Integrated Business Platform</title>
+    <style>
+        html { font-size: 18px; }
+        body { margin: 0; font-family: sans-serif; }
+        #root { display: flex; flex-direction: column; min-height: 100vh; }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#0D9488', // teal-600
+            secondary: '#0F766E', // teal-700
+            accent: '#F59E0B' // amber-500
+          }
+        }
+      }
+    }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+
+<link rel="stylesheet" href="/index.css">
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
+        "jspdf": "https://aistudiocdn.com/jspdf@^3.0.3",
+        "xlsx": "https://aistudiocdn.com/xlsx@^0.18.5",
+        "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.3",
+        "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^5.0.2"
+      }
+    }
+    </script>
+  <script type="module" crossorigin src="/assets/index-v2NOnCBE.js"></script>
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+</body>
+</html>

@@ -104,6 +104,9 @@ export const DepartmentsListPage: React.FC = () => {
                 </span>
             ),
             className: 'text-center w-24',
+            sortable: true,
+            sortKey: 'products',
+            sortValue: (department) => department._count?.products ?? 0,
         },
     ];
 

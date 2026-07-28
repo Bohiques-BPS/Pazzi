@@ -1,8 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { Modal } from '../../components/Modal';
+import { CameraIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
+
+// Lazy: ZXing solo se descarga al abrir la cámara (no infla el bundle inicial).
+const CameraScanModal = lazy(() =>
+    import('../../components/ui/CameraScanModal').then(m => ({ default: m.CameraScanModal }))
+);
 
 /** Producto (forma cruda del backend) resuelto tras escanear/buscar un código. */
 interface FoundProduct {
@@ -47,6 +53,7 @@ export const ScanAssignModal: React.FC<ScanAssignModalProps> = ({ isOpen, onClos
     const [searching, setSearching] = useState(false);
     const [assigning, setAssigning] = useState(false);
     const [found, setFound] = useState<FoundProduct | null>(null);
+    const [showCamera, setShowCamera] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const isCategory = mode === 'category';
@@ -57,6 +64,7 @@ export const ScanAssignModal: React.FC<ScanAssignModalProps> = ({ isOpen, onClos
         if (isOpen) {
             setCode('');
             setFound(null);
+            setShowCamera(false);
             setTimeout(() => inputRef.current?.focus(), 50);
         }
     }, [isOpen]);
@@ -75,8 +83,8 @@ export const ScanAssignModal: React.FC<ScanAssignModalProps> = ({ isOpen, onClos
         setTimeout(() => inputRef.current?.focus(), 50);
     };
 
-    const handleLookup = async () => {
-        const term = code.trim();
+    const handleLookup = async (rawTerm?: string) => {
+        const term = (rawTerm ?? code).trim();
         if (!term) return;
         setSearching(true);
         setFound(null);
@@ -116,6 +124,13 @@ export const ScanAssignModal: React.FC<ScanAssignModalProps> = ({ isOpen, onClos
             e.preventDefault();
             handleLookup();
         }
+    };
+
+    // Código detectado por la cámara: cerrar el escáner, reflejarlo en el input y buscar.
+    const handleCameraDetected = (scanned: string) => {
+        setShowCamera(false);
+        setCode(scanned);
+        handleLookup(scanned);
     };
 
     const handleConfirmAssign = async () => {
@@ -182,15 +197,23 @@ export const ScanAssignModal: React.FC<ScanAssignModalProps> = ({ isOpen, onClos
                             autoComplete="off"
                         />
                         <button
-                            onClick={handleLookup}
+                            onClick={() => handleLookup()}
                             disabled={searching || !code.trim()}
                             className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0 disabled:opacity-50`}
                         >
                             {searching ? 'Buscando…' : 'Buscar'}
                         </button>
                     </div>
+                    <div className="mt-2">
+                        <button
+                            onClick={() => setShowCamera(true)}
+                            className={`${BUTTON_SECONDARY_SM_CLASSES} w-full flex items-center justify-center gap-2`}
+                        >
+                            <CameraIcon className="w-5 h-5" /> Escanear con la cámara del teléfono
+                        </button>
+                    </div>
                     <p className="mt-1 text-xs text-neutral-400">
-                        Puedes usar un lector de código de barras o teclear el código manualmente y presionar Enter.
+                        Puedes usar un lector de código de barras, la cámara del teléfono, o teclear el código y presionar Enter.
                     </p>
                 </div>
 
@@ -246,6 +269,17 @@ export const ScanAssignModal: React.FC<ScanAssignModalProps> = ({ isOpen, onClos
                     </div>
                 )}
             </div>
+
+            {showCamera && (
+                <Suspense fallback={null}>
+                    <CameraScanModal
+                        isOpen={showCamera}
+                        onClose={() => setShowCamera(false)}
+                        onDetected={handleCameraDetected}
+                        title={`Escanear ${entityLabel}`}
+                    />
+                </Suspense>
+            )}
         </Modal>
     );
 };

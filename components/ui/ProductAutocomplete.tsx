@@ -5,38 +5,66 @@ import { MagnifyingGlassIcon } from '../icons';
 import logo from '../../assets/logo.png';
 
 interface ProductAutocompleteProps {
-    products: Product[];
+    products?: Product[];
     onProductSelect: (product: Product) => void;
     placeholder?: string;
     disabled?: boolean;
     inputRef?: React.RefObject<HTMLInputElement>;
+    /** Si se pasa, la búsqueda se hace contra el servidor (nombre, código de barras, SKU, etc.)
+     *  en lugar de filtrar el array local `products`. Resuelve datos siempre frescos. */
+    onRemoteSearch?: (term: string) => Promise<Product[]>;
+    autoFocus?: boolean;
 }
 
 export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
-    products,
+    products = [],
     onProductSelect,
     placeholder = "Buscar producto...",
     disabled = false,
-    inputRef
+    inputRef,
+    onRemoteSearch,
+    autoFocus = false,
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [suggestions, setSuggestions] = useState<Product[]>([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
-    
+    const [loading, setLoading] = useState(false);
+
     const localInputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLUListElement>(null);
+    const searchIdRef = useRef(0); // evita condiciones de carrera entre respuestas remotas
 
     const effectiveInputRef = inputRef || localInputRef;
 
-    const filterProducts = useCallback(() => {
-        if (!searchTerm.trim()) { // Changed condition here
+    const runSearch = useCallback(async () => {
+        const term = searchTerm.trim();
+        if (!term) {
             setSuggestions([]);
             setIsDropdownOpen(false);
+            setLoading(false);
             return;
         }
 
-        const lowerSearchTerm = searchTerm.toLowerCase();
+        if (onRemoteSearch) {
+            const requestId = ++searchIdRef.current;
+            setLoading(true);
+            setIsDropdownOpen(true);
+            try {
+                const results = await onRemoteSearch(term);
+                if (requestId !== searchIdRef.current) return; // llegó una respuesta más nueva
+                setSuggestions(results.slice(0, 10));
+                setActiveIndex(-1);
+            } catch {
+                if (requestId !== searchIdRef.current) return;
+                setSuggestions([]);
+            } finally {
+                if (requestId === searchIdRef.current) setLoading(false);
+            }
+            return;
+        }
+
+        const lowerSearchTerm = term.toLowerCase();
         const filtered = products.filter(product =>
             product.name.toLowerCase().includes(lowerSearchTerm) ||
             (product.skus && product.skus.some(sku => sku.toLowerCase().includes(lowerSearchTerm))) ||
@@ -47,15 +75,15 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         setSuggestions(filtered);
         setIsDropdownOpen(filtered.length > 0);
         setActiveIndex(-1);
-    }, [searchTerm, products]);
+    }, [searchTerm, products, onRemoteSearch]);
 
     useEffect(() => {
         const debounceTimer = setTimeout(() => {
-            filterProducts();
+            runSearch();
         }, 300); // Debounce API calls or filtering
 
         return () => clearTimeout(debounceTimer);
-    }, [searchTerm, filterProducts]);
+    }, [searchTerm, runSearch]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -143,6 +171,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     disabled={disabled}
+                    autoFocus={autoFocus}
                     className="w-full px-3 py-2 pl-10 text-base border-neutral-400 border bg-white focus:ring-blue-500 focus:border-blue-500 rounded-md shadow-sm text-neutral-900 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 h-12"
                     aria-autocomplete="list"
                     aria-expanded={isDropdownOpen}
@@ -157,7 +186,11 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     className="absolute z-20 w-full mt-1 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-lg max-h-80 overflow-y-auto"
                     role="listbox"
                 >
-                    {suggestions.length > 0 ? (
+                    {loading ? (
+                        <li className="p-3 text-sm text-neutral-500 dark:text-neutral-400 text-center">
+                            Buscando…
+                        </li>
+                    ) : suggestions.length > 0 ? (
                         suggestions.map((product, index) => (
                             <li
                                 key={product.id}

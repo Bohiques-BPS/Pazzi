@@ -260,12 +260,18 @@ export const ProductsListPage: React.FC = () => {
                 );
             },
             className: 'text-right',
+            sortable: true,
+            sortKey: `branch-${branch.id}`,
+            sortValue: (product) => product.stockByBranch.find(sb => sb.branchId === branch.id)?.quantity ?? 0,
         }));
 
         const totalStockColumn: TableColumn<Product>[] = [{
             header: t('product.stock_total'),
             accessor: (product) => product.stockByBranch.reduce((sum, sb) => sum + sb.quantity, 0),
             className: 'text-right font-semibold',
+            sortable: true,
+            sortKey: 'totalStock',
+            sortValue: (product) => product.stockByBranch.reduce((sum, sb) => sum + sb.quantity, 0),
         }];
         
         return [...staticColumns, ...branchColumns, ...totalStockColumn];
