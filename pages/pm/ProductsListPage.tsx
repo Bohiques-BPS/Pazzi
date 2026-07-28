@@ -13,6 +13,7 @@ import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSE
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModal';
+import { ProductReportsModal } from './ProductReportsModal';
 import { ADVANCED_PRODUCT_FIELDS } from '../../config/advancedProductFields';
 import { productsService } from '../../services/products';
 import { API_URL } from '../../services/api';
@@ -60,6 +61,7 @@ export const ProductsListPage: React.FC = () => {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [loadingData, setLoadingData] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [showReportsModal, setShowReportsModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -296,6 +298,13 @@ export const ProductsListPage: React.FC = () => {
                         <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon className="w-5 h-5"/></button>
                     </div>
                     <button
+                        onClick={() => setShowReportsModal(true)}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
+                        title="Ver reportes de productos"
+                    >
+                       📊 Ver reporte de productos
+                    </button>
+                    <button
                         onClick={() => setShowImportModal(true)}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
                         title="Importar productos desde Excel o CSV"
@@ -406,6 +415,13 @@ export const ProductsListPage: React.FC = () => {
                         return productsService.bulkImport(payloads);
                     }}
                     onDone={() => setRefreshKey(k => k + 1)}
+                />
+            )}
+            {showReportsModal && (
+                <ProductReportsModal
+                    isOpen={showReportsModal}
+                    onClose={() => setShowReportsModal(false)}
+                    onProductsDeleted={() => setRefreshKey(k => k + 1)}
                 />
             )}
         </div>

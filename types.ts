@@ -171,12 +171,14 @@ export interface Category {
     description?: string;
     imageUrl?: string;
     storeOwnerId: string;
+    _count?: { products: number };
 }
 
 export interface Department {
     id: string;
     name: string;
     storeOwnerId: string;
+    _count?: { products: number };
 }
 
 export interface Client {

@@ -1,12 +1,13 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Category, CategoryFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { DataTable, TableColumn } from '../../components/DataTable'; // Adjusted path
 import { CategoryFormModal } from './CategoryFormModal'; // Adjusted path
+import { ScanAssignModal } from './ScanAssignModal';
 import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
-import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons'; // Adjusted path
-import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { PlusIcon, EditIcon, DeleteIcon, BarcodeScanIcon } from '../../components/icons'; // Adjusted path
+import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
@@ -20,30 +21,38 @@ export const CategoriesListPage: React.FC = () => {
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [scanTarget, setScanTarget] = useState<Category | null>(null);
+
+    const filteredCategories = useMemo(
+        () => categories.filter(c => c.name.toLowerCase().includes(searchTerm.trim().toLowerCase())),
+        [categories, searchTerm]
+    );
+
+    const fetchCategories = useCallback(async () => {
+        setLoadingData(true);
+        try {
+            const response = await fetch(`${API_URL}/categories`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
+                }
+            });
+            const data = await response.json();
+            if (Array.isArray(data)) {
+                setCategories(data);
+            }
+        } catch (error) {
+            console.error("Error al cargar categorías:", error);
+            toast.error('Error al cargar las categorías.');
+        } finally {
+            setLoadingData(false);
+        }
+    }, [setCategories]);
 
     // Carga de datos real desde el backend al entrar a la página
     useEffect(() => {
-        const fetchCategories = async () => {
-            setLoadingData(true);
-            try {
-                const response = await fetch(`${API_URL}/categories`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                const data = await response.json();
-                if (Array.isArray(data)) {
-                    setCategories(data);
-                }
-            } catch (error) {
-                console.error("Error al cargar categorías:", error);
-                toast.error('Error al cargar las categorías.');
-            } finally {
-                setLoadingData(false);
-            }
-        };
         fetchCategories();
-    }, [setCategories]);
+    }, [fetchCategories]);
 
     const openModalForCreate = (initialData?: Partial<CategoryFormData>) => {
         setEditingCategory(null);
@@ -111,14 +120,31 @@ export const CategoriesListPage: React.FC = () => {
             className: 'w-16 text-center'
         },
         { header: t('category.field.name'), accessor: 'name' },
+        {
+            header: 'Productos',
+            accessor: (category) => (
+                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                    {category._count?.products ?? 0}
+                </span>
+            ),
+            className: 'text-center w-24',
+        },
     ], [t]);
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('category.list.title')}</h1>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                    <input
+                        type="text"
+                        placeholder="Buscar categoría…"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className={`${INPUT_SM_CLASSES} flex-grow`}
+                        aria-label="Buscar categoría"
+                    />
+                    <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                         <PlusIcon /> {t('category.list.create')}
                     </button>
                 </div>
@@ -132,10 +158,13 @@ export const CategoriesListPage: React.FC = () => {
             )}
 
             <DataTable<Category>
-                data={categories}
+                data={filteredCategories}
                 columns={columns}
                 actions={(category) => (
                     <>
+                        <button onClick={() => setScanTarget(category)} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 p-1" aria-label="Escanear producto para asignar categoría" title="Escanear y asignar categoría">
+                            <BarcodeScanIcon />
+                        </button>
                         <button onClick={() => openModalForEdit(category)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')}>
                             <EditIcon />
                         </button>
@@ -146,6 +175,13 @@ export const CategoriesListPage: React.FC = () => {
                 )}
             />
             <CategoryFormModal isOpen={showFormModal} onClose={() => setShowFormModal(false)} category={editingCategory} />
+            <ScanAssignModal
+                isOpen={!!scanTarget}
+                onClose={() => setScanTarget(null)}
+                mode="category"
+                target={scanTarget ? { id: scanTarget.id, name: scanTarget.name } : null}
+                onAssigned={fetchCategories}
+            />
             <ConfirmationModal
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
