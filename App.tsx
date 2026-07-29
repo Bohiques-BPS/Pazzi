@@ -124,7 +124,12 @@ const AppContent: React.FC = () => {
   if (!appContext) throw new Error("AppContext not found for AppContent");
   const { currentModule, setCurrentModule } = appContext;
 
-  const { settings } = useGlobalSettings();
+  const { settings, loadSettings } = useGlobalSettings();
+
+  // Cargar la configuración del negocio desde la BD al iniciar sesión.
+  useEffect(() => {
+    if (currentUser) loadSettings();
+  }, [currentUser, loadSettings]);
 
   // Toasts globales para errores del API (403/429/5xx)
   useApiErrorToasts();

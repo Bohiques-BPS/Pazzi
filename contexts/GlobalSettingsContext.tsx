@@ -1,10 +1,13 @@
 
-import React, { useState, createContext, useContext, useEffect } from 'react';
+import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
 import { GlobalSettings } from '../types';
+import { api } from '../services/api';
 
 export interface GlobalSettingsContextType {
   settings: GlobalSettings;
   updateSettings: (newSettings: Partial<GlobalSettings>) => void;
+  /** Carga la configuración del negocio desde la base de datos (llamar tras login). */
+  loadSettings: () => Promise<void>;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
@@ -596,18 +599,25 @@ export const TRANSLATIONS = {
 };
 
 export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [settings, setSettings] = useState<GlobalSettings>(() => {
-        const stored = localStorage.getItem('pazziGlobalSettings');
-        return stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
-    });
+    // La configuración vive en la BASE DE DATOS (per negocio), no en localStorage.
+    // Se arranca con los defaults y se hidrata con loadSettings() tras el login.
+    const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
 
-    const updateSettings = (newSettings: Partial<GlobalSettings>) => {
-        setSettings(prev => {
-            const updated = { ...prev, ...newSettings };
-            localStorage.setItem('pazziGlobalSettings', JSON.stringify(updated));
-            return updated;
-        });
-    };
+    const loadSettings = useCallback(async () => {
+        try {
+            const data = await api.get<Partial<GlobalSettings>>('/settings');
+            // Merge con defaults por si falta algún campo (nunca undefined → evita $NaN).
+            setSettings({ ...DEFAULT_SETTINGS, ...(data || {}) });
+        } catch {
+            setSettings(DEFAULT_SETTINGS);
+        }
+    }, []);
+
+    const updateSettings = useCallback((newSettings: Partial<GlobalSettings>) => {
+        // Actualización optimista + persistencia en la BD.
+        setSettings(prev => ({ ...prev, ...newSettings }));
+        api.put('/settings', newSettings).catch(() => { /* el error global lo maneja useApiErrorToasts */ });
+    }, []);
 
     const t = (key: string, params?: Record<string, string | number>) => {
         const lang = (settings.language || 'es') as keyof typeof TRANSLATIONS;
@@ -623,7 +633,7 @@ export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     };
 
     return (
-        <GlobalSettingsContext.Provider value={{ settings, updateSettings, t }}>
+        <GlobalSettingsContext.Provider value={{ settings, updateSettings, loadSettings, t }}>
             {children}
         </GlobalSettingsContext.Provider>
     );

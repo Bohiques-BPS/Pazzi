@@ -455,7 +455,11 @@ export const POSCashierPage: React.FC = () => {
                 }
                 
                 if (!(currentUser?.isEmergencyOrderActive && item.isEmergencyTaxExempt)) {
-                    const rate = item.ivuRate ?? (settings.defaultTaxRate * 100);
+                    // Tasa robusta: usa ivuRate del producto (%) o el default global (fracción→%).
+                    // Coacciona a número y cae a 0 si algo llega inválido (evita $NaN en el total).
+                    const fallbackPct = (Number(settings.defaultTaxRate) || 0) * 100;
+                    const rawRate = item.ivuRate != null ? Number(item.ivuRate) : fallbackPct;
+                    const rate = Number.isFinite(rawRate) ? rawRate : 0;
                     tx += taxableAmount * (rate / 100);
                 }
             });
