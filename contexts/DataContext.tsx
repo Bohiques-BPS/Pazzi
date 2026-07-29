@@ -5,8 +5,8 @@ import {
   SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, 
   Notification, NotificationType, Caja, ProjectStatus, HeldCart, 
   CartItem, SalePayment, Estimate, InventoryLog, InventoryLogType, 
-  Department, Layaway, LayawayStatus, ProjectFormData, Task, 
-  TaskComment, TaskStatus 
+  Department, Layaway, LayawayStatus, ProjectFormData, Task,
+  TaskComment, TaskStatus, UserRole
 } from '../types';
 import { ADMIN_USER_ID } from '../constants';
 import { useAuth } from './AuthContext'; 
@@ -395,7 +395,16 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error("Error al cargar tareas del servidor:", e);
             }
         };
-        if (currentUser) fetchTasks();
+        // Solo pedir tareas si el usuario tiene acceso (evita 403 ruidosos para empleados
+        // sin permiso). Refleja el criterio del backend: MANAGER, CLIENT_PROJECT, o
+        // EMPLOYEE con tasks.manage / projects.view.
+        const perms = (currentUser as any)?.permissions || {};
+        const canAccessTasks = !!currentUser && (
+            currentUser.role === UserRole.MANAGER ||
+            currentUser.role === UserRole.CLIENT_PROJECT ||
+            (currentUser.role === UserRole.EMPLOYEE && (perms['tasks.manage'] === true || perms['projects.view'] === true))
+        );
+        if (canAccessTasks) fetchTasks();
     }, [currentUser]);
 
     // Carga de estimates

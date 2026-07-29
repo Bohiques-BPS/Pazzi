@@ -400,8 +400,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                 // Normalizamos el producto guardado antes de actualizar el estado global
                 const normalizedProduct = {
                     ...result,
-                    // Extraemos solo el nombre si category es un objeto de Prisma
-                    category: typeof result.category === 'object' ? result.category.name : result.category,
+                    // Extraemos solo el nombre si category es un objeto de Prisma (guard: typeof null === 'object')
+                    category: (result.category && typeof result.category === 'object') ? result.category.name : result.category,
                     // Convertimos el arreglo de objetos [{sku: '...'}] en arreglo de strings ['...']
                     skus: Array.isArray(result.skus) 
                         ? result.skus.map((s: any) => typeof s === 'string' ? s : s.sku) 

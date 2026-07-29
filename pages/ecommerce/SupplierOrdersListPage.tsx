@@ -170,8 +170,8 @@ export const SupplierOrdersListPage: React.FC = () => {
                 if (Array.isArray(data)) {
                     const normalized = data.map((p: any) => ({
                         ...p,
-                        category: typeof p.category === 'object' ? p.category.name : p.category,
-                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s.sku) : [],
+                        category: (p.category && typeof p.category === 'object') ? p.category.name : p.category,
+                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s?.sku) : [],
                         customSpecifications: p.customSpecs || []
                     }));
                     setProducts(normalized);

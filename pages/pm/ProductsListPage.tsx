@@ -135,8 +135,9 @@ export const ProductsListPage: React.FC = () => {
                     // Normalizamos los productos para que la categoría sea un string (el nombre)
                     const normalized = data.map((p: any) => ({
                         ...p,
-                        category: typeof p.category === 'object' ? p.category.name : p.category,
-                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s.sku) : [],
+                        // OJO: typeof null === 'object', por eso el guard `&& p.category` (evita null.name).
+                        category: (p.category && typeof p.category === 'object') ? p.category.name : p.category,
+                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s?.sku) : [],
                         customSpecifications: p.customSpecs || []
                     }));
                     setProducts(normalized);
