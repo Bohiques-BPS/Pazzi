@@ -194,8 +194,6 @@ export const POSCashierPage: React.FC = () => {
     };
     const productSearchRef = useRef<HTMLInputElement>(null);
     const [showScanCamera, setShowScanCamera] = useState(false);
-    // Apunta siempre a la acción vigente de "Finalizar compra" (atajo F12), sin closures obsoletos.
-    const finalizeShortcutRef = useRef<() => void>(() => {});
 
     // Shift and security states
     const [isPosAuthenticated, setIsPosAuthenticated] = useState(false);
@@ -359,27 +357,6 @@ export const POSCashierPage: React.FC = () => {
         // it means there is genuinely no active caja configured for this store.
         setCajaInitialized(true);
     }, [branches, cajas]);
-
-    // Mantiene la acción vigente de "Finalizar compra" para el atajo F12 (sin closures obsoletos).
-    useEffect(() => {
-        finalizeShortcutRef.current = () => {
-            if (isShiftActive && cart.length > 0 && activeModal === null) {
-                handleOpenPaymentModal('Efectivo');
-            }
-        };
-    });
-
-    // Atajo global F12: finalizar la compra (abrir el modal de pago).
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            if (e.key === 'F12') {
-                e.preventDefault();
-                finalizeShortcutRef.current();
-            }
-        };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, []);
 
     // Set default client if none selected
     useEffect(() => {
@@ -1158,17 +1135,8 @@ export const POSCashierPage: React.FC = () => {
                     </div>
                 </div>
             </main>
-            <footer className="bg-gray-100 dark:bg-neutral-900 p-1 sm:p-1.5 flex-shrink-0 relative space-y-1 sm:space-y-1.5">
+            <footer className="bg-gray-100 dark:bg-neutral-900 p-1 sm:p-1.5 flex-shrink-0 relative">
                  {posError && (<div className="absolute bottom-full left-0 right-0 p-2 bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-400 text-center text-xs sm:text-sm font-medium" role="alert">{posError}</div>)}
-                {/* Botón principal de checkout: finaliza la compra (abre el modal de pago). */}
-                <button
-                    onClick={() => handleOpenPaymentModal('Efectivo')}
-                    disabled={cart.length === 0 || !isShiftActive}
-                    className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-neutral-400 disabled:cursor-not-allowed text-white font-bold text-lg sm:text-xl py-2.5 rounded-md shadow transition-colors"
-                >
-                    <BanknotesIcon className="w-6 h-6" /> Finalizar Compra · ${total.toFixed(2)}
-                    <span className="text-xs font-normal opacity-80 ml-1">(F12)</span>
-                </button>
                 <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 sm:gap-1.5 w-full">
                     <PaymentButton text="Efectivo" icon={<BanknotesIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Efectivo')} />
                     <PaymentButton text="Tarjeta" icon={<CreditCardIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Tarjeta')} />

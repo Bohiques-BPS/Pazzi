@@ -77,13 +77,18 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         setActiveIndex(-1);
     }, [searchTerm, products, onRemoteSearch]);
 
+    // El debounce depende SOLO de searchTerm y usa un ref a la última runSearch. Así los
+    // re-renders (que cambian identidades de props/callbacks) NO re-disparan la búsqueda,
+    // evitando el loop de "busca → muestra → re-render → busca" que hacía parpadear resultados.
+    const runSearchRef = useRef(runSearch);
+    runSearchRef.current = runSearch;
     useEffect(() => {
         const debounceTimer = setTimeout(() => {
-            runSearch();
+            runSearchRef.current();
         }, 300); // Debounce API calls or filtering
 
         return () => clearTimeout(debounceTimer);
-    }, [searchTerm, runSearch]);
+    }, [searchTerm]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

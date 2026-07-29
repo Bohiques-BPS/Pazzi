@@ -41,6 +41,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const amountInputRef = useRef<HTMLInputElement>(null);
     // Siempre apunta a la acción actual de Enter (evita closures obsoletos en el listener global).
     const onEnterRef = useRef<() => void>(() => {});
+    // F12: finaliza SOLO si la venta ya está totalmente pagada (atajo de "cobro terminado").
+    const finalizeIfPaidRef = useRef<() => void>(() => {});
 
     const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
     const balance = totalAmount - totalPaid;
@@ -72,6 +74,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     }, [balance, isOpen]);
 
     // Atajos de teclado: F1..F5 seleccionan método; Enter agrega el pago o finaliza la venta.
+    // F12 finaliza la venta SOLO cuando ya está totalmente pagada.
     useEffect(() => {
         if (!isOpen) return;
         const handler = (e: KeyboardEvent) => {
@@ -85,6 +88,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             if (e.key === 'Enter') {
                 e.preventDefault();
                 onEnterRef.current();
+                return;
+            }
+            if (e.key === 'F12') {
+                e.preventDefault();
+                finalizeIfPaidRef.current();
             }
         };
         window.addEventListener('keydown', handler);
@@ -138,6 +146,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         } else {
             handleAddPayment();
         }
+    };
+    // F12: finaliza solo cuando ya no queda saldo (cobro completado).
+    finalizeIfPaidRef.current = () => {
+        if (isFullyPaid) handleFinalize();
+        else toast.error('Aún falta saldo por pagar.');
     };
 
     return (
@@ -270,7 +283,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                     className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400`}
                     disabled={balance > 0.001}
                 >
-                    Finalizar Venta <span className="ml-1 text-xs opacity-80">(Enter)</span>
+                    Finalizar Venta <span className="ml-1 text-xs opacity-80">(Enter / F12)</span>
                 </button>
             </div>
         </Modal>

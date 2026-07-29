@@ -14,7 +14,9 @@ import { exportToPDF, exportToExcel, type ExportColumn } from '../../utils/repor
 type DateFilterKey = 'today' | 'yesterday' | 'this_month' | 'last_month' | 'last_30_days' | 'last_90_days' | 'custom';
 
 const getISODateString = (d: Date): string => d.toISOString().split('T')[0];
-const money = (n: number) => `$${(n ?? 0).toFixed(2)}`;
+// Robusto: coacciona a número (evita crash si llega string/undefined/null).
+const money = (n: any) => `$${(Number(n) || 0).toFixed(2)}`;
+const arr = (v: any): any[] => (Array.isArray(v) ? v : []);
 
 const getDateRange = (key: DateFilterKey, cs?: string, ce?: string): { start: string; end: string } => {
     const today = new Date();
@@ -71,7 +73,9 @@ const ExportButtons: React.FC<{ title: string; columns: Col[]; rows: any[] }> = 
 );
 
 /** Tabla genérica con encabezado, export y formato de dinero. */
-const ReportTable: React.FC<{ title: string; columns: Col[]; rows: any[]; empty?: string }> = ({ title, columns, rows, empty }) => (
+const ReportTable: React.FC<{ title: string; columns: Col[]; rows: any[]; empty?: string }> = ({ title, columns, rows: rawRows, empty }) => {
+    const rows = arr(rawRows);
+    return (
     <section className="space-y-2">
         <div className="flex items-center justify-between">
             <h3 className="text-md font-semibold text-primary">{title}</h3>
@@ -100,7 +104,8 @@ const ReportTable: React.FC<{ title: string; columns: Col[]; rows: any[]; empty?
             </div>
         )}
     </section>
-);
+    );
+};
 
 export const POSReportsPage: React.FC = () => {
     const { t } = useTranslation();
@@ -251,42 +256,44 @@ const ResumenTab: React.FC<{ report: SalesReport }> = ({ report }) => (
             <Card icon={<ChartPieIcon className="w-6 h-6" />} title="Ticket promedio" value={money(report.avgTicket)} />
             <Card icon={<BanknotesIcon className="w-6 h-6" />} title="IVU recaudado" value={money(report.totalTax || 0)} sub="en ventas nuevas" />
         </div>
-        <ReportTable title="Top productos" columns={[{ header: '#', key: 'rank' }, { header: 'Producto', key: 'name' }, { header: 'Unidades', key: 'totalQuantity', align: 'right' }]} rows={report.topProducts.map((p, i) => ({ ...p, rank: i + 1 }))} />
-        <ReportTable title="Top clientes" columns={[{ header: 'Cliente', key: 'name' }, { header: 'Ventas', key: 'salesCount', align: 'right' }, { header: 'Total', key: 'totalRevenue', money: true, align: 'right' }]} rows={report.topClients} />
-        <ReportTable title="Ventas por empleado" columns={[{ header: 'Empleado', key: 'name' }, { header: 'Ventas', key: 'salesCount', align: 'right' }, { header: 'Total', key: 'totalRevenue', money: true, align: 'right' }]} rows={report.salesByEmployee} />
+        <ReportTable title="Top productos" columns={[{ header: '#', key: 'rank' }, { header: 'Producto', key: 'name' }, { header: 'Unidades', key: 'totalQuantity', align: 'right' }]} rows={arr(report.topProducts).map((p, i) => ({ ...p, rank: i + 1 }))} />
+        <ReportTable title="Top clientes" columns={[{ header: 'Cliente', key: 'name' }, { header: 'Ventas', key: 'salesCount', align: 'right' }, { header: 'Total', key: 'totalRevenue', money: true, align: 'right' }]} rows={arr(report.topClients)} />
+        <ReportTable title="Ventas por empleado" columns={[{ header: 'Empleado', key: 'name' }, { header: 'Ventas', key: 'salesCount', align: 'right' }, { header: 'Total', key: 'totalRevenue', money: true, align: 'right' }]} rows={arr(report.salesByEmployee)} />
     </>
 );
 
 const MetodosTab: React.FC<{ report: SalesReport }> = ({ report }) => {
-    const rows = report.byPaymentMethod.map(m => ({
+    const rows = arr(report.byPaymentMethod).map(m => ({
         paymentMethod: m.paymentMethod,
         count: m._count,
-        total: m._sum.totalAmount || 0,
-        pct: report.totalRevenue > 0 ? ((m._sum.totalAmount || 0) / report.totalRevenue) * 100 : 0,
+        total: m._sum?.totalAmount || 0,
+        pct: report.totalRevenue > 0 ? ((m._sum?.totalAmount || 0) / report.totalRevenue) * 100 : 0,
     }));
     return <ReportTable title="Ventas por método de pago" columns={[{ header: 'Método', key: 'paymentMethod' }, { header: 'Transacciones', key: 'count', align: 'right' }, { header: 'Total', key: 'total', money: true, align: 'right' }, { header: '% del total', key: 'pctLabel', align: 'right' }]} rows={rows.map(r => ({ ...r, pctLabel: `${r.pct.toFixed(1)}%` }))} />;
 };
 
-const CortesTab: React.FC<{ data: any; onDetail: (id: string) => void }> = ({ data, onDetail }) => (
+const CortesTab: React.FC<{ data: any; onDetail: (id: string) => void }> = ({ data, onDetail }) => {
+    const rows = arr(data?.rows);
+    return (
     <>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Card title="Cierres" value={String(data.count)} />
-            <Card title="Sobrantes (total)" value={money(data.totalOver)} />
-            <Card title="Faltantes (total)" value={money(data.totalShort)} />
+            <Card title="Cierres" value={String(data?.count ?? rows.length)} />
+            <Card title="Sobrantes (total)" value={money(data?.totalOver)} />
+            <Card title="Faltantes (total)" value={money(data?.totalShort)} />
         </div>
         <section className="space-y-2">
             <div className="flex items-center justify-between">
                 <h3 className="text-md font-semibold text-primary">Cortes de caja (Z)</h3>
-                <ExportButtons title="Cortes de caja" columns={[{ header: 'Caja', key: 'cajaName' }, { header: 'Sucursal', key: 'branchName' }, { header: 'Cerró', key: 'closedBy' }, { header: 'Cierre', key: 'closedAt' }, { header: 'Fondo', key: 'openingFloat', money: true }, { header: 'Esperado', key: 'expectedCash', money: true }, { header: 'Contado', key: 'countedCash', money: true }, { header: 'Diferencia', key: 'difference', money: true }]} rows={data.rows} />
+                <ExportButtons title="Cortes de caja" columns={[{ header: 'Caja', key: 'cajaName' }, { header: 'Sucursal', key: 'branchName' }, { header: 'Cerró', key: 'closedBy' }, { header: 'Cierre', key: 'closedAt' }, { header: 'Fondo', key: 'openingFloat', money: true }, { header: 'Esperado', key: 'expectedCash', money: true }, { header: 'Contado', key: 'countedCash', money: true }, { header: 'Diferencia', key: 'difference', money: true }]} rows={rows} />
             </div>
-            {data.rows.length === 0 ? <p className="text-sm text-neutral-500">Sin cierres en el período.</p> : (
+            {rows.length === 0 ? <p className="text-sm text-neutral-500">Sin cierres en el período.</p> : (
                 <div className="overflow-x-auto border border-neutral-200 dark:border-neutral-700 rounded-md">
                     <table className="min-w-full text-sm">
                         <thead className="bg-neutral-100 dark:bg-neutral-700/50"><tr>
                             {['Caja', 'Sucursal', 'Cerró', 'Cierre', 'Fondo', 'Esperado', 'Contado', 'Diferencia', ''].map((h, i) => <th key={i} className={`p-2 ${i >= 4 ? 'text-right' : 'text-left'}`}>{h}</th>)}
                         </tr></thead>
                         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                            {data.rows.map((r: any) => (
+                            {rows.map((r: any) => (
                                 <tr key={r.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/40">
                                     <td className="p-2">{r.cajaName}</td><td className="p-2">{r.branchName}</td><td className="p-2">{r.closedBy}</td>
                                     <td className="p-2">{r.closedAt ? new Date(r.closedAt).toLocaleString() : '—'}</td>
@@ -303,12 +310,13 @@ const CortesTab: React.FC<{ data: any; onDetail: (id: string) => void }> = ({ da
             )}
         </section>
     </>
-);
+    );
+};
 
 const DescuadresTab: React.FC<{ data: any }> = ({ data }) => (
     <>
-        <ReportTable title="Ranking de descuadres por cajero" columns={[{ header: 'Cajero', key: 'name' }, { header: 'Nº descuadres', key: 'count', align: 'right' }, { header: 'Neto', key: 'net', money: true, align: 'right' }, { header: '|Desviación|', key: 'absTotal', money: true, align: 'right' }]} rows={data.byUser} empty="Sin descuadres en el período." />
-        <ReportTable title="Sesiones con descuadre" columns={[{ header: 'Caja', key: 'cajaName' }, { header: 'Sucursal', key: 'branchName' }, { header: 'Cerró', key: 'closedBy' }, { header: 'Cierre', key: 'closedAt' }, { header: 'Esperado', key: 'expectedCash', money: true, align: 'right' }, { header: 'Contado', key: 'countedCash', money: true, align: 'right' }, { header: 'Diferencia', key: 'difference', money: true, align: 'right' }]} rows={data.rows} />
+        <ReportTable title="Ranking de descuadres por cajero" columns={[{ header: 'Cajero', key: 'name' }, { header: 'Nº descuadres', key: 'count', align: 'right' }, { header: 'Neto', key: 'net', money: true, align: 'right' }, { header: '|Desviación|', key: 'absTotal', money: true, align: 'right' }]} rows={arr(data?.byUser)} empty="Sin descuadres en el período." />
+        <ReportTable title="Sesiones con descuadre" columns={[{ header: 'Caja', key: 'cajaName' }, { header: 'Sucursal', key: 'branchName' }, { header: 'Cerró', key: 'closedBy' }, { header: 'Cierre', key: 'closedAt' }, { header: 'Esperado', key: 'expectedCash', money: true, align: 'right' }, { header: 'Contado', key: 'countedCash', money: true, align: 'right' }, { header: 'Diferencia', key: 'difference', money: true, align: 'right' }]} rows={arr(data?.rows)} />
     </>
 );
 
@@ -337,7 +345,7 @@ const ImpuestosTab: React.FC<{ data: any }> = ({ data }) => (
 
 const XTab: React.FC<{ data: any; cajaSelected: boolean }> = ({ data }) => {
     if (!data?.session) return <EmptyState title="Sin turno abierto" description={`La caja ${data?.cajaName || ''} no tiene un turno abierto ahora.`} />;
-    const t = data.totals;
+    const t = data.totals || {};
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -360,7 +368,7 @@ const XTab: React.FC<{ data: any; cajaSelected: boolean }> = ({ data }) => {
 };
 
 const SessionDetailModal: React.FC<{ detail: any; onClose: () => void }> = ({ detail, onClose }) => {
-    const s = detail.session; const t = detail.totals;
+    const s = detail?.session || {}; const t = detail?.totals || {};
     return (
         <Modal isOpen onClose={onClose} title={`Corte Z — ${s.caja?.name || ''}`} size="lg">
             <div className="space-y-4">
@@ -383,8 +391,8 @@ const SessionDetailModal: React.FC<{ detail: any; onClose: () => void }> = ({ de
                     <h4 className="font-semibold text-sm mb-1">Por método de pago</h4>
                     <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded">
                         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                            {detail.byMethod.map((m: any) => (
-                                <tr key={m.paymentMethod}><td className="p-2">{m.paymentMethod}</td><td className="p-2 text-right">{m._count}</td><td className="p-2 text-right">{money(m._sum.totalAmount || 0)}</td></tr>
+                            {arr(detail?.byMethod).map((m: any) => (
+                                <tr key={m.paymentMethod}><td className="p-2">{m.paymentMethod}</td><td className="p-2 text-right">{m._count}</td><td className="p-2 text-right">{money(m._sum?.totalAmount || 0)}</td></tr>
                             ))}
                         </tbody>
                     </table>
