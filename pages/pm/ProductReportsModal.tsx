@@ -20,7 +20,7 @@ const REPORTS: { id: ProductReportType; label: string; hint: string }[] = [
     { id: 'no-sales', label: '🚫 Sin ventas', hint: 'Productos que nunca se han vendido.' },
     { id: 'oldest-sale', label: '🕰️ Venta más lejana', hint: 'Productos cuya última venta fue hace más tiempo.' },
     { id: 'top-profit', label: '💰 Mayor ganancia', hint: 'Productos que más ganancia han generado (ingreso − costo).' },
-    { id: 'unused', label: '🧹 Análisis: posibles sin uso', hint: 'Productos creados hace tiempo que nunca se vendieron. Selecciónalos para eliminarlos.' },
+    { id: 'unused', label: '🧹 Análisis: posibles sin uso', hint: 'Productos sin ventas recientes (o que nunca se vendieron). Revisa la columna "Última venta" para decidir cuáles eliminar.' },
 ];
 
 const money = (n: number | null | undefined) => `$${(n ?? 0).toFixed(2)}`;
@@ -33,8 +33,9 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    // Umbral configurable para "posibles sin uso": productos creados hace ≥ N días sin ventas.
-    const [unusedDays, setUnusedDays] = useState(90);
+    // Umbral configurable para "posibles sin uso": productos sin vender en los últimos N días
+    // (o que nunca se vendieron). Default 365 = un año sin ventas.
+    const [unusedDays, setUnusedDays] = useState(365);
 
     const isUnused = active === 'unused';
 
@@ -109,15 +110,16 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                             Seleccionar todos ({selected.size} de {rows.length})
                         </label>
                         <label className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-300">
-                            Sin venta y creados hace ≥
+                            Sin vender hace ≥
                             <input
                                 type="number"
                                 min={1}
                                 value={unusedDays}
                                 onChange={e => setUnusedDays(Math.max(1, Number(e.target.value) || 1))}
-                                className="w-16 px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700"
+                                className="w-20 px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700"
                             />
                             días
+                            <span className="text-xs text-neutral-400">(365 = 1 año, 730 = 2 años)</span>
                         </label>
                     </div>
                     <button
