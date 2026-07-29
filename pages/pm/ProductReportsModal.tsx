@@ -33,6 +33,8 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    // Umbral configurable para "posibles sin uso": productos creados hace ≥ N días sin ventas.
+    const [unusedDays, setUnusedDays] = useState(90);
 
     const isUnused = active === 'unused';
 
@@ -41,12 +43,15 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
         let cancelled = false;
         setLoading(true);
         setSelected(new Set());
-        productsService.getReports(active)
-            .then(data => { if (!cancelled) setRows(data); })
-            .catch(err => { if (!cancelled && err instanceof ApiError) toast.error(err.message); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, [isOpen, active]);
+        // Debounce corto: evita refetch en cada tecla del umbral de días y en cambios rápidos de pestaña.
+        const timer = setTimeout(() => {
+            productsService.getReports(active, active === 'unused' ? unusedDays : undefined)
+                .then(data => { if (!cancelled) setRows(data); })
+                .catch(err => { if (!cancelled && err instanceof ApiError) toast.error(err.message); })
+                .finally(() => { if (!cancelled) setLoading(false); });
+        }, 250);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [isOpen, active, unusedDays]);
 
     const allSelected = rows.length > 0 && selected.size === rows.length;
     const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map(r => r.id)));
@@ -98,10 +103,23 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
             {/* Barra de acción para el análisis (borrar) */}
             {isUnused && (
                 <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                    <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4" />
-                        Seleccionar todos ({selected.size} de {rows.length})
-                    </label>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4" />
+                            Seleccionar todos ({selected.size} de {rows.length})
+                        </label>
+                        <label className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-300">
+                            Sin venta y creados hace ≥
+                            <input
+                                type="number"
+                                min={1}
+                                value={unusedDays}
+                                onChange={e => setUnusedDays(Math.max(1, Number(e.target.value) || 1))}
+                                className="w-16 px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700"
+                            />
+                            días
+                        </label>
+                    </div>
                     <button
                         type="button"
                         onClick={() => setConfirmDelete(true)}
