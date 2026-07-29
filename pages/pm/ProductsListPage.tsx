@@ -54,7 +54,7 @@ const PRODUCT_IMPORT_FIELDS: ImportFieldDef[] = [
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
-    const { products, setProducts, categories: dynamicCategories, branches } = useData();
+    const { products, setProducts, categories: dynamicCategories, branches, departments, suppliers } = useData();
     const { currentUser } = useAuth();
     
     const [showFormModal, setShowFormModal] = useState(false);
@@ -78,6 +78,10 @@ export const ProductsListPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+    const [selectedDepartment, setSelectedDepartment] = useState<string>('Todos');
+    const [selectedSupplier, setSelectedSupplier] = useState<string>('Todos');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+    const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const PAGE_SIZE = 24;
@@ -88,8 +92,8 @@ export const ProductsListPage: React.FC = () => {
         return () => clearTimeout(id);
     }, [searchTerm]);
 
-    // Al cambiar búsqueda o categoría, volver a la página 1.
-    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selectedCategory]);
+    // Al cambiar cualquier filtro, volver a la página 1.
+    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter]);
 
     // Sincronizamos globalProducts directamente con el estado products que viene del fetch
     const globalProducts = products;
@@ -113,6 +117,10 @@ export const ProductsListPage: React.FC = () => {
                     const cat = dynamicCategories.find(c => c.name === selectedCategory);
                     if (cat) params.set('categoryId', cat.id);
                 }
+                if (selectedDepartment !== 'Todos') params.set('departmentId', selectedDepartment);
+                if (selectedSupplier !== 'Todos') params.set('supplierId', selectedSupplier);
+                if (statusFilter !== 'all') params.set('isActive', statusFilter === 'active' ? 'true' : 'false');
+                if (stockFilter !== 'all') params.set('stockStatus', stockFilter);
                 const response = await fetch(`${API_URL}/products?${params.toString()}`, {
                     method: 'GET',
                     headers: {
@@ -141,7 +149,7 @@ export const ProductsListPage: React.FC = () => {
             }
         };
         fetchProducts();
-    }, [setProducts, refreshKey, currentPage, debouncedSearch, selectedCategory, dynamicCategories]);
+    }, [setProducts, refreshKey, currentPage, debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter, dynamicCategories]);
 
 
     const openModalForCreate = () => {
@@ -238,12 +246,12 @@ export const ProductsListPage: React.FC = () => {
                 ),
                 className: 'w-16 text-center'
             },
-            { header: t('product.name'), accessor: 'name', className: 'font-medium min-w-[150px]', noWrap: false },
-            { header: t('product.sku'), accessor: (p) => {
+            { header: t('product.field.name'), accessor: 'name', className: 'font-medium min-w-[150px]', noWrap: false },
+            { header: 'SKU', accessor: (p) => {
                 const firstSku = p.skus?.[0];
                 return typeof firstSku === 'object' ? (firstSku as any).sku : (firstSku || 'N/A');
             }},
-            { header: t('product.category'), accessor: (p) => (p.category as any)?.name ?? p.category ?? 'N/A' },
+            { header: t('product.field.category'), accessor: (p) => (p.category as any)?.name ?? p.category ?? 'N/A' },
         ];
 
         const branchColumns: TableColumn<Product>[] = activeBranches.map(branch => ({
@@ -290,15 +298,6 @@ export const ProductsListPage: React.FC = () => {
                         className={`${INPUT_SM_CLASSES} flex-grow`}
                         aria-label="Buscar productos"
                     />
-                    <select 
-                        value={selectedCategory} 
-                        onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1);}}
-                        className={`${INPUT_SM_CLASSES}`}
-                        aria-label="Filtrar por categoría"
-                    >
-                        <option value="Todos">Todas</option>
-                        {availableCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-                    </select>
                      <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
                         <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tarjetas"><Squares2X2Icon className="w-5 h-5"/></button>
                         <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon className="w-5 h-5"/></button>
@@ -324,6 +323,66 @@ export const ProductsListPage: React.FC = () => {
                        <PlusIcon className="w-5 h-5"/> {t('product.list.add')}
                     </button>
                 </div>
+            </div>
+
+            {/* Barra de filtros por columna (server-side) */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Filtros:</span>
+                <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className={INPUT_SM_CLASSES}
+                    aria-label="Filtrar por categoría"
+                >
+                    <option value="Todos">Categoría: todas</option>
+                    {availableCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                </select>
+                <select
+                    value={selectedDepartment}
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    className={INPUT_SM_CLASSES}
+                    aria-label="Filtrar por departamento"
+                >
+                    <option value="Todos">Departamento: todos</option>
+                    {departments.map(dep => <option key={dep.id} value={dep.id}>{dep.name}</option>)}
+                </select>
+                <select
+                    value={selectedSupplier}
+                    onChange={(e) => setSelectedSupplier(e.target.value)}
+                    className={INPUT_SM_CLASSES}
+                    aria-label="Filtrar por proveedor"
+                >
+                    <option value="Todos">Proveedor: todos</option>
+                    {suppliers.map(sup => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
+                </select>
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                    className={INPUT_SM_CLASSES}
+                    aria-label="Filtrar por estado"
+                >
+                    <option value="all">Estado: todos</option>
+                    <option value="active">Solo activos</option>
+                    <option value="inactive">Solo inactivos</option>
+                </select>
+                <select
+                    value={stockFilter}
+                    onChange={(e) => setStockFilter(e.target.value as 'all' | 'in' | 'out')}
+                    className={INPUT_SM_CLASSES}
+                    aria-label="Filtrar por stock"
+                >
+                    <option value="all">Stock: todos</option>
+                    <option value="in">Con stock</option>
+                    <option value="out">Sin stock</option>
+                </select>
+                {(selectedCategory !== 'Todos' || selectedDepartment !== 'Todos' || selectedSupplier !== 'Todos' || statusFilter !== 'all' || stockFilter !== 'all') && (
+                    <button
+                        onClick={() => { setSelectedCategory('Todos'); setSelectedDepartment('Todos'); setSelectedSupplier('Todos'); setStatusFilter('all'); setStockFilter('all'); }}
+                        className="text-sm text-primary hover:underline flex-shrink-0"
+                    >
+                        Limpiar filtros
+                    </button>
+                )}
             </div>
 
             {loadingData && (

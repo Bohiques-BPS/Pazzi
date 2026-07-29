@@ -3,6 +3,9 @@ import { api } from './api';
 export const posService = {
   createSale: (data: {
     totalAmount: number;
+    subtotal?: number;
+    taxAmount?: number;
+    discountAmount?: number;
     paymentMethod: string;
     paymentStatus?: string;
     cajaId: string;

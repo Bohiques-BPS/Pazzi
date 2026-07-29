@@ -773,7 +773,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return supplierOrders.filter(so => so.storeOwnerId === ownerId);
     }, [supplierOrders]);
 
-    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, payments?: { method: string; amount: number }[]}, branchId: string) => {
+    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, subtotal?: number, taxAmount?: number, discountAmount?: number, payments?: { method: string; amount: number }[]}, branchId: string) => {
         try {
             const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
                                     (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));
@@ -788,6 +788,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
             const apiSale = await posService.createSale({
                 totalAmount: saleData.totalAmount,
+                subtotal: saleData.subtotal,
+                taxAmount: saleData.taxAmount,
+                discountAmount: saleData.discountAmount,
                 paymentMethod: saleData.paymentMethod,
                 paymentStatus: hasCreditPayment ? 'Pendiente' : 'Pagado',
                 cajaId: saleData.cajaId,

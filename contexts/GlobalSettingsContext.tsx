@@ -409,6 +409,8 @@ export const TRANSLATIONS = {
         'product.tab.pos': 'Configuración POS',
         'product.field.name': 'Nombre',
         'product.field.sku': 'Referencia (SKU)',
+        'product.field.image': 'Imagen',
+        'Image': 'Imagen',
         'product.field.barcode': 'Código Barras',
         'product.field.price': 'Precio Base',
         'product.field.cost': 'Costo',
