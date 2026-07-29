@@ -9,6 +9,8 @@ export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'ATH Móvil' | 'Crédito C.
 interface Payment {
   method: PaymentMethod;
   amount: number;
+  /** Referencia opcional (ej. número de cheque). */
+  reference?: string;
 }
 
 interface PaymentModalProps {
@@ -35,6 +37,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const [payments, setPayments] = useState<Payment[]>([]);
     const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(initialMethod);
     const [amountInput, setAmountInput] = useState('');
+    const [checkNumber, setCheckNumber] = useState(''); // número de cheque (cuando el método es Cheque)
     // Vuelto a devolver: el efectivo entregado por encima del saldo. Es solo informativo
     // (NO se registra como pago; el cajón solo retiene el monto de la venta).
     const [changeDue, setChangeDue] = useState(0);
@@ -64,6 +67,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             setPayments([]);
             setSelectedMethod(initialMethod);
             setChangeDue(0);
+            setCheckNumber('');
         }
     }, [isOpen, initialMethod]);
 
@@ -110,14 +114,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             toast.error('El monto no puede superar el saldo pendiente para este método.');
             return;
         }
+        // Cheque: exigir el número de cheque.
+        if (selectedMethod === 'Cheque' && !checkNumber.trim()) {
+            toast.error('Ingresa el número de cheque.');
+            return;
+        }
 
         // El monto registrado nunca excede el saldo: el excedente en efectivo es vuelto,
         // no dinero que quede en la caja. Así la conciliación de caja cuadra.
         const applied = isCash ? Math.min(amount, balance) : amount;
         const change = isCash ? Math.max(0, amount - balance) : 0;
 
-        setPayments(prev => [...prev, { method: selectedMethod, amount: applied }]);
+        setPayments(prev => [...prev, {
+            method: selectedMethod,
+            amount: applied,
+            ...(selectedMethod === 'Cheque' && checkNumber.trim() ? { reference: checkNumber.trim() } : {}),
+        }]);
         setChangeDue(change);
+        setCheckNumber('');
     };
 
     const handleRemovePayment = (index: number) => {
@@ -177,7 +191,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                            ) : (
                                 payments.map((p, i) => (
                                     <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 p-2 rounded">
-                                        <span>{p.method}:</span>
+                                        <span>{p.method}{p.reference ? ` (Cheque #${p.reference})` : ''}:</span>
                                         <span className="font-semibold">${p.amount.toFixed(2)}</span>
                                         <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 ml-2">&times;</button>
                                     </div>
@@ -239,6 +253,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                 Agregar Pago
                             </button>
                         </div>
+
+                        {/* Cheque: número de cheque (requerido) */}
+                        {selectedMethod === 'Cheque' && (
+                            <div className="pt-2">
+                                <label htmlFor="checkNumber" className="block text-sm font-medium mb-1">Número de cheque</label>
+                                <input
+                                    id="checkNumber"
+                                    type="text"
+                                    value={checkNumber}
+                                    onChange={(e) => setCheckNumber(e.target.value)}
+                                    placeholder="Ej. 001234"
+                                    autoComplete="off"
+                                    className="w-full text-base px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700"
+                                />
+                            </div>
+                        )}
 
                         {/* Efectivo: montos rápidos (billetes) + vuelto en vivo */}
                         {isCash && (

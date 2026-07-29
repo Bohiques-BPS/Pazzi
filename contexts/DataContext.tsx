@@ -782,7 +782,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return supplierOrders.filter(so => so.storeOwnerId === ownerId);
     }, [supplierOrders]);
 
-    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, subtotal?: number, taxAmount?: number, discountAmount?: number, payments?: { method: string; amount: number }[]}, branchId: string) => {
+    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, subtotal?: number, taxAmount?: number, discountAmount?: number, payments?: { method: string; amount: number; reference?: string }[]}, branchId: string) => {
         try {
             const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
                                     (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));
@@ -815,7 +815,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     await posService.addPayment(apiSale.id, {
                         amountPaid: payment.amount,
                         paymentMethodUsed: payment.method,
-                        notes: 'Pago desde POS',
+                        notes: (payment as any).reference ? `Cheque #${(payment as any).reference}` : 'Pago desde POS',
                     });
                 } catch (e) {
                     console.error('Error registrando pago:', e);

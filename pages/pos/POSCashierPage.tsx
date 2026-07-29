@@ -105,14 +105,16 @@ const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: strin
     </button>
 );
 
-const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, onClick, disabled = false }) => (
+const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: string; shortcut?: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, shortcut, onClick, disabled = false }) => (
      <button
         onClick={onClick}
         disabled={disabled}
-        className={`flex-1 flex flex-col sm:flex-row items-center justify-center p-2 sm:p-4 rounded-md text-white font-semibold transition-colors text-xs sm:text-xl ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
+        title={shortcut ? `Atajo: ${shortcut}` : undefined}
+        className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center p-2 sm:p-4 rounded-md text-white font-semibold transition-colors text-xs sm:text-xl ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
     >
         {icon && React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
         <span>{text}</span>
+        {shortcut && <span className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 text-[9px] sm:text-xs font-bold opacity-70">{shortcut}</span>}
     </button>
 );
 
@@ -194,6 +196,8 @@ export const POSCashierPage: React.FC = () => {
     };
     const productSearchRef = useRef<HTMLInputElement>(null);
     const [showScanCamera, setShowScanCamera] = useState(false);
+    // Siempre apunta al handler vigente de atajos de pago F1..F6 (sin closures obsoletos).
+    const paymentShortcutRef = useRef<(e: KeyboardEvent) => void>(() => {});
 
     // Shift and security states
     const [isPosAuthenticated, setIsPosAuthenticated] = useState(false);
@@ -357,6 +361,23 @@ export const POSCashierPage: React.FC = () => {
         // it means there is genuinely no active caja configured for this store.
         setCajaInitialized(true);
     }, [branches, cajas]);
+
+    // Atajos F1..F6: abren el modal de pago con ese método (solo si NO hay otro modal abierto,
+    // para no chocar con los F1..F5 internos del modal de pago).
+    paymentShortcutRef.current = (e: KeyboardEvent) => {
+        const map: Record<string, PaymentMethod> = {
+            F1: 'Efectivo', F2: 'Tarjeta', F3: 'ATH Móvil', F4: 'Crédito C.', F5: 'Cheque', F6: 'Factura',
+        };
+        const method = map[e.key];
+        if (!method || activeModal !== null || !isShiftActive) return;
+        e.preventDefault();
+        handleOpenPaymentModal(method);
+    };
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => paymentShortcutRef.current(e);
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
 
     // Set default client if none selected
     useEffect(() => {
@@ -605,7 +626,7 @@ export const POSCashierPage: React.FC = () => {
         setActiveModal('payment');
     };
 
-    const handleFinalizeSale = (payments: { method: string; amount: number }[]) => {
+    const handleFinalizeSale = (payments: { method: string; amount: number; reference?: string }[]) => {
          if (cart.length === 0 || !currentUser || !selectedCajaId || !selectedBranchId) {
             toast.error('No se puede completar la venta. Carrito vacío o falta información de empleado/caja/sucursal.');
             return;
@@ -1142,12 +1163,12 @@ export const POSCashierPage: React.FC = () => {
             <footer className="bg-gray-100 dark:bg-neutral-900 p-1 sm:p-1.5 flex-shrink-0 relative">
                  {posError && (<div className="absolute bottom-full left-0 right-0 p-2 bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-400 text-center text-xs sm:text-sm font-medium" role="alert">{posError}</div>)}
                 <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 sm:gap-1.5 w-full">
-                    <PaymentButton text="Efectivo" icon={<BanknotesIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Efectivo')} />
-                    <PaymentButton text="Tarjeta" icon={<CreditCardIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Tarjeta')} />
-                    <PaymentButton text="ATH Móvil" icon={<AthMovilIcon/>} color="bg-[#D81B60]" onClick={() => handleOpenPaymentModal('ATH Móvil')} />
-                    <PaymentButton text="Crédito C." icon={null} color="bg-[#039BE5]" onClick={() => handleOpenPaymentModal('Crédito C.')} />
-                    <PaymentButton text="Cheque" icon={<DocumentTextIcon />} color="bg-[#00897B]" onClick={() => handleOpenPaymentModal('Cheque')} />
-                    <PaymentButton text="Factura" icon={<ClipboardDocumentListIcon />} color="bg-[#7CB342]" onClick={() => handleOpenPaymentModal('Factura')} />
+                    <PaymentButton text="Efectivo" shortcut="F1" icon={<BanknotesIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Efectivo')} />
+                    <PaymentButton text="Tarjeta" shortcut="F2" icon={<CreditCardIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Tarjeta')} />
+                    <PaymentButton text="ATH Móvil" shortcut="F3" icon={<AthMovilIcon/>} color="bg-[#D81B60]" onClick={() => handleOpenPaymentModal('ATH Móvil')} />
+                    <PaymentButton text="Crédito C." shortcut="F4" icon={<UserKeyIcon/>} color="bg-[#039BE5]" onClick={() => handleOpenPaymentModal('Crédito C.')} />
+                    <PaymentButton text="Cheque" shortcut="F5" icon={<DocumentTextIcon />} color="bg-[#00897B]" onClick={() => handleOpenPaymentModal('Cheque')} />
+                    <PaymentButton text="Factura" shortcut="F6" icon={<ClipboardDocumentListIcon />} color="bg-[#7CB342]" onClick={() => handleOpenPaymentModal('Factura')} />
                 </div>
             </footer>
             
