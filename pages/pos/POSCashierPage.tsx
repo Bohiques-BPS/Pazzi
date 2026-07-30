@@ -114,7 +114,7 @@ const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: stri
     >
         {icon && React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
         <span>{text}</span>
-        {shortcut && <span className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 text-[9px] sm:text-xs font-bold opacity-70">{shortcut}</span>}
+        {shortcut && <span className="absolute right-1.5 sm:right-2.5 top-1/2 -translate-y-1/2 border border-white/70 rounded-md px-1 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold leading-none">{shortcut}</span>}
     </button>
 );
 
