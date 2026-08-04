@@ -50,7 +50,7 @@ export const authService = {
     api.post<AuthResponse>('/auth/activate', { token, password }),
 
   resendInvitation: (employeeId: string) =>
-    api.post<{ message: string; expiresAt: string }>('/auth/resend-invitation', { employeeId }),
+    api.post<{ message: string; expiresAt: string; emailSent?: boolean; activationLink?: string }>('/auth/resend-invitation', { employeeId }),
 
   forgotPassword: (email: string) =>
     api.post<{ message: string }>('/auth/forgot-password', { email }),

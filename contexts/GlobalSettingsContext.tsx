@@ -1,6 +1,6 @@
 
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
-import { GlobalSettings } from '../types';
+import { GlobalSettings, DEFAULT_RECEIPT_CONFIG, DEFAULT_PAYMENT_METHODS } from '../types';
 import { api } from '../services/api';
 
 export interface GlobalSettingsContextType {
@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     language: 'es',
     fontSize: 'md',
     defaultTaxRate: 0.115, // Default IVU in PR is 11.5%
+    receiptConfig: DEFAULT_RECEIPT_CONFIG,
+    paymentMethods: DEFAULT_PAYMENT_METHODS,
 };
 
 // --- Translations Dictionary ---
@@ -607,7 +609,15 @@ export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
         try {
             const data = await api.get<Partial<GlobalSettings>>('/settings');
             // Merge con defaults por si falta algún campo (nunca undefined → evita $NaN).
-            setSettings({ ...DEFAULT_SETTINGS, ...(data || {}) });
+            // receiptConfig se combina en profundidad para no perder toggles/campos.
+            setSettings({
+                ...DEFAULT_SETTINGS,
+                ...(data || {}),
+                receiptConfig: { ...DEFAULT_RECEIPT_CONFIG, ...((data?.receiptConfig as object) || {}) },
+                paymentMethods: Array.isArray(data?.paymentMethods) && data!.paymentMethods!.length
+                    ? data!.paymentMethods as GlobalSettings['paymentMethods']
+                    : DEFAULT_PAYMENT_METHODS,
+            });
         } catch {
             setSettings(DEFAULT_SETTINGS);
         }

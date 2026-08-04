@@ -3,7 +3,7 @@ import { Employee, EmployeeFormData, UserStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { EmployeeFormModal } from './EmployeeFormModal';
-import { ConfirmationModal } from '../../components/Modal';
+import { ConfirmationModal, Modal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon, KeyIcon, PaperAirplaneIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -26,6 +26,8 @@ export const EmployeesListPage: React.FC = () => {
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
     const [resending, setResending] = useState<string | null>(null);
     const [resetForEmail, setResetForEmail] = useState<string | null>(null);
+    // Respaldo copiable del enlace de activación (por si el correo no está configurado o falló).
+    const [activationInfo, setActivationInfo] = useState<{ name: string; link: string; emailSent?: boolean } | null>(null);
 
     const loadEmployees = useCallback(async () => {
         setLoadingData(true);
@@ -74,12 +76,23 @@ export const EmployeesListPage: React.FC = () => {
         setResending(emp.id);
         try {
             const res = await authService.resendInvitation(emp.id);
-            toast.success(`Invitación reenviada. Expira el ${new Date(res.expiresAt).toLocaleString()}`);
+            toast.success(res.emailSent
+                ? `Invitación reenviada por correo. Expira el ${new Date(res.expiresAt).toLocaleString()}`
+                : 'Enlace de activación generado (el correo no pudo enviarse). Cópialo y compártelo.');
+            if (res.activationLink) {
+                setActivationInfo({ name: `${emp.name} ${emp.lastName}`, link: res.activationLink, emailSent: res.emailSent });
+            }
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : 'Error al reenviar invitación');
         } finally {
             setResending(null);
         }
+    };
+
+    const copyActivationLink = async () => {
+        if (!activationInfo) return;
+        try { await navigator.clipboard.writeText(activationInfo.link); toast.success('Enlace copiado'); }
+        catch { toast.error('No se pudo copiar; selecciónalo y cópialo manualmente.'); }
     };
 
     const confirmResetPassword = async () => {
@@ -192,7 +205,7 @@ export const EmployeesListPage: React.FC = () => {
                 />
             )}
 
-            <EmployeeFormModal isOpen={showFormModal} onClose={() => { setShowFormModal(false); loadEmployees(); }} employee={editingEmployee} />
+            <EmployeeFormModal isOpen={showFormModal} onClose={() => { setShowFormModal(false); loadEmployees(); }} employee={editingEmployee} onActivationLink={setActivationInfo} />
 
             <ConfirmationModal
                 isOpen={showDeleteConfirmModal}
@@ -211,6 +224,26 @@ export const EmployeesListPage: React.FC = () => {
                 message={`Se enviará un enlace de recuperación al correo ${resetForEmail}. ¿Continuar?`}
                 confirmButtonText="Sí, enviar"
             />
+
+            <Modal isOpen={!!activationInfo} onClose={() => setActivationInfo(null)} title="Enlace de activación" size="md">
+                <div className="space-y-4">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                        {activationInfo?.emailSent
+                            ? <>Se envió el correo de activación a <strong>{activationInfo?.name}</strong>. Si no llega, comparte este enlace directamente:</>
+                            : <>Comparte este enlace con <strong>{activationInfo?.name}</strong> para que active su cuenta y cree su contraseña:</>}
+                    </p>
+                    <div className="flex gap-2">
+                        <input
+                            readOnly
+                            value={activationInfo?.link || ''}
+                            onFocus={(e) => e.currentTarget.select()}
+                            className="w-full text-xs px-2 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700"
+                        />
+                        <button onClick={copyActivationLink} className={`${BUTTON_PRIMARY_SM_CLASSES} whitespace-nowrap`}>Copiar</button>
+                    </div>
+                    <p className="text-xs text-neutral-400">El enlace caduca; si expira, usa "Reenviar invitación" para generar uno nuevo.</p>
+                </div>
+            </Modal>
         </div>
     );
 };

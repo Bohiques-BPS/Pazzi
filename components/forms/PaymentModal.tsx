@@ -1,15 +1,39 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Modal } from '../Modal';
-import { BanknotesIcon, CreditCardIcon, AthMovilIcon, DocumentTextIcon, ClipboardDocumentListIcon } from '../icons';
 import { BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_CLASSES } from '../../constants';
+import { AthMovilButton } from '../pos/AthMovilButton';
+import { AgilPayCardForm } from '../pos/AgilPayCardForm';
+import { invoicesService, type Invoice } from '../../services/invoices';
 import { toast } from 'react-hot-toast';
 
-export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'ATH Móvil' | 'Crédito C.' | 'Cheque' | 'Factura';
+const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`;
+
+// Parseo de monto tolerante a locale: acepta coma o punto como separador decimal
+// y descarta cualquier otro carácter. Evita que "10,50" (locale español) o el
+// autoformato del navegador rompan el cobro con centavos.
+const parseAmount = (s: string | number): number => {
+    if (typeof s === 'number') return s;
+    const cleaned = String(s).replace(/[^\d.,-]/g, '').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : NaN;
+};
+
+// Métodos dinámicos: string libre (viene de la config de Métodos de Pago).
+export type PaymentMethod = string;
+
+/** Opción de método de pago que recibe el modal (derivada de la config del negocio). */
+export interface PaymentMethodOption {
+  name: string;
+  type: string;               // cash | card | ath_movil | credit | check | invoice | custom
+  requiresReference: boolean; // pide un dato (Nº cheque, confirmación ATH…)
+  referenceLabel: string;
+  config?: Record<string, string>; // keys (ej. tokens ATH Móvil)
+}
 
 interface Payment {
-  method: PaymentMethod;
+  method: string;
   amount: number;
-  /** Referencia opcional (ej. número de cheque). */
+  /** Referencia opcional (ej. número de cheque / confirmación ATH). */
   reference?: string;
 }
 
@@ -17,30 +41,32 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   totalAmount: number;
-  initialMethod: PaymentMethod;
-  onFinalizeSale: (paymentMethods: Payment[]) => void;
+  subtotalAmount?: number;
+  taxAmount?: number;
+  athItems?: { name: string; quantity: number; price: number }[];
+  customerName?: string;
+  customerEmail?: string;
+  initialMethod: string;
+  /** Métodos habilitados (en orden); el índice define el atajo F1, F2, … */
+  methods: PaymentMethodOption[];
+  onFinalizeSale: (paymentMethods: Payment[], changeDue?: number) => void;
 }
-
-// El orden define el atajo: índice 0 → F1, 1 → F2, etc.
-const paymentButtons: { name: PaymentMethod; icon: React.ReactNode; shortcut: string }[] = [
-    { name: 'Efectivo', icon: <BanknotesIcon />, shortcut: 'F1' },
-    { name: 'Tarjeta', icon: <CreditCardIcon />, shortcut: 'F2' },
-    { name: 'ATH Móvil', icon: <AthMovilIcon />, shortcut: 'F3' },
-    { name: 'Crédito C.', icon: <ClipboardDocumentListIcon />, shortcut: 'F4' },
-    { name: 'Cheque', icon: <DocumentTextIcon />, shortcut: 'F5' },
-];
 
 // Denominaciones rápidas de efectivo (billetes comunes).
 const CASH_QUICK_AMOUNTS = [5, 10, 20, 50, 100];
 
-export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, totalAmount, initialMethod, onFinalizeSale }) => {
+export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, totalAmount, subtotalAmount, taxAmount, athItems, customerName, customerEmail, initialMethod, methods, onFinalizeSale }) => {
     const [payments, setPayments] = useState<Payment[]>([]);
-    const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(initialMethod);
+    const [selectedMethod, setSelectedMethod] = useState<string>(initialMethod);
     const [amountInput, setAmountInput] = useState('');
-    const [checkNumber, setCheckNumber] = useState(''); // número de cheque (cuando el método es Cheque)
+    const [referenceInput, setReferenceInput] = useState(''); // dato requerido (cheque/ATH/etc.)
     // Vuelto a devolver: el efectivo entregado por encima del saldo. Es solo informativo
     // (NO se registra como pago; el cajón solo retiene el monto de la venta).
     const [changeDue, setChangeDue] = useState(0);
+    // ATH Móvil por QR/link: se genera una factura pública con el monto exacto del saldo.
+    const [athInvoice, setAthInvoice] = useState<Invoice | null>(null);
+    const [athQr, setAthQr] = useState('');
+    const [athGenerating, setAthGenerating] = useState(false);
     const amountInputRef = useRef<HTMLInputElement>(null);
     // Siempre apunta a la acción actual de Enter (evita closures obsoletos en el listener global).
     const onEnterRef = useRef<() => void>(() => {});
@@ -50,10 +76,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
     const balance = totalAmount - totalPaid;
     const isFullyPaid = balance <= 0.001; // Using a small epsilon for float comparison
-    const isCash = selectedMethod === 'Efectivo';
+    const selectedConfig = useMemo(() => methods.find(m => m.name === selectedMethod), [methods, selectedMethod]);
+    const isCash = selectedConfig?.type === 'cash';
+    const needsRef = !!selectedConfig?.requiresReference;
+    const refLabel = selectedConfig?.referenceLabel || 'Referencia';
 
     // Vuelto en vivo mientras se escribe el monto de efectivo (antes de "Agregar Pago").
-    const previewChange = isCash ? Math.max(0, (parseFloat(amountInput) || 0) - balance) : 0;
+    const previewChange = isCash ? Math.max(0, (parseAmount(amountInput) || 0) - balance) : 0;
+    // Métodos que se pueden confirmar con un solo Enter (sin referencia ni pasarela externa).
+    const isDirectMethod = !needsRef && selectedConfig?.type !== 'agilpay' && selectedConfig?.type !== 'ath_movil';
 
     const focusAmount = () => {
         setTimeout(() => {
@@ -67,7 +98,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             setPayments([]);
             setSelectedMethod(initialMethod);
             setChangeDue(0);
-            setCheckNumber('');
+            setReferenceInput('');
+            setAthInvoice(null);
+            setAthQr('');
         }
     }, [isOpen, initialMethod]);
 
@@ -82,11 +115,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     useEffect(() => {
         if (!isOpen) return;
         const handler = (e: KeyboardEvent) => {
-            const idx = paymentButtons.findIndex(b => b.shortcut === e.key);
-            if (idx >= 0) {
-                e.preventDefault();
-                setSelectedMethod(paymentButtons[idx].name);
-                focusAmount();
+            const fk = /^F([1-9])$/.exec(e.key);
+            if (fk) {
+                const idx = Number(fk[1]) - 1;
+                if (idx < methods.length) {
+                    e.preventDefault();
+                    setSelectedMethod(methods[idx].name);
+                    focusAmount();
+                }
                 return;
             }
             if (e.key === 'Enter') {
@@ -104,7 +140,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     }, [isOpen]);
 
     const handleAddPayment = () => {
-        const amount = parseFloat(amountInput);
+        const amount = parseAmount(amountInput);
         if (isNaN(amount) || amount <= 0) {
             toast.error('Monto inválido. Verifique el valor ingresado.');
             return;
@@ -114,9 +150,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             toast.error('El monto no puede superar el saldo pendiente para este método.');
             return;
         }
-        // Cheque: exigir el número de cheque.
-        if (selectedMethod === 'Cheque' && !checkNumber.trim()) {
-            toast.error('Ingresa el número de cheque.');
+        // Métodos con referencia (cheque, ATH Móvil…): exigir el dato.
+        if (needsRef && !referenceInput.trim()) {
+            toast.error(`Ingresa: ${refLabel}.`);
             return;
         }
 
@@ -128,10 +164,48 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         setPayments(prev => [...prev, {
             method: selectedMethod,
             amount: applied,
-            ...(selectedMethod === 'Cheque' && checkNumber.trim() ? { reference: checkNumber.trim() } : {}),
+            ...(needsRef && referenceInput.trim() ? { reference: referenceInput.trim() } : {}),
         }]);
         setChangeDue(change);
-        setCheckNumber('');
+        setReferenceInput('');
+    };
+
+    // Éxito de un cobro por gateway (ATH Móvil / AgilPay): registra el pago del saldo con la referencia.
+    const handleGatewaySuccess = (ref: string) => {
+        setReferenceInput(ref);
+        const remaining = parseFloat(balance.toFixed(2));
+        if (remaining > 0) {
+            setPayments(prev => [...prev, { method: selectedMethod, amount: remaining, reference: ref }]);
+        }
+        toast.success('Pago recibido.');
+    };
+
+    // Genera un link/QR de pago ATH Móvil para el saldo actual (factura pública con monto exacto).
+    const generateAthQr = async () => {
+        const amount = parseFloat(balance.toFixed(2));
+        if (amount <= 0) { toast.error('No hay saldo por cobrar.'); return; }
+        setAthGenerating(true);
+        try {
+            const inv = await invoicesService.create({
+                items: [{ name: 'Pago en caja', quantity: 1, unitPrice: amount }],
+                taxRate: 0, // el monto ya es el total del saldo; no recalcular impuesto
+                description: 'Cobro por ATH Móvil (caja)',
+            });
+            const QR = await import('qrcode');
+            const url = await QR.toDataURL(publicLink(inv.publicToken), { width: 220, margin: 1 });
+            setAthInvoice(inv);
+            setAthQr(url);
+        } catch {
+            toast.error('No se pudo generar el link de pago.');
+        } finally {
+            setAthGenerating(false);
+        }
+    };
+
+    const copyAthLink = async () => {
+        if (!athInvoice) return;
+        try { await navigator.clipboard.writeText(publicLink(athInvoice.publicToken)); toast.success('Link copiado'); }
+        catch { toast.error('No se pudo copiar'); }
     };
 
     const handleRemovePayment = (index: number) => {
@@ -144,20 +218,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             // As a fallback, if the remaining amount is small, add it automatically with the selected method.
             const remaining = parseFloat(balance.toFixed(2));
             if (remaining > 0) {
-                 onFinalizeSale([...payments, { method: selectedMethod, amount: remaining }]);
+                 onFinalizeSale([...payments, { method: selectedMethod, amount: remaining }], changeDue);
             } else {
-                 onFinalizeSale(payments);
+                 onFinalizeSale(payments, changeDue);
             }
         } else {
-            onFinalizeSale(payments);
+            onFinalizeSale(payments, changeDue);
         }
     };
 
-    // Enter: si aún falta saldo, agrega el pago; si ya está pagado, finaliza la venta.
+    // Enter con un método directo (efectivo/tarjeta/crédito/factura) que ya cubre el saldo:
+    // aplica el pago y finaliza la venta en un solo paso (muestra el cambio en el recibo).
+    const tryQuickFinalize = (): boolean => {
+        if (isFullyPaid || !isDirectMethod) return false;
+        const amount = parseAmount(amountInput);
+        if (isNaN(amount) || amount + 0.001 < balance) return false; // no cubre el saldo aún
+        const applied = Math.min(amount, balance);
+        const change = Math.max(0, amount - balance);
+        onFinalizeSale([...payments, { method: selectedMethod, amount: applied }], change);
+        return true;
+    };
+
+    // Enter: si un método directo cubre el saldo → aplica y finaliza de una;
+    // si ya está pagado → finaliza; si no → agrega el pago.
     onEnterRef.current = () => {
         if (isFullyPaid) {
             handleFinalize();
-        } else {
+        } else if (!tryQuickFinalize()) {
             handleAddPayment();
         }
     };
@@ -168,19 +255,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Procesar Venta" size="3xl">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Modal isOpen={isOpen} onClose={onClose} title="Procesar Venta" size="full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                 {/* Left Panel: Totals & Applied Payments */}
                 <div className="flex flex-col space-y-4">
                     {changeDue > 0.001 ? (
-                        <div className="bg-green-50 dark:bg-green-900/30 text-center p-4 rounded-lg">
-                            <p className="text-sm font-medium text-green-700 dark:text-green-300">Cambio a devolver</p>
-                            <p className="text-4xl font-bold text-green-600 dark:text-green-400">${changeDue.toFixed(2)}</p>
+                        <div className="bg-green-50 dark:bg-green-900/30 text-center p-6 rounded-lg">
+                            <p className="text-base font-medium text-green-700 dark:text-green-300">Cambio a devolver</p>
+                            <p className="text-6xl sm:text-7xl font-bold text-green-600 dark:text-green-400">${changeDue.toFixed(2)}</p>
                         </div>
                     ) : (
-                        <div className="bg-red-50 dark:bg-red-900/30 text-center p-4 rounded-lg">
-                            <p className="text-sm font-medium text-red-700 dark:text-red-300">Saldo Pendiente</p>
-                            <p className="text-4xl font-bold text-red-600 dark:text-red-400">${Math.max(0, balance).toFixed(2)}</p>
+                        <div className="bg-red-50 dark:bg-red-900/30 text-center p-6 rounded-lg">
+                            <p className="text-base font-medium text-red-700 dark:text-red-300">Saldo Pendiente</p>
+                            <p className="text-6xl sm:text-7xl font-bold text-red-600 dark:text-red-400">${Math.max(0, balance).toFixed(2)}</p>
                         </div>
                     )}
                     <div>
@@ -191,7 +278,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                            ) : (
                                 payments.map((p, i) => (
                                     <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 p-2 rounded">
-                                        <span>{p.method}{p.reference ? ` (Cheque #${p.reference})` : ''}:</span>
+                                        <span>{p.method}{p.reference ? ` (${p.reference})` : ''}:</span>
                                         <span className="font-semibold">${p.amount.toFixed(2)}</span>
                                         <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 ml-2">&times;</button>
                                     </div>
@@ -209,61 +296,115 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
 
                 {/* Right Panel: Payment Methods & Input */}
                 <div className="space-y-4">
-                    <h3 className="font-semibold text-neutral-700 dark:text-neutral-200">Seleccione Método y Monto:</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                        {paymentButtons.map(({ name, shortcut }) => (
+                    <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Seleccione Método y Monto:</h3>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {methods.map((m, i) => (
                             <button
-                                key={name}
+                                key={m.name}
                                 type="button"
-                                onClick={() => { setSelectedMethod(name); focusAmount(); }}
-                                title={`Atajo: ${shortcut}`}
-                                className={`relative p-2 border rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-neutral-800 ${
-                                    selectedMethod === name
+                                onClick={() => { setSelectedMethod(m.name); focusAmount(); }}
+                                title={`Atajo: F${i + 1}`}
+                                className={`relative p-4 border rounded-lg text-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-neutral-800 ${
+                                    selectedMethod === m.name
                                         ? 'border-teal-500 ring-2 ring-teal-300 dark:ring-teal-600 bg-teal-50 dark:bg-teal-900/50'
                                         : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700'
                                 }`}
                             >
-                                <span className="absolute top-1 left-1.5 text-[10px] font-bold text-neutral-400 dark:text-neutral-500">{shortcut}</span>
-                                {name}
+                                {i < 9 && <span className="absolute top-1 left-1.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">F{i + 1}</span>}
+                                {m.name}
                             </button>
                         ))}
                     </div>
 
                     <div className="space-y-1">
-                        <label htmlFor="paymentAmount" className="text-sm font-medium">
+                        <label htmlFor="paymentAmount" className="text-base font-medium">
                             Monto para {selectedMethod}
                         </label>
                         <div className="flex items-center gap-2">
                             <input
                                 id="paymentAmount"
                                 ref={amountInputRef}
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 value={amountInput}
                                 onChange={(e) => setAmountInput(e.target.value)}
-                                className="w-full text-lg px-3 py-1.5 border-teal-400 border-2 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700"
-                                step="0.01"
-                                min="0.01"
+                                className="w-full text-2xl px-3 py-2.5 border-teal-400 border-2 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700"
+                                autoComplete="off"
                             />
                             <button
                                 type="button"
                                 onClick={handleAddPayment}
-                                className="px-4 py-2 bg-neutral-200 dark:bg-neutral-600 rounded-md text-sm font-semibold hover:bg-neutral-300 dark:hover:bg-neutral-500 disabled:opacity-50"
+                                className="px-5 py-2.5 whitespace-nowrap bg-neutral-200 dark:bg-neutral-600 rounded-md text-base font-semibold hover:bg-neutral-300 dark:hover:bg-neutral-500 disabled:opacity-50"
                                 disabled={isFullyPaid}
                             >
                                 Agregar Pago
                             </button>
                         </div>
 
-                        {/* Cheque: número de cheque (requerido) */}
-                        {selectedMethod === 'Cheque' && (
+                        {/* ATH Móvil en vivo (si hay token configurado): botón oficial de pago. */}
+                        {selectedConfig?.type === 'ath_movil' && selectedConfig?.config?.publicToken && !isFullyPaid && (
                             <div className="pt-2">
-                                <label htmlFor="checkNumber" className="block text-sm font-medium mb-1">Número de cheque</label>
+                                <AthMovilButton
+                                    publicToken={selectedConfig.config.publicToken}
+                                    environment={selectedConfig.config.environment || 'production'}
+                                    total={parseFloat(balance.toFixed(2))}
+                                    subtotal={subtotalAmount}
+                                    tax={taxAmount}
+                                    items={athItems}
+                                    onSuccess={handleGatewaySuccess}
+                                    onFail={(m) => toast.error(m)}
+                                />
+                                <p className="text-xs text-neutral-400">O ingresa el número de confirmación manualmente abajo.</p>
+                            </div>
+                        )}
+
+                        {/* ATH Móvil por QR/link: el cliente escanea, paga y el cajero confirma manualmente. */}
+                        {selectedConfig?.type === 'ath_movil' && !isFullyPaid && (
+                            <div className="pt-2 border border-neutral-200 dark:border-neutral-600 rounded-md p-3 space-y-2">
+                                {!athInvoice ? (
+                                    <button
+                                        type="button"
+                                        onClick={generateAthQr}
+                                        disabled={athGenerating || balance <= 0}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-md"
+                                    >
+                                        {athGenerating ? 'Generando…' : `Generar QR / link de pago · $${Math.max(0, balance).toFixed(2)}`}
+                                    </button>
+                                ) : (
+                                    <div className="text-center space-y-2">
+                                        <p className="text-xs text-neutral-500">El cliente escanea el QR o abre el link para pagar. Luego confirma el número abajo.</p>
+                                        {athQr && <img src={athQr} alt="QR de pago" className="mx-auto rounded-md border border-neutral-200 dark:border-neutral-700" />}
+                                        <div className="flex gap-2">
+                                            <input readOnly value={publicLink(athInvoice.publicToken)} onFocus={e => e.currentTarget.select()} className="w-full text-xs px-2 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700" />
+                                            <button type="button" onClick={copyAthLink} className="px-3 py-1.5 text-xs font-semibold bg-neutral-200 dark:bg-neutral-600 rounded-md hover:bg-neutral-300 dark:hover:bg-neutral-500">Copiar</button>
+                                        </div>
+                                        <a href={publicLink(athInvoice.publicToken)} target="_blank" rel="noreferrer" className="inline-block text-xs text-teal-600 dark:text-teal-400 hover:underline">Abrir vista del cliente ↗</a>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* AgilPay (Dynamics Payments): cobro real con tarjeta si está configurado. */}
+                        {selectedConfig?.type === 'agilpay' && selectedConfig?.config?.merchantKey && selectedConfig?.config?.clientId && !isFullyPaid && (
+                            <AgilPayCardForm
+                                amount={parseFloat(balance.toFixed(2))}
+                                tax={taxAmount}
+                                customerName={customerName}
+                                customerEmail={customerEmail}
+                                onSuccess={handleGatewaySuccess}
+                            />
+                        )}
+
+                        {/* Métodos con referencia (cheque, confirmación ATH Móvil, etc.) */}
+                        {needsRef && (
+                            <div className="pt-2">
+                                <label htmlFor="paymentReference" className="block text-sm font-medium mb-1">{refLabel}</label>
                                 <input
-                                    id="checkNumber"
+                                    id="paymentReference"
                                     type="text"
-                                    value={checkNumber}
-                                    onChange={(e) => setCheckNumber(e.target.value)}
-                                    placeholder="Ej. 001234"
+                                    value={referenceInput}
+                                    onChange={(e) => setReferenceInput(e.target.value)}
+                                    placeholder={refLabel}
                                     autoComplete="off"
                                     className="w-full text-base px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700"
                                 />
@@ -277,7 +418,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                     <button
                                         type="button"
                                         onClick={() => setAmountInput(balance > 0 ? balance.toFixed(2) : '0.00')}
-                                        className="px-2.5 py-1 text-xs font-semibold rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/40"
+                                        className="px-4 py-2 text-base font-semibold rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/40"
                                     >
                                         Exacto
                                     </button>
@@ -286,14 +427,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                             key={amt}
                                             type="button"
                                             onClick={() => setAmountInput(String(amt))}
-                                            className="px-2.5 py-1 text-xs font-semibold rounded-md border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                                            className="px-4 py-2 text-base font-semibold rounded-md border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
                                             ${amt}
                                         </button>
                                     ))}
                                 </div>
                                 {previewChange > 0.001 && (
-                                    <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                                    <p className="text-lg font-semibold text-green-600 dark:text-green-400">
                                         Vuelto: ${previewChange.toFixed(2)}
                                     </p>
                                 )}
@@ -303,17 +444,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                 </div>
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t dark:border-neutral-600">
-                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_CLASSES}>
+            <div className="flex justify-end items-stretch space-x-3 mt-6 pt-4 border-t dark:border-neutral-600">
+                <button type="button" onClick={onClose} className={`${BUTTON_SECONDARY_CLASSES} !text-lg !px-8`}>
                     Cancelar
                 </button>
                 <button
                     type="button"
                     onClick={handleFinalize}
-                    className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400`}
+                    className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
                     disabled={balance > 0.001}
                 >
-                    Finalizar Venta <span className="ml-1 text-xs opacity-80">(Enter / F12)</span>
+                    Finalizar Venta <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
                 </button>
             </div>
         </Modal>

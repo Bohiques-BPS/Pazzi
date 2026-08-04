@@ -62,6 +62,10 @@ import { ProjectReportsPage } from './pages/pm/ProjectReportsPage';
 // POS Pages (Manager & POS Employee)
 import { POSCashierPage } from './pages/pos/POSCashierPage';
 import { POSReportsPage } from './pages/pos/POSReportsPage';
+import { ReceiptSettingsPage } from './pages/pos/ReceiptSettingsPage';
+import { PaymentMethodsPage } from './pages/pos/PaymentMethodsPage';
+import { RecurringPaymentsPage } from './pages/pos/RecurringPaymentsPage';
+import { InvoicesListPage } from './pages/pos/InvoicesListPage';
 import { POSSalesHistoryPage } from './pages/pos/POSSalesHistoryPage'; 
 import { POSInventoryPage } from './pages/pos/POSInventoryPage';
 import { EstimatesListPage } from './pages/pos/EstimatesListPage';
@@ -78,7 +82,8 @@ import { EcommerceOrdersPage } from './pages/ecommerce/EcommerceOrdersPage';
 import { SuppliersListPage } from './pages/ecommerce/SuppliersListPage';
 import { SupplierOrdersListPage } from './pages/ecommerce/SupplierOrdersListPage';
 import { CheckoutPage } from './pages/ecommerce/CheckoutPage'; 
-import { OrderConfirmationPage } from './pages/ecommerce/OrderConfirmationPage'; 
+import { OrderConfirmationPage } from './pages/ecommerce/OrderConfirmationPage';
+import { PublicInvoicePage } from './pages/pos/PublicInvoicePage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
@@ -156,7 +161,7 @@ const AppContent: React.FC = () => {
     if (loading) return;
 
     const isAuthPath = ['/login', '/register', '/forgot-password'].some(p => location.pathname.startsWith(p));
-    const isPublicPath = ['/', '/checkout'].some(p => location.pathname.startsWith(p)) || /^\/store(\/[^/]+)?$/.test(location.pathname) || /^\/order-confirmation(\/[^/]+)?$/.test(location.pathname);
+    const isPublicPath = ['/', '/checkout'].some(p => location.pathname.startsWith(p)) || /^\/store(\/[^/]+)?$/.test(location.pathname) || /^\/order-confirmation(\/[^/]+)?$/.test(location.pathname) || /^\/pay\/[^/]+$/.test(location.pathname);
 
     if (!currentUser && !isAuthPath && !isPublicPath) {
         navigate('/login');
@@ -296,6 +301,7 @@ const AppContent: React.FC = () => {
         <Route path="/store" element={<EcommerceStorePage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
+        <Route path="/pay/:token" element={<PublicInvoicePage />} />
 
         {/* Authenticated Routes */}
         <Route element={<ProtectedRoute allowedRoles={[UserRole.MANAGER, UserRole.EMPLOYEE, UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT]} />}>
@@ -341,6 +347,10 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/accounts-payable" element={<AccountsPayablePage />} />
                 <Route path="/pos/accounts-receivable" element={<AccountsReceivablePage />} />
                 <Route path="/pos/cajas" element={<POSCajasPage />} />
+                <Route path="/pos/receipt-settings" element={<ReceiptSettingsPage />} />
+                <Route path="/pos/payment-methods" element={<PaymentMethodsPage />} />
+                <Route path="/pos/recurring" element={<RecurringPaymentsPage />} />
+                <Route path="/pos/invoices" element={<InvoicesListPage />} />
                 
                 <Route path="/ecommerce/dashboard" element={<ECommerceSettingsPage />} />
                 <Route path="/ecommerce/orders" element={<EcommerceOrdersPage />} />

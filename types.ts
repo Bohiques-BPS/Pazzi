@@ -19,12 +19,83 @@ export enum Theme {
   DARK = 'dark',
 }
 
+/** Configuración de la factura/recibo del POS (el admin decide qué mostrar). */
+export interface ReceiptConfig {
+    businessName: string;
+    rnc: string;            // RNC / registro del comercio
+    address: string;
+    phone: string;
+    email: string;
+    logoUrl: string;        // URL o data URL del logo
+    headerNote: string;     // mensaje arriba de la factura
+    footerNote: string;     // términos legales / pie
+    showLogo: boolean;
+    showRnc: boolean;
+    showAddress: boolean;
+    showPhone: boolean;
+    showEmail: boolean;
+    showClient: boolean;
+    showCashier: boolean;
+    showTaxBreakdown: boolean;
+    showFooter: boolean;
+    autoPrint: boolean;     // imprimir automáticamente al finalizar
+    paperSize: '80mm' | 'letter';
+}
+
+export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
+    businessName: '',
+    rnc: '',
+    address: '',
+    phone: '',
+    email: '',
+    logoUrl: '',
+    headerNote: '',
+    footerNote: 'Gracias por su compra.',
+    showLogo: true,
+    showRnc: true,
+    showAddress: true,
+    showPhone: true,
+    showEmail: false,
+    showClient: true,
+    showCashier: true,
+    showTaxBreakdown: true,
+    showFooter: true,
+    autoPrint: false,
+    paperSize: '80mm',
+};
+
+/** Un método de pago configurable que aparece en la caja (estilo pasarelas de WooCommerce). */
+export type PaymentMethodType = 'cash' | 'card' | 'ath_movil' | 'agilpay' | 'credit' | 'check' | 'invoice' | 'custom';
+export interface PaymentMethodConfig {
+    id: string;              // slug estable
+    name: string;            // etiqueta mostrada (también el string `method` que se guarda en la venta)
+    enabled: boolean;        // si aparece en la caja
+    color: string;           // color del botón (hex)
+    type: PaymentMethodType; // dispara lógica especial (crédito → pendiente, etc.)
+    requiresReference: boolean;   // pide un dato (Nº cheque, confirmación ATH…)
+    referenceLabel: string;       // etiqueta del dato requerido
+    config?: Record<string, string>; // keys/credenciales (ej. tokens ATH Móvil)
+    builtin: boolean;        // integrado (no se puede eliminar; se activa/desactiva/reordena)
+}
+
+export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
+    { id: 'efectivo', name: 'Efectivo', enabled: true, color: '#1E88E5', type: 'cash', requiresReference: false, referenceLabel: '', builtin: true },
+    { id: 'tarjeta', name: 'Tarjeta', enabled: true, color: '#1E88E5', type: 'card', requiresReference: false, referenceLabel: '', builtin: true },
+    { id: 'ath', name: 'ATH Móvil', enabled: true, color: '#D81B60', type: 'ath_movil', requiresReference: true, referenceLabel: 'Nº de confirmación', config: { publicToken: '', privateToken: '', environment: 'production' }, builtin: true },
+    { id: 'agilpay', name: 'AgilPay', enabled: false, color: '#2E7D32', type: 'agilpay', requiresReference: false, referenceLabel: 'Nº de transacción AgilPay', config: { merchantKey: '', clientId: '', clientSecret: '', environment: 'sandbox' }, builtin: true },
+    { id: 'credito', name: 'Crédito C.', enabled: true, color: '#039BE5', type: 'credit', requiresReference: false, referenceLabel: '', builtin: true },
+    { id: 'cheque', name: 'Cheque', enabled: true, color: '#00897B', type: 'check', requiresReference: true, referenceLabel: 'Nº de cheque', builtin: true },
+    { id: 'factura', name: 'Factura', enabled: true, color: '#7CB342', type: 'invoice', requiresReference: false, referenceLabel: '', builtin: true },
+];
+
 export interface GlobalSettings {
     timezone: string;
     numberFormat: 'comma_decimal' | 'dot_decimal'; // comma_decimal = 1,000.00; dot_decimal = 1.000,00
     language: 'es' | 'en';
     fontSize: 'sm' | 'md' | 'lg';
     defaultTaxRate: number; // Universal IVU
+    receiptConfig: ReceiptConfig;
+    paymentMethods: PaymentMethodConfig[];
 }
 
 export interface AlertSettings {

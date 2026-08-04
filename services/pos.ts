@@ -33,7 +33,7 @@ export const posService = {
       reason: string;
       refundMethod?: string;
     }
-  ) => api.post<{ sale: any; refundAmount: number; message: string }>(`/sales/${saleId}/return`, data),
+  ) => api.post<{ sale: any; refundAmount: number; message: string; agilpayRefund?: { ok: boolean; message: string; reference?: string } | null }>(`/sales/${saleId}/return`, data),
 
   createEstimate: (data: {
     clientId: string;

@@ -35,7 +35,7 @@ export interface DataContextType {
   
   sales: Sale[]; 
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>; // Added setSales
-  addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, payments?: { method: string; amount: number }[]}, branchId: string) => void;
+  addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, payments?: { method: string; amount: number }[]}, branchId: string) => Promise<Sale | undefined>;
   processReturn: (originalSale: Sale, itemsToReturn: ReturnItemPayload[], employeeId: string, cajaId: string, branchId: string, reason: string) => void;
   recordSalePayment: (saleId: string) => void; 
   lastCompletedSale: Sale | null; 
@@ -815,7 +815,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     await posService.addPayment(apiSale.id, {
                         amountPaid: payment.amount,
                         paymentMethodUsed: payment.method,
-                        notes: (payment as any).reference ? `Cheque #${(payment as any).reference}` : 'Pago desde POS',
+                        // notes guarda la referencia cruda (Nº cheque, confirmación ATH, IDTransaction AgilPay)
+                        // para poder reembolsar/auditar después.
+                        notes: (payment as any).reference || 'Pago desde POS',
                     });
                 } catch (e) {
                     console.error('Error registrando pago:', e);

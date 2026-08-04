@@ -21,6 +21,8 @@ interface EmployeeFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     employee: Employee | null;
+    /** Se invoca al crear un colaborador con acceso: devuelve el enlace de activación (respaldo). */
+    onActivationLink?: (info: { name: string; link: string; emailSent?: boolean }) => void;
 }
 
 interface EmployeeFormState extends EmployeeFormData {
@@ -87,7 +89,7 @@ const QuickCreateModal: React.FC<QuickCreateModalProps> = ({ isOpen, title, plac
     );
 };
 
-export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, onClose, employee }) => {
+export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, onClose, employee, onActivationLink }) => {
     const { t } = useTranslation();
     const { setEmployees } = useData();
 
@@ -130,6 +132,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
     };
 
     const [formData, setFormData] = useState<EmployeeFormState>(initialFormState);
+    // Sueldo como string mientras se edita (permite escribir el punto decimal sin que se borre).
+    const [salaryInput, setSalaryInput] = useState('');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -187,10 +191,12 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 permissions: linked?.permissions?.permissions || {},
                 enableLogin: !!linked,
             });
+            setSalaryInput(employee.salary ? String(employee.salary) : '');
         } else {
             setLinkedUser(null);
             setPermissionRoleId('');
             setFormData(initialFormState);
+            setSalaryInput('');
         }
         setActiveTab('Personal');
         setImageFile(null);
@@ -261,7 +267,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             if (formData.pin !== formData.confirmPin) errors.confirmPin = 'PIN no coincide';
         }
 
-        if ((formData.salary || 0) < 0) errors.salary = 'No puede ser negativo';
+        if (salaryInput.trim() && !Number.isFinite(parseFloat(salaryInput.replace(',', '.')))) errors.salary = 'Monto inválido';
 
         return errors;
     };
@@ -298,10 +304,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             const { confirmPin, enableLogin, permissions, salary, ...rest } = formData;
             // Los permisos vienen del ROL (centralizado). Mandamos su snapshot como legacy.
             const rolePerms = roles.find(r => r.id === permissionRoleId)?.permissions || {};
+            const salaryNum = parseFloat(salaryInput.replace(',', '.'));
             const payload = {
                 ...rest,
                 profilePictureUrl: finalImageUrl,
-                salary: salary && salary > 0 ? salary : null,
+                salary: Number.isFinite(salaryNum) && salaryNum > 0 ? salaryNum : null,
                 // Solo enviar enableLogin si estamos creando o si se está habilitando por primera vez
                 ...(employee ? {} : { enableLogin: !!enableLogin }),
                 // Si hay user vinculado o estamos creando con login → mandar rol + snapshot de permisos
@@ -319,8 +326,15 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             // ¿Cambió el email de un empleado con cuenta de acceso? → preguntar si reenviar.
             const emailChanged = !!employee && !!linkedUser && employee.email !== formData.email.trim();
 
+            const activationLink = (saved as any)?.activationLink as string | undefined;
+            const emailSent = (saved as any)?.emailSent as boolean | undefined;
             if (!employee && enableLogin) {
-                toast.success('Empleado creado. Se envió una invitación por correo para activar su cuenta.');
+                toast.success(emailSent
+                    ? 'Empleado creado. Se envió una invitación por correo para activar su cuenta.'
+                    : 'Empleado creado. Comparte el enlace de activación (el correo no pudo enviarse).');
+                if (activationLink) {
+                    onActivationLink?.({ name: `${formData.name} ${formData.lastName}`.trim(), link: activationLink, emailSent });
+                }
             } else {
                 toast.success(employee ? 'Empleado actualizado' : 'Empleado creado');
             }
@@ -503,7 +517,16 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">Salario (anual)</label>
-                                <input type="number" name="salary" value={formData.salary || 0} step="0.01" onChange={handleChange} className={`${inputFormStyle} ${fieldErrors.salary ? 'border-red-500 focus:ring-red-500' : ''}`} />
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    name="salary"
+                                    value={salaryInput}
+                                    onChange={(e) => setSalaryInput(e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1'))}
+                                    placeholder="0.00"
+                                    autoComplete="off"
+                                    className={`${inputFormStyle} ${fieldErrors.salary ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                />
                                 {fieldErrors.salary && <p className="mt-1 text-xs text-red-500">{fieldErrors.salary}</p>}
                             </div>
                         </div>

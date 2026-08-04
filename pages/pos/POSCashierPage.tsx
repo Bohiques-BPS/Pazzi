@@ -27,6 +27,7 @@ import {
     CameraIcon,
 } from '../../components/icons';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
+import { ReceiptModal, buildReceiptHTML, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { productsService } from '../../services/products';
 
 // Lazy: ZXing solo se descarga al abrir la cámara (no infla el bundle inicial del POS).
@@ -105,12 +106,19 @@ const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: strin
     </button>
 );
 
+// Icono según el tipo de método de pago configurado.
+const METHOD_ICON: Record<string, React.ReactNode> = {
+    cash: <BanknotesIcon />, card: <CreditCardIcon />, ath_movil: <AthMovilIcon />, agilpay: <CreditCardIcon />,
+    credit: <UserKeyIcon />, check: <DocumentTextIcon />, invoice: <ClipboardDocumentListIcon />, custom: <BanknotesIcon />,
+};
+
 const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: string; shortcut?: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, shortcut, onClick, disabled = false }) => (
      <button
         onClick={onClick}
         disabled={disabled}
         title={shortcut ? `Atajo: ${shortcut}` : undefined}
-        className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center p-2 sm:p-4 rounded-md text-white font-semibold transition-colors text-xs sm:text-xl ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
+        style={{ backgroundColor: color }}
+        className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center p-2 sm:p-4 rounded-md text-white font-semibold transition-colors text-xs sm:text-xl ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
     >
         {icon && React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
         <span>{text}</span>
@@ -182,20 +190,17 @@ export const POSCashierPage: React.FC = () => {
     const navigate = useNavigate();
     const { t } = useTranslation(); // Hook translation
     const { settings } = useGlobalSettings();
+    // Métodos de pago habilitados y ordenados (de la config del negocio).
+    const enabledMethods = useMemo(() => (settings.paymentMethods || []).filter(m => m.enabled), [settings.paymentMethods]);
     const {
         products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
-        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales
+        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales, employees
     } = useData();
     const { currentUser, login, logout } = useAuth();
-    // TODO M9: rehacer cambio de usuario en POS contra el BE real (no hay `allUsers`/`loginWithPin` en AuthContext).
-    // Por ahora: lista de cajeros = empleados del DataContext con permiso pos.access.
-    const allUsers: User[] = [];
-    const loginWithPin = async (_userId: string, _pin: string): Promise<boolean> => {
-        toast.error('Cambio de usuario por PIN está temporalmente deshabilitado.');
-        return false;
-    };
     const productSearchRef = useRef<HTMLInputElement>(null);
     const [showScanCamera, setShowScanCamera] = useState(false);
+    // Factura generada tras finalizar la venta (muestra el ReceiptModal).
+    const [lastReceipt, setLastReceipt] = useState<ReceiptSale | null>(null);
     // Siempre apunta al handler vigente de atajos de pago F1..F6 (sin closures obsoletos).
     const paymentShortcutRef = useRef<(e: KeyboardEvent) => void>(() => {});
 
@@ -242,9 +247,26 @@ export const POSCashierPage: React.FC = () => {
     const [showEstimateReplaceConfirm, setShowEstimateReplaceConfirm] = useState(false);
     const [discountTarget, setDiscountTarget] = useState<'general' | string | null>(null); // 'general' or product ID
 
-    const posUsers = useMemo(() => {
-        return allUsers.filter(u => (u.role === UserRole.MANAGER || u.role === UserRole.EMPLOYEE) && u.permissions?.accessPOSCashier);
-    }, [allUsers]);
+    // Lista de cajeros para "Cambiar de Usuario": empleados con cuenta de acceso y permiso de POS,
+    // excluyendo al usuario actual. Se mapean a la forma `User` que espera UserSwitchModal.
+    const posUsers = useMemo<User[]>(() => {
+        return employees
+            .filter(e => e.email && e.email !== currentUser?.email)
+            .filter(e => {
+                const p = e.permissions;
+                if (!p) return true; // sin info de permisos → no ocultar al empleado
+                return !!(p['pos.access'] || p['pos.sell']);
+            })
+            .map(e => ({
+                id: e.id,
+                name: e.name,
+                lastName: e.lastName,
+                email: e.email,
+                role: e.role as UserRole,
+                profilePictureUrl: e.profilePictureUrl,
+                permissions: e.permissions,
+            } as unknown as User));
+    }, [employees, currentUser?.email]);
 
     const clientProjects = useMemo(() => {
         if (!selectedClient) return [];
@@ -336,13 +358,10 @@ export const POSCashierPage: React.FC = () => {
         return success;
     };
 
-    const handleSwitchUserWithPin = async (userId: string, pin: string): Promise<boolean> => {
-        const success = await loginWithPin(userId, pin);
-        if (success) {
-            setIsPosAuthenticated(false);
-            setCurrentSession(null);
-        }
-        return success;
+    // Cambio por PIN aún no soportado por el BE; el modal solo muestra PIN si el empleado tiene uno.
+    const handleSwitchUserWithPin = async (_userId: string, _pin: string): Promise<boolean> => {
+        toast.error('El cambio por PIN no está disponible; usa la contraseña.');
+        return false;
     };
 
     useEffect(() => {
@@ -362,16 +381,15 @@ export const POSCashierPage: React.FC = () => {
         setCajaInitialized(true);
     }, [branches, cajas]);
 
-    // Atajos F1..F6: abren el modal de pago con ese método (solo si NO hay otro modal abierto,
-    // para no chocar con los F1..F5 internos del modal de pago).
+    // Atajos F1..Fn: abren el modal de pago con ese método habilitado (solo si NO hay otro modal
+    // abierto, para no chocar con los F1..Fn internos del modal de pago).
     paymentShortcutRef.current = (e: KeyboardEvent) => {
-        const map: Record<string, PaymentMethod> = {
-            F1: 'Efectivo', F2: 'Tarjeta', F3: 'ATH Móvil', F4: 'Crédito C.', F5: 'Cheque', F6: 'Factura',
-        };
-        const method = map[e.key];
-        if (!method || activeModal !== null || !isShiftActive) return;
+        const fk = /^F([1-9])$/.exec(e.key);
+        if (!fk || activeModal !== null || !isShiftActive) return;
+        const method = enabledMethods[Number(fk[1]) - 1];
+        if (!method) return;
         e.preventDefault();
-        handleOpenPaymentModal(method);
+        handleOpenPaymentModal(method.name);
     };
     useEffect(() => {
         const handler = (e: KeyboardEvent) => paymentShortcutRef.current(e);
@@ -569,13 +587,17 @@ export const POSCashierPage: React.FC = () => {
 
     const handleConfirmItemDelete = async (password: string): Promise<boolean> => {
         if (!currentUser || !itemToDelete) return false;
-        const result = await login(currentUser.email, password);
-        if (result?.success === true) {
-            updateQuantity(itemToDelete.id, 0);
-            setActiveModal(null);
-            setItemToDelete(null);
-            return true;
-        }
+        try {
+            // Verifica la contraseña sin re-loguear (login() recargaría el carrito desde
+            // localStorage y "restauraría" el artículo recién borrado).
+            const { valid } = await authService.verifyPassword(password);
+            if (valid) {
+                updateQuantity(itemToDelete.id, 0);
+                setActiveModal(null);
+                setItemToDelete(null);
+                return true;
+            }
+        } catch { /* contraseña inválida o error de red */ }
         return false;
     };
 
@@ -626,21 +648,34 @@ export const POSCashierPage: React.FC = () => {
         setActiveModal('payment');
     };
 
-    const handleFinalizeSale = (payments: { method: string; amount: number; reference?: string }[]) => {
+    const handleFinalizeSale = async (payments: { method: string; amount: number; reference?: string }[], changeDue?: number) => {
          if (cart.length === 0 || !currentUser || !selectedCajaId || !selectedBranchId) {
             toast.error('No se puede completar la venta. Carrito vacío o falta información de empleado/caja/sucursal.');
             return;
         }
-        
-        const paymentMethodString = payments.length > 1 
-            ? 'Múltiple' 
+
+        const paymentMethodString = payments.length > 1
+            ? 'Múltiple'
             : payments[0]?.method || 'Desconocido';
 
         // Identify if current Caja is External
         const currentCaja = cajas.find(c => c.id === selectedCajaId);
         const isExternalSale = currentCaja?.isExternal || false;
 
-        addSale({
+        // Snapshot de la venta para la factura (antes de vaciar el carrito).
+        const receiptSnapshot: Omit<ReceiptSale, 'saleNumber'> = {
+            date: new Date().toISOString(),
+            items: cart.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })),
+            subtotal, tax, discount: globalDiscountAmount, total,
+            payments: payments.map(p => ({ method: p.method, amount: p.amount, reference: p.reference })),
+            changeDue: changeDue || 0,
+            clientName: selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined,
+            cashierName: currentUser ? `${currentUser.name} ${currentUser.lastName || ''}`.trim() : undefined,
+        };
+
+        setActiveModal(null);
+
+        const created = await addSale({
             items: cart,
             totalAmount: total,
             subtotal,
@@ -656,7 +691,11 @@ export const POSCashierPage: React.FC = () => {
             isExternal: isExternalSale,
         } as any, selectedBranchId);
 
-        setActiveModal(null);
+        // Mostrar la factura con el folio secuencial del negocio (Factura #N).
+        const folio = (created as any)?.saleNumber;
+        const saleNumber = folio ? String(folio) : `V-${Date.now().toString().slice(-6)}`;
+        setLastReceipt({ ...receiptSnapshot, saleNumber });
+
         clearCart();
     };
 
@@ -831,6 +870,11 @@ export const POSCashierPage: React.FC = () => {
                 refundMethod: 'Efectivo',
             });
             toast.success(result.message || `Devolución por $${result.refundAmount.toFixed(2)} procesada`);
+            // Resultado del reembolso automático por AgilPay, si aplicó.
+            if (result.agilpayRefund) {
+                if (result.agilpayRefund.ok) toast.success(`AgilPay: ${result.agilpayRefund.message}`);
+                else toast.warning(`AgilPay: ${result.agilpayRefund.message}`);
+            }
             setActiveModal(null);
         } catch (err: any) {
             toast.error(err?.message || 'Error al procesar la devolución');
@@ -1163,12 +1207,16 @@ export const POSCashierPage: React.FC = () => {
             <footer className="bg-gray-100 dark:bg-neutral-900 p-1 sm:p-1.5 flex-shrink-0 relative">
                  {posError && (<div className="absolute bottom-full left-0 right-0 p-2 bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-400 text-center text-xs sm:text-sm font-medium" role="alert">{posError}</div>)}
                 <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 sm:gap-1.5 w-full">
-                    <PaymentButton text="Efectivo" shortcut="F1" icon={<BanknotesIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Efectivo')} />
-                    <PaymentButton text="Tarjeta" shortcut="F2" icon={<CreditCardIcon/>} color="bg-[#1E88E5]" onClick={() => handleOpenPaymentModal('Tarjeta')} />
-                    <PaymentButton text="ATH Móvil" shortcut="F3" icon={<AthMovilIcon/>} color="bg-[#D81B60]" onClick={() => handleOpenPaymentModal('ATH Móvil')} />
-                    <PaymentButton text="Crédito C." shortcut="F4" icon={<UserKeyIcon/>} color="bg-[#039BE5]" onClick={() => handleOpenPaymentModal('Crédito C.')} />
-                    <PaymentButton text="Cheque" shortcut="F5" icon={<DocumentTextIcon />} color="bg-[#00897B]" onClick={() => handleOpenPaymentModal('Cheque')} />
-                    <PaymentButton text="Factura" shortcut="F6" icon={<ClipboardDocumentListIcon />} color="bg-[#7CB342]" onClick={() => handleOpenPaymentModal('Factura')} />
+                    {enabledMethods.map((m, i) => (
+                        <PaymentButton
+                            key={m.id}
+                            text={m.name}
+                            shortcut={i < 9 ? `F${i + 1}` : undefined}
+                            icon={METHOD_ICON[m.type] || METHOD_ICON.custom}
+                            color={m.color}
+                            onClick={() => handleOpenPaymentModal(m.name)}
+                        />
+                    ))}
                 </div>
             </footer>
             
@@ -1180,7 +1228,20 @@ export const POSCashierPage: React.FC = () => {
             <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} />
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
-            <PaymentModal isOpen={activeModal === 'payment'} onClose={() => setActiveModal(null)} totalAmount={total} initialMethod={initialPaymentMethod} onFinalizeSale={handleFinalizeSale} />
+            <PaymentModal
+                isOpen={activeModal === 'payment'}
+                onClose={() => setActiveModal(null)}
+                totalAmount={total}
+                subtotalAmount={subtotal}
+                taxAmount={tax}
+                athItems={cart.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
+                customerName={selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined}
+                customerEmail={selectedClient?.email || undefined}
+                initialMethod={initialPaymentMethod}
+                methods={enabledMethods.map(m => ({ name: m.name, type: m.type, requiresReference: m.requiresReference, referenceLabel: m.referenceLabel, config: m.config }))}
+                onFinalizeSale={handleFinalizeSale}
+            />
+            <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
             {showScanCamera && (
                 <Suspense fallback={null}>
                     <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title="Escanear producto" />
