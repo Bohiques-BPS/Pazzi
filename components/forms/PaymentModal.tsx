@@ -18,6 +18,9 @@ const parseAmount = (s: string | number): number => {
     return Number.isFinite(n) ? n : NaN;
 };
 
+// Redondeo a centavos, para que las comparaciones de saldo trabajen sobre los valores mostrados.
+const round2 = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
+
 // Métodos dinámicos: string libre (viene de la config de Métodos de Pago).
 export type PaymentMethod = string;
 
@@ -74,7 +77,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const finalizeIfPaidRef = useRef<() => void>(() => {});
 
     const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
-    const balance = totalAmount - totalPaid;
+    // El saldo se redondea a centavos: el total con IVU puede tener >2 decimales (ej. 120.38655),
+    // y la pantalla muestra 120.39. Sin redondear, pagar "120.39" se rechazaba por "superar el saldo".
+    const balance = round2(totalAmount - totalPaid);
     const isFullyPaid = balance <= 0.001; // Using a small epsilon for float comparison
     const selectedConfig = useMemo(() => methods.find(m => m.name === selectedMethod), [methods, selectedMethod]);
     const isCash = selectedConfig?.type === 'cash';
@@ -140,7 +145,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     }, [isOpen]);
 
     const handleAddPayment = () => {
-        const amount = parseAmount(amountInput);
+        const amount = round2(parseAmount(amountInput));
         if (isNaN(amount) || amount <= 0) {
             toast.error('Monto inválido. Verifique el valor ingresado.');
             return;
@@ -231,7 +236,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     // aplica el pago y finaliza la venta en un solo paso (muestra el cambio en el recibo).
     const tryQuickFinalize = (): boolean => {
         if (isFullyPaid || !isDirectMethod) return false;
-        const amount = parseAmount(amountInput);
+        const amount = round2(parseAmount(amountInput));
         if (isNaN(amount) || amount + 0.001 < balance) return false; // no cubre el saldo aún
         const applied = Math.min(amount, balance);
         const change = Math.max(0, amount - balance);
