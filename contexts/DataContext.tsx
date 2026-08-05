@@ -795,6 +795,15 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 discountValue: (item as any).discount?.value || undefined,
             }));
 
+            // Desglose de pagos: si el modal envió varios, se mandan tal cual; si no, se sintetiza
+            // un pago único con el método de la venta. El BE los persiste como SalePayment dentro
+            // de la misma transacción (excluye crédito) — fuente única para el arqueo de caja.
+            const paymentsPayload = (saleData.payments && saleData.payments.length > 0)
+                ? saleData.payments.map(p => ({ method: p.method, amount: p.amount, reference: (p as any).reference }))
+                : (saleData.paymentMethod !== 'Crédito C.'
+                    ? [{ method: saleData.paymentMethod, amount: saleData.totalAmount }]
+                    : []);
+
             const apiSale = await posService.createSale({
                 totalAmount: saleData.totalAmount,
                 subtotal: saleData.subtotal,
@@ -807,36 +816,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 clientId: saleData.clientId,
                 projectId: saleData.projectId,
                 isExternal: saleData.isExternal || false,
+                payments: paymentsPayload,
                 items,
             });
-
-            for (const payment of (saleData.payments || []).filter(p => p.method !== 'Crédito C.')) {
-                try {
-                    await posService.addPayment(apiSale.id, {
-                        amountPaid: payment.amount,
-                        paymentMethodUsed: payment.method,
-                        // notes guarda la referencia cruda (Nº cheque, confirmación ATH, IDTransaction AgilPay)
-                        // para poder reembolsar/auditar después.
-                        notes: (payment as any).reference || 'Pago desde POS',
-                    });
-                } catch (e) {
-                    console.error('Error registrando pago:', e);
-                }
-            }
-
-            if (saleData.payments?.length === 0 || !saleData.payments) {
-                if (saleData.paymentMethod !== 'Crédito C.') {
-                    try {
-                        await posService.addPayment(apiSale.id, {
-                            amountPaid: saleData.totalAmount,
-                            paymentMethodUsed: saleData.paymentMethod,
-                            notes: 'Pago único desde POS',
-                        });
-                    } catch (e) {
-                        console.error('Error registrando pago único:', e);
-                    }
-                }
-            }
 
             const newSale: Sale = {
                 ...apiSale,

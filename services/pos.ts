@@ -18,6 +18,7 @@ export const posService = {
     originalSaleId?: string;
     isExternal?: boolean;
     relatedEstimateIds?: string[];
+    payments?: { method: string; amount: number; reference?: string }[];
     items: { productId: string; quantity: number; unitPrice: number; discountType?: string; discountValue?: number }[];
   }) => api.post<any>('/sales', data),
 

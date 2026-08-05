@@ -4,22 +4,10 @@ import { BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_CLASSES } from '../../constant
 import { AthMovilButton } from '../pos/AthMovilButton';
 import { AgilPayCardForm } from '../pos/AgilPayCardForm';
 import { invoicesService, type Invoice } from '../../services/invoices';
+import { parseAmount, round2, computeBalance, evaluatePayment, coversBalance } from './paymentMath';
 import { toast } from 'react-hot-toast';
 
 const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`;
-
-// Parseo de monto tolerante a locale: acepta coma o punto como separador decimal
-// y descarta cualquier otro carácter. Evita que "10,50" (locale español) o el
-// autoformato del navegador rompan el cobro con centavos.
-const parseAmount = (s: string | number): number => {
-    if (typeof s === 'number') return s;
-    const cleaned = String(s).replace(/[^\d.,-]/g, '').replace(',', '.');
-    const n = parseFloat(cleaned);
-    return Number.isFinite(n) ? n : NaN;
-};
-
-// Redondeo a centavos, para que las comparaciones de saldo trabajen sobre los valores mostrados.
-const round2 = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
 
 // Métodos dinámicos: string libre (viene de la config de Métodos de Pago).
 export type PaymentMethod = string;
@@ -56,7 +44,9 @@ interface PaymentModalProps {
 }
 
 // Denominaciones rápidas de efectivo (billetes comunes).
-const CASH_QUICK_AMOUNTS = [5, 10, 20, 50, 100];
+// Denominaciones de billetes (como el POS de referencia). Al tocarlas se SUMAN al efectivo
+// recibido, para que el cajero cuente el dinero que entrega el cliente.
+const CASH_DENOMINATIONS = [100, 50, 20, 10, 5, 1];
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, totalAmount, subtotalAmount, taxAmount, athItems, customerName, customerEmail, initialMethod, methods, onFinalizeSale }) => {
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -79,7 +69,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
     // El saldo se redondea a centavos: el total con IVU puede tener >2 decimales (ej. 120.38655),
     // y la pantalla muestra 120.39. Sin redondear, pagar "120.39" se rechazaba por "superar el saldo".
-    const balance = round2(totalAmount - totalPaid);
+    const balance = computeBalance(totalAmount, totalPaid);
     const isFullyPaid = balance <= 0.001; // Using a small epsilon for float comparison
     const selectedConfig = useMemo(() => methods.find(m => m.name === selectedMethod), [methods, selectedMethod]);
     const isCash = selectedConfig?.type === 'cash';
@@ -110,10 +100,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     }, [isOpen, initialMethod]);
 
     useEffect(() => {
-        if (isOpen) {
-            setAmountInput(balance > 0 ? balance.toFixed(2) : '0.00');
-        }
-    }, [balance, isOpen]);
+        if (!isOpen) return;
+        // Efectivo: arranca en 0 para que el cajero cuente el efectivo recibido (billetes).
+        // Otros métodos: prellenar con el saldo exacto (un Enter finaliza de una).
+        setAmountInput(isCash ? '0.00' : (balance > 0 ? balance.toFixed(2) : '0.00'));
+    }, [balance, isOpen, isCash]);
 
     // Atajos de teclado: F1..F5 seleccionan método; Enter agrega el pago o finaliza la venta.
     // F12 finaliza la venta SOLO cuando ya está totalmente pagada.
@@ -145,33 +136,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     }, [isOpen]);
 
     const handleAddPayment = () => {
-        const amount = round2(parseAmount(amountInput));
-        if (isNaN(amount) || amount <= 0) {
-            toast.error('Monto inválido. Verifique el valor ingresado.');
+        const res = evaluatePayment({ amountInput, balance, isCash, needsRef, hasReference: !!referenceInput.trim() });
+        if (!res.ok) {
+            if (res.error === 'invalid') toast.error('Monto inválido. Verifique el valor ingresado.');
+            else if (res.error === 'exceeds') toast.error('El monto no puede superar el saldo pendiente para este método.');
+            else toast.error(`Ingresa: ${refLabel}.`);
             return;
         }
-        // El efectivo puede exceder el saldo (se devuelve vuelto). Otros métodos no.
-        if (!isCash && amount > balance + 0.001) {
-            toast.error('El monto no puede superar el saldo pendiente para este método.');
-            return;
-        }
-        // Métodos con referencia (cheque, ATH Móvil…): exigir el dato.
-        if (needsRef && !referenceInput.trim()) {
-            toast.error(`Ingresa: ${refLabel}.`);
-            return;
-        }
-
-        // El monto registrado nunca excede el saldo: el excedente en efectivo es vuelto,
-        // no dinero que quede en la caja. Así la conciliación de caja cuadra.
-        const applied = isCash ? Math.min(amount, balance) : amount;
-        const change = isCash ? Math.max(0, amount - balance) : 0;
-
         setPayments(prev => [...prev, {
             method: selectedMethod,
-            amount: applied,
+            amount: res.applied,
             ...(needsRef && referenceInput.trim() ? { reference: referenceInput.trim() } : {}),
         }]);
-        setChangeDue(change);
+        setChangeDue(res.change);
         setReferenceInput('');
     };
 
@@ -236,8 +213,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     // aplica el pago y finaliza la venta en un solo paso (muestra el cambio en el recibo).
     const tryQuickFinalize = (): boolean => {
         if (isFullyPaid || !isDirectMethod) return false;
+        if (!coversBalance(amountInput, balance)) return false; // no cubre el saldo aún
         const amount = round2(parseAmount(amountInput));
-        if (isNaN(amount) || amount + 0.001 < balance) return false; // no cubre el saldo aún
         const applied = Math.min(amount, balance);
         const change = Math.max(0, amount - balance);
         onFinalizeSale([...payments, { method: selectedMethod, amount: applied }], change);
@@ -416,7 +393,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                             </div>
                         )}
 
-                        {/* Efectivo: montos rápidos (billetes) + vuelto en vivo */}
+                        {/* Efectivo: billetes que SE SUMAN (contar el recibido) + Exacto/Limpiar + vuelto en vivo */}
                         {isCash && (
                             <div className="pt-2 space-y-2">
                                 <div className="flex flex-wrap gap-1.5">
@@ -427,16 +404,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                     >
                                         Exacto
                                     </button>
-                                    {CASH_QUICK_AMOUNTS.map(amt => (
+                                    {CASH_DENOMINATIONS.map(amt => (
                                         <button
                                             key={amt}
                                             type="button"
-                                            onClick={() => setAmountInput(String(amt))}
+                                            onClick={() => setAmountInput(prev => round2((parseAmount(prev) || 0) + amt).toFixed(2))}
                                             className="px-4 py-2 text-base font-semibold rounded-md border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700"
                                         >
-                                            ${amt}
+                                            +${amt}
                                         </button>
                                     ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setAmountInput('0.00')}
+                                        className="px-4 py-2 text-base font-semibold rounded-md border border-red-300 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                    >
+                                        Limpiar
+                                    </button>
                                 </div>
                                 {previewChange > 0.001 && (
                                     <p className="text-lg font-semibold text-green-600 dark:text-green-400">

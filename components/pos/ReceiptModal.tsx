@@ -141,11 +141,43 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
     doc.save(`factura-${sale.saleNumber}.pdf`);
 }
 
-function printReceipt(html: string) {
-    const w = window.open('', '_blank', 'width=380,height=600');
-    if (!w) return;
-    w.document.write(`<html><head><title>Factura</title></head><body onload="window.print();window.close();">${html}</body></html>`);
-    w.document.close();
+/**
+ * Imprime el recibo por el driver del sistema (device-agnostic: cualquier impresora térmica
+ * instalada en Windows, sea USB o de red). Para 80mm declara `@page size: 80mm auto; margin:0`
+ * para que el driver imprima el rollo continuo con el ancho correcto (no como carta con márgenes).
+ * Usa un iframe oculto (más confiable que window.open; no lo bloquea el popup blocker).
+ */
+function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
+    const pageCss = paperSize === '80mm'
+        ? '@page { size: 80mm auto; margin: 0; }'
+        : '@page { size: letter; margin: 12mm; }';
+    const doc = `<!doctype html><html><head><meta charset="utf-8"><title>Factura</title>
+<style>
+  ${pageCss}
+  html, body { margin: 0; padding: 0; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style></head><body>${html}</body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(iframe);
+
+    const win = iframe.contentWindow;
+    if (!win) { document.body.removeChild(iframe); return; }
+
+    win.document.open();
+    win.document.write(doc);
+    win.document.close();
+
+    const cleanup = () => { setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ya removido */ } }, 1500); };
+    const doPrint = () => {
+        try { win.focus(); win.print(); } catch { /* impresión cancelada */ }
+        cleanup();
+    };
+    // Esperar a que carguen recursos (logo, etc.) antes de imprimir.
+    if (win.document.readyState === 'complete') setTimeout(doPrint, 250);
+    else win.onload = () => setTimeout(doPrint, 250);
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sale, config }) => {
@@ -154,7 +186,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
     // Impresión automática al abrir, si está configurada.
     useEffect(() => {
         if (isOpen && sale && config.autoPrint && html) {
-            const timer = setTimeout(() => printReceipt(html), 150);
+            const timer = setTimeout(() => printReceipt(html, config.paperSize), 150);
             return () => clearTimeout(timer);
         }
     }, [isOpen, sale, config.autoPrint, html]);
@@ -170,7 +202,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
                 <div className="flex justify-end gap-2">
                     <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
                     <button onClick={() => generatePDF(sale, config)} className={BUTTON_SECONDARY_SM_CLASSES}>📄 Descargar PDF</button>
-                    <button onClick={() => printReceipt(html)} className={BUTTON_PRIMARY_SM_CLASSES}>🖨️ Imprimir</button>
+                    <button onClick={() => printReceipt(html, config.paperSize)} className={BUTTON_PRIMARY_SM_CLASSES}>🖨️ Imprimir</button>
                 </div>
             </div>
         </Modal>
