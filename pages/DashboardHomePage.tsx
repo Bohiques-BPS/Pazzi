@@ -2,9 +2,10 @@ import React, { useContext, useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppContext, useAppContext } from '../contexts/AppContext';
 import { AppModule, UserRole } from '../types';
-import { APP_MODULES_CONFIG, SubModuleLink } from '../constants';
+import { APP_MODULES_CONFIG, SubModuleLink, getModuleForPath } from '../constants';
 import { GuidedTour, TourStep } from '../components/GuidedTour';
 import { useAuth } from '../contexts/AuthContext';
+import { useModules } from '../hooks/useModules';
 import { PlusIcon, ListBulletIcon, BriefcaseIcon, CubeIcon, CashBillIcon, FireIcon } from '../components/icons';
 import { getTopVisitedPaths, getTrackedPageCount } from '../utils/pageTracker';
 
@@ -92,6 +93,7 @@ export const DashboardHomePage: React.FC = () => {
     const appContextValue = useAppContext();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
+    const { isModuleEnabled } = useModules();
 
     const [isTourActive, setIsTourActive] = useState(false);
     const [currentTourStep, setCurrentTourStep] = useState(0);
@@ -228,7 +230,10 @@ export const DashboardHomePage: React.FC = () => {
     // ── Quick links: dynamic or static fallback ────────────────────────────────
 
     const role = currentUser?.role;
-    const staticLinks = role ? (DEFAULT_QUICK_LINKS[role] ?? []) : [];
+    // Ocultar accesos rápidos que apunten a un módulo apagado a nivel negocio.
+    const staticLinks = (role ? (DEFAULT_QUICK_LINKS[role] ?? []) : [])
+        .filter(link => isModuleEnabled(getModuleForPath(link.to)));
+    const visibleDynamicLinks = dynamicLinks?.filter(link => isModuleEnabled(getModuleForPath(link.path))) ?? null;
 
     return (
         <div className="p-6">
@@ -244,7 +249,7 @@ export const DashboardHomePage: React.FC = () => {
 
             {/* Module cards */}
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                {APP_MODULES_CONFIG.filter(m => m.name !== AppModule.PROJECT_CLIENT_DASHBOARD).map(module => {
+                {APP_MODULES_CONFIG.filter(m => m.name !== AppModule.PROJECT_CLIENT_DASHBOARD && isModuleEnabled(m.name)).map(module => {
                     const descriptionText =
                         module.name === AppModule.TIENDA ? 'gestión de productos, clientes, inventario y más.' :
                         module.name === AppModule.PROJECT_MANAGEMENT ? 'gestión de proyectos.' :
@@ -282,7 +287,7 @@ export const DashboardHomePage: React.FC = () => {
                     <h2 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">
                         Accesos Rápidos
                     </h2>
-                    {dynamicLinks && (
+                    {visibleDynamicLinks && visibleDynamicLinks.length > 0 && (
                         <span className="flex items-center gap-1 text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700">
                             <FireIcon className="w-3 h-3 text-orange-400" />
                             Basado en tu actividad
@@ -290,9 +295,9 @@ export const DashboardHomePage: React.FC = () => {
                     )}
                 </div>
 
-                {dynamicLinks ? (
+                {visibleDynamicLinks && visibleDynamicLinks.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        {dynamicLinks.map(({ path, label, Icon }) => (
+                        {visibleDynamicLinks.map(({ path, label, Icon }) => (
                             <QuickLink
                                 key={path}
                                 to={path}

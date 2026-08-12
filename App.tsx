@@ -195,14 +195,40 @@ const AppContent: React.FC = () => {
   }, [currentUser, loading, location.pathname, navigate, currentModule, setCurrentModule]);
   
   const SettingsPage = () => {
-      const { currentUser: authCurrentUser } = useAuth();
+      const { currentUser: authCurrentUser, updateUserEmail } = useAuth();
       const [currentPassword, setCurrentPassword] = useState('');
       const [newPassword, setNewPassword] = useState('');
       const [confirmNewPassword, setConfirmNewPassword] = useState('');
       const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
       const [submitting, setSubmitting] = useState(false);
 
+      // Cambio de correo
+      const [newEmail, setNewEmail] = useState('');
+      const [emailPassword, setEmailPassword] = useState('');
+      const [emailMessage, setEmailMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+      const [emailSubmitting, setEmailSubmitting] = useState(false);
+
       if (!authCurrentUser) return null;
+
+      const handleEmailChange = async (e: React.FormEvent) => {
+          e.preventDefault();
+          setEmailMessage(null);
+          const trimmed = newEmail.trim();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+              setEmailMessage({ type: 'error', text: 'Ingresa un correo válido.' }); return;
+          }
+          if (trimmed.toLowerCase() === authCurrentUser.email.toLowerCase()) {
+              setEmailMessage({ type: 'error', text: 'El nuevo correo es igual al actual.' }); return;
+          }
+          if (!emailPassword) {
+              setEmailMessage({ type: 'error', text: 'Ingresa tu contraseña actual para confirmar.' }); return;
+          }
+          setEmailSubmitting(true);
+          const res = await updateUserEmail(emailPassword, trimmed);
+          setEmailMessage({ type: res.success ? 'success' : 'error', text: res.message });
+          if (res.success) { setNewEmail(''); setEmailPassword(''); }
+          setEmailSubmitting(false);
+      };
 
       const validate = (): string | null => {
           if (!currentPassword) return 'Ingresa tu contraseña actual.';
@@ -249,7 +275,44 @@ const AppContent: React.FC = () => {
                 </h2>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{authCurrentUser.email}</p>
 
-                <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-4 mt-6">Cambiar Contraseña</h3>
+                <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-4 mt-6">Cambiar Correo</h3>
+                {emailMessage && (
+                    <p className={`mb-4 p-3 rounded-md text-base ${emailMessage.type === 'success' ? 'bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-300'}`}>
+                        {emailMessage.text}
+                    </p>
+                )}
+                <form onSubmit={handleEmailChange} className="space-y-4">
+                    <div>
+                        <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Nuevo Correo</label>
+                        <input
+                            type="email"
+                            value={newEmail}
+                            onChange={e => setNewEmail(e.target.value)}
+                            className={inputFormStyle}
+                            required
+                            autoComplete="email"
+                            placeholder={authCurrentUser.email}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Contraseña Actual</label>
+                        <PasswordInput
+                            value={emailPassword}
+                            onChange={e => setEmailPassword(e.target.value)}
+                            className={inputFormStyle}
+                            required
+                            autoComplete="current-password"
+                        />
+                        <p className="text-xs text-neutral-500 mt-1">Confirma tu identidad para cambiar el correo.</p>
+                    </div>
+                    <div className="flex justify-end">
+                        <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={emailSubmitting}>
+                            {emailSubmitting ? 'Guardando...' : 'Actualizar Correo'}
+                        </button>
+                    </div>
+                </form>
+
+                <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-4 mt-8 pt-6 border-t dark:border-neutral-700">Cambiar Contraseña</h3>
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                     <div>
                         <label className="block text-base font-medium text-neutral-600 dark:text-neutral-300">Contraseña Actual</label>

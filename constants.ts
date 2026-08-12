@@ -626,6 +626,35 @@ export const APP_MODULES_CONFIG = [
   },
 ];
 
+// ─────────────────────────────────────────────
+// MÓDULOS APAGABLES (interruptor maestro por negocio)
+// ─────────────────────────────────────────────
+// Solo estos módulos principales pueden activarse/desactivarse desde Administración.
+// Administración y Portal Cliente quedan SIEMPRE activos.
+export const TOGGLEABLE_MODULES: AppModule[] = [
+  AppModule.TIENDA,
+  AppModule.PROJECT_MANAGEMENT,
+  AppModule.POS,
+  AppModule.ECOMMERCE,
+];
+
+// Prefijo de ruta → módulo, para saber a qué módulo pertenece una URL.
+const MODULE_PATH_PREFIX: Array<{ prefix: string; module: AppModule }> = [
+  { prefix: '/tienda', module: AppModule.TIENDA },
+  { prefix: '/pm', module: AppModule.PROJECT_MANAGEMENT },
+  { prefix: '/pos', module: AppModule.POS },
+  { prefix: '/ecommerce', module: AppModule.ECOMMERCE },
+  { prefix: '/admin', module: AppModule.ADMINISTRACION },
+];
+
+/** Devuelve el módulo al que pertenece una ruta, o null si no pertenece a ninguno. */
+export function getModuleForPath(pathname: string): AppModule | null {
+  const match = MODULE_PATH_PREFIX.find(
+    ({ prefix }) => pathname === prefix || pathname.startsWith(prefix + '/')
+  );
+  return match ? match.module : null;
+}
+
 export const VISIT_STATUS_OPTIONS = Object.values(VisitStatus);
 export const SUPPLIER_ORDER_STATUS_OPTIONS = Object.values(SupplierOrderStatus);
 export const PROJECT_STATUS_OPTIONS = Object.values(ProjectStatus);

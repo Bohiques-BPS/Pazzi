@@ -6,6 +6,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { DeleteIcon } from '../../components/icons';
+import { exportToPDF, exportToExcel, type ExportColumn } from '../../utils/reportExport';
 
 interface ProductReportsModalProps {
     isOpen: boolean;
@@ -25,6 +26,31 @@ const REPORTS: { id: ProductReportType; label: string; hint: string }[] = [
 
 const money = (n: number | null | undefined) => `$${(n ?? 0).toFixed(2)}`;
 const dateStr = (d: string | null) => (d ? new Date(d).toLocaleDateString() : '—');
+
+// Etiqueta sin emoji (para el título del PDF/Excel y el nombre del archivo).
+const plainLabel = (id: ProductReportType) =>
+    (REPORTS.find(r => r.id === id)?.label || 'Reporte').replace(/^[^\p{L}]+/u, '').trim();
+
+// Columnas del export (mismo orden que la tabla en pantalla, sin la casilla de selección).
+const EXPORT_COLUMNS: ExportColumn[] = [
+    { header: 'Producto', key: 'producto' },
+    { header: 'Vendidos', key: 'vendidos' },
+    { header: 'Ingresos', key: 'ingresos' },
+    { header: 'Ganancia', key: 'ganancia' },
+    { header: 'Última venta', key: 'ultimaVenta' },
+    { header: 'Creado', key: 'creado' },
+];
+
+// Aplana las filas del reporte a texto ya formateado (igual que se ve en pantalla).
+const toExportRows = (rows: ProductReportRow[]) =>
+    rows.map(r => ({
+        producto: r.isActive ? r.name : `${r.name} (Inactivo)`,
+        vendidos: r.qtySold,
+        ingresos: money(r.revenue),
+        ganancia: money(r.profit),
+        ultimaVenta: dateStr(r.lastSale),
+        creado: dateStr(r.createdAt),
+    }));
 
 export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen, onClose, onProductsDeleted }) => {
     const [active, setActive] = useState<ProductReportType>('top-sold');
@@ -82,6 +108,7 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
     };
 
     const currentHint = useMemo(() => REPORTS.find(r => r.id === active)?.hint, [active]);
+    const exportTitle = useMemo(() => `Reportes de productos — ${plainLabel(active)}`, [active]);
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Reportes de productos" size="6xl">
@@ -99,7 +126,29 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                 ))}
             </div>
 
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">{currentHint}</p>
+            <div className="flex items-start justify-between gap-3 mb-3">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{currentHint}</p>
+                <div className="flex gap-2 flex-shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => exportToPDF(exportTitle, EXPORT_COLUMNS, toExportRows(rows))}
+                        disabled={loading || rows.length === 0}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-40`}
+                        title="Descargar este reporte en PDF"
+                    >
+                        📄 PDF
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => exportToExcel(exportTitle, EXPORT_COLUMNS, toExportRows(rows))}
+                        disabled={loading || rows.length === 0}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-40`}
+                        title="Descargar este reporte en Excel"
+                    >
+                        📊 Excel
+                    </button>
+                </div>
+            </div>
 
             {/* Barra de acción para el análisis (borrar) */}
             {isUnused && (

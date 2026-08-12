@@ -12,6 +12,7 @@ interface AuthContextType {
   getInvitation: (token: string) => Promise<InvitationInfo>;
   activate: (token: string, password: string, pin?: string) => Promise<{ success: true } | { success: false; error: string }>;
   updateUserPassword: (userId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  updateUserEmail: (currentPassword: string, newEmail: string) => Promise<{ success: boolean; message: string }>;
   toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>;
   updateUserAlertSettings: (userId: string, settings: Record<string, unknown>) => Promise<boolean>;
 }
@@ -126,6 +127,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const updateUserEmail = useCallback(async (currentPassword: string, newEmail: string) => {
+    try {
+      const user = await authService.updateEmail(currentPassword, newEmail);
+      setCurrentUser(user);
+      localStorage.setItem('pazzi_user', JSON.stringify(user));
+      return { success: true as const, message: 'Correo actualizado correctamente.' };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar el correo';
+      return { success: false as const, message: msg };
+    }
+  }, []);
+
   const toggleUserEmergencyOrderMode = useCallback(async (_userId: string) => {
     try {
       const user = await authService.toggleEmergencyOrder();
@@ -150,7 +163,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentUser]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate, updateUserPassword, toggleUserEmergencyOrderMode, updateUserAlertSettings }}>
+    <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate, updateUserPassword, updateUserEmail, toggleUserEmergencyOrderMode, updateUserAlertSettings }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { AlertsConfiguration } from '../../components/admin/AlertsConfiguration';
+import { ModulesConfiguration } from '../../components/admin/ModulesConfiguration';
 
 export const AdminDashboardPage: React.FC = () => {
     return (
@@ -13,6 +14,8 @@ export const AdminDashboardPage: React.FC = () => {
                     Configure las opciones globales y las alertas del sistema.
                 </p>
             </div>
+
+            <ModulesConfiguration />
 
             <AlertsConfiguration />
 

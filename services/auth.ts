@@ -31,6 +31,10 @@ export const authService = {
   updatePassword: (currentPassword: string, newPassword: string) =>
     api.post<{ message: string }>('/auth/update-password', { currentPassword, newPassword }),
 
+  /** Cambia el correo del usuario autenticado (requiere contraseña actual). Devuelve el usuario actualizado. */
+  updateEmail: (currentPassword: string, newEmail: string) =>
+    api.post<User>('/auth/update-email', { currentPassword, newEmail }),
+
   verifyPin: (pin: string) => api.post<{ valid: boolean }>('/auth/verify-pin', { pin }),
 
   /** Verifica la contraseña del usuario autenticado sin emitir nuevos tokens ni crear sesión. */

@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     receiptConfig: DEFAULT_RECEIPT_CONFIG,
     paymentMethods: DEFAULT_PAYMENT_METHODS,
     paymentMethodScopes: DEFAULT_PAYMENT_METHOD_SCOPES,
+    enabledModules: {},
 };
 
 // --- Translations Dictionary ---

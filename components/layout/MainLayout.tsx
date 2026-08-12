@@ -6,14 +6,16 @@ import { Navbar } from './Navbar'; // Adjusted path
 import { Sidebar } from './Sidebar'; // Adjusted path
 import { AppContext, useAppContext } from '../../contexts/AppContext'; // Adjusted path
 import { AppModule } from '../../types'; // Adjusted path
-import { APP_MODULES_CONFIG } from '../../constants'; // Adjusted path
+import { APP_MODULES_CONFIG, getModuleForPath } from '../../constants'; // Adjusted path
 import { useAuth } from '../../contexts/AuthContext';
+import { useModules } from '../../hooks/useModules';
 import { recordPageVisit } from '../../utils/pageTracker';
 
 export const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const appContextValue = useAppContext();
   const { currentUser } = useAuth();
+  const { isModuleEnabled } = useModules();
 
   if (!appContextValue) {
       return <div>Error: AppContext not found.</div>;
@@ -22,6 +24,15 @@ export const MainLayout: React.FC = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Interruptor maestro: si se accede por URL directa a un módulo apagado a nivel
+  // negocio, redirigir al dashboard. Cubre el caso de un link/bookmark antiguo.
+  useEffect(() => {
+    const moduleForPath = getModuleForPath(location.pathname);
+    if (moduleForPath && !isModuleEnabled(moduleForPath)) {
+      navigate('/', { replace: true });
+    }
+  }, [location.pathname, isModuleEnabled, navigate]);
 
   // Track page visits for dynamic quick access on the dashboard
   useEffect(() => {

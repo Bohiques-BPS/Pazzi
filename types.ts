@@ -108,6 +108,12 @@ export interface GlobalSettings {
     receiptConfig: ReceiptConfig;
     paymentMethods: PaymentMethodConfig[];
     paymentMethodScopes: PaymentMethodScopes;
+    /**
+     * Interruptor maestro de módulos por negocio (aplica al MANAGER y a todos sus empleados).
+     * Clave = valor del enum AppModule. Un módulo se considera ACTIVO salvo que su clave
+     * esté explícitamente en `false`. Solo los módulos de TOGGLEABLE_MODULES son apagables.
+     */
+    enabledModules?: Record<string, boolean>;
 }
 
 export interface AlertSettings {

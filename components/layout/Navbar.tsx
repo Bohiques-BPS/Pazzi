@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
+import { useModules } from '../../hooks/useModules';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
 import { AppModule, UserRole, Notification } from '../../types';
 import { APP_MODULES_CONFIG } from '../../constants';
@@ -36,7 +37,8 @@ const formatRelativeTime = (isoTimestamp: string) => {
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, setCurrentModule }) => {
   const { currentUser, logout } = useAuth();
-  const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData(); 
+  const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData();
+  const { isModuleEnabled } = useModules();
   const { t } = useTranslation(); // Use hook
   const navigate = useNavigate();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -52,13 +54,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   };
 
   const availableModulesForSelector = APP_MODULES_CONFIG.filter(mod => {
+    // Interruptor maestro por negocio: si el módulo está apagado, no aparece para nadie.
+    if (!isModuleEnabled(mod.name)) return false;
     if (currentUser?.role === UserRole.MANAGER) {
-      return mod.name !== AppModule.PROJECT_CLIENT_DASHBOARD; 
+      return mod.name !== AppModule.PROJECT_CLIENT_DASHBOARD;
     }
     if (currentUser?.role === UserRole.EMPLOYEE) {
       return mod.name === AppModule.POS || mod.name === AppModule.PROJECT_MANAGEMENT;
     }
-    return false; 
+    return false;
   });
 
 
