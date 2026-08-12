@@ -9,13 +9,25 @@ import { ConfirmationModal } from '../../components/Modal'; // Adjusted path
 import { PlusIcon, EditIcon, DeleteIcon, BarcodeScanIcon } from '../../components/icons'; // Adjusted path
 import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
-import { API_URL } from '../../services/api';
+import { API_URL, api } from '../../services/api';
 import { toast } from 'react-hot-toast';
+import { ImportModal, type ImportFieldDef, type ImportResult } from '../../components/ui/ImportModal';
+import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { stripHtml, slugToName } from '../../utils/wpImport';
+
+// Alias/transformaciones para exportaciones de WordPress (name, description, thumbnail, parent_slug).
+const CATEGORY_IMPORT_FIELDS: ImportFieldDef[] = [
+    { key: 'name', label: 'Nombre', required: true, aliases: ['nombre', 'name', 'categoria', 'category', 'title'] },
+    { key: 'departmentName', label: 'Departamento', aliases: ['departamento', 'department', 'division', 'parent_slug', 'parent'], transform: slugToName },
+    { key: 'description', label: 'Descripción', aliases: ['descripcion', 'description', 'detalle'], transform: stripHtml },
+    { key: 'imageUrl', label: 'Imagen (URL)', aliases: ['imagen', 'image', 'thumbnail', 'foto', 'imageurl'] },
+];
 
 export const CategoriesListPage: React.FC = () => {
     const { t } = useTranslation();
     const { categories, setCategories } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     
@@ -121,6 +133,14 @@ export const CategoriesListPage: React.FC = () => {
         },
         { header: t('category.field.name'), accessor: 'name' },
         {
+            header: 'Departamento',
+            accessor: (category) => (
+                category.department?.name
+                    ? <span className="text-sm text-neutral-700 dark:text-neutral-200">{category.department.name}</span>
+                    : <span className="text-xs text-neutral-400">Sin departamento</span>
+            ),
+        },
+        {
             header: 'Productos',
             accessor: (category) => (
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
@@ -147,6 +167,7 @@ export const CategoriesListPage: React.FC = () => {
                         className={`${INPUT_SM_CLASSES} flex-grow`}
                         aria-label="Buscar categoría"
                     />
+                    <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex-shrink-0`}>Importar</button>
                     <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                         <PlusIcon /> {t('category.list.create')}
                     </button>
@@ -178,6 +199,16 @@ export const CategoriesListPage: React.FC = () => {
                 )}
             />
             <CategoryFormModal isOpen={showFormModal} onClose={() => setShowFormModal(false)} category={editingCategory} />
+            {showImportModal && (
+                <ImportModal
+                    isOpen={showImportModal}
+                    onClose={() => setShowImportModal(false)}
+                    title="Importar categorías (Excel/CSV o WordPress)"
+                    fields={CATEGORY_IMPORT_FIELDS}
+                    onImport={(rows) => api.post<ImportResult>('/categories/import', { items: rows })}
+                    onDone={fetchCategories}
+                />
+            )}
             <ScanAssignModal
                 isOpen={!!scanTarget}
                 onClose={() => setScanTarget(null)}

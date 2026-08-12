@@ -572,6 +572,7 @@ export const APP_MODULES_CONFIG = [
         { type: 'link', name: 'Config. Factura', path: '/pos/receipt-settings', icon: ClipboardDocumentListIcon },
         { type: 'link', name: 'Métodos de Pago', path: '/pos/payment-methods', icon: BanknotesIcon },
         { type: 'link', name: 'Pagos Recurrentes', path: '/pos/recurring', icon: ArrowPathIcon },
+        { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon },
     ] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],

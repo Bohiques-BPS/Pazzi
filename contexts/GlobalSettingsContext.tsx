@@ -1,6 +1,6 @@
 
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
-import { GlobalSettings, DEFAULT_RECEIPT_CONFIG, DEFAULT_PAYMENT_METHODS } from '../types';
+import { GlobalSettings, DEFAULT_RECEIPT_CONFIG, DEFAULT_PAYMENT_METHODS, DEFAULT_PAYMENT_METHOD_SCOPES } from '../types';
 import { api } from '../services/api';
 
 export interface GlobalSettingsContextType {
@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     defaultTaxRate: 0.115, // Default IVU in PR is 11.5%
     receiptConfig: DEFAULT_RECEIPT_CONFIG,
     paymentMethods: DEFAULT_PAYMENT_METHODS,
+    paymentMethodScopes: DEFAULT_PAYMENT_METHOD_SCOPES,
 };
 
 // --- Translations Dictionary ---
@@ -617,6 +618,10 @@ export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
                 paymentMethods: Array.isArray(data?.paymentMethods) && data!.paymentMethods!.length
                     ? data!.paymentMethods as GlobalSettings['paymentMethods']
                     : DEFAULT_PAYMENT_METHODS,
+                paymentMethodScopes: {
+                    branchDisabled: (data?.paymentMethodScopes as any)?.branchDisabled || {},
+                    cajaDisabled: (data?.paymentMethodScopes as any)?.cajaDisabled || {},
+                },
             });
         } catch {
             setSettings(DEFAULT_SETTINGS);

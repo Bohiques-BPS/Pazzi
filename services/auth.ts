@@ -46,8 +46,8 @@ export const authService = {
   getInvitation: (token: string) =>
     api.get<InvitationInfo>(`/auth/invitation/${encodeURIComponent(token)}`),
 
-  activate: (token: string, password: string) =>
-    api.post<AuthResponse>('/auth/activate', { token, password }),
+  activate: (token: string, password: string, pin?: string) =>
+    api.post<AuthResponse>('/auth/activate', { token, password, ...(pin ? { pin } : {}) }),
 
   resendInvitation: (employeeId: string) =>
     api.post<{ message: string; expiresAt: string; emailSent?: boolean; activationLink?: string }>('/auth/resend-invitation', { employeeId }),

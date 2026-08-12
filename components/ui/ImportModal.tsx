@@ -13,6 +13,9 @@ export interface ImportFieldDef {
     type?: 'string' | 'number' | 'boolean' | 'date';
     /** Nombres de columna candidatos para el auto-mapeo heurístico. */
     aliases?: string[];
+    /** Transformación inteligente: recibe el valor crudo de la columna mapeada y la fila completa
+     *  (por si necesita combinar columnas). Si se define, reemplaza la coerción por tipo. */
+    transform?: (rawValue: any, row: Record<string, any>) => any;
 }
 
 export interface ImportResult {
@@ -141,7 +144,14 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             const out: Record<string, any> = {};
             for (const f of fields) {
                 const src = mapping[f.key];
-                if (src) out[f.key] = coerce(r[src], f.type);
+                const raw = src ? r[src] : undefined;
+                // Un campo con transform puede derivar su valor aunque no tenga columna mapeada
+                // (leyendo otras columnas de la fila). Si no, solo si hay columna origen.
+                let val: any;
+                if (f.transform) val = f.transform(raw, r);
+                else if (src) val = coerce(raw, f.type);
+                else continue;
+                if (val !== undefined && val !== '') out[f.key] = val;
             }
             return out;
         });

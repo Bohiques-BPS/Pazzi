@@ -5,6 +5,7 @@ export interface EmployeePayload {
   name: string;
   lastName: string;
   email: string;
+  employeeNumber?: number | null;
   role: string;
   hireDate?: string | null;
   address?: string | null;
@@ -45,4 +46,5 @@ export const employeesService = {
   create: (data: EmployeePayload) => api.post<EmployeeRecord>('/employees', data),
   update: (id: string, data: Partial<EmployeePayload>) => api.put<EmployeeRecord>(`/employees/${id}`, data),
   delete: (id: string) => api.delete<{ message: string }>(`/employees/${id}`),
+  assignNumbers: () => api.post<{ assigned: number }>('/employees/assign-numbers'),
 };

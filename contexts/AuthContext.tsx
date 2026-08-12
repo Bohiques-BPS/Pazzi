@@ -10,7 +10,7 @@ interface AuthContextType {
   register: (name: string, lastName: string, email: string, password: string, role: UserRole, extra?: { phone?: string; companyName?: string }) => Promise<{ success: true } | { success: false; error: string }>;
   logout: () => Promise<void>;
   getInvitation: (token: string) => Promise<InvitationInfo>;
-  activate: (token: string, password: string) => Promise<{ success: true } | { success: false; error: string }>;
+  activate: (token: string, password: string, pin?: string) => Promise<{ success: true } | { success: false; error: string }>;
   updateUserPassword: (userId: string, currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>;
   updateUserAlertSettings: (userId: string, settings: Record<string, unknown>) => Promise<boolean>;
@@ -102,9 +102,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const getInvitation = useCallback((token: string) => authService.getInvitation(token), []);
 
-  const activate = useCallback(async (token: string, password: string) => {
+  const activate = useCallback(async (token: string, password: string, pin?: string) => {
     try {
-      const { user, token: accessToken, refreshToken } = await authService.activate(token, password);
+      const { user, token: accessToken, refreshToken } = await authService.activate(token, password, pin);
       persistSession(user, accessToken, refreshToken);
       setCurrentUser(user);
       return { success: true as const };

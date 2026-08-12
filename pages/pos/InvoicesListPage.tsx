@@ -13,9 +13,12 @@ const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`
 
 const STATUS: Record<string, { label: string; cls: string }> = {
     pending: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+    partial: { label: 'Pago parcial', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
     paid: { label: 'Pagada', cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
     cancelled: { label: 'Cancelada', cls: 'bg-neutral-200 text-neutral-500' },
 };
+
+const money0 = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
 type DraftItem = { name: string; quantity: string; unitPrice: string };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
@@ -64,9 +67,18 @@ export const InvoicesListPage: React.FC = () => {
 
     // Form
     const [clientId, setClientId] = useState('');
+    const [email, setEmail] = useState('');
+    const [sendOnCreate, setSendOnCreate] = useState(true);
     const [description, setDescription] = useState('');
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
     const [saving, setSaving] = useState(false);
+
+    // Al elegir cliente, autocompleta su correo (si tiene).
+    const onSelectClient = (id: string) => {
+        setClientId(id);
+        const c = clients.find(x => x.id === id);
+        if (c?.email) setEmail(c.email);
+    };
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -76,7 +88,7 @@ export const InvoicesListPage: React.FC = () => {
     }, []);
     useEffect(() => { load(); }, [load]);
 
-    const resetForm = () => { setClientId(''); setDescription(''); setLines([emptyItem()]); };
+    const resetForm = () => { setClientId(''); setEmail(''); setSendOnCreate(true); setDescription(''); setLines([emptyItem()]); };
     const setLine = (i: number, patch: Partial<DraftItem>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
     const addLine = () => setLines(ls => [...ls, emptyItem()]);
     const removeLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls);
@@ -95,8 +107,14 @@ export const InvoicesListPage: React.FC = () => {
         if (parsed.length === 0) return toast.error('Agrega al menos un artículo.');
         setSaving(true);
         try {
-            const created = await invoicesService.create({ clientId: clientId || undefined, items: parsed, description: description || undefined });
-            toast.success('Factura creada.');
+            const created = await invoicesService.create({
+                clientId: clientId || undefined,
+                email: email.trim() || undefined,
+                send: sendOnCreate && !!email.trim(),
+                items: parsed,
+                description: description || undefined,
+            });
+            toast.success(sendOnCreate && email.trim() ? `Factura creada y enviada a ${email.trim()}.` : 'Factura creada.');
             setShowForm(false); resetForm(); load();
             setShare(created); // abre el modal con el link/QR
         } catch (err) {
@@ -104,14 +122,35 @@ export const InvoicesListPage: React.FC = () => {
         } finally { setSaving(false); }
     };
 
-    const markPaid = async (inv: Invoice) => {
-        const reference = prompt('Referencia del pago (ej. Nº de confirmación ATH Móvil):') ?? '';
-        if (reference === null) return;
+    const sendByEmail = async (inv: Invoice) => {
         try {
-            await invoicesService.markPaid(inv.id, { method: 'ATH Móvil', reference: reference || undefined });
-            toast.success('Factura marcada como pagada.');
+            const r = await invoicesService.send(inv.id);
+            toast.success(`Factura enviada a ${r.to}.`);
+        } catch (err) {
+            // Si no hay correo del cliente, lo pedimos y reintentamos.
+            const to = prompt('Correo del cliente para enviar la factura:') || '';
+            if (!to.trim()) return;
+            try {
+                const r = await invoicesService.send(inv.id, to.trim());
+                toast.success(`Factura enviada a ${r.to}.`);
+            } catch (e) {
+                toast.error(e instanceof ApiError ? e.message : 'No se pudo enviar la factura.');
+            }
+        }
+    };
+
+    const markPaid = async (inv: Invoice) => {
+        const balance = Math.max(0, (inv.total || 0) - (inv.amountPaid || 0));
+        const amtStr = prompt(`Monto del abono recibido (saldo ${money0(balance)}):`, balance.toFixed(2));
+        if (amtStr === null) return;
+        const amount = parseFloat(String(amtStr).replace(',', '.'));
+        if (!(amount > 0)) return toast.error('Monto inválido.');
+        const reference = prompt('Referencia del pago (ej. Nº de confirmación ATH Móvil):') ?? '';
+        try {
+            await invoicesService.markPaid(inv.id, { method: 'ATH Móvil', reference: reference || undefined, amount });
+            toast.success('Abono registrado.');
             load();
-        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'Error al marcar pagada.'); }
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'Error al registrar el abono.'); }
     };
 
     const copyLink = async (inv: Invoice) => {
@@ -133,12 +172,20 @@ export const InvoicesListPage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs text-neutral-500 mb-1">Cliente (opcional)</label>
-                            <select value={clientId} onChange={e => setClientId(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
+                            <select value={clientId} onChange={e => onSelectClient(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
                                 <option value="">Sin cliente</option>
                                 {clients.filter(c => !c.isDefault).map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
                             </select>
                         </div>
                         <div>
+                            <label className="block text-xs text-neutral-500 mb-1">Correo del cliente (para enviar la factura)</label>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="cliente@correo.com" className={`${INPUT_SM_CLASSES} w-full`} />
+                            <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 mt-1">
+                                <input type="checkbox" checked={sendOnCreate} onChange={e => setSendOnCreate(e.target.checked)} className="h-3.5 w-3.5" />
+                                Enviar la factura por correo al crear
+                            </label>
+                        </div>
+                        <div className="sm:col-span-2">
                             <label className="block text-xs text-neutral-500 mb-1">Descripción / nota (opcional)</label>
                             <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ej. Servicio de instalación" className={`${INPUT_SM_CLASSES} w-full`} />
                         </div>
@@ -182,13 +229,15 @@ export const InvoicesListPage: React.FC = () => {
                                     <span className="font-semibold text-neutral-800 dark:text-neutral-100">Factura {inv.number ? `#${inv.number}` : ''}</span>
                                     {inv.clientName && <span className="text-neutral-500">· {inv.clientName}</span>}
                                     <span className="text-neutral-500">· {money(inv.total)}</span>
+                                    {inv.status === 'partial' && <span className="text-blue-600 dark:text-blue-400 text-xs">· Pagado {money(inv.amountPaid || 0)} · Saldo {money((inv.total || 0) - (inv.amountPaid || 0))}</span>}
                                     <span className="text-xs text-neutral-400 ml-auto">{new Date(inv.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 {inv.description && <p className="text-xs text-neutral-500 mt-1">{inv.description}</p>}
                                 <div className="flex items-center gap-3 mt-2 flex-wrap">
                                     <button onClick={() => setShare(inv)} className="text-xs text-primary hover:underline">Ver link / QR</button>
                                     <button onClick={() => copyLink(inv)} className="text-xs text-neutral-500 hover:underline">Copiar link</button>
-                                    {inv.status === 'pending' && <button onClick={() => markPaid(inv)} className="text-xs text-green-600 hover:underline">Marcar pagada (ATH)</button>}
+                                    <button onClick={() => sendByEmail(inv)} className="text-xs text-blue-600 hover:underline">Enviar por correo</button>
+                                    {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => markPaid(inv)} className="text-xs text-green-600 hover:underline">Registrar abono</button>}
                                     {inv.status === 'paid' && inv.paidMethod && <span className="text-xs text-neutral-400 ml-auto">Pagada · {inv.paidMethod}{inv.paidReference ? ` · Ref: ${inv.paidReference}` : ''}</span>}
                                 </div>
                             </div>

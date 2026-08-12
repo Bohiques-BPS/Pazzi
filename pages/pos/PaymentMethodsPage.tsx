@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
-import { DEFAULT_PAYMENT_METHODS, type PaymentMethodConfig } from '../../types';
+import { useData } from '../../contexts/DataContext';
+import { DEFAULT_PAYMENT_METHODS, type PaymentMethodConfig, type PaymentMethodScopes } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { ArrowUpIcon, ArrowDownIcon, DeleteIcon, PlusIcon } from '../../components/icons';
 import { toast } from '../../hooks/useToast';
+
+/** Quita/añade un id en una lista, devolviendo la nueva lista (sin duplicados, sin vacíos). */
+const toggleInList = (list: string[] | undefined, id: string, disabled: boolean): string[] => {
+    const set = new Set(list || []);
+    if (disabled) set.add(id); else set.delete(id);
+    return [...set];
+};
 
 const TYPE_LABEL: Record<string, string> = {
     cash: 'Efectivo', card: 'Tarjeta', ath_movil: 'ATH Móvil', credit: 'Crédito', check: 'Cheque', invoice: 'Factura', custom: 'Personalizado',
@@ -13,10 +21,31 @@ const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 
 export const PaymentMethodsPage: React.FC = () => {
     const { settings, updateSettings } = useGlobalSettings();
+    const { branches, cajas } = useData();
     const [methods, setMethods] = useState<PaymentMethodConfig[]>(
         (settings.paymentMethods && settings.paymentMethods.length ? settings.paymentMethods : DEFAULT_PAYMENT_METHODS).map(m => ({ ...m }))
     );
+    // Overrides por alcance: ids de métodos DESHABILITADOS por sucursal / caja.
+    const [scopes, setScopes] = useState<PaymentMethodScopes>({
+        branchDisabled: { ...(settings.paymentMethodScopes?.branchDisabled || {}) },
+        cajaDisabled: { ...(settings.paymentMethodScopes?.cajaDisabled || {}) },
+    });
+    const [expandedScope, setExpandedScope] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+
+    // Efectivo/activo por alcance (global apagado ⇒ apagado en todas partes).
+    const branchOn = (mId: string, bId: string) => !(scopes.branchDisabled[bId] || []).includes(mId);
+    const cajaOn = (mId: string, cId: string) => !(scopes.cajaDisabled[cId] || []).includes(mId);
+
+    const setBranchDisabled = (mId: string, bId: string, disabled: boolean) =>
+        setScopes(prev => ({ ...prev, branchDisabled: { ...prev.branchDisabled, [bId]: toggleInList(prev.branchDisabled[bId], mId, disabled) } }));
+    const setCajaDisabled = (mId: string, cId: string, disabled: boolean) =>
+        setScopes(prev => ({ ...prev, cajaDisabled: { ...prev.cajaDisabled, [cId]: toggleInList(prev.cajaDisabled[cId], mId, disabled) } }));
+
+    // Cuántos alcances tienen el método apagado (para el resumen del botón).
+    const disabledScopeCount = (mId: string) =>
+        Object.values(scopes.branchDisabled).filter(l => l.includes(mId)).length +
+        Object.values(scopes.cajaDisabled).filter(l => l.includes(mId)).length;
 
     const patch = (id: string, changes: Partial<PaymentMethodConfig>) =>
         setMethods(prev => prev.map(m => (m.id === id ? { ...m, ...changes } : m)));
@@ -45,7 +74,7 @@ export const PaymentMethodsPage: React.FC = () => {
         // Normalizar ids de custom por si cambiaron el nombre.
         const cleaned = methods.map(m => (m.builtin ? m : { ...m, id: m.id.startsWith('custom-') ? m.id : slug(m.name) }));
         setSaving(true);
-        updateSettings({ paymentMethods: cleaned });
+        updateSettings({ paymentMethods: cleaned, paymentMethodScopes: scopes });
         setTimeout(() => { setSaving(false); toast.success('Métodos de pago guardados.'); }, 300);
     };
 
@@ -142,6 +171,66 @@ export const PaymentMethodsPage: React.FC = () => {
                                 <p className="sm:col-span-4 text-xs text-neutral-400">Cobro real con tarjeta vía AgilPay (Dynamics Payments). El Client Secret se guarda cifrado en el servidor; déjalo vacío para conservar el actual.</p>
                             </div>
                         )}
+
+                        {/* Disponibilidad por sucursal / caja */}
+                        <div className="mt-3 border-t border-neutral-100 dark:border-neutral-700 pt-3 pl-1">
+                            <button
+                                type="button"
+                                onClick={() => setExpandedScope(expandedScope === m.id ? null : m.id)}
+                                className="text-sm text-primary hover:underline flex items-center gap-1"
+                            >
+                                Disponibilidad por sucursal / caja
+                                {disabledScopeCount(m.id) > 0 && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                        {disabledScopeCount(m.id)} apagada(s)
+                                    </span>
+                                )}
+                                <span className="text-neutral-400">{expandedScope === m.id ? '▲' : '▼'}</span>
+                            </button>
+
+                            {expandedScope === m.id && (
+                                <div className="mt-2">
+                                    {!m.enabled ? (
+                                        <p className="text-xs text-neutral-500">Este método está <strong>inactivo</strong> globalmente. Actívalo arriba para poder habilitarlo por sucursal o caja.</p>
+                                    ) : branches.length === 0 ? (
+                                        <p className="text-xs text-neutral-500">No hay sucursales configuradas.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {branches.map(b => {
+                                                const bOn = branchOn(m.id, b.id);
+                                                const branchCajas = cajas.filter(c => c.branchId === b.id);
+                                                return (
+                                                    <div key={b.id} className="rounded-md border border-neutral-100 dark:border-neutral-700 p-2">
+                                                        <label className="flex items-center gap-2 text-sm font-medium">
+                                                            <input type="checkbox" checked={bOn} onChange={e => setBranchDisabled(m.id, b.id, !e.target.checked)} className="h-4 w-4" />
+                                                            {b.name}
+                                                            {!bOn && <span className="text-xs text-red-500">(apagado en esta sucursal)</span>}
+                                                        </label>
+                                                        {branchCajas.length > 0 && (
+                                                            <div className="mt-1.5 ml-6 space-y-1">
+                                                                {branchCajas.map(c => (
+                                                                    <label key={c.id} className={`flex items-center gap-2 text-sm ${!bOn ? 'opacity-40' : ''}`}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={bOn && cajaOn(m.id, c.id)}
+                                                                            disabled={!bOn}
+                                                                            onChange={e => setCajaDisabled(m.id, c.id, !e.target.checked)}
+                                                                            className="h-4 w-4"
+                                                                        />
+                                                                        {c.name}
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                            <p className="text-xs text-neutral-400">Destildar apaga el método en esa sucursal/caja. Una sucursal apagada apaga también sus cajas.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>

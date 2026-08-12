@@ -66,6 +66,7 @@ import { ReceiptSettingsPage } from './pages/pos/ReceiptSettingsPage';
 import { PaymentMethodsPage } from './pages/pos/PaymentMethodsPage';
 import { RecurringPaymentsPage } from './pages/pos/RecurringPaymentsPage';
 import { InvoicesListPage } from './pages/pos/InvoicesListPage';
+import { AttendancePage } from './pages/pos/AttendancePage';
 import { POSSalesHistoryPage } from './pages/pos/POSSalesHistoryPage'; 
 import { POSInventoryPage } from './pages/pos/POSInventoryPage';
 import { EstimatesListPage } from './pages/pos/EstimatesListPage';
@@ -87,6 +88,7 @@ import { PublicInvoicePage } from './pages/pos/PublicInvoicePage';
 
 // Admin Pages
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+import { SuperAdminUsersPage } from './pages/admin/SuperAdminUsersPage';
 
 
 // Icons
@@ -112,9 +114,10 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: UserRole[] }) => {
 
   // If user is logged in, but their role is not in the allowed list, navigate them to a safe default page.
   // The useEffect hook for login redirect will handle the primary navigation, this is a fallback for direct URL access.
-  return allowedRoles.includes(currentUser.role)
-    ? <Outlet /> 
-    : <Navigate to="/" replace />;
+  if (allowedRoles.includes(currentUser.role)) return <Outlet />;
+  // El super-admin tiene su propia sección; evita el bucle de redirigir a "/".
+  const fallback = currentUser.role === UserRole.SUPER_ADMIN ? '/admin/users' : '/';
+  return <Navigate to={fallback} replace />;
 };
 
 
@@ -170,6 +173,9 @@ const AppContent: React.FC = () => {
         if (isAuthPath) {
              let targetPath = '/';
              switch (currentUser.role) {
+                case UserRole.SUPER_ADMIN:
+                    targetPath = '/admin/users';
+                    break;
                 case UserRole.CLIENT_ECOMMERCE:
                     targetPath = '/store';
                     break;
@@ -303,6 +309,11 @@ const AppContent: React.FC = () => {
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
         <Route path="/pay/:token" element={<PublicInvoicePage />} />
 
+        {/* Super-administrador (sección propia, sin el layout de tienda) */}
+        <Route element={<ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]} />}>
+            <Route path="/admin/users" element={<SuperAdminUsersPage />} />
+        </Route>
+
         {/* Authenticated Routes */}
         <Route element={<ProtectedRoute allowedRoles={[UserRole.MANAGER, UserRole.EMPLOYEE, UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT]} />}>
             <Route element={<MainLayout />}>
@@ -351,6 +362,7 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/payment-methods" element={<PaymentMethodsPage />} />
                 <Route path="/pos/recurring" element={<RecurringPaymentsPage />} />
                 <Route path="/pos/invoices" element={<InvoicesListPage />} />
+                <Route path="/pos/attendance" element={<AttendancePage />} />
                 
                 <Route path="/ecommerce/dashboard" element={<ECommerceSettingsPage />} />
                 <Route path="/ecommerce/orders" element={<EcommerceOrdersPage />} />

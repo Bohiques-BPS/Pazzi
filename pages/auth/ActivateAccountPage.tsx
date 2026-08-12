@@ -21,6 +21,8 @@ export const ActivateAccountPage: React.FC = () => {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,8 @@ export const ActivateAccountPage: React.FC = () => {
     if (!/[A-Za-z]/.test(password)) return 'La contraseña debe contener al menos una letra.';
     if (!/[0-9]/.test(password)) return 'La contraseña debe contener al menos un número.';
     if (password !== confirmPassword) return 'Las contraseñas no coinciden.';
+    if (!/^\d{4}$/.test(pin)) return 'El PIN debe ser de 4 dígitos.';
+    if (pin !== confirmPin) return 'Los PIN no coinciden.';
     return null;
   };
 
@@ -71,7 +75,7 @@ export const ActivateAccountPage: React.FC = () => {
       return;
     }
     setSubmitting(true);
-    const result = await activate(token, password);
+    const result = await activate(token, password, pin);
     setSubmitting(false);
     if ('error' in result) {
       setError(result.error);
@@ -85,7 +89,7 @@ export const ActivateAccountPage: React.FC = () => {
       <div className="w-full max-w-md bg-white dark:bg-neutral-800 rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-semibold text-center mb-2">Activar tu cuenta</h1>
         <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 mb-6">
-          Crea tu contraseña para empezar a usar Pazzi.
+          Crea tu contraseña y tu PIN de ponche para empezar a usar Pazzi.
         </p>
 
         {state.kind === 'loading' && (
@@ -147,6 +151,33 @@ export const ActivateAccountPage: React.FC = () => {
                   minLength={8}
                 />
               </div>
+            </div>
+
+            <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
+              <label className="block text-sm font-medium mb-1">PIN de 4 dígitos (para ponchar en la caja)</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="PIN"
+                  maxLength={4}
+                  className={`${authInputStyle} text-center tracking-[0.3em]`}
+                  required
+                />
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="Confirmar PIN"
+                  maxLength={4}
+                  className={`${authInputStyle} text-center tracking-[0.3em]`}
+                  required
+                />
+              </div>
+              <p className="text-xs text-neutral-500 mt-1">Lo usarás para marcar tu entrada/salida (ponche) en la caja registradora.</p>
             </div>
 
             {error && (

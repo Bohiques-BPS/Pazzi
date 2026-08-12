@@ -2,6 +2,7 @@
 import React from 'react';
 
 export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN', // Super-administrador de la plataforma (gestiona administradores)
   MANAGER = 'MANAGER',
   EMPLOYEE = 'EMPLOYEE',
   CLIENT_ECOMMERCE = 'CLIENT_ECOMMERCE', // Shopper
@@ -88,6 +89,16 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     { id: 'factura', name: 'Factura', enabled: true, color: '#7CB342', type: 'invoice', requiresReference: false, referenceLabel: '', builtin: true },
 ];
 
+/** Deshabilitación de métodos de pago por alcance. Los ids listados quedan apagados en ese
+ *  alcance. Un método apagado globalmente (paymentMethods[].enabled=false) queda apagado en todas
+ *  partes, sin importar estos overrides. */
+export interface PaymentMethodScopes {
+    branchDisabled: Record<string, string[]>; // branchId -> ids de métodos deshabilitados
+    cajaDisabled: Record<string, string[]>;   // cajaId   -> ids de métodos deshabilitados
+}
+
+export const DEFAULT_PAYMENT_METHOD_SCOPES: PaymentMethodScopes = { branchDisabled: {}, cajaDisabled: {} };
+
 export interface GlobalSettings {
     timezone: string;
     numberFormat: 'comma_decimal' | 'dot_decimal'; // comma_decimal = 1,000.00; dot_decimal = 1.000,00
@@ -96,6 +107,7 @@ export interface GlobalSettings {
     defaultTaxRate: number; // Universal IVU
     receiptConfig: ReceiptConfig;
     paymentMethods: PaymentMethodConfig[];
+    paymentMethodScopes: PaymentMethodScopes;
 }
 
 export interface AlertSettings {
@@ -241,6 +253,8 @@ export interface Category {
     name: string;
     description?: string;
     imageUrl?: string;
+    departmentId?: string | null;               // departamento al que pertenece (jerarquía)
+    department?: { id: string; name: string } | null;
     storeOwnerId: string;
     _count?: { products: number };
 }
@@ -329,6 +343,7 @@ export interface PermissionCategory {
 
 export interface Employee {
     id: string;
+    employeeNumber?: number | null;
     name: string;
     lastName: string;
     email: string;
@@ -629,7 +644,7 @@ export enum AppModule {
 
 
 // --- Form Data Types ---
-export type CategoryFormData = Pick<Category, 'name'> & { description?: string; imageUrl?: string };
+export type CategoryFormData = Pick<Category, 'name'> & { description?: string; imageUrl?: string; departmentId?: string | null };
 export type DepartmentFormData = Pick<Department, 'name'>;
 
 export type ProductFormData = Omit<Product, 'id' | 'stockByBranch'> & {

@@ -130,6 +130,9 @@ export const clientsService = {
 
   create: (data: Partial<ClientRecord>) => api.post<ClientRecord>('/clients', data),
 
+  bulkImport: (items: any[]) =>
+    api.post<{ created: number; updated?: number; failedCount: number; failed: { row: number; error: string }[] }>('/clients/import', { items }),
+
   update: (id: string, data: Partial<ClientRecord>) =>
     api.put<ClientRecord>(`/clients/${id}`, data),
 

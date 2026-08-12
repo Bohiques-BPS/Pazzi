@@ -72,4 +72,16 @@ export const cajaReportsService = {
     api.get<{ totalTax: number; totalSubtotal: number; totalDiscount: number; totalWithTax: number; count: number; byDay: any[] }>('/cajas/reports/tax', f as any),
   xReport: (cajaId: string) =>
     api.get<{ session: any; totals: any; cajaName: string }>(`/cajas/reports/x/${cajaId}`),
+  dailyClose: (cajaId: string, startDate?: string, endDate?: string) =>
+    api.get<{
+      cajaName: string;
+      date: string;
+      totals: {
+        totalSales: number; cashSales: number; cardSales: number; otherSales: number;
+        cashRefunds: number; payouts: number; cashIn: number; openingFloat: number;
+        expectedCash: number; salesCount: number; returnsCount: number;
+      };
+      byMethod: { method: string; count: number; amount: number }[];
+      currentSession: { expectedCash: number; openingFloat: number } | null;
+    }>('/cajas/reports/daily', { cajaId, startDate, endDate } as any),
 };

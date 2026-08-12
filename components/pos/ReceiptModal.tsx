@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
@@ -180,18 +180,45 @@ function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
     else win.onload = () => setTimeout(doPrint, 250);
 }
 
+// Preferencia POR DISPOSITIVO (la impresora es local a cada caja) de qué hacer al finalizar la venta.
+export type ReceiptAction = 'ask' | 'print' | 'download';
+const RECEIPT_ACTION_KEY = 'pazzi_receipt_action';
+export function getReceiptAction(): ReceiptAction {
+    try { const v = localStorage.getItem(RECEIPT_ACTION_KEY); return v === 'print' || v === 'download' ? v : 'ask'; } catch { return 'ask'; }
+}
+export function setReceiptAction(v: ReceiptAction) {
+    try { if (v === 'ask') localStorage.removeItem(RECEIPT_ACTION_KEY); else localStorage.setItem(RECEIPT_ACTION_KEY, v); } catch { /* almacenamiento no disponible */ }
+}
+
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sale, config }) => {
     const html = useMemo(() => (sale ? buildReceiptHTML(sale, config) : ''), [sale, config]);
+    const [dontAsk, setDontAsk] = useState(false);
+    // Evita ejecutar la acción dos veces para el mismo recibo (re-render / StrictMode).
+    const handledRef = useRef<string | null>(null);
+    const pref = getReceiptAction();
 
-    // Impresión automática al abrir, si está configurada.
+    // Al abrir un recibo nuevo: si hay preferencia guardada, ejecuta la acción y cierra sin preguntar.
+    // Si no, respeta la impresión automática del config.
     useEffect(() => {
-        if (isOpen && sale && config.autoPrint && html) {
-            const timer = setTimeout(() => printReceipt(html, config.paperSize), 150);
-            return () => clearTimeout(timer);
-        }
-    }, [isOpen, sale, config.autoPrint, html]);
+        if (!(isOpen && sale && html)) return;
+        if (handledRef.current === sale.saleNumber) return; // ya procesado este recibo
+        if (pref === 'print') { handledRef.current = sale.saleNumber; printReceipt(html, config.paperSize); onClose(); return; }
+        if (pref === 'download') { handledRef.current = sale.saleNumber; generatePDF(sale, config); onClose(); return; }
+        if (config.autoPrint) { handledRef.current = sale.saleNumber; const t = setTimeout(() => printReceipt(html, config.paperSize), 150); return () => clearTimeout(t); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, sale, html]);
 
     if (!sale) return null;
+    // Con preferencia activa no mostramos el modal (el efecto ya ejecutó la acción).
+    if (pref !== 'ask') return null;
+
+    // Ejecuta la acción elegida; si marcó "no volver a preguntar", la guarda y cierra.
+    const doAction = (action: 'print' | 'download') => {
+        if (dontAsk) setReceiptAction(action);
+        if (action === 'print') printReceipt(html, config.paperSize);
+        else generatePDF(sale, config);
+        if (dontAsk) onClose();
+    };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Factura / Recibo" size="md">
@@ -199,10 +226,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
                 <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900 rounded-md p-3 max-h-[55vh] overflow-y-auto">
                     <div className="bg-white shadow-sm" dangerouslySetInnerHTML={{ __html: html }} />
                 </div>
+                <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 select-none">
+                    <input type="checkbox" checked={dontAsk} onChange={e => setDontAsk(e.target.checked)} className="h-4 w-4" />
+                    No volver a preguntar (usar siempre la acción que elija ahora)
+                </label>
                 <div className="flex justify-end gap-2">
                     <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
-                    <button onClick={() => generatePDF(sale, config)} className={BUTTON_SECONDARY_SM_CLASSES}>📄 Descargar PDF</button>
-                    <button onClick={() => printReceipt(html, config.paperSize)} className={BUTTON_PRIMARY_SM_CLASSES}>🖨️ Imprimir</button>
+                    <button onClick={() => doAction('download')} className={BUTTON_SECONDARY_SM_CLASSES}>📄 Descargar PDF</button>
+                    <button onClick={() => doAction('print')} className={BUTTON_PRIMARY_SM_CLASSES}>🖨️ Imprimir</button>
                 </div>
             </div>
         </Modal>

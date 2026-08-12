@@ -9,6 +9,8 @@ export interface ProductFilters {
   branchId?: string;
   page?: number;
   limit?: number;
+  /** Modo liviano para el type-ahead del POS: payload mínimo, búsqueda acotada, sin count. */
+  slim?: boolean;
 }
 
 export interface ProductReportRow {

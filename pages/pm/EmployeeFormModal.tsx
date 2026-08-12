@@ -112,6 +112,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
         name: '',
         lastName: '',
         email: '',
+        employeeNumber: undefined,
         role: EMPLOYEE_ROLES[0],
         address: '',
         phone: '',
@@ -173,6 +174,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 name: employee.name,
                 lastName: employee.lastName,
                 email: employee.email,
+                employeeNumber: employee.employeeNumber ?? undefined,
                 role: employee.role,
                 address: employee.address || '',
                 phone: employee.phone || '',
@@ -511,6 +513,22 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium">Número de empleado</label>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    name="employeeNumber"
+                                    value={formData.employeeNumber ?? ''}
+                                    onChange={(e) => {
+                                        const digits = e.target.value.replace(/\D/g, '');
+                                        setFormData(prev => ({ ...prev, employeeNumber: digits ? Number(digits) : undefined } as EmployeeFormState));
+                                    }}
+                                    placeholder="Automático si lo dejas vacío"
+                                    className={inputFormStyle}
+                                />
+                                <p className="mt-1 text-xs text-neutral-500">Identificador del empleado (para el ponche). Se asigna solo si lo dejas vacío.</p>
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium">Fecha de contratación</label>
                                 <input type="date" name="hireDate" value={formData.hireDate || ''} onChange={handleChange} className={inputFormStyle} />

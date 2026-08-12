@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext'; // Imported useTranslation
-import { Product, CartItem, Client, Branch, Caja, HeldCart, Estimate, LayawayStatus, User, UserRole, Employee, Project, EstimateStatus, Sale } from '../../types';
+import { Product, CartItem, Client, Branch, Caja, HeldCart, Estimate, LayawayStatus, User, UserRole, Employee, Project, EstimateStatus, Sale, ProductVariation } from '../../types';
 import {
     XMarkIcon,
     ArchiveBoxIcon,
@@ -28,6 +28,8 @@ import {
 } from '../../components/icons';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { ReceiptModal, buildReceiptHTML, type ReceiptSale } from '../../components/pos/ReceiptModal';
+import { DailyCloseModal } from '../../components/pos/DailyCloseModal';
+import { PunchModal } from '../../components/pos/PunchModal';
 import { productsService } from '../../services/products';
 
 // Lazy: ZXing solo se descarga al abrir la cámara (no infla el bundle inicial del POS).
@@ -54,6 +56,7 @@ import logo from '../../assets/logo.png';
 import { authService } from '../../services/auth';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { posService } from '../../services/pos';
+import { openCashDrawer, isCashDrawerEnabled } from '../../services/cashDrawer';
 import { toast } from '../../hooks/useToast';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 
@@ -190,8 +193,6 @@ export const POSCashierPage: React.FC = () => {
     const navigate = useNavigate();
     const { t } = useTranslation(); // Hook translation
     const { settings } = useGlobalSettings();
-    // Métodos de pago habilitados y ordenados (de la config del negocio).
-    const enabledMethods = useMemo(() => (settings.paymentMethods || []).filter(m => m.enabled), [settings.paymentMethods]);
     const {
         products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
         heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales, employees
@@ -225,6 +226,16 @@ export const POSCashierPage: React.FC = () => {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [selectedBranchId, setSelectedBranchId] = useState<string>('');
     const [selectedCajaId, setSelectedCajaId] = useState<string>('');
+    // Métodos de pago disponibles en ESTA caja: activos globalmente y no deshabilitados por su
+    // sucursal ni por su caja (los overrides viven en settings.paymentMethodScopes).
+    const enabledMethods = useMemo(() => {
+        const scopes = settings.paymentMethodScopes || { branchDisabled: {}, cajaDisabled: {} };
+        const bDisabled = scopes.branchDisabled?.[selectedBranchId] || [];
+        const cDisabled = scopes.cajaDisabled?.[selectedCajaId] || [];
+        return (settings.paymentMethods || []).filter(m =>
+            m.enabled && !bDisabled.includes(m.id) && !cDisabled.includes(m.id)
+        );
+    }, [settings.paymentMethods, settings.paymentMethodScopes, selectedBranchId, selectedCajaId]);
     // True once useEffect([branches, cajas]) has run with loaded data.
     // Lets us distinguish "still fetching" from "loaded but no active caja found".
     const [cajaInitialized, setCajaInitialized] = useState(false);
@@ -236,10 +247,12 @@ export const POSCashierPage: React.FC = () => {
 
     
     // Modal states
-    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | null;
+    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'punch' | null;
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     
     const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
+    // Producto con variaciones pendiente de elegir (abre el selector de variación).
+    const [variationProduct, setVariationProduct] = useState<Product | null>(null);
     const [initialPaymentMethod, setInitialPaymentMethod] = useState<PaymentMethod>('Efectivo');
     const [pendingCartItems, setPendingCartItems] = useState<CartItem[] | null>(null);
     const [showCartReplaceConfirm, setShowCartReplaceConfirm] = useState(false);
@@ -383,10 +396,16 @@ export const POSCashierPage: React.FC = () => {
 
     // Atajos F1..Fn: abren el modal de pago con ese método habilitado (solo si NO hay otro modal
     // abierto, para no chocar con los F1..Fn internos del modal de pago).
+    // F7 se reserva para el Cuadre Diario (no aparece durante una transacción/cobro).
     paymentShortcutRef.current = (e: KeyboardEvent) => {
+        if (activeModal !== null || !isShiftActive) return;
+        if (e.key === 'F7') { e.preventDefault(); setActiveModal('dailyClose'); return; }
+        if (e.key === 'F9') { e.preventDefault(); setActiveModal('punch'); return; } // Ponche de empleado
         const fk = /^F([1-9])$/.exec(e.key);
-        if (!fk || activeModal !== null || !isShiftActive) return;
-        const method = enabledMethods[Number(fk[1]) - 1];
+        if (!fk) return;
+        const idx = Number(fk[1]) - 1;
+        if (idx === 6 || idx === 8) return; // F7 (cuadre) y F9 (ponche) reservados
+        const method = enabledMethods[idx];
         if (!method) return;
         e.preventDefault();
         handleOpenPaymentModal(method.name);
@@ -507,25 +526,54 @@ export const POSCashierPage: React.FC = () => {
         return { subtotal: sub, globalDiscountAmount: discountAmt, tax: tx, total: netSubtotal + tx };
     }, [cart, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate]);
 
+    // Agrega al carrito una línea ya resuelta (producto simple o una variación específica).
+    const addResolvedToCart = (item: CartItem) => {
+        setCart(prev => {
+            const existing = prev.find(ci => ci.id === item.id);
+            if (existing) {
+                return prev.map(ci => ci.id === item.id ? { ...ci, quantity: ci.quantity + 1 } : ci);
+            }
+            return [...prev, item];
+        });
+        if (productSearchRef.current) productSearchRef.current.focus();
+    };
+
     const addProductToCart = (product: Product) => {
         setPosError(null);
-        setCart(prev => {
-            const existing = prev.find(item => item.id === product.id);
-            if (existing) {
-                return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-            }
-            return [...prev, { ...product, quantity: 1 }];
-        });
-        if (productSearchRef.current) {
-            productSearchRef.current.focus();
+        // Si el producto tiene variaciones, primero se elige cuál (cada una con su precio/SKU).
+        if (product.hasVariations && Array.isArray(product.variations) && product.variations.length > 0) {
+            setVariationProduct(product);
+            return;
         }
+        addResolvedToCart({ ...product, quantity: 1 });
+    };
+
+    // El usuario eligió una variación: se agrega como línea propia (id compuesto), conservando
+    // el productId base para el descuento de inventario y el registro de la venta.
+    const handleSelectVariation = (variation: ProductVariation) => {
+        const p = variationProduct;
+        if (!p) return;
+        addResolvedToCart({
+            ...p,
+            id: `${p.id}::${variation.id}`,
+            productId: p.id,
+            name: `${p.name} — ${variation.name}`,
+            unitPrice: variation.unitPrice,
+            skus: variation.sku ? [variation.sku] : p.skus,
+            variationId: variation.id,
+            variationName: variation.name,
+            quantity: 1,
+        } as CartItem);
+        setVariationProduct(null);
     };
 
     // Búsqueda de productos contra el servidor: siempre datos frescos (incluye productos
     // recién creados) y busca por nombre, código de barras, SKU, categoría, etc.
     const searchProductsRemote = useCallback(async (term: string): Promise<Product[]> => {
         try {
-            const data = await productsService.getAll({ search: term, limit: 15 });
+            // slim=true → el backend devuelve un payload mínimo (rápido). Límite alto para no dejar
+            // productos fuera cuando el término coincide con muchos.
+            const data = await productsService.getAll({ search: term, limit: 50, slim: true });
             if (!Array.isArray(data)) return [];
             return data.map((p: any) => {
                 const stockByBranch = Array.isArray(p.stockByBranch)
@@ -691,12 +739,25 @@ export const POSCashierPage: React.FC = () => {
             isExternal: isExternalSale,
         } as any, selectedBranchId);
 
+        // Abrir la gaveta si está habilitada y la venta involucra efectivo (o hay vuelto).
+        const involvesCash = payments.some(p => /efectivo|cash/i.test(p.method)) || (changeDue || 0) > 0;
+        if (isCashDrawerEnabled() && involvesCash) {
+            openCashDrawer().catch(err => toast.error(`Gaveta: ${err?.message || 'no se pudo abrir (¿QZ Tray activo?)'}`));
+        }
+
         // Mostrar la factura con el folio secuencial del negocio (Factura #N).
         const folio = (created as any)?.saleNumber;
         const saleNumber = folio ? String(folio) : `V-${Date.now().toString().slice(-6)}`;
         setLastReceipt({ ...receiptSnapshot, saleNumber });
 
         clearCart();
+    };
+
+    // Apertura manual de la gaveta ("Sin venta"): útil para dar cambio.
+    const handleOpenDrawer = () => {
+        openCashDrawer()
+            .then(() => toast.success('Gaveta abierta.'))
+            .catch(err => toast.error(`Gaveta: ${err?.message || 'no se pudo abrir (¿QZ Tray activo?)'}`));
     };
 
     const handleRecallCart = (cartId: string) => {
@@ -896,6 +957,10 @@ export const POSCashierPage: React.FC = () => {
         { text: t('pos.return'), icon: <ArrowUturnLeftIcon />, color: POS_BUTTON_CYAN_CLASSES, onClick: () => setActiveModal('return') },
         { text: t('pos.estimate'), icon: <ClipboardDocumentListIcon />, color: 'bg-[#00897B]', onClick: () => selectedClient && setActiveModal('clientEstimates'), disabled: !selectedClient },
         { text: t('pos.layaway'), icon: <ArchiveBoxIcon />, color: 'bg-[#00ACC1]', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || !selectedClient },
+        // "Gaveta" (Sin venta) solo si está configurada la gaveta por QZ Tray en este dispositivo.
+        ...(isCashDrawerEnabled() ? [{ text: 'Gaveta', icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
+        { text: 'Cuadre', icon: <DocumentTextIcon />, color: 'bg-[#00695C]', onClick: () => setActiveModal('dailyClose') },
+        { text: 'Ponche', icon: <UserKeyIcon />, color: 'bg-[#455A64]', onClick: () => setActiveModal('punch') },
         { text: t('pos.reprint'), icon: <PrinterIcon />, color: 'bg-[#546E7A]', onClick: () => toast.info('Función de reimprimir aún no implementada.') },
         { 
             text: currentUser?.role === UserRole.MANAGER ? 'Salir' : t('pos.close_shift'), 
@@ -1224,7 +1289,23 @@ export const POSCashierPage: React.FC = () => {
             <ClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients} onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }} onOpenCreateClient={() => setActiveModal('createClient')} />
             <ClientFormModal isOpen={activeModal === 'createClient'} onClose={(client) => {setActiveModal(null); if(client) setSelectedClient(client);}} client={null} />
             <POSProjectFormModal isOpen={activeModal === 'createProject'} onClose={() => setActiveModal(null)} clientId={selectedClient?.id || ''} onProjectCreated={(newProject) => { setSelectedProjectId(newProject.id); setActiveModal(null); }} />
-            <HeldCartsModal isOpen={activeModal === 'heldCarts'} onClose={() => setActiveModal(null)} onHoldCart={() => { if (cart.length > 0) { holdCurrentCart(cart, `Venta para ${selectedClient?.name || 'Contado'}`, selectedClient?.id); clearCart(); return true; } return false; }} onRecallCart={handleRecallCart} onDeleteHeldCart={deleteHeldCart} heldCarts={heldCarts} />
+            <HeldCartsModal
+                isOpen={activeModal === 'heldCarts'}
+                onClose={() => setActiveModal(null)}
+                isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
+                onHoldCart={(alias) => {
+                    if (cart.length > 0) {
+                        const name = alias?.trim() || `Venta para ${selectedClient?.name || 'Contado'}`;
+                        holdCurrentCart(cart, name, selectedClient?.id);
+                        clearCart();
+                        return true;
+                    }
+                    return false;
+                }}
+                onRecallCart={handleRecallCart}
+                onDeleteHeldCart={deleteHeldCart}
+                heldCarts={heldCarts}
+            />
             <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} />
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
@@ -1242,6 +1323,33 @@ export const POSCashierPage: React.FC = () => {
                 onFinalizeSale={handleFinalizeSale}
             />
             <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
+
+            {selectedCajaId && (
+                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} />
+            )}
+
+            <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />
+
+            {/* Selector de variación (productos con variaciones) */}
+            <Modal isOpen={!!variationProduct} onClose={() => setVariationProduct(null)} title={`Elige una variación — ${variationProduct?.name || ''}`} size="md">
+                <div className="space-y-3">
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Selecciona la variación a agregar al carrito:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto">
+                        {(variationProduct?.variations || []).map(v => (
+                            <button
+                                key={v.id}
+                                onClick={() => handleSelectVariation(v)}
+                                className="flex items-center justify-between p-3 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-primary/5 hover:border-primary text-left transition-colors"
+                            >
+                                <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                                    {v.name}{v.sku ? <span className="text-xs text-neutral-400 ml-1">({v.sku})</span> : null}
+                                </span>
+                                <span className="font-semibold text-primary">${(Number(v.unitPrice) || 0).toFixed(2)}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </Modal>
             {showScanCamera && (
                 <Suspense fallback={null}>
                     <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title="Escanear producto" />

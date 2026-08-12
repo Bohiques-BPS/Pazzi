@@ -5,7 +5,23 @@ import { DataTable, TableColumn } from '../../components/DataTable';
 import { ClientFormModal } from './ClientFormModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon, EyeIcon, ClipboardDocumentListIcon, BanknotesIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModal';
+import { firstName as wpFirstName, lastName as wpLastName } from '../../utils/wpImport';
+
+// Alias/transformaciones incluyen columnas de WordPress/WooCommerce (user_email, billing_*, etc.).
+const CLIENT_IMPORT_FIELDS: ImportFieldDef[] = [
+    { key: 'name', label: 'Nombre', required: true, aliases: ['nombre', 'name', 'first_name', 'billing_first_name', 'display_name', 'cliente'], transform: wpFirstName },
+    { key: 'lastName', label: 'Apellido', aliases: ['apellido', 'last_name', 'billing_last_name', 'lastname'], transform: wpLastName },
+    { key: 'email', label: 'Email', aliases: ['email', 'correo', 'user_email', 'billing_email', 'e-mail'] },
+    { key: 'phone', label: 'Teléfono', aliases: ['telefono', 'phone', 'billing_phone', 'tel', 'celular'] },
+    { key: 'companyName', label: 'Empresa', aliases: ['empresa', 'company', 'billing_company', 'compania'] },
+    { key: 'address', label: 'Dirección', aliases: ['direccion', 'address', 'billing_address_1', 'billing_address'] },
+    { key: 'city', label: 'Ciudad', aliases: ['ciudad', 'city', 'billing_city'] },
+    { key: 'country', label: 'País', aliases: ['pais', 'country', 'billing_country'] },
+    { key: 'zip', label: 'Código postal', aliases: ['zip', 'codigo postal', 'postcode', 'billing_postcode', 'cp'] },
+    { key: 'taxId', label: 'ID fiscal / RNC', aliases: ['taxid', 'rnc', 'nif', 'cif', 'tax id'] },
+];
 import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
 import { ClientPOSReportModal } from '../../components/ui/ClientPOSReportModal';
@@ -21,6 +37,7 @@ export const ClientsListPage: React.FC = () => {
     const { t } = useTranslation();
     const { clients, setClients } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -120,12 +137,24 @@ export const ClientsListPage: React.FC = () => {
                 <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('client.list.title')}</h1>
                 <div className="flex items-center gap-2">
                     <PermissionGate require="clients.create">
+                        <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>Importar</button>
                         <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
                             <PlusIcon /> {t('client.list.create')}
                         </button>
                     </PermissionGate>
                 </div>
             </div>
+
+            {showImportModal && (
+                <ImportModal
+                    isOpen={showImportModal}
+                    onClose={() => setShowImportModal(false)}
+                    title="Importar clientes (Excel/CSV o WordPress)"
+                    fields={CLIENT_IMPORT_FIELDS}
+                    onImport={(rows) => clientsService.bulkImport(rows)}
+                    onDone={loadClients}
+                />
+            )}
 
             {isLoading && <LoadingSkeleton variant="table" rows={6} />}
 

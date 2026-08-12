@@ -5,7 +5,7 @@ import { DataTable, TableColumn } from '../../components/DataTable';
 import { EmployeeFormModal } from './EmployeeFormModal';
 import { ConfirmationModal, Modal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon, KeyIcon, PaperAirplaneIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { employeesService } from '../../services/employees';
 import { authService } from '../../services/auth';
@@ -89,6 +89,16 @@ export const EmployeesListPage: React.FC = () => {
         }
     };
 
+    const handleAssignNumbers = async () => {
+        try {
+            const res = await employeesService.assignNumbers();
+            toast.success(res.assigned > 0 ? `Se asignaron ${res.assigned} número(s).` : 'Todos los empleados ya tienen número.');
+            loadEmployees();
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudieron asignar los números.');
+        }
+    };
+
     const copyActivationLink = async () => {
         if (!activationInfo) return;
         try { await navigator.clipboard.writeText(activationInfo.link); toast.success('Enlace copiado'); }
@@ -119,6 +129,7 @@ export const EmployeesListPage: React.FC = () => {
     };
 
     const columns: TableColumn<Employee>[] = [
+        { header: 'N°', accessor: (emp) => (emp.employeeNumber ?? '—') as any },
         { header: t('employee.field.name') || 'Nombre', accessor: 'name' },
         { header: t('employee.field.lastname') || 'Apellido', accessor: 'lastName' },
         { header: t('employee.field.email') || 'Email', accessor: 'email', noWrap: false },
@@ -135,6 +146,9 @@ export const EmployeesListPage: React.FC = () => {
                 <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('employee.list.title') || 'Empleados'}</h1>
                 <div className="flex items-center gap-2">
                     <PermissionGate require="employees.manage">
+                        <button onClick={handleAssignNumbers} className={BUTTON_SECONDARY_SM_CLASSES} title="Asignar número a los empleados que no tengan">
+                            Asignar números
+                        </button>
                         <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
                             <PlusIcon /> {t('employee.list.create') || 'Crear empleado'}
                         </button>

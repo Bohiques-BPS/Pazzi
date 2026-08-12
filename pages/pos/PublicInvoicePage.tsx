@@ -43,7 +43,7 @@ export const PublicInvoicePage: React.FC = () => {
     const [inv, setInv] = useState<PublicInvoice | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [paidOk, setPaidOk] = useState(false);
+    const [payAmount, setPayAmount] = useState('');
 
     const load = async () => {
         if (!token) return;
@@ -59,13 +59,17 @@ export const PublicInvoicePage: React.FC = () => {
     };
 
     useEffect(() => { load(); /* eslint-disable-next-line */ }, [token]);
+    // El monto a pagar arranca en el saldo pendiente (se puede editar para abonar menos).
+    useEffect(() => { if (inv) setPayAmount((inv.balance ?? inv.total).toFixed(2)); }, [inv]);
 
     const cfg = useMemo(() => (inv ? configFrom(inv) : null), [inv]);
-    const isPaid = inv?.status === 'paid' || paidOk;
+    const isPaid = inv?.status === 'paid';
+    const balance = inv ? (inv.balance ?? inv.total) : 0;
+    // Monto validado para el cobro (no excede el saldo).
+    const charge = Math.min(Math.max(0, parseFloat(payAmount.replace(',', '.')) || 0), balance);
 
     const handleAgilPaySuccess = async () => {
-        setPaidOk(true);
-        await load(); // refresca para traer paidMethod/paidReference/paidAt
+        await load(); // refresca saldo/estado/abonos
     };
 
     const downloadPDF = () => {
@@ -105,7 +109,9 @@ export const PublicInvoicePage: React.FC = () => {
                     <span className="text-sm text-neutral-500">Factura {inv.number ? `#${inv.number}` : ''}</span>
                     {isPaid
                         ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">✓ Pagada</span>
-                        : <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Pendiente</span>}
+                        : inv.status === 'partial'
+                            ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Pago parcial</span>
+                            : <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Pendiente</span>}
                 </div>
 
                 {/* Detalle */}
@@ -128,7 +134,26 @@ export const PublicInvoicePage: React.FC = () => {
                         <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>Subtotal</span><span>{money(inv.subtotal)}</span></div>
                         <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>IVU</span><span>{money(inv.tax)}</span></div>
                         <div className="flex justify-between text-lg font-bold text-neutral-900 dark:text-white pt-1"><span>Total</span><span>{money(inv.total)}</span></div>
+                        {(inv.amountPaid || 0) > 0 && (
+                            <>
+                                <div className="flex justify-between text-green-700 dark:text-green-400"><span>Pagado</span><span>−{money(inv.amountPaid)}</span></div>
+                                <div className="flex justify-between text-base font-bold text-red-600 dark:text-red-400"><span>Saldo</span><span>{money(balance)}</span></div>
+                            </>
+                        )}
                     </div>
+
+                    {/* Abonos recibidos */}
+                    {inv.payments && inv.payments.length > 0 && (
+                        <div className="mt-3 border-t border-neutral-100 dark:border-neutral-700 pt-2">
+                            <p className="text-xs font-semibold text-neutral-500 mb-1">Abonos recibidos</p>
+                            {inv.payments.map((p, i) => (
+                                <div key={i} className="flex justify-between text-xs text-neutral-500">
+                                    <span>{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ''} {p.method || ''}</span>
+                                    <span>{money(p.amount)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Pago / Descarga */}
@@ -145,13 +170,28 @@ export const PublicInvoicePage: React.FC = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
+                            {/* Monto a pagar (permite abonar una parte del saldo). */}
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Monto a pagar</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text" inputMode="decimal" value={payAmount}
+                                        onChange={e => setPayAmount(e.target.value)}
+                                        className="w-full text-lg px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700"
+                                    />
+                                    <button type="button" onClick={() => setPayAmount(balance.toFixed(2))} className="px-3 py-2 text-sm rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 whitespace-nowrap">Saldo completo</button>
+                                </div>
+                                <p className="text-xs text-neutral-500 mt-1">Puedes pagar el saldo completo ({money(balance)}) o una parte.</p>
+                            </div>
+
                             {inv.agilpayEnabled ? (
                                 <AgilPayCardForm
-                                    amount={inv.total}
+                                    amount={charge}
                                     tax={inv.tax}
                                     onSuccess={handleAgilPaySuccess}
                                     chargeFn={async (card) => {
-                                        const r = await invoicesService.payPublicAgilPay(token!, card);
+                                        if (!(charge > 0)) return { success: false, reference: '' };
+                                        const r = await invoicesService.payPublicAgilPay(token!, card, charge);
                                         return { success: !!r.success, reference: r.reference };
                                     }}
                                 />
@@ -160,7 +200,7 @@ export const PublicInvoicePage: React.FC = () => {
                             )}
                             <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3 text-sm text-neutral-600 dark:text-neutral-300">
                                 <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-1">¿Pagar con ATH Móvil?</div>
-                                Envía <span className="font-semibold">{money(inv.total)}</span> por ATH Móvil al comercio. Una vez confirmado el pago, el negocio marcará esta factura como pagada.
+                                Envía el monto por ATH Móvil al comercio. Una vez confirmado, el negocio registra tu abono (saldo actual: <span className="font-semibold">{money(balance)}</span>).
                             </div>
                         </div>
                     )}

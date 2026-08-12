@@ -13,36 +13,40 @@ import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSE
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModal';
+import { stripHtml, firstImageUrl, categoryFromPath, departmentFromPath, statusToActive, priceOf } from '../../utils/wpImport';
 import { ProductReportsModal } from './ProductReportsModal';
 import { ADVANCED_PRODUCT_FIELDS } from '../../config/advancedProductFields';
 import { productsService } from '../../services/products';
 import { API_URL } from '../../services/api';
 import logo from '../../assets/logo.png';
 import { toast } from 'react-hot-toast';
+import { printBarcodeLabel } from '../../services/labelPrinter';
 
 // Campos importables de producto + alias para el auto-mapeo heurístico de columnas.
 // categoryName / departmentName / supplierName se resuelven por NOMBRE en el backend
 // (crea la categoría/división/proveedor si no existe y enlaza el id al producto).
 const PRODUCT_IMPORT_FIELDS: ImportFieldDef[] = [
-    { key: 'name', label: 'Nombre', required: true, aliases: ['descripcion', 'producto', 'articulo', 'item', 'nombre producto'] },
-    { key: 'categoryName', label: 'Categoría (por nombre)', aliases: ['categoria', 'category', 'rubro'] },
-    { key: 'departmentName', label: 'División / Departamento', aliases: ['division', 'departamento', 'department'] },
-    { key: 'supplierName', label: 'Proveedor (por nombre)', aliases: ['suplidor1', 'suplidor', 'proveedor', 'supplier'] },
-    { key: 'unitPrice', label: 'Precio de venta', type: 'number', aliases: ['precioventa', 'precio venta', 'precio', 'pvp', 'venta', 'price'] },
+    // Alias/transformaciones incluyen columnas de WooCommerce (post_title, tax:product_cat, images, etc.).
+    { key: 'name', label: 'Nombre', required: true, aliases: ['descripcion', 'producto', 'articulo', 'item', 'nombre producto', 'post_title', 'title'] },
+    { key: 'categoryName', label: 'Categoría (por nombre)', aliases: ['categoria', 'category', 'rubro', 'tax:product_cat', 'product_cat'], transform: categoryFromPath },
+    { key: 'departmentName', label: 'División / Departamento', aliases: ['division', 'departamento', 'department', 'tax:product_cat', 'product_cat'], transform: departmentFromPath },
+    { key: 'supplierName', label: 'Proveedor (por nombre)', aliases: ['suplidor1', 'suplidor', 'proveedor', 'supplier', 'tax:product_brand', 'product_brand', 'marca'] },
+    { key: 'unitPrice', label: 'Precio de venta', type: 'number', aliases: ['precioventa', 'precio venta', 'precio', 'pvp', 'venta', 'price', 'regular_price', 'sale_price'], transform: priceOf },
     { key: 'costPrice', label: 'Costo', type: 'number', aliases: ['costoreal', 'costo real', 'costo', 'cost'] },
-    { key: 'initialStock', label: 'Stock inicial', type: 'number', aliases: ['balanceinicial', 'balance inicial', 'stock inicial', 'existencia', 'cantidad'] },
+    { key: 'initialStock', label: 'Stock inicial', type: 'number', aliases: ['balanceinicial', 'balance inicial', 'stock inicial', 'existencia', 'cantidad', 'stock'] },
     { key: 'sku', label: 'SKU / Referencia', aliases: ['referencia', 'sku', 'codigo interno', 'ref', 'clave'] },
-    { key: 'barcode13Digits', label: 'Código de barras', aliases: ['barcode', 'codigo barras', 'ean', 'upc', 'bcde13', 'codigo'] },
+    { key: 'barcode13Digits', label: 'Código de barras', aliases: ['barcode', 'codigo barras', 'ean', 'upc', 'bcde13', 'codigo', 'meta:_global_unique_id', 'global_unique_id'] },
     { key: 'barcode2', label: 'Código de barras 2', aliases: ['barcode2', 'codigo barras 2'] },
     { key: 'chainCode', label: 'Código de cadena', aliases: ['bccadena', 'codigo cadena', 'chain'] },
     { key: 'family', label: 'Familia', aliases: ['familia', 'family'] },
-    { key: 'manufacturer', label: 'Marca / Fabricante', aliases: ['marca', 'fabricante', 'manufacturer', 'brand'] },
+    { key: 'manufacturer', label: 'Marca / Fabricante', aliases: ['marca', 'fabricante', 'manufacturer', 'brand', 'tax:product_brand'] },
     { key: 'physicalLocation', label: 'Localización', aliases: ['localizacion', 'ubicacion', 'location'] },
     { key: 'weight', label: 'Peso', type: 'number', aliases: ['peso', 'weight'] },
-    { key: 'description', label: 'Descripción larga', aliases: ['longdesc', 'descripcion larga', 'detalle'] },
-    { key: 'isActive', label: 'Activo', type: 'boolean', aliases: ['activo', 'active'] },
+    { key: 'imageUrl', label: 'Imagen (URL)', aliases: ['imagen', 'image', 'images', 'thumbnail', 'foto'], transform: firstImageUrl },
+    { key: 'description', label: 'Descripción larga', aliases: ['longdesc', 'descripcion larga', 'detalle', 'post_content', 'post_excerpt', 'content'], transform: stripHtml },
+    { key: 'isActive', label: 'Activo', type: 'boolean', aliases: ['activo', 'active', 'post_status', 'status', 'stock_status'], transform: statusToActive },
     { key: 'isService', label: 'Es servicio', type: 'boolean', aliases: ['esservicio', 'es servicio', 'servicio', 'service'] },
-    { key: 'creationDate', label: 'Fecha de creación', type: 'date', aliases: ['fechacreado', 'fecha creado', 'creado'] },
+    { key: 'creationDate', label: 'Fecha de creación', type: 'date', aliases: ['fechacreado', 'fecha creado', 'creado', 'post_date'] },
     // Campos avanzados (config compartido con el formulario).
     ...ADVANCED_PRODUCT_FIELDS.map(f => ({
         key: f.key,
@@ -427,6 +431,12 @@ export const ProductsListPage: React.FC = () => {
                     actions={(product) => (
                         <div className="flex space-x-1">
                             <button onClick={() => openModalForEdit(product)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Editar ${product.name}`}><EditIcon /></button>
+                            <button
+                                onClick={() => printBarcodeLabel(product).then(() => toast.success('Etiqueta enviada.')).catch(err => toast.error(err?.message || 'No se pudo imprimir la etiqueta.'))}
+                                className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1 text-base leading-none"
+                                title={`Imprimir código de barras de ${product.name}`}
+                                aria-label={`Imprimir código de barras de ${product.name}`}
+                            >🏷️</button>
                             <button onClick={() => openHistoryModal(product)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 p-1" aria-label={`Ver movimientos de ${product.name}`}><ListBulletIcon/></button>
                             <button onClick={() => requestDelete(product.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={`Eliminar ${product.name}`}><DeleteIcon /></button>
                         </div>

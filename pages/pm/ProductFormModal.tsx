@@ -644,45 +644,57 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     {activeTab === 'Clasificación' && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Jerarquía: Departamento (padre) → Categoría (hija). */}
+                                <div>
+                                    <label className="block text-sm font-medium">{t('product.field.department')}</label>
+                                    <div className="flex gap-2">
+                                        <select
+                                            name="departmentId"
+                                            value={formData.departmentId || ''}
+                                            onChange={(e) => {
+                                                const depId = e.target.value;
+                                                setFormData(p => {
+                                                    const cat = categories.find(c => c.id === p.category);
+                                                    // Si la categoría actual no pertenece al nuevo departamento, se limpia.
+                                                    const keep = !depId || (cat && (cat.departmentId === depId || !cat.departmentId));
+                                                    return { ...p, departmentId: depId, category: keep ? p.category : '' };
+                                                });
+                                            }}
+                                            className={inputFormStyle + " flex-grow"}
+                                        >
+                                            <option value="">Seleccionar Departamento</option>
+                                            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                        </select>
+                                        <button type="button" onClick={() => setShowAddDepartmentModal(true)} className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors" title="Nuevo Departamento">
+                                            <PlusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+                                        </button>
+                                    </div>
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.field.category')}</label>
                                     <div className="flex gap-2">
-                                        <select 
-                                            name="category" value={formData.category || ''} onChange={(e) => setFormData(p => ({...p, category: e.target.value}))} 
+                                        <select
+                                            name="category" value={formData.category || ''}
+                                            onChange={(e) => {
+                                                const catId = e.target.value;
+                                                setFormData(p => {
+                                                    const cat = categories.find(c => c.id === catId);
+                                                    // La categoría define el departamento (se deriva de ella).
+                                                    return { ...p, category: catId, departmentId: cat?.departmentId || p.departmentId || '' };
+                                                });
+                                            }}
                                             className={`${inputFormStyle} ${fieldErrors.categoryId || fieldErrors.category ? 'border-red-500' : ''} flex-grow`}
                                         >
                                             <option value="">Seleccionar Categoría</option>
-                                            {categories.map(c => (
-                                                <option key={c.id} value={c.id}>{c.name}</option>
-                                            ))}
+                                            {categories
+                                                .filter(c => !formData.departmentId || c.departmentId === formData.departmentId || !c.departmentId)
+                                                .map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
                                         </select>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowAddCategoryModal(true)}
-                                            className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
-                                            title="Nueva Categoría"
-                                        >
+                                        <button type="button" onClick={() => setShowAddCategoryModal(true)} className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors" title="Nueva Categoría">
                                             <PlusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
                                         </button>
                                     </div>
                                     {(fieldErrors.categoryId || fieldErrors.category) && <p className="mt-1 text-xs text-red-500">{fieldErrors.categoryId || fieldErrors.category}</p>}
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium">{t('product.field.department')}</label>
-                                    <div className="flex gap-2">
-                                        <select name="departmentId" value={formData.departmentId || ''} onChange={handleChange} className={inputFormStyle + " flex-grow"}>
-                                            <option value="">Seleccionar Departamento</option>
-                                            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                        </select>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setShowAddDepartmentModal(true)}
-                                            className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
-                                            title="Nuevo Departamento"
-                                        >
-                                            <PlusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

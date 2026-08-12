@@ -17,27 +17,28 @@ interface CategoryFormModalProps {
 
 export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, onClose, category }) => {
     const { t } = useTranslation();
-    const { setCategories, categories } = useData();
-    const [formData, setFormData] = useState<CategoryFormData>({ name: '', description: '' });
+    const { setCategories, categories, departments } = useData();
+    const [formData, setFormData] = useState<CategoryFormData>({ name: '', description: '', departmentId: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     useEffect(() => {
         if (category) {
-            setFormData({ 
-                name: category.name, 
-                description: category.description || '' 
+            setFormData({
+                name: category.name,
+                description: category.description || '',
+                departmentId: category.departmentId || '',
             });
             setImagePreview(category.imageUrl || null);
         } else {
-            setFormData({ name: '', description: '' });
+            setFormData({ name: '', description: '', departmentId: '' });
             setImagePreview(null);
         }
         setImageFile(null);
     }, [category, isOpen]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
@@ -96,9 +97,10 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    ...formData, 
-                    imageUrl: finalImageUrl 
+                body: JSON.stringify({
+                    ...formData,
+                    departmentId: formData.departmentId || null,
+                    imageUrl: finalImageUrl
                 })
             });
 
@@ -135,6 +137,20 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                         className={inputFormStyle + " w-full"}
                         required
                     />
+                </div>
+                <div>
+                    <label htmlFor="categoryDepartment" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Departamento</label>
+                    <select
+                        name="departmentId"
+                        id="categoryDepartment"
+                        value={formData.departmentId || ''}
+                        onChange={handleChange}
+                        className={inputFormStyle + " w-full"}
+                    >
+                        <option value="">Sin departamento</option>
+                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    <p className="mt-1 text-xs text-neutral-500">La categoría pertenece a este departamento (Departamento › Categoría › Producto).</p>
                 </div>
                 <div>
                     <label htmlFor="categoryDescription" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>

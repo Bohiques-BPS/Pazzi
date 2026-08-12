@@ -53,7 +53,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             try {
                 const results = await onRemoteSearch(term);
                 if (requestId !== searchIdRef.current) return; // llegó una respuesta más nueva
-                setSuggestions(results.slice(0, 10));
+                setSuggestions(results.slice(0, 50));
                 setActiveIndex(-1);
             } catch {
                 if (requestId !== searchIdRef.current) return;
