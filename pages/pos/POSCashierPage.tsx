@@ -573,7 +573,7 @@ export const POSCashierPage: React.FC = () => {
         try {
             // slim=true → el backend devuelve un payload mínimo (rápido). Límite alto para no dejar
             // productos fuera cuando el término coincide con muchos.
-            const data = await productsService.getAll({ search: term, limit: 50, slim: true });
+            const data = await productsService.getAll({ search: term, limit: 100, slim: true });
             if (!Array.isArray(data)) return [];
             return data.map((p: any) => {
                 const stockByBranch = Array.isArray(p.stockByBranch)
@@ -1334,7 +1334,7 @@ export const POSCashierPage: React.FC = () => {
             <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
 
             {selectedCajaId && (
-                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} />
+                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} onClosed={() => handleEndShift()} />
             )}
 
             <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />

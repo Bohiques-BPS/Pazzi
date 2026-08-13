@@ -1,111 +1,278 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../Modal';
-import { cajaReportsService } from '../../services/reports';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { cajasService, type CajaSession, type SessionTotals } from '../../services/cajas';
+import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { LoadingSkeleton } from '../ui/LoadingSkeleton';
 
 interface DailyCloseModalProps {
     isOpen: boolean;
     onClose: () => void;
     cajaId: string;
+    cajaName?: string;
+    /** Umbral (valor absoluto) de diferencia de efectivo que exige confirmación. */
+    differenceThreshold?: number;
+    /** Se llama al cerrar el turno con éxito (para que el POS resetee/navegue). */
+    onClosed?: () => void;
 }
 
-const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
+const money = (n: number | null | undefined) => `$${(Number(n) || 0).toFixed(2)}`;
+const isCash = (m: string) => /efectivo|cash/i.test(m);
 
-type DailyData = Awaited<ReturnType<typeof cajaReportsService.dailyClose>>;
+/** Fila del cuadre: método, esperado por el POS, contado por el cajero. */
+interface CuadreRow {
+    key: string;
+    label: string;
+    expected: number;
+    cash: boolean;
+}
 
-const Stat: React.FC<{ label: string; value: React.ReactNode; strong?: boolean }> = ({ label, value, strong }) => (
-    <div className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-3 text-center">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
-        <p className={`${strong ? 'text-2xl font-bold' : 'text-lg font-semibold'} text-neutral-800 dark:text-neutral-100`}>{value}</p>
-    </div>
-);
-
-export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({ isOpen, onClose, cajaId }) => {
-    const [data, setData] = useState<DailyData | null>(null);
-    const [loading, setLoading] = useState(false);
+export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
+    isOpen,
+    onClose,
+    cajaId,
+    cajaName,
+    differenceThreshold = 5,
+    onClosed,
+}) => {
+    const [loading, setLoading] = useState(true);
+    const [session, setSession] = useState<CajaSession | null>(null);
+    const [totals, setTotals] = useState<SessionTotals | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [counted, setCounted] = useState<Record<string, string>>({});
+    const [notes, setNotes] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [confirmHighDiff, setConfirmHighDiff] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !cajaId) return;
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
-        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+        let cancelled = false;
         setLoading(true);
-        setData(null);
-        cajaReportsService.dailyClose(cajaId, start, end)
-            .then(setData)
-            .catch(err => toast.error(err?.message || 'No se pudo cargar el cuadre diario.'))
-            .finally(() => setLoading(false));
+        setError(null);
+        setSession(null);
+        setTotals(null);
+        setCounted({});
+        setNotes('');
+        setConfirmHighDiff(false);
+        cajasService.getCurrentSession(cajaId)
+            .then(({ session, totals }) => {
+                if (cancelled) return;
+                if (!session || !totals) { setError('Esta caja no tiene un turno abierto.'); return; }
+                setSession(session);
+                setTotals(totals);
+            })
+            .catch(err => { if (!cancelled) setError(err instanceof ApiError ? err.message : 'No se pudo cargar el cuadre.'); })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
     }, [isOpen, cajaId]);
 
-    const row = (label: string, value: string, opts?: { bold?: boolean; neg?: boolean }) => (
-        <div className={`flex justify-between ${opts?.bold ? 'font-bold text-base pt-1 border-t border-neutral-200 dark:border-neutral-700' : ''}`}>
-            <span className="text-neutral-600 dark:text-neutral-300">{label}</span>
-            <span className={opts?.neg ? 'text-red-600 dark:text-red-400' : ''}>{value}</span>
-        </div>
-    );
+    // Filas del cuadre: Efectivo (gaveta, esperado = efectivo esperado) + cada método electrónico.
+    const rows: CuadreRow[] = useMemo(() => {
+        if (!totals) return [];
+        const others = totals.byMethod.filter(m => !isCash(m.method));
+        return [
+            { key: '__cash__', label: 'Efectivo (gaveta)', expected: totals.expectedCash, cash: true },
+            ...others.map(m => ({ key: m.method, label: m.method, expected: m.amount, cash: false })),
+        ];
+    }, [totals]);
 
-    const t = data?.totals;
+    const num = (v: string | undefined) => {
+        const n = parseFloat(v ?? '');
+        return isNaN(n) ? 0 : n;
+    };
+
+    const cashCounted = num(counted['__cash__']);
+    const cashExpected = totals?.expectedCash ?? 0;
+    const cashDiff = Math.round((cashCounted - cashExpected) * 100) / 100;
+    const isHighDiff = Math.abs(cashDiff) >= differenceThreshold;
+    const cashEntered = (counted['__cash__'] ?? '') !== '';
+
+    const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
+    const totalCounted = rows.reduce((s, r) => s + num(counted[r.key]), 0);
+
+    const handleClose = async () => {
+        if (!session || !totals) return;
+        if (!cashEntered || cashCounted < 0) { setError('Ingresa el efectivo contado en la gaveta.'); return; }
+        if (isHighDiff && !confirmHighDiff) {
+            setError(`Hay una diferencia de efectivo de ${money(Math.abs(cashDiff))}. Marca la confirmación para cerrar de todos modos.`);
+            return;
+        }
+        // Conteo por método para el registro/cuadre.
+        const countedByMethod: Record<string, number> = { Efectivo: cashCounted };
+        for (const r of rows) {
+            if (r.cash) continue;
+            countedByMethod[r.label] = num(counted[r.key]);
+        }
+        setSubmitting(true);
+        setError(null);
+        try {
+            await cajasService.closeSession(cajaId, {
+                countedCash: cashCounted,
+                countedByMethod,
+                closingNotes: notes.trim() || undefined,
+                forceWithDifference: isHighDiff,
+            });
+            toast.success(cashDiff === 0 ? 'Turno cerrado sin diferencia ✓' : `Turno cerrado con diferencia de ${money(Math.abs(cashDiff))}`);
+            onClosed?.();
+            onClose();
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Error al cerrar el turno.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const openedAt = session ? new Date(session.openedAt) : null;
+    const cajero = session?.openedByUser ? `${session.openedByUser.name} ${session.openedByUser.lastName || ''}`.trim() : '—';
+
+    const diffColor = (d: number) => d === 0 ? 'text-neutral-500' : d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Cuadre Diario (F7)" size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title="Cuadre de tienda diario (F7)" size="5xl">
             {loading ? (
-                <p className="text-center text-neutral-500 py-8">Cargando cuadre…</p>
-            ) : !data || !t ? (
-                <p className="text-center text-neutral-500 py-8">Sin datos para hoy.</p>
+                <LoadingSkeleton variant="form" rows={6} />
+            ) : error && !session ? (
+                <p className="text-center text-neutral-500 py-8">{error}</p>
+            ) : !totals || !session ? (
+                <p className="text-center text-neutral-500 py-8">Sin datos.</p>
             ) : (
-                <div className="space-y-4">
-                    <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                        {data.cajaName} · {new Date(data.date).toLocaleDateString()}
+                <div className="text-sm">
+                    {/* Barra superior estilo legacy */}
+                    <div className="flex items-center justify-between rounded-md bg-blue-600 text-white px-4 py-2 mb-3">
+                        <span className="font-semibold">{openedAt?.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        <span className="text-lg font-bold">Cuadre de tienda diario</span>
+                        <span className="text-xs opacity-90">{cajaName || ''}</span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <Stat label="Ventas del día" value={money(t.totalSales)} strong />
-                        <Stat label="Transacciones" value={t.salesCount} />
-                        <Stat label="Devoluciones" value={t.returnsCount} />
-                        <Stat label="Efectivo" value={money(t.cashSales)} />
-                        <Stat label="Tarjeta" value={money(t.cardSales)} />
-                        <Stat label="Otros" value={money(t.otherSales)} />
+                    {/* Fila: Fecha / Cajero / Cuadre# */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                        <Field label="Fecha" value={openedAt?.toLocaleDateString() || '—'} />
+                        <Field label="Cajero" value={cajero} />
+                        <Field label="Turno #" value={session.id.slice(0, 8)} />
                     </div>
 
-                    <div className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 space-y-1 text-sm">
-                        <p className="font-semibold text-primary mb-1">Efectivo esperado en caja</p>
-                        {row('Fondo inicial', money(t.openingFloat))}
-                        {row('+ Ventas en efectivo', money(t.cashSales))}
-                        {row('+ Entradas de efectivo', money(t.cashIn))}
-                        {row('− Retiros / payouts', `-${money(t.payouts)}`, { neg: true })}
-                        {row('− Devoluciones en efectivo', `-${money(t.cashRefunds)}`, { neg: true })}
-                        {row('= Efectivo esperado', money(t.expectedCash), { bold: true })}
-                        {data.currentSession && (
-                            <p className="text-xs text-neutral-400 pt-1">
-                                Turno abierto ahora: esperado {money(data.currentSession.expectedCash)} (fondo {money(data.currentSession.openingFloat)}).
-                            </p>
-                        )}
-                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                        {/* Columnas POS vs conteo (2/3) */}
+                        <div className="lg:col-span-2 border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden">
+                            <div className="grid grid-cols-12 bg-neutral-100 dark:bg-neutral-700/50 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                                <div className="col-span-5 px-3 py-2">Método</div>
+                                <div className="col-span-3 px-3 py-2 text-right">Datos Caja POS</div>
+                                <div className="col-span-2 px-2 py-2 text-right">Conteo</div>
+                                <div className="col-span-2 px-3 py-2 text-right">Diferencia</div>
+                            </div>
+                            <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
+                                {rows.map(r => {
+                                    const c = num(counted[r.key]);
+                                    const entered = (counted[r.key] ?? '') !== '';
+                                    const d = Math.round((c - r.expected) * 100) / 100;
+                                    return (
+                                        <div key={r.key} className="grid grid-cols-12 items-center">
+                                            <div className={`col-span-5 px-3 py-1.5 ${r.cash ? 'font-semibold text-primary' : ''}`}>{r.label}</div>
+                                            <div className="col-span-3 px-3 py-1.5 text-right tabular-nums">{money(r.expected)}</div>
+                                            <div className="col-span-2 px-2 py-1 text-right">
+                                                <input
+                                                    type="number" min="0" step="0.01" inputMode="decimal"
+                                                    value={counted[r.key] ?? ''}
+                                                    onChange={e => setCounted(prev => ({ ...prev, [r.key]: e.target.value }))}
+                                                    placeholder="0.00"
+                                                    className="w-24 text-right px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
+                                                    autoFocus={r.cash}
+                                                />
+                                            </div>
+                                            <div className={`col-span-2 px-3 py-1.5 text-right tabular-nums ${entered ? diffColor(d) : 'text-neutral-300 dark:text-neutral-600'}`}>
+                                                {entered ? `${d >= 0 ? '+' : '-'}${money(Math.abs(d))}` : '—'}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {/* Totales */}
+                                <div className="grid grid-cols-12 items-center bg-neutral-50 dark:bg-neutral-800/60 font-semibold">
+                                    <div className="col-span-5 px-3 py-2">Total de Valores</div>
+                                    <div className="col-span-3 px-3 py-2 text-right tabular-nums">{money(totalExpected)}</div>
+                                    <div className="col-span-2 px-2 py-2 text-right tabular-nums">{money(totalCounted)}</div>
+                                    <div className={`col-span-2 px-3 py-2 text-right tabular-nums ${diffColor(Math.round((totalCounted - totalExpected) * 100) / 100)}`}>
+                                        {money(Math.abs(totalCounted - totalExpected))}
+                                    </div>
+                                </div>
+                            </div>
 
-                    {data.byMethod.length > 0 && (
-                        <div>
-                            <h4 className="font-semibold text-neutral-700 dark:text-neutral-200 mb-1">Por método de pago (recibido)</h4>
-                            <table className="w-full text-sm">
-                                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700">
-                                    {data.byMethod.map(m => (
-                                        <tr key={m.method}>
-                                            <td className="py-1.5">{m.method}</td>
-                                            <td className="py-1.5 text-right text-neutral-500">{m.count}</td>
-                                            <td className="py-1.5 text-right font-medium">{money(m.amount)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            {/* Desglose del efectivo esperado (Datos de la Caja POS) */}
+                            <div className="px-3 py-2 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 text-xs text-neutral-600 dark:text-neutral-300 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+                                <Line label="Fondo inicial" value={money(totals.openingFloat)} />
+                                <Line label="+ Ventas efectivo" value={money(totals.cashSales)} />
+                                <Line label="+ Entradas" value={money(totals.cashIn)} />
+                                <Line label="− Payouts" value={money(totals.payouts)} />
+                                <Line label="− Devoluciones" value={money(totals.cashRefunds)} />
+                                <Line label="= Efectivo esperado" value={money(totals.expectedCash)} strong />
+                            </div>
                         </div>
+
+                        {/* Panel de info (1/3) */}
+                        <div className="border border-neutral-200 dark:border-neutral-700 rounded-md p-3 space-y-2 text-sm">
+                            <div className="text-red-600 dark:text-red-400 font-medium">{totals.returnsCount} Devolución(es) en el turno</div>
+                            <div className="text-neutral-700 dark:text-neutral-200">Transacciones: <b>{totals.salesCount}</b></div>
+                            <div className="text-neutral-700 dark:text-neutral-200">Ventas totales: <b>{money(totals.totalSales)}</b></div>
+                            <div className="border-t border-neutral-200 dark:border-neutral-700 pt-2">
+                                <p className="text-xs font-semibold text-neutral-500 mb-1">Comentarios</p>
+                                <p className="text-xs text-neutral-500">open {openedAt?.toLocaleString()}</p>
+                                {session.openingNotes && <p className="text-xs text-neutral-500 mt-1">{session.openingNotes}</p>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Diferencia de gaveta + notas */}
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className={`rounded-md px-4 py-3 flex items-center justify-between ${
+                            !cashEntered ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
+                            : cashDiff === 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                            : isHighDiff ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                            : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                        }`}>
+                            <span className="font-semibold">Diferencia de valores en gaveta</span>
+                            <span className="text-lg font-bold tabular-nums">{cashEntered ? `${cashDiff >= 0 ? '+' : '-'}${money(Math.abs(cashDiff))}` : '—'}</span>
+                        </div>
+                        <textarea
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                            rows={2}
+                            placeholder="Notas / comentarios de cierre (opcional)"
+                            className="w-full px-3 py-2 rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-sm"
+                        />
+                    </div>
+
+                    {isHighDiff && cashEntered && (
+                        <label className="flex items-start gap-2 mt-2 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 text-sm">
+                            <input type="checkbox" checked={confirmHighDiff} onChange={e => setConfirmHighDiff(e.target.checked)} className="mt-0.5" />
+                            <span className="text-red-700 dark:text-red-300">Confirmo que verifiqué el conteo y autorizo el cierre con una diferencia de <strong>{money(Math.abs(cashDiff))}</strong>.</span>
+                        </label>
                     )}
 
-                    <div className="flex justify-end gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
-                        <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
-                        <button onClick={() => window.print()} className={BUTTON_PRIMARY_SM_CLASSES}>🖨️ Imprimir</button>
+                    {error && <div className="mt-2 p-2 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
+
+                    {/* Footer */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                        <button onClick={() => window.print()} className="px-4 py-2 rounded-md bg-yellow-400 hover:bg-yellow-500 text-neutral-800 font-semibold text-sm">🖨️ Imprimir</button>
+                        <button onClick={onClose} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold text-sm">Cancelar</button>
+                        <button onClick={handleClose} disabled={submitting} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white font-semibold text-sm disabled:opacity-50">
+                            {submitting ? 'Cerrando…' : 'Aceptar - Cerrar Turno'}
+                        </button>
                     </div>
                 </div>
             )}
         </Modal>
     );
 };
+
+const Field: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+    <div className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-700 rounded-md px-3 py-1.5">
+        <span className="text-xs font-semibold text-neutral-500">{label}:</span>
+        <span className="text-sm text-neutral-800 dark:text-neutral-100 truncate">{value}</span>
+    </div>
+);
+
+const Line: React.FC<{ label: string; value: string; strong?: boolean }> = ({ label, value, strong }) => (
+    <div className={`flex justify-between ${strong ? 'font-semibold text-neutral-800 dark:text-neutral-100' : ''}`}>
+        <span>{label}</span>
+        <span className="tabular-nums">{value}</span>
+    </div>
+);

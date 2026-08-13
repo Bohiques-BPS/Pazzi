@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { XMarkIcon, ExclamationTriangleIcon } from './icons'; // Adjusted path
 import { BUTTON_SECONDARY_SM_CLASSES } from '../constants'; // Adjusted path
 
@@ -75,6 +75,25 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     confirmButtonText = "Confirmar",
     cancelButtonText = "Cancelar"
 }) => {
+    // Enter → botón principal (confirmar). Escape → cancelar (lo maneja el Modal base).
+    const confirmingRef = useRef(false);
+    useEffect(() => {
+        if (!isOpen) { confirmingRef.current = false; return; }
+        const handler = (e: KeyboardEvent) => {
+            if (e.key !== 'Enter') return;
+            // No interceptar Enter cuando el foco está en un campo editable.
+            const el = document.activeElement as HTMLElement | null;
+            if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return;
+            e.preventDefault();
+            if (confirmingRef.current) return; // evita doble ejecución
+            confirmingRef.current = true;
+            onConfirm();
+            onClose();
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    }, [isOpen, onConfirm, onClose]);
+
     if (!isOpen) return null;
 
     return (

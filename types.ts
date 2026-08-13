@@ -82,7 +82,7 @@ export interface PaymentMethodConfig {
 export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     { id: 'efectivo', name: 'Efectivo', enabled: true, color: '#1E88E5', type: 'cash', requiresReference: false, referenceLabel: '', builtin: true },
     { id: 'tarjeta', name: 'Tarjeta', enabled: true, color: '#1E88E5', type: 'card', requiresReference: false, referenceLabel: '', builtin: true },
-    { id: 'ath', name: 'ATH Móvil', enabled: true, color: '#D81B60', type: 'ath_movil', requiresReference: true, referenceLabel: 'Nº de confirmación', config: { publicToken: '', privateToken: '', environment: 'production' }, builtin: true },
+    { id: 'ath', name: 'ATH Móvil', enabled: true, color: '#D81B60', type: 'ath_movil', requiresReference: false, referenceLabel: 'Nº de confirmación', config: { publicToken: '', privateToken: '', environment: 'production' }, builtin: true },
     { id: 'agilpay', name: 'AgilPay', enabled: false, color: '#2E7D32', type: 'agilpay', requiresReference: false, referenceLabel: 'Nº de transacción AgilPay', config: { merchantKey: '', clientId: '', clientSecret: '', environment: 'sandbox' }, builtin: true },
     { id: 'credito', name: 'Crédito C.', enabled: true, color: '#039BE5', type: 'credit', requiresReference: false, referenceLabel: '', builtin: true },
     { id: 'cheque', name: 'Cheque', enabled: true, color: '#00897B', type: 'check', requiresReference: true, referenceLabel: 'Nº de cheque', builtin: true },

@@ -30,6 +30,8 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [loading, setLoading] = useState(false);
+    // true cuando la búsqueda alcanzó el tope (hay más coincidencias que las mostradas).
+    const [capped, setCapped] = useState(false);
 
     const localInputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLUListElement>(null);
@@ -53,7 +55,9 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             try {
                 const results = await onRemoteSearch(term);
                 if (requestId !== searchIdRef.current) return; // llegó una respuesta más nueva
-                setSuggestions(results.slice(0, 50));
+                const MAX = 100;
+                setSuggestions(results.slice(0, MAX));
+                setCapped(results.length >= MAX); // pudo haber más coincidencias
                 setActiveIndex(-1);
             } catch {
                 if (requestId !== searchIdRef.current) return;
@@ -73,6 +77,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         ).slice(0, 7); // Limit to 7 suggestions for performance and UI
 
         setSuggestions(filtered);
+        setCapped(false);
         setIsDropdownOpen(filtered.length > 0);
         setActiveIndex(-1);
     }, [searchTerm, products, onRemoteSearch]);
@@ -225,6 +230,11 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     ) : (
                         <li className="p-3 text-sm text-neutral-500 dark:text-neutral-400 text-center">
                             No se encontraron productos.
+                        </li>
+                    )}
+                    {capped && suggestions.length > 0 && (
+                        <li className="px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400 text-center border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/60">
+                            Mostrando los primeros {suggestions.length}. Afina la búsqueda para ver más.
                         </li>
                     )}
                 </ul>

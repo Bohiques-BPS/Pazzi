@@ -73,7 +73,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const isFullyPaid = balance <= 0.001; // Using a small epsilon for float comparison
     const selectedConfig = useMemo(() => methods.find(m => m.name === selectedMethod), [methods, selectedMethod]);
     const isCash = selectedConfig?.type === 'cash';
-    const needsRef = !!selectedConfig?.requiresReference;
+    // ATH Móvil: el Nº de confirmación es SIEMPRE opcional (aunque una config vieja diga
+    // requiresReference), para no bloquear la venta. Se muestra pero no se exige.
+    const isAth = selectedConfig?.type === 'ath_movil';
+    const needsRef = !!selectedConfig?.requiresReference && !isAth;
+    const showRefField = needsRef || isAth;
     const refLabel = selectedConfig?.referenceLabel || 'Referencia';
 
     // Vuelto en vivo mientras se escribe el monto de efectivo (antes de "Agregar Pago").
@@ -146,7 +150,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         setPayments(prev => [...prev, {
             method: selectedMethod,
             amount: res.applied,
-            ...(needsRef && referenceInput.trim() ? { reference: referenceInput.trim() } : {}),
+            // Guarda la referencia si el cajero la escribió (obligatoria u opcional, ej. ATH).
+            ...(referenceInput.trim() ? { reference: referenceInput.trim() } : {}),
         }]);
         setChangeDue(res.change);
         setReferenceInput('');
@@ -377,10 +382,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                             />
                         )}
 
-                        {/* Métodos con referencia (cheque, confirmación ATH Móvil, etc.) */}
-                        {needsRef && (
+                        {/* Métodos con referencia (cheque obligatorio; ATH Móvil opcional, etc.) */}
+                        {showRefField && (
                             <div className="pt-2">
-                                <label htmlFor="paymentReference" className="block text-sm font-medium mb-1">{refLabel}</label>
+                                <label htmlFor="paymentReference" className="block text-sm font-medium mb-1">{refLabel}{!needsRef ? ' (opcional)' : ''}</label>
                                 <input
                                     id="paymentReference"
                                     type="text"

@@ -33,6 +33,7 @@ export interface CajaSession {
   expectedCash?: number | null;
   countedCash?: number | null;
   difference?: number | null;
+  countedByMethod?: Record<string, number> | null;
   status: CajaSessionStatus;
   openingNotes?: string | null;
   closingNotes?: string | null;
@@ -68,6 +69,9 @@ export interface SessionTotals {
   cashIn: number;
   openingFloat: number;
   expectedCash: number;
+  byMethod: { method: string; amount: number }[];
+  salesCount: number;
+  returnsCount: number;
 }
 
 export interface CashMovementPayload {
@@ -95,7 +99,7 @@ export const cajasService = {
 
   closeSession: (
     cajaId: string,
-    data: { countedCash: number; closingNotes?: string; forceWithDifference?: boolean }
+    data: { countedCash: number; closingNotes?: string; forceWithDifference?: boolean; countedByMethod?: Record<string, number> }
   ) => api.post<{ session: CajaSession; totals: SessionTotals }>(`/cajas/${cajaId}/close`, data),
 
   getCurrentSession: (cajaId: string) =>
