@@ -141,13 +141,13 @@ export const DepartmentsListPage: React.FC = () => {
                     actions={(department) => (
                         <>
                             <button onClick={() => setScanTarget(department)} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 p-1" aria-label="Escanear producto para asignar departamento" title="Escanear y asignar departamento">
-                                <BarcodeScanIcon />
+                                <BarcodeScanIcon className="w-5 h-5" />
                             </button>
-                            <button onClick={() => openModalForEdit(department)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')}>
-                                <EditIcon />
+                            <button onClick={() => openModalForEdit(department)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')} title={t('common.edit')}>
+                                <EditIcon className="w-5 h-5" />
                             </button>
-                            <button onClick={() => requestDelete(department.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('common.delete')}>
-                                <DeleteIcon />
+                            <button onClick={() => requestDelete(department.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('common.delete')} title={t('common.delete')}>
+                                <DeleteIcon className="w-5 h-5" />
                             </button>
                         </>
                     )}

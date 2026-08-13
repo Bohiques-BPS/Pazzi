@@ -4,7 +4,7 @@ import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { ClientFormModal } from './ClientFormModal';
 import { ConfirmationModal } from '../../components/Modal';
-import { PlusIcon, EditIcon, DeleteIcon, EyeIcon, ClipboardDocumentListIcon, BanknotesIcon } from '../../components/icons';
+import { PlusIcon, EditIcon, DeleteIcon, EyeIcon, ClipboardDocumentListIcon, BanknotesIcon, DocumentTextIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModal';
 import { firstName as wpFirstName, lastName as wpLastName } from '../../utils/wpImport';
@@ -25,6 +25,7 @@ const CLIENT_IMPORT_FIELDS: ImportFieldDef[] = [
 import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
 import { ClientPOSReportModal } from '../../components/ui/ClientPOSReportModal';
+import { ClientInvoiceModal } from '../../components/ui/ClientInvoiceModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { clientsService } from '../../services/clients';
 import { ApiError } from '../../services/api';
@@ -47,6 +48,7 @@ export const ClientsListPage: React.FC = () => {
     const [clientForAccount, setClientForAccount] = useState<Client | null>(null);
     const [clientForDetail, setClientForDetail] = useState<Client | null>(null);
     const [clientForPOSReport, setClientForPOSReport] = useState<Client | null>(null);
+    const [clientForInvoice, setClientForInvoice] = useState<Client | null>(null);
 
     const loadClients = useCallback(async () => {
         setIsLoading(true);
@@ -185,7 +187,7 @@ export const ClientsListPage: React.FC = () => {
                                     title="Ver detalles"
                                     aria-label={`Detalles de ${client.name}`}
                                 >
-                                    <EyeIcon />
+                                    <EyeIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                             <PermissionGate require="clients.viewAccount">
@@ -195,7 +197,7 @@ export const ClientsListPage: React.FC = () => {
                                     title="Estado de cuenta (vista 360°)"
                                     aria-label={`Estado de cuenta de ${client.name}`}
                                 >
-                                    <BanknotesIcon className="w-4 h-4" />
+                                    <BanknotesIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                             <PermissionGate require="clients.viewAccount">
@@ -205,7 +207,17 @@ export const ClientsListPage: React.FC = () => {
                                     title="Reporte de ventas POS"
                                     aria-label={`Reporte POS de ${client.name}`}
                                 >
-                                    <ClipboardDocumentListIcon className="w-4 h-4" />
+                                    <ClipboardDocumentListIcon className="w-5 h-5" />
+                                </button>
+                            </PermissionGate>
+                            <PermissionGate require="clients.viewAccount">
+                                <button
+                                    onClick={() => setClientForInvoice(client)}
+                                    className="text-indigo-600 dark:text-indigo-400 p-1 hover:text-indigo-800"
+                                    title="Generar factura"
+                                    aria-label={`Generar factura a ${client.name}`}
+                                >
+                                    <DocumentTextIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                             <PermissionGate require="clients.edit">
@@ -215,7 +227,7 @@ export const ClientsListPage: React.FC = () => {
                                     title="Editar"
                                     aria-label={`Editar ${client.name} ${client.lastName}`}
                                 >
-                                    <EditIcon />
+                                    <EditIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                             <PermissionGate require="clients.delete">
@@ -225,7 +237,7 @@ export const ClientsListPage: React.FC = () => {
                                     title="Eliminar"
                                     aria-label={`Eliminar ${client.name} ${client.lastName}`}
                                 >
-                                    <DeleteIcon />
+                                    <DeleteIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                         </div>
@@ -253,6 +265,11 @@ export const ClientsListPage: React.FC = () => {
                 onClose={() => setClientForPOSReport(null)}
                 clientId={clientForPOSReport?.id || ''}
                 clientName={clientForPOSReport ? `${clientForPOSReport.name} ${clientForPOSReport.lastName || ''}` : undefined}
+            />
+            <ClientInvoiceModal
+                isOpen={!!clientForInvoice}
+                onClose={() => setClientForInvoice(null)}
+                client={clientForInvoice}
             />
 
             <ConfirmationModal

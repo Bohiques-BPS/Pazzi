@@ -960,7 +960,6 @@ export const POSCashierPage: React.FC = () => {
         // "Gaveta" (Sin venta) solo si está configurada la gaveta por QZ Tray en este dispositivo.
         ...(isCashDrawerEnabled() ? [{ text: 'Gaveta', icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
         { text: 'Cuadre', icon: <DocumentTextIcon />, color: 'bg-[#00695C]', onClick: () => setActiveModal('dailyClose') },
-        { text: 'Ponche', icon: <UserKeyIcon />, color: 'bg-[#455A64]', onClick: () => setActiveModal('punch') },
         { text: t('pos.reprint'), icon: <PrinterIcon />, color: 'bg-[#546E7A]', onClick: () => toast.info('Función de reimprimir aún no implementada.') },
         { 
             text: currentUser?.role === UserRole.MANAGER ? 'Salir' : t('pos.close_shift'), 
@@ -1059,7 +1058,17 @@ export const POSCashierPage: React.FC = () => {
                     <div className="hidden xs:block">
                         <LiveClock />
                     </div>
-                    
+
+                    {/* Ponche de empleado: a la izquierda del bloque del usuario, junto al divisor. */}
+                    <button
+                        onClick={() => setActiveModal('punch')}
+                        title="Ponche de empleado (F9)"
+                        className="bg-[#455A64] hover:bg-[#37474F] text-white font-bold py-1 px-1.5 sm:py-2 sm:px-4 rounded-md flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-sm shadow-sm transition-all active:scale-95"
+                    >
+                        <UserKeyIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <span className="hidden sm:inline">Ponche</span>
+                    </button>
+
                     <div className="flex items-center space-x-2 sm:space-x-3 border-l border-white/20 pl-2 sm:pl-6">
                         <div className="text-right hidden lg:block">
                             <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold leading-none mb-1">Cajero</p>
