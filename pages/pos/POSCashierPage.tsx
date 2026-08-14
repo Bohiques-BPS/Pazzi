@@ -567,6 +567,14 @@ export const POSCashierPage: React.FC = () => {
         setVariationProduct(null);
     };
 
+    // El usuario eligió el PRODUCTO BASE (sin variación): se agrega con su precio base.
+    const handleSelectBase = () => {
+        const p = variationProduct;
+        if (!p) return;
+        addResolvedToCart({ ...p, quantity: 1 });
+        setVariationProduct(null);
+    };
+
     // Búsqueda de productos contra el servidor: siempre datos frescos (incluye productos
     // recién creados) y busca por nombre, código de barras, SKU, categoría, etc.
     const searchProductsRemote = useCallback(async (term: string): Promise<Product[]> => {
@@ -1342,8 +1350,29 @@ export const POSCashierPage: React.FC = () => {
             {/* Selector de variación (productos con variaciones) */}
             <Modal isOpen={!!variationProduct} onClose={() => setVariationProduct(null)} title={`Elige una variación — ${variationProduct?.name || ''}`} size="md">
                 <div className="space-y-3">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Selecciona la variación a agregar al carrito:</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto">
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Elige el producto base o una variación para agregar al carrito:</p>
+
+                    {/* Producto base (sin variación) */}
+                    <button
+                        onClick={handleSelectBase}
+                        className="w-full flex items-center justify-between p-3 border-2 border-primary/40 bg-primary/5 rounded-md hover:bg-primary/10 hover:border-primary text-left transition-colors"
+                    >
+                        <span className="font-semibold text-neutral-800 dark:text-neutral-100">
+                            {variationProduct?.name}
+                            <span className="text-xs font-normal text-neutral-500 ml-1">(producto base)</span>
+                        </span>
+                        <span className="font-semibold text-primary">${(Number(variationProduct?.unitPrice) || 0).toFixed(2)}</span>
+                    </button>
+
+                    {(variationProduct?.variations?.length ?? 0) > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-neutral-400">
+                            <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
+                            variaciones
+                            <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[55vh] overflow-y-auto">
                         {(variationProduct?.variations || []).map(v => (
                             <button
                                 key={v.id}

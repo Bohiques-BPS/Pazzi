@@ -44,16 +44,34 @@ async function getQz(): Promise<any> {
     return qzPromise;
 }
 
+// Mensaje de ayuda cuando el WebSocket de QZ no conecta (causa típica en HTTPS/Render:
+// el certificado autofirmado de QZ no está aceptado en el navegador).
+const QZ_HELP =
+    'No se pudo conectar a QZ Tray. Verifica: (1) que QZ Tray esté instalado y ABIERTO en esta PC; ' +
+    '(2) que aceptaste su certificado — abre https://localhost:8181 una vez y elige "Continuar". ' +
+    'Descarga QZ Tray: https://qz.io/download/';
+
 export async function ensureConnected(): Promise<any> {
-    const qz = await getQz();
+    let qz: any;
+    try {
+        qz = await getQz();
+    } catch {
+        throw new Error('No se pudo cargar el módulo de impresión (QZ Tray).');
+    }
     // Modo sin firma (uso local): QZ pedirá permiso la primera vez; el cajero marca "Recordar".
     if (qz.security && !(qz as any).__pazziSec) {
         qz.security.setCertificatePromise((resolve: any) => resolve());
         qz.security.setSignaturePromise(() => (resolve: any) => resolve());
         (qz as any).__pazziSec = true;
     }
-    if (!qz.websocket.isActive()) {
-        await qz.websocket.connect();
+    if (qz.websocket.isActive()) return qz;
+    try {
+        // Reintenta la conexión: QZ Tray puede tardar en levantar el WebSocket seguro.
+        await qz.websocket.connect({ retries: 2, delay: 1 });
+    } catch (err: any) {
+        // El error nativo de QZ suele ser un evento de socket sin mensaje útil → damos guía accionable.
+        console.error('QZ Tray connect error:', err);
+        throw new Error(QZ_HELP);
     }
     return qz;
 }

@@ -105,10 +105,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
 
     useEffect(() => {
         if (!isOpen) return;
-        // Efectivo: arranca en 0 para que el cajero cuente el efectivo recibido (billetes).
+        // Efectivo: arranca VACÍO (el cajero teclea el efectivo recibido; el placeholder muestra 0.00).
         // Otros métodos: prellenar con el saldo exacto (un Enter finaliza de una).
-        setAmountInput(isCash ? '0.00' : (balance > 0 ? balance.toFixed(2) : '0.00'));
+        setAmountInput(isCash ? '' : (balance > 0 ? balance.toFixed(2) : ''));
     }, [balance, isOpen, isCash]);
+
+    // Mantiene el foco en el monto al abrir y al cambiar de método (agiliza el tecleo).
+    useEffect(() => {
+        if (isOpen) focusAmount();
+    }, [isOpen, selectedMethod]);
 
     // Atajos de teclado: F1..F5 seleccionan método; Enter agrega el pago o finaliza la venta.
     // F12 finaliza la venta SOLO cuando ya está totalmente pagada.
@@ -242,49 +247,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Procesar Venta" size="full">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                {/* Left Panel: Totals & Applied Payments */}
-                <div className="flex flex-col space-y-4">
-                    {changeDue > 0.001 ? (
-                        <div className="bg-green-50 dark:bg-green-900/30 text-center p-6 rounded-lg">
-                            <p className="text-base font-medium text-green-700 dark:text-green-300">Cambio a devolver</p>
-                            <p className="text-6xl sm:text-7xl font-bold text-green-600 dark:text-green-400">${changeDue.toFixed(2)}</p>
-                        </div>
-                    ) : (
-                        <div className="bg-red-50 dark:bg-red-900/30 text-center p-6 rounded-lg">
-                            <p className="text-base font-medium text-red-700 dark:text-red-300">Saldo Pendiente</p>
-                            <p className="text-6xl sm:text-7xl font-bold text-red-600 dark:text-red-400">${Math.max(0, balance).toFixed(2)}</p>
-                        </div>
-                    )}
-                    <div>
-                        <h3 className="font-semibold text-neutral-700 dark:text-neutral-200">Pagos Aplicados:</h3>
-                        <div className="mt-2 space-y-2 text-sm max-h-40 overflow-y-auto pr-2">
-                           {payments.length === 0 ? (
-                                <p className="text-neutral-500 dark:text-neutral-400">Ningún pago aplicado.</p>
-                           ) : (
-                                payments.map((p, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 p-2 rounded">
-                                        <span>{p.method}{p.reference ? ` (${p.reference})` : ''}:</span>
-                                        <span className="font-semibold">${p.amount.toFixed(2)}</span>
-                                        <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 ml-2">&times;</button>
-                                    </div>
-                                ))
-                           )}
-                        </div>
-                    </div>
-                    <div className="border-t dark:border-neutral-600 pt-3 mt-auto">
-                        <div className="flex justify-between items-center text-lg font-bold">
-                            <span>Total Pagado:</span>
-                            <span>${totalPaid.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Panel: Payment Methods & Input */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Seleccione Método y Monto:</h3>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+        <Modal isOpen={isOpen} onClose={onClose} title="Procesar Venta" size="3xl">
+            <div className="space-y-5">
+                {/* 1) Selección de método — arriba, 100% ancho */}
+                <div>
+                    <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-2">Seleccione Método y Monto:</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                         {methods.map((m, i) => (
                             <button
                                 key={m.name}
@@ -302,7 +270,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                             </button>
                         ))}
                     </div>
+                </div>
 
+                {/* 2) Contenido del método — al medio, 100% ancho */}
+                <div className="space-y-4">
                     <div className="space-y-1">
                         <label htmlFor="paymentAmount" className="text-base font-medium">
                             Monto para {selectedMethod}
@@ -315,7 +286,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                 inputMode="decimal"
                                 value={amountInput}
                                 onChange={(e) => setAmountInput(e.target.value)}
-                                className="w-full text-2xl px-3 py-2.5 border-teal-400 border-2 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700"
+                                placeholder="0.00"
+                                className="w-full text-2xl px-3 py-2.5 border-teal-400 border-2 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700 placeholder:text-neutral-300 dark:placeholder:text-neutral-500"
                                 autoComplete="off"
                             />
                             <button
@@ -435,9 +407,46 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                             </div>
                         )}
                     </div>
+
+                    {/* 3) Monto pendiente (saldo) — debajo del contenido del método */}
+                    {changeDue > 0.001 ? (
+                        <div className="bg-green-50 dark:bg-green-900/30 text-center p-5 rounded-lg">
+                            <p className="text-base font-medium text-green-700 dark:text-green-300">Cambio a devolver</p>
+                            <p className="text-5xl sm:text-6xl font-bold text-green-600 dark:text-green-400">${changeDue.toFixed(2)}</p>
+                        </div>
+                    ) : (
+                        <div className="bg-red-50 dark:bg-red-900/30 text-center p-5 rounded-lg">
+                            <p className="text-base font-medium text-red-700 dark:text-red-300">Saldo Pendiente</p>
+                            <p className="text-5xl sm:text-6xl font-bold text-red-600 dark:text-red-400">${Math.max(0, balance).toFixed(2)}</p>
+                        </div>
+                    )}
+
+                    {/* Pagos aplicados + total */}
+                    <div>
+                        <h3 className="font-semibold text-neutral-700 dark:text-neutral-200">Pagos Aplicados:</h3>
+                        <div className="mt-2 space-y-2 text-sm max-h-40 overflow-y-auto pr-2">
+                           {payments.length === 0 ? (
+                                <p className="text-neutral-500 dark:text-neutral-400">Ningún pago aplicado.</p>
+                           ) : (
+                                payments.map((p, i) => (
+                                    <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 p-2 rounded">
+                                        <span>{p.method}{p.reference ? ` (${p.reference})` : ''}:</span>
+                                        <span className="font-semibold">${p.amount.toFixed(2)}</span>
+                                        <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 ml-2">&times;</button>
+                                    </div>
+                                ))
+                           )}
+                        </div>
+                    </div>
+                    <div className="border-t dark:border-neutral-600 pt-3">
+                        <div className="flex justify-between items-center text-lg font-bold">
+                            <span>Total Pagado:</span>
+                            <span>${totalPaid.toFixed(2)}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
+
             <div className="flex justify-end items-stretch space-x-3 mt-6 pt-4 border-t dark:border-neutral-600">
                 <button type="button" onClick={onClose} className={`${BUTTON_SECONDARY_CLASSES} !text-lg !px-8`}>
                     Cancelar
