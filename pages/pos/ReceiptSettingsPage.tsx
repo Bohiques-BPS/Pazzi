@@ -5,6 +5,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSE
 import { buildReceiptHTML, getReceiptAction, setReceiptAction, type ReceiptSale, type ReceiptAction } from '../../components/pos/ReceiptModal';
 import { getDrawerConfig, setDrawerConfig, listPrinters, openCashDrawer, type DrawerConfig } from '../../services/cashDrawer';
 import { getLabelConfig, setLabelConfig, printBarcodeLabel, type LabelConfig } from '../../services/labelPrinter';
+import { getReceiptPrinterConfig, setReceiptPrinterConfig, printTestReceipt, type ReceiptPrinterConfig } from '../../services/receiptPrinter';
 import { toast } from '../../hooks/useToast';
 
 const TEXT_FIELDS: { key: keyof ReceiptConfig; label: string; placeholder?: string; textarea?: boolean }[] = [
@@ -62,6 +63,11 @@ export const ReceiptSettingsPage: React.FC = () => {
     const updateLabel = (patch: Partial<LabelConfig>) => { const next = { ...label, ...patch }; setLabel(next); setLabelConfig(next); };
     const testLabel = () => printBarcodeLabel({ name: 'PRODUCTO DE PRUEBA', unitPrice: 9.99, barcode13Digits: '0123456789012' })
         .then(() => toast.success('Etiqueta enviada.')).catch(err => toast.error(`Etiqueta: ${err?.message || 'no se pudo imprimir'}`));
+    // Impresora de recibos (QZ Tray, ESC/POS) — POR DISPOSITIVO.
+    const [receiptPrinter, setReceiptPrinter] = useState<ReceiptPrinterConfig>(getReceiptPrinterConfig());
+    const updateReceiptPrinter = (patch: Partial<ReceiptPrinterConfig>) => { const next = { ...receiptPrinter, ...patch }; setReceiptPrinter(next); setReceiptPrinterConfig(next); };
+    const testReceiptPrinter = () => printTestReceipt(cfg)
+        .then(() => toast.success('Recibo de prueba enviado.')).catch(err => toast.error(`Recibo: ${err?.message || 'no se pudo imprimir'}`));
 
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
@@ -131,6 +137,41 @@ export const ReceiptSettingsPage: React.FC = () => {
                             <option value="print">Imprimir siempre automáticamente</option>
                             <option value="download">Descargar PDF siempre automáticamente</option>
                         </select>
+                    </section>
+
+                    <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
+                        <h3 className="font-semibold text-primary mb-1">Impresora de recibos</h3>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
+                            Imprime el recibo directo a una impresora fija (sin diálogo del navegador y <strong>sin espacio blanco</strong>, con corte automático).
+                            Requiere <strong>QZ Tray</strong> en <strong>esta PC</strong>. Si se desactiva, el recibo se imprime por el diálogo del navegador.
+                        </p>
+                        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200 mb-2">
+                            <input type="checkbox" checked={receiptPrinter.enabled} onChange={e => updateReceiptPrinter({ enabled: e.target.checked })} className="h-4 w-4" />
+                            Imprimir recibos por QZ Tray (impresora fija)
+                        </label>
+                        {receiptPrinter.enabled && (
+                            <div className="space-y-2">
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">Impresora de recibos (en QZ Tray)</label>
+                                    <div className="flex gap-2">
+                                        <select value={receiptPrinter.printerName} onChange={e => updateReceiptPrinter({ printerName: e.target.value })} className={`${INPUT_SM_CLASSES} flex-1`}>
+                                            <option value="">(Impresora predeterminada)</option>
+                                            {printers.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                        <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>Detectar</button>
+                                    </div>
+                                    <input type="text" value={receiptPrinter.printerName} onChange={e => updateReceiptPrinter({ printerName: e.target.value })} placeholder="o escribe el nombre exacto (ej. EPSON TM-T88V Receipt)" className={`${INPUT_SM_CLASSES} w-full mt-1`} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">Ancho del papel</label>
+                                    <select value={receiptPrinter.width} onChange={e => updateReceiptPrinter({ width: Number(e.target.value) })} className={`${INPUT_SM_CLASSES} w-full`}>
+                                        <option value={48}>80 mm (48 columnas)</option>
+                                        <option value={32}>58 mm (32 columnas)</option>
+                                    </select>
+                                </div>
+                                <button type="button" onClick={testReceiptPrinter} className={BUTTON_PRIMARY_SM_CLASSES}>Probar impresora (recibo de prueba)</button>
+                            </div>
+                        )}
                     </section>
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">

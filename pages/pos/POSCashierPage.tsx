@@ -29,6 +29,7 @@ import {
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { ReceiptModal, buildReceiptHTML, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DailyCloseModal } from '../../components/pos/DailyCloseModal';
+import { ReprintModal } from '../../components/pos/ReprintModal';
 import { PunchModal } from '../../components/pos/PunchModal';
 import { productsService } from '../../services/products';
 
@@ -249,7 +250,7 @@ export const POSCashierPage: React.FC = () => {
 
     
     // Modal states
-    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'punch' | null;
+    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'punch' | 'reprint' | null;
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     
     const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
@@ -401,13 +402,13 @@ export const POSCashierPage: React.FC = () => {
     // F7 se reserva para el Cuadre Diario (no aparece durante una transacción/cobro).
     paymentShortcutRef.current = (e: KeyboardEvent) => {
         if (activeModal !== null || !isShiftActive) return;
-        // Cambiar usuario con "U": solo si NO estás escribiendo en un campo (para no robar la tecla).
+        // "U": cambiar cliente (abre el buscador). Solo si NO estás escribiendo en un campo.
         if (e.key === 'u' || e.key === 'U') {
             const el = document.activeElement as HTMLElement | null;
             const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
             if (typing) return;
             e.preventDefault();
-            setActiveModal('userSwitch');
+            setActiveModal('clientSearch');
             return;
         }
         if (e.key === 'F7') { e.preventDefault(); setActiveModal('dailyClose'); return; }
@@ -988,15 +989,9 @@ export const POSCashierPage: React.FC = () => {
         { text: t('pos.layaway'), icon: <ArchiveBoxIcon />, color: 'bg-[#00ACC1]', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || !selectedClient },
         // "Gaveta" (Sin venta) solo si está configurada la gaveta por QZ Tray en este dispositivo.
         ...(isCashDrawerEnabled() ? [{ text: 'Gaveta', icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
-        { text: 'Cuadre', icon: <DocumentTextIcon />, color: 'bg-[#00695C]', onClick: () => setActiveModal('dailyClose') },
-        { text: t('pos.reprint'), icon: <PrinterIcon />, color: 'bg-[#546E7A]', onClick: () => toast.info('Función de reimprimir aún no implementada.') },
-        { 
-            text: currentUser?.role === UserRole.MANAGER ? 'Salir' : t('pos.close_shift'), 
-            icon: <ExitIcon />, 
-            color: 'bg-[#B71C1C]', 
-            onClick: currentUser?.role === UserRole.MANAGER ? () => navigate('/') : () => setActiveModal('endShift')
-        },
-        { text: t('pos.user'), icon: <UserKeyIcon />, color: 'bg-[#3949AB]', shortcut: 'U', onClick: () => setActiveModal('userSwitch') },
+        { text: 'Cuadre', icon: <DocumentTextIcon />, color: 'bg-[#00695C]', shortcut: 'F7', onClick: () => setActiveModal('dailyClose') },
+        { text: t('pos.reprint'), icon: <PrinterIcon />, color: 'bg-[#546E7A]', onClick: () => setActiveModal('reprint') },
+        { text: t('pos.user'), icon: <UserKeyIcon />, color: 'bg-[#3949AB]', onClick: () => setActiveModal('userSwitch') },
     ];
     
     // UI Render
@@ -1120,6 +1115,16 @@ export const POSCashierPage: React.FC = () => {
                         <span className="hidden sm:inline">{t('pos.emergency_mode')}: OFF</span>
                         <span className="sm:hidden">OFF</span>
                     </button>
+
+                    {/* Salir / Cerrar turno: a la derecha del Modo Emergencia. */}
+                    <button
+                        onClick={currentUser?.role === UserRole.MANAGER ? () => navigate('/') : () => setActiveModal('endShift')}
+                        title={currentUser?.role === UserRole.MANAGER ? 'Salir' : 'Cerrar turno'}
+                        className="bg-[#B71C1C] hover:bg-red-800 text-white font-bold py-1 px-1.5 sm:py-2 sm:px-4 rounded-md flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-sm shadow-sm transition-all active:scale-95"
+                    >
+                        <ExitIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <span className="hidden sm:inline">{currentUser?.role === UserRole.MANAGER ? 'Salir' : t('pos.close_shift')}</span>
+                    </button>
                 </div>
             </header>
 
@@ -1145,7 +1150,7 @@ export const POSCashierPage: React.FC = () => {
                                         {selectedClient.companyName && <p className="text-base text-neutral-500">{selectedClient.companyName}</p>}
                                     </div>
                                     <div className="flex space-x-2 flex-shrink-0">
-                                        <button onClick={() => setActiveModal('clientSearch')} className="text-[10px] sm:text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900">Cambiar</button>
+                                        <button onClick={() => setActiveModal('clientSearch')} title="Atajo: U" className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900">Cambiar <span className="border border-blue-400/60 rounded px-1 text-[8px] font-bold leading-none">U</span></button>
                                         <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-[10px] sm:text-xs py-1 px-2 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900">Quitar</button>
                                     </div>
                                 </div>
@@ -1362,6 +1367,14 @@ export const POSCashierPage: React.FC = () => {
                 onFinalizeSale={handleFinalizeSale}
             />
             <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
+            {currentUser && (
+                <ReprintModal
+                    isOpen={activeModal === 'reprint'}
+                    onClose={() => setActiveModal(null)}
+                    employeeId={currentUser.id}
+                    onSelectReceipt={(rs) => { setActiveModal(null); setLastReceipt(rs); }}
+                />
+            )}
 
             {selectedCajaId && (
                 <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} onClosed={() => handleEndShift()} />

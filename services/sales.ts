@@ -4,6 +4,7 @@ export interface SaleFilters {
   branchId?: string;
   cajaId?: string;
   clientId?: string;
+  employeeId?: string;
   startDate?: string;
   endDate?: string;
   paymentStatus?: string;

@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
+import { isReceiptPrinterEnabled, printReceiptViaQz } from '../../services/receiptPrinter';
 
 export interface ReceiptSale {
     saleNumber: string;
@@ -180,6 +181,22 @@ function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
     else win.onload = () => setTimeout(doPrint, 250);
 }
 
+/**
+ * Imprime el recibo por la mejor vía disponible: si hay una impresora de recibos configurada
+ * por QZ Tray, imprime ahí (silencioso, con corte, sin espacio blanco); si no, o si QZ falla,
+ * cae al diálogo del navegador.
+ */
+function printReceiptSmart(html: string, sale: ReceiptSale, cfg: ReceiptConfig) {
+    if (isReceiptPrinterEnabled()) {
+        printReceiptViaQz(sale, cfg).catch((e) => {
+            console.error('Impresión por QZ falló, uso el diálogo del navegador:', e);
+            printReceipt(html, cfg.paperSize);
+        });
+        return;
+    }
+    printReceipt(html, cfg.paperSize);
+}
+
 // Preferencia POR DISPOSITIVO (la impresora es local a cada caja) de qué hacer al finalizar la venta.
 export type ReceiptAction = 'ask' | 'print' | 'download';
 const RECEIPT_ACTION_KEY = 'pazzi_receipt_action';
@@ -202,11 +219,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
     useEffect(() => {
         if (!(isOpen && sale && html)) return;
         if (handledRef.current === sale.saleNumber) return; // ya procesado este recibo
-        if (pref === 'print') { handledRef.current = sale.saleNumber; printReceipt(html, config.paperSize); onClose(); return; }
+        if (pref === 'print') { handledRef.current = sale.saleNumber; printReceiptSmart(html, sale, config); onClose(); return; }
         if (pref === 'download') { handledRef.current = sale.saleNumber; generatePDF(sale, config); onClose(); return; }
-        if (config.autoPrint) { handledRef.current = sale.saleNumber; const t = setTimeout(() => printReceipt(html, config.paperSize), 150); return () => clearTimeout(t); }
+        if (config.autoPrint) { handledRef.current = sale.saleNumber; const t = setTimeout(() => printReceiptSmart(html, sale, config), 150); return () => clearTimeout(t); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, sale, html]);
+
+    // Al cerrar, olvidar el recibo procesado para permitir reimprimir la MISMA factura otra vez.
+    useEffect(() => { if (!isOpen) handledRef.current = null; }, [isOpen]);
 
     if (!sale) return null;
     // Con preferencia activa no mostramos el modal (el efecto ya ejecutó la acción).
@@ -215,7 +235,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
     // Ejecuta la acción elegida; si marcó "no volver a preguntar", la guarda y cierra.
     const doAction = (action: 'print' | 'download') => {
         if (dontAsk) setReceiptAction(action);
-        if (action === 'print') printReceipt(html, config.paperSize);
+        if (action === 'print') printReceiptSmart(html, sale, config);
         else generatePDF(sale, config);
         if (dontAsk) onClose();
     };

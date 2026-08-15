@@ -204,6 +204,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
         setFormData(prev => ({ ...prev, skus: prev.skus?.filter(s => s !== sku) }));
     };
 
+    // Genera un código de barras EAN-13 válido (con dígito verificador correcto).
+    // Prefijo "2" = rango de distribución restringida (códigos internos de la tienda).
+    const handleGenerateBarcode = () => {
+        let base = '2';
+        for (let i = 0; i < 11; i++) base += Math.floor(Math.random() * 10);
+        let sum = 0;
+        for (let i = 0; i < 12; i++) sum += (i % 2 === 0 ? 1 : 3) * Number(base[i]);
+        const check = (10 - (sum % 10)) % 10;
+        setFormData(prev => ({ ...prev, barcode13Digits: base + String(check) }));
+    };
+
     // Custom Specs Logic
     const handleAddCustomSpec = () => {
         if (newSpec.name.trim() && newSpec.value.trim()) {
@@ -631,7 +642,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.field.barcode')} (13 Dígitos)</label>
-                                    <input type="text" name="barcode13Digits" value={formData.barcode13Digits} onChange={handleChange} className={inputFormStyle} />
+                                    <div className="flex gap-2">
+                                        <input type="text" name="barcode13Digits" value={formData.barcode13Digits} onChange={handleChange} className={inputFormStyle} placeholder="Vacío o genera uno" />
+                                        <button type="button" onClick={handleGenerateBarcode} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title="Generar un código EAN-13 válido">Generar</button>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.field.barcode')} (Secundario)</label>
