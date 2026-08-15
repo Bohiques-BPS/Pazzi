@@ -97,15 +97,17 @@ const LiveClock = () => {
     );
 };
 
-const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, onClick, disabled = false }) => (
+const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: string; shortcut?: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, shortcut, onClick, disabled = false }) => (
     <button
         onClick={onClick}
         disabled={disabled}
-        className={`flex-1 flex flex-col sm:flex-row items-center justify-center py-1.5 sm:py-2 px-1 sm:px-3 rounded-md text-white text-[10px] sm:text-sm font-semibold transition-colors ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
+        title={shortcut ? `Atajo: ${shortcut}` : undefined}
+        className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center py-1.5 sm:py-2 px-1 sm:px-3 rounded-md text-white text-[10px] sm:text-sm font-semibold transition-colors ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
         style={{ minHeight: '40px' }}
     >
         {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 mb-0.5 sm:mb-0" })}
         <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{text}</span>
+        {shortcut && <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 border border-white/60 rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold leading-none">{shortcut}</span>}
     </button>
 );
 
@@ -399,6 +401,15 @@ export const POSCashierPage: React.FC = () => {
     // F7 se reserva para el Cuadre Diario (no aparece durante una transacción/cobro).
     paymentShortcutRef.current = (e: KeyboardEvent) => {
         if (activeModal !== null || !isShiftActive) return;
+        // Cambiar usuario con "U": solo si NO estás escribiendo en un campo (para no robar la tecla).
+        if (e.key === 'u' || e.key === 'U') {
+            const el = document.activeElement as HTMLElement | null;
+            const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+            if (typing) return;
+            e.preventDefault();
+            setActiveModal('userSwitch');
+            return;
+        }
         if (e.key === 'F7') { e.preventDefault(); setActiveModal('dailyClose'); return; }
         if (e.key === 'F9') { e.preventDefault(); setActiveModal('punch'); return; } // Ponche de empleado
         const fk = /^F([1-9])$/.exec(e.key);
@@ -415,6 +426,16 @@ export const POSCashierPage: React.FC = () => {
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, []);
+
+    // Auto-foco en la búsqueda de productos: cada vez que se vuelve a la vista principal
+    // (se cierra cualquier overlay: modal, recibo, cámara, variación, crear-caja), el cursor
+    // queda listo para escanear/teclear sin tener que hacer clic.
+    useEffect(() => {
+        const overlayOpen = activeModal !== null || !!lastReceipt || !!variationProduct || showScanCamera || showCreateCaja;
+        if (overlayOpen) return;
+        const t = setTimeout(() => productSearchRef.current?.focus(), 60);
+        return () => clearTimeout(t);
+    }, [activeModal, lastReceipt, variationProduct, showScanCamera, showCreateCaja]);
 
     // Set default client if none selected
     useEffect(() => {
@@ -975,7 +996,7 @@ export const POSCashierPage: React.FC = () => {
             color: 'bg-[#B71C1C]', 
             onClick: currentUser?.role === UserRole.MANAGER ? () => navigate('/') : () => setActiveModal('endShift')
         },
-        { text: t('pos.user'), icon: <UserKeyIcon />, color: 'bg-[#3949AB]', onClick: () => setActiveModal('userSwitch') },
+        { text: t('pos.user'), icon: <UserKeyIcon />, color: 'bg-[#3949AB]', shortcut: 'U', onClick: () => setActiveModal('userSwitch') },
     ];
     
     // UI Render
@@ -1075,6 +1096,7 @@ export const POSCashierPage: React.FC = () => {
                     >
                         <UserKeyIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
                         <span className="hidden sm:inline">Ponche</span>
+                        <span className="border border-white/60 rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold leading-none">F9</span>
                     </button>
 
                     <div className="flex items-center space-x-2 sm:space-x-3 border-l border-white/20 pl-2 sm:pl-6">
