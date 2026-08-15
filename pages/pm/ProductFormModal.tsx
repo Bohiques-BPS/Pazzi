@@ -12,6 +12,8 @@ import { DepartmentFormModal } from './DepartmentFormModal';
 import { BranchFormModal } from '../../components/forms/BranchFormModal';
 import { ADVANCED_PRODUCT_FIELDS, ADVANCED_PRODUCT_GROUPS } from '../../config/advancedProductFields';
 import { API_URL } from '../../services/api';
+import { printBarcodeLabel } from '../../services/labelPrinter';
+import { toast } from '../../hooks/useToast';
 import { z } from 'zod';
 import { zodIssuesToFieldErrors } from '../../schemas/common.schema';
 
@@ -213,6 +215,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
         for (let i = 0; i < 12; i++) sum += (i % 2 === 0 ? 1 : 3) * Number(base[i]);
         const check = (10 - (sum % 10)) % 10;
         setFormData(prev => ({ ...prev, barcode13Digits: base + String(check) }));
+    };
+
+    // Imprime la etiqueta con el código actual del formulario (por QZ Tray o el navegador).
+    const handlePrintBarcode = () => {
+        printBarcodeLabel({
+            name: formData.name,
+            unitPrice: formData.unitPrice,
+            barcode13Digits: formData.barcode13Digits,
+            barcode2: formData.barcode2,
+            skus: formData.skus,
+        }).then(() => toast.success('Etiqueta enviada a la impresora.'))
+          .catch(err => toast.error(`Etiqueta: ${err?.message || 'no se pudo imprimir (¿QZ Tray / impresora?)'}`));
     };
 
     // Custom Specs Logic
@@ -645,6 +659,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                     <div className="flex gap-2">
                                         <input type="text" name="barcode13Digits" value={formData.barcode13Digits} onChange={handleChange} className={inputFormStyle} placeholder="Vacío o genera uno" />
                                         <button type="button" onClick={handleGenerateBarcode} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title="Generar un código EAN-13 válido">Generar</button>
+                                        <button type="button" onClick={handlePrintBarcode} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title="Imprimir la etiqueta de código de barras">🖨️ Etiqueta</button>
                                     </div>
                                 </div>
                                 <div>
