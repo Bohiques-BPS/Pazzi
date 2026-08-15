@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
-import { isReceiptPrinterEnabled, printReceiptViaQz } from '../../services/receiptPrinter';
+import { isReceiptPrinterEnabled, printReceiptViaQz, getPrintFormat } from '../../services/receiptPrinter';
 
 export interface ReceiptSale {
     saleNumber: string;
@@ -186,15 +186,21 @@ function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
  * por QZ Tray, imprime ahí (silencioso, con corte, sin espacio blanco); si no, o si QZ falla,
  * cae al diálogo del navegador.
  */
-function printReceiptSmart(html: string, sale: ReceiptSale, cfg: ReceiptConfig) {
+function printReceiptSmart(_html: string, sale: ReceiptSale, cfg: ReceiptConfig) {
+    // Formato elegido en la venta (recibo térmico 80mm vs factura carta), sticky por dispositivo.
+    const format = getPrintFormat();
+    const paper: '80mm' | 'letter' = format === 'factura' ? 'letter' : '80mm';
+    const useHtml = buildReceiptHTML(sale, { ...cfg, paperSize: paper });
+
     if (isReceiptPrinterEnabled()) {
-        printReceiptViaQz(sale, cfg).catch((e) => {
+        // recibo → ESC/POS (no usa html); factura → html carta a su impresora.
+        printReceiptViaQz(sale, cfg, format, format === 'factura' ? useHtml : undefined).catch((e) => {
             console.error('Impresión por QZ falló, uso el diálogo del navegador:', e);
-            printReceipt(html, cfg.paperSize);
+            printReceipt(useHtml, paper);
         });
         return;
     }
-    printReceipt(html, cfg.paperSize);
+    printReceipt(useHtml, paper);
 }
 
 // Preferencia POR DISPOSITIVO (la impresora es local a cada caja) de qué hacer al finalizar la venta.

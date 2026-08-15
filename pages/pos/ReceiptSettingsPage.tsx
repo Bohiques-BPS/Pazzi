@@ -66,8 +66,10 @@ export const ReceiptSettingsPage: React.FC = () => {
     // Impresora de recibos (QZ Tray, ESC/POS) — POR DISPOSITIVO.
     const [receiptPrinter, setReceiptPrinter] = useState<ReceiptPrinterConfig>(getReceiptPrinterConfig());
     const updateReceiptPrinter = (patch: Partial<ReceiptPrinterConfig>) => { const next = { ...receiptPrinter, ...patch }; setReceiptPrinter(next); setReceiptPrinterConfig(next); };
-    const testReceiptPrinter = () => printTestReceipt(cfg)
+    const testRecibo = () => printTestReceipt(cfg, 'recibo')
         .then(() => toast.success('Recibo de prueba enviado.')).catch(err => toast.error(`Recibo: ${err?.message || 'no se pudo imprimir'}`));
+    const testFactura = () => printTestReceipt(cfg, 'factura', buildReceiptHTML(SAMPLE, { ...cfg, paperSize: 'letter' }))
+        .then(() => toast.success('Factura de prueba enviada.')).catch(err => toast.error(`Factura: ${err?.message || 'no se pudo imprimir'}`));
 
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
@@ -141,35 +143,60 @@ export const ReceiptSettingsPage: React.FC = () => {
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
                         <h3 className="font-semibold text-primary mb-1">Impresora de recibos</h3>
+                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Modo de impresión (por dispositivo)</p>
+                        <div className="flex gap-2 mb-1">
+                            <button
+                                type="button"
+                                onClick={() => updateReceiptPrinter({ enabled: false })}
+                                className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors ${!receiptPrinter.enabled ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+                            >
+                                Navegador (sin instalar nada)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => updateReceiptPrinter({ enabled: true })}
+                                className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors ${receiptPrinter.enabled ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+                            >
+                                QZ Tray (directo)
+                            </button>
+                        </div>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-                            Imprime el recibo directo a una impresora fija (sin diálogo del navegador y <strong>sin espacio blanco</strong>, con corte automático).
-                            Requiere <strong>QZ Tray</strong> en <strong>esta PC</strong>. Si se desactiva, el recibo se imprime por el diálogo del navegador.
+                            {receiptPrinter.enabled
+                                ? 'Directo a una impresora fija, sin diálogo y con corte automático (sin espacio blanco). Requiere QZ Tray instalado en esta PC.'
+                                : 'Usa el diálogo / driver del sistema — NO requiere instalar nada. Elige tu impresora en el diálogo o ponla como predeterminada en Windows. El espacio en blanco se ajusta en el driver de la impresora.'}
                         </p>
-                        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200 mb-2">
-                            <input type="checkbox" checked={receiptPrinter.enabled} onChange={e => updateReceiptPrinter({ enabled: e.target.checked })} className="h-4 w-4" />
-                            Imprimir recibos por QZ Tray (impresora fija)
-                        </label>
                         {receiptPrinter.enabled && (
-                            <div className="space-y-2">
-                                <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Impresora de recibos (en QZ Tray)</label>
-                                    <div className="flex gap-2">
-                                        <select value={receiptPrinter.printerName} onChange={e => updateReceiptPrinter({ printerName: e.target.value })} className={`${INPUT_SM_CLASSES} flex-1`}>
-                                            <option value="">(Impresora predeterminada)</option>
-                                            {printers.map(p => <option key={p} value={p}>{p}</option>)}
-                                        </select>
-                                        <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>Detectar</button>
-                                    </div>
-                                    <input type="text" value={receiptPrinter.printerName} onChange={e => updateReceiptPrinter({ printerName: e.target.value })} placeholder="o escribe el nombre exacto (ej. EPSON TM-T88V Receipt)" className={`${INPUT_SM_CLASSES} w-full mt-1`} />
+                            <div className="space-y-3">
+                                <div className="flex justify-end">
+                                    <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>Detectar impresoras</button>
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Ancho del papel</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">Impresora del <strong>Recibo</strong> (térmico 80/58mm)</label>
+                                    <select value={receiptPrinter.reciboPrinter} onChange={e => updateReceiptPrinter({ reciboPrinter: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
+                                        <option value="">(Impresora predeterminada)</option>
+                                        {printers.map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                    <input type="text" value={receiptPrinter.reciboPrinter} onChange={e => updateReceiptPrinter({ reciboPrinter: e.target.value })} placeholder="o nombre exacto (ej. EPSON TM-T88V Receipt)" className={`${INPUT_SM_CLASSES} w-full mt-1`} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">Impresora de la <strong>Factura</strong> (carta / A4)</label>
+                                    <select value={receiptPrinter.facturaPrinter} onChange={e => updateReceiptPrinter({ facturaPrinter: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
+                                        <option value="">(Misma del recibo / predeterminada)</option>
+                                        {printers.map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                    <input type="text" value={receiptPrinter.facturaPrinter} onChange={e => updateReceiptPrinter({ facturaPrinter: e.target.value })} placeholder="o nombre exacto (ej. HP LaserJet)" className={`${INPUT_SM_CLASSES} w-full mt-1`} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">Ancho del recibo térmico</label>
                                     <select value={receiptPrinter.width} onChange={e => updateReceiptPrinter({ width: Number(e.target.value) })} className={`${INPUT_SM_CLASSES} w-full`}>
                                         <option value={48}>80 mm (48 columnas)</option>
                                         <option value={32}>58 mm (32 columnas)</option>
                                     </select>
                                 </div>
-                                <button type="button" onClick={testReceiptPrinter} className={BUTTON_PRIMARY_SM_CLASSES}>Probar impresora (recibo de prueba)</button>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={testRecibo} className={BUTTON_PRIMARY_SM_CLASSES}>Probar Recibo</button>
+                                    <button type="button" onClick={testFactura} className={BUTTON_SECONDARY_SM_CLASSES}>Probar Factura</button>
+                                </div>
                             </div>
                         )}
                     </section>

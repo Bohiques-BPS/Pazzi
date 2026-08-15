@@ -5,6 +5,7 @@ import { AthMovilButton } from '../pos/AthMovilButton';
 import { AgilPayCardForm } from '../pos/AgilPayCardForm';
 import { invoicesService, type Invoice } from '../../services/invoices';
 import { parseAmount, round2, computeBalance, evaluatePayment, coversBalance } from './paymentMath';
+import { getPrintFormat, setPrintFormat, type PrintFormat } from '../../services/receiptPrinter';
 import { toast } from 'react-hot-toast';
 
 const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`;
@@ -58,6 +59,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const [changeDue, setChangeDue] = useState(0);
     // ATH Móvil por QR/link: se genera una factura pública con el monto exacto del saldo.
     const [athInvoice, setAthInvoice] = useState<Invoice | null>(null);
+    // Formato a imprimir al finalizar (recibo térmico vs factura carta). Sticky por dispositivo.
+    const [printFormat, setPrintFormatState] = useState<PrintFormat>(getPrintFormat());
+    const changeFormat = (f: PrintFormat) => { setPrintFormat(f); setPrintFormatState(f); };
     const [athQr, setAthQr] = useState('');
     const [athGenerating, setAthGenerating] = useState(false);
     const amountInputRef = useRef<HTMLInputElement>(null);
@@ -447,18 +451,32 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                 </div>
             </div>
 
-            <div className="flex justify-end items-stretch space-x-3 mt-6 pt-4 border-t dark:border-neutral-600">
-                <button type="button" onClick={onClose} className={`${BUTTON_SECONDARY_CLASSES} !text-lg !px-8`}>
-                    Cancelar
-                </button>
-                <button
-                    type="button"
-                    onClick={handleFinalize}
-                    className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
-                    disabled={balance > 0.001}
-                >
-                    Finalizar Venta <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
-                </button>
+            <div className="flex justify-between items-center gap-3 flex-wrap mt-6 pt-4 border-t dark:border-neutral-600">
+                {/* Qué imprimir al finalizar (como el POS clásico) */}
+                <div className="flex items-center gap-4 text-base">
+                    <span className="font-medium text-neutral-600 dark:text-neutral-300">Imprimir:</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="printFormat" checked={printFormat === 'recibo'} onChange={() => changeFormat('recibo')} className="h-4 w-4" />
+                        Recibo
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="printFormat" checked={printFormat === 'factura'} onChange={() => changeFormat('factura')} className="h-4 w-4" />
+                        Factura
+                    </label>
+                </div>
+                <div className="flex items-stretch space-x-3">
+                    <button type="button" onClick={onClose} className={`${BUTTON_SECONDARY_CLASSES} !text-lg !px-8`}>
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleFinalize}
+                        className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
+                        disabled={balance > 0.001}
+                    >
+                        Finalizar Venta <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
+                    </button>
+                </div>
             </div>
         </Modal>
     );

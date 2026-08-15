@@ -13,23 +13,40 @@ export { listPrinters };
 
 const KEY = 'pazzi_receipt_printer';
 
+/** Formato a imprimir: recibo térmico (80mm, ESC/POS) o factura carta (HTML). */
+export type PrintFormat = 'recibo' | 'factura';
+
 export interface ReceiptPrinterConfig {
     enabled: boolean;
-    printerName: string; // nombre EXACTO en QZ Tray (vacío = impresora predeterminada del sistema)
-    width: number;       // columnas de texto: 48 = 80mm (Font A); 32 = 58mm
+    reciboPrinter: string;   // impresora del RECIBO térmico (ESC/POS). Vacío = predeterminada.
+    facturaPrinter: string;  // impresora de la FACTURA carta (HTML). Vacío = usa la del recibo/predeterminada.
+    width: number;           // columnas del recibo térmico: 48 = 80mm; 32 = 58mm
 }
 
-const DEFAULTS: ReceiptPrinterConfig = { enabled: false, printerName: '', width: 48 };
+const DEFAULTS: ReceiptPrinterConfig = { enabled: false, reciboPrinter: '', facturaPrinter: '', width: 48 };
 
 export function getReceiptPrinterConfig(): ReceiptPrinterConfig {
-    try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
-    catch { return { ...DEFAULTS }; }
+    try {
+        const v = JSON.parse(localStorage.getItem(KEY) || '{}');
+        const merged = { ...DEFAULTS, ...v };
+        if (!merged.reciboPrinter && v.printerName) merged.reciboPrinter = v.printerName; // migración del campo viejo
+        return merged;
+    } catch { return { ...DEFAULTS }; }
 }
 export function setReceiptPrinterConfig(c: ReceiptPrinterConfig) {
     try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* almacenamiento no disponible */ }
 }
 export function isReceiptPrinterEnabled(): boolean {
     return getReceiptPrinterConfig().enabled;
+}
+
+// Preferencia POR DISPOSITIVO de qué formato imprimir (recibo/factura). Es "sticky".
+const FORMAT_KEY = 'pazzi_print_format';
+export function getPrintFormat(): PrintFormat {
+    try { return localStorage.getItem(FORMAT_KEY) === 'factura' ? 'factura' : 'recibo'; } catch { return 'recibo'; }
+}
+export function setPrintFormat(f: PrintFormat) {
+    try { localStorage.setItem(FORMAT_KEY, f); } catch { /* almacenamiento no disponible */ }
 }
 
 // ── Comandos ESC/POS ──
@@ -98,19 +115,36 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     return o;
 }
 
-/** Imprime el recibo por QZ a la impresora configurada. Lanza si falla. */
-export async function printReceiptViaQz(sale: ReceiptSale, cfg: ReceiptConfig): Promise<void> {
+/**
+ * Imprime por QZ enrutando según el formato:
+ *  - 'recibo'  → ESC/POS crudo a la impresora de recibo (térmica, con corte).
+ *  - 'factura' → HTML (carta) a la impresora de factura. El HTML lo arma el llamador
+ *                (para no crear dependencia circular con buildReceiptHTML).
+ * Lanza si falla.
+ */
+export async function printReceiptViaQz(
+    sale: ReceiptSale, cfg: ReceiptConfig, format: PrintFormat = 'recibo', letterHtml?: string,
+): Promise<void> {
     const rc = getReceiptPrinterConfig();
     const qz = await ensureConnected();
-    const printer = rc.printerName || (await qz.printers.getDefault());
+
+    if (format === 'factura') {
+        const printer = rc.facturaPrinter || rc.reciboPrinter || (await qz.printers.getDefault());
+        if (!printer) throw new Error('No hay impresora de factura configurada.');
+        const config = qz.configs.create(printer, {});
+        await qz.print(config, [{ type: 'html', format: 'plain', data: letterHtml || '' }]);
+        return;
+    }
+
+    const printer = rc.reciboPrinter || (await qz.printers.getDefault());
     if (!printer) throw new Error('No hay impresora de recibos configurada.');
     const config = qz.configs.create(printer, { encoding: 'CP437' });
     const data = buildReceiptEscPos(sale, cfg, rc.width);
     await qz.print(config, [{ type: 'raw', format: 'plain', data }]);
 }
 
-/** Imprime un recibo de PRUEBA (para el botón "Probar impresora"). */
-export async function printTestReceipt(cfg: ReceiptConfig): Promise<void> {
+/** Imprime un documento de PRUEBA (para "Probar"). Para factura, el llamador pasa el HTML carta. */
+export async function printTestReceipt(cfg: ReceiptConfig, format: PrintFormat = 'recibo', letterHtml?: string): Promise<void> {
     const sample: ReceiptSale = {
         saleNumber: 'PRUEBA-001',
         date: new Date().toISOString(),
@@ -122,5 +156,5 @@ export async function printTestReceipt(cfg: ReceiptConfig): Promise<void> {
         payments: [{ method: 'Efectivo', amount: 6.69 }],
         changeDue: 0, clientName: 'Cliente de prueba', cashierName: 'Cajero',
     };
-    await printReceiptViaQz(sample, cfg);
+    await printReceiptViaQz(sample, cfg, format, letterHtml);
 }
