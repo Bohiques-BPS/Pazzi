@@ -18,7 +18,7 @@ interface CategoryFormModalProps {
 export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, onClose, category }) => {
     const { t } = useTranslation();
     const { setCategories, categories, departments } = useData();
-    const [formData, setFormData] = useState<CategoryFormData>({ name: '', description: '', departmentId: '' });
+    const [formData, setFormData] = useState<CategoryFormData & { reducedTax?: boolean }>({ name: '', description: '', departmentId: '', reducedTax: false });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -29,10 +29,11 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                 name: category.name,
                 description: category.description || '',
                 departmentId: category.departmentId || '',
+                reducedTax: !!category.reducedTax,
             });
             setImagePreview(category.imageUrl || null);
         } else {
-            setFormData({ name: '', description: '', departmentId: '' });
+            setFormData({ name: '', description: '', departmentId: '', reducedTax: false });
             setImagePreview(null);
         }
         setImageFile(null);
@@ -152,6 +153,10 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                     </select>
                     <p className="mt-1 text-xs text-neutral-500">La categoría pertenece a este departamento (Departamento › Categoría › Producto).</p>
                 </div>
+                <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                    <input type="checkbox" checked={!!formData.reducedTax} onChange={e => setFormData(prev => ({ ...prev, reducedTax: e.target.checked }))} className="h-4 w-4" />
+                    Tasa de IVU reducida (sus productos usan la tasa reducida)
+                </label>
                 <div>
                     <label htmlFor="categoryDescription" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
                     <textarea

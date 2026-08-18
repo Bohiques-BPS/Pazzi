@@ -9,7 +9,42 @@ import { ReceivableEditModal } from './ReceivableEditModal';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { ClientSearchModal } from '../../components/ClientSearchModal';
+import { ClientCreditPaymentModal } from '../../components/ui/ClientCreditPaymentModal';
+import { ReceiptModal, type ReceiptSale } from '../../components/pos/ReceiptModal';
+import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
+
+/** Comprobante de abono a crédito (para imprimir via ReceiptModal). */
+function buildAbonoReceipt(clientName: string, total: number, method: string, reference: string | undefined, cashierName?: string): ReceiptSale {
+    return {
+        saleNumber: 'ABONO',
+        date: new Date().toISOString(),
+        items: [{ name: 'Abono a cuenta de crédito', quantity: 1, unitPrice: total, note: `Método: ${method}${reference ? ` · Ref: ${reference}` : ''}` }],
+        subtotal: total, tax: 0, discount: 0, total,
+        payments: [{ method, amount: total, reference }],
+        clientName, cashierName,
+    };
+}
+
+/** Reconstruye el recibo de una venta (para reimprimir su factura). */
+function saleToReceipt(sale: any): ReceiptSale {
+    const payments = Array.isArray(sale.payments) && sale.payments.length
+        ? sale.payments.map((p: any) => ({ method: p.paymentMethodUsed, amount: p.amountPaid, reference: p.notes || undefined }))
+        : [{ method: sale.paymentMethod || 'Pago', amount: sale.totalAmount }];
+    return {
+        saleNumber: sale.saleNumber != null ? String(sale.saleNumber) : String(sale.id).slice(0, 8),
+        date: sale.date,
+        items: (sale.items || []).map((it: any) => ({ name: it.name || it.product?.name || 'Artículo', quantity: it.quantity, unitPrice: it.unitPrice, note: it.note })),
+        subtotal: sale.subtotal ?? (sale.totalAmount - (sale.taxAmount || 0)),
+        tax: sale.taxAmount ?? 0,
+        discount: sale.discountAmount ?? 0,
+        total: sale.totalAmount,
+        payments,
+        clientName: sale.client ? `${sale.client.name} ${sale.client.lastName || ''}`.trim() : undefined,
+    };
+}
 
 // ... (Keep RecordPaymentModal and PaymentReminderModal as they are) ...
 interface RecordPaymentModalProps {
@@ -181,6 +216,19 @@ export const AccountsReceivablePage: React.FC = () => {
     const { getDefaultSettings } = useECommerceSettings();
 
     const [paymentModalSale, setPaymentModalSale] = useState<(Sale & { balance: number }) | null>(null);
+    const { settings } = useGlobalSettings();
+    // Abono multi-factura: elegir cliente → repartir el pago entre sus facturas.
+    const [showCreditSearch, setShowCreditSearch] = useState(false);
+    const [creditClient, setCreditClient] = useState<Client | null>(null);
+    // Recibo a imprimir (comprobante de abono o reimpresión de factura).
+    const [receiptToPrint, setReceiptToPrint] = useState<ReceiptSale | null>(null);
+    const reloadSales = async () => {
+        try {
+            const res = await fetch(`${API_URL}/sales?limit=200`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` } });
+            const data = await res.json();
+            if (Array.isArray(data)) setSales(data);
+        } catch { /* noop */ }
+    };
     const [showEditModal, setShowEditModal] = useState(false);
     const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
     const [showVoidConfirmModal, setShowVoidConfirmModal] = useState(false);
@@ -305,6 +353,10 @@ export const AccountsReceivablePage: React.FC = () => {
             notes: `Abono a CxC. ${notes}`.trim(),
             attachment: attachment
         });
+        // Comprobante de abono (respeta el formato Recibo/Factura elegido).
+        const s = sales.find(x => x.id === saleId);
+        const cName = s?.clientId ? (getClientById(s.clientId)?.name || '') : '';
+        setReceiptToPrint(buildAbonoReceipt(cName || 'Cliente', amount, method, notes || undefined));
     };
 
     const handleEditReceivable = (sale: Sale) => { setSaleToEdit(sale); setShowEditModal(true); };
@@ -345,7 +397,10 @@ export const AccountsReceivablePage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pos.receivable.title')}</h1>
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pos.receivable.title')}</h1>
+                    <button onClick={() => setShowCreditSearch(true)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0`}>💳 Pagos y Créditos</button>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                     <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                         <select id="arStatusFilter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className={INPUT_SM_CLASSES}>
@@ -460,7 +515,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                              <div className="flex space-x-1">
                                                 <button onClick={() => requestSendReminder(sale)} className="text-orange-500 p-1" title={t('pos.receivable.action.reminder')}><EnvelopeIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => handleEditReceivable(sale)} className="text-blue-600 p-1" title={t('pos.receivable.action.edit')}><EditIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => toast('Función de imprimir aún no implementada.', { icon: '🖨️' })} className="text-blue-600 p-1" title={t('pos.receivable.action.print')}><PrinterIcon className="w-4 h-4"/></button>
+                                                <button onClick={() => setReceiptToPrint(saleToReceipt(sale))} className="text-blue-600 p-1" title="Reimprimir factura"><PrinterIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => setPaymentModalSale(sale)} className="text-green-600 p-1" title={t('pos.receivable.action.payment')} disabled={sale.balance <= 0}><BanknotesIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => handleVoidReceivable(sale)} className="text-red-600 p-1" title={t('pos.receivable.action.void')}><TrashIconMini className="w-4 h-4"/></button>
                                             </div>
@@ -515,6 +570,29 @@ export const AccountsReceivablePage: React.FC = () => {
             </div>
 
             <RecordPaymentModal isOpen={!!paymentModalSale} onClose={() => setPaymentModalSale(null)} sale={paymentModalSale} onConfirm={handleConfirmPayment} />
+
+            {/* Abono multi-factura: elegir cliente (con balance) → repartir el pago. */}
+            <ClientSearchModal
+                isOpen={showCreditSearch}
+                onClose={() => setShowCreditSearch(false)}
+                clients={clients}
+                onClientSelect={(c) => { setShowCreditSearch(false); setCreditClient(c); }}
+                onOpenCreateClient={() => setShowCreditSearch(false)}
+            />
+            <ClientCreditPaymentModal
+                isOpen={!!creditClient}
+                onClose={() => setCreditClient(null)}
+                clientId={creditClient?.id || ''}
+                clientName={creditClient ? `${creditClient.name} ${creditClient.lastName || ''}`.trim() : undefined}
+                onPaid={(info) => {
+                    const name = creditClient ? `${creditClient.name} ${creditClient.lastName || ''}`.trim() : 'Cliente';
+                    reloadSales();
+                    setReceiptToPrint(buildAbonoReceipt(name, info.total, info.method, info.reference));
+                }}
+            />
+
+            {/* Impresión de comprobante de abono / reimpresión de factura (respeta el formato Recibo/Factura). */}
+            <ReceiptModal isOpen={!!receiptToPrint} onClose={() => setReceiptToPrint(null)} sale={receiptToPrint} config={settings.receiptConfig} />
             <ReceivableEditModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} saleToEdit={saleToEdit} />
             {saleToVoid && <ConfirmationModal isOpen={showVoidConfirmModal} onClose={() => setShowVoidConfirmModal(false)} onConfirm={confirmVoidReceivable} title={t('pos.receivable.confirm_void.title')} message={t('pos.receivable.confirm_void.message', { id: `VTA-${saleToVoid.id.slice(-6)}` })} confirmButtonText={t('pos.receivable.confirm_void.btn')} />}
             

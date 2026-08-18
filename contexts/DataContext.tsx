@@ -795,6 +795,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 discountValue: (item as any).discount?.value || undefined,
                 variationId: (item as any).variationId || undefined,
                 variationName: (item as any).variationName || undefined,
+                note: (item as any).note || undefined,
             }));
 
             // Desglose de pagos: si el modal envió varios, se mandan tal cual; si no, se sintetiza

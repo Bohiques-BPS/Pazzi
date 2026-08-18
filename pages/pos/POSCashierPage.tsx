@@ -30,6 +30,8 @@ import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { ReceiptModal, buildReceiptHTML, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DailyCloseModal } from '../../components/pos/DailyCloseModal';
 import { ReprintModal } from '../../components/pos/ReprintModal';
+import { CartLineModal } from '../../components/pos/CartLineModal';
+import { ManualPriceModal } from '../../components/pos/ManualPriceModal';
 import { PunchModal } from '../../components/pos/PunchModal';
 import { productsService } from '../../services/products';
 
@@ -205,6 +207,12 @@ export const POSCashierPage: React.FC = () => {
     const [showScanCamera, setShowScanCamera] = useState(false);
     // Factura generada tras finalizar la venta (muestra el ReceiptModal).
     const [lastReceipt, setLastReceipt] = useState<ReceiptSale | null>(null);
+    // Error al registrar la venta (stock insuficiente, turno cerrado, etc.) → modal claro.
+    const [saleError, setSaleError] = useState<{ message: string; code?: string } | null>(null);
+    // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
+    const [editingLineId, setEditingLineId] = useState<string | null>(null);
+    // Producto de precio manual esperando que el cajero ingrese el precio.
+    const [manualPriceProduct, setManualPriceProduct] = useState<Product | null>(null);
     // Siempre apunta al handler vigente de atajos de pago F1..F6 (sin closures obsoletos).
     const paymentShortcutRef = useRef<(e: KeyboardEvent) => void>(() => {});
 
@@ -482,7 +490,7 @@ export const POSCashierPage: React.FC = () => {
         }
     }, [cart, selectedClient, selectedProjectId, generalDiscount, currentUser, selectedCajaId]);
 
-    const { subtotal, globalDiscountAmount, tax, total } = useMemo(() => {
+    const { subtotal, globalDiscountAmount, tax, taxState, taxMunicipal, taxReduced, total } = useMemo(() => {
         let sub = 0;
         const selectedCaja = cajas.find(c => c.id === selectedCajaId);
         const applyIVU = selectedCaja?.applyIVU ?? true;
@@ -512,7 +520,13 @@ export const POSCashierPage: React.FC = () => {
 
         const netSubtotal = Math.max(0, sub - discountAmt);
 
-        let tx = 0;
+        let tx = 0, txState = 0, txMunicipal = 0, txReduced = 0;
+        // Desglose IVU (PR): Estatal + Municipal para productos normales; Reducido (bucket aparte)
+        // para productos cuyo departamento o categoría está marcado como tasa reducida.
+        const breakdown = !!settings.taxBreakdownEnabled;
+        const stateRate = Number(settings.taxStateRate) || 0;
+        const municipalRate = Number(settings.taxMunicipalRate) || 0;
+        const reducedRate = Number(settings.taxReducedRate) || 0;
          if (applyIVU) {
             cart.forEach(item => {
                 // Tax is calculated on the discounted price
@@ -526,27 +540,36 @@ export const POSCashierPage: React.FC = () => {
                 }
 
                 let lineTotal = itemPrice * item.quantity;
-                
+
                 // Distribute global discount proportionally to calculate tax correctly per item
                 let taxableAmount = lineTotal;
                 if (sub > 0 && discountAmt > 0) {
                     const proportion = lineTotal / sub;
                     taxableAmount = lineTotal - (discountAmt * proportion);
                 }
-                
-                if (!(currentUser?.isEmergencyOrderActive && item.isEmergencyTaxExempt)) {
-                    // Tasa robusta: usa ivuRate del producto (%) o el default global (fracción→%).
-                    // Coacciona a número y cae a 0 si algo llega inválido (evita $NaN en el total).
+
+                if (currentUser?.isEmergencyOrderActive && item.isEmergencyTaxExempt) return;
+
+                if (breakdown) {
+                    if ((item as any).reducedTax) {
+                        txReduced += taxableAmount * reducedRate;
+                    } else {
+                        txState += taxableAmount * stateRate;
+                        txMunicipal += taxableAmount * municipalRate;
+                    }
+                } else {
+                    // Modo clásico: usa ivuRate del producto (%) o el default global (fracción→%).
                     const fallbackPct = (Number(settings.defaultTaxRate) || 0) * 100;
                     const rawRate = item.ivuRate != null ? Number(item.ivuRate) : fallbackPct;
                     const rate = Number.isFinite(rawRate) ? rawRate : 0;
                     tx += taxableAmount * (rate / 100);
                 }
             });
+            if (breakdown) tx = txState + txMunicipal + txReduced;
         }
-        
-        return { subtotal: sub, globalDiscountAmount: discountAmt, tax: tx, total: netSubtotal + tx };
-    }, [cart, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate]);
+
+        return { subtotal: sub, globalDiscountAmount: discountAmt, tax: tx, taxState: txState, taxMunicipal: txMunicipal, taxReduced: txReduced, total: netSubtotal + tx };
+    }, [cart, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate, settings.taxBreakdownEnabled, settings.taxStateRate, settings.taxMunicipalRate, settings.taxReducedRate]);
 
     // Agrega al carrito una línea ya resuelta (producto simple o una variación específica).
     const addResolvedToCart = (item: CartItem) => {
@@ -567,7 +590,20 @@ export const POSCashierPage: React.FC = () => {
             setVariationProduct(product);
             return;
         }
+        // Precio manual (servicios / "Solo Precio"): pedir el precio antes de agregar.
+        if ((product as any).manualPrice) {
+            setManualPriceProduct(product);
+            return;
+        }
         addResolvedToCart({ ...product, quantity: 1 });
+    };
+
+    // El cajero confirmó el precio manual → agrega la línea con ese precio y comentario.
+    const handleAddManualPrice = (unitPrice: number, note: string) => {
+        const p = manualPriceProduct;
+        if (!p) return;
+        addResolvedToCart({ ...p, unitPrice, quantity: 1, isManual: true, ...(note ? { note } : {}) } as CartItem);
+        setManualPriceProduct(null);
     };
 
     // El usuario eligió una variación: se agrega como línea propia (id compuesto), conservando
@@ -657,6 +693,11 @@ export const POSCashierPage: React.FC = () => {
             return prev.map(item => item.id === productId ? { ...item, quantity } : item);
         });
     };
+
+    // Comentario por línea ("Modificar Línea").
+    const updateItemNote = (id: string, note: string) => {
+        setCart(prev => prev.map(item => item.id === id ? { ...item, note: note || undefined } : item));
+    };
     
     const handleRequestItemDelete = (item: CartItem) => {
         setItemToDelete(item);
@@ -743,8 +784,9 @@ export const POSCashierPage: React.FC = () => {
         // Snapshot de la venta para la factura (antes de vaciar el carrito).
         const receiptSnapshot: Omit<ReceiptSale, 'saleNumber'> = {
             date: new Date().toISOString(),
-            items: cart.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })),
+            items: cart.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice, note: it.note })),
             subtotal, tax, discount: globalDiscountAmount, total,
+            ...(settings.taxBreakdownEnabled ? { taxState, taxMunicipal, taxReduced } : {}),
             payments: payments.map(p => ({ method: p.method, amount: p.amount, reference: p.reference })),
             changeDue: changeDue || 0,
             clientName: selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined,
@@ -753,21 +795,28 @@ export const POSCashierPage: React.FC = () => {
 
         setActiveModal(null);
 
-        const created = await addSale({
-            items: cart,
-            totalAmount: total,
-            subtotal,
-            taxAmount: tax,
-            discountAmount: globalDiscountAmount,
-            paymentMethod: paymentMethodString,
-            paymentStatus: payments.some(p => p.method === 'Crédito C.') ? 'Pendiente de Pago' : 'Pagado',
-            payments,
-            clientId: selectedClient?.id,
-            projectId: selectedProjectId || undefined,
-            cajaId: selectedCajaId,
-            employeeId: currentUser.id,
-            isExternal: isExternalSale,
-        } as any, selectedBranchId);
+        let created: any;
+        try {
+            created = await addSale({
+                items: cart,
+                totalAmount: total,
+                subtotal,
+                taxAmount: tax,
+                discountAmount: globalDiscountAmount,
+                paymentMethod: paymentMethodString,
+                paymentStatus: payments.some(p => p.method === 'Crédito C.') ? 'Pendiente de Pago' : 'Pagado',
+                payments,
+                clientId: selectedClient?.id,
+                projectId: selectedProjectId || undefined,
+                cajaId: selectedCajaId,
+                employeeId: currentUser.id,
+                isExternal: isExternalSale,
+            } as any, selectedBranchId);
+        } catch (err: any) {
+            // La venta NO se guardó: mostramos un modal claro y conservamos el carrito para reintentar.
+            setSaleError({ message: err?.message || 'No se pudo registrar la venta.', code: err?.code });
+            return;
+        }
 
         // Abrir la gaveta si está habilitada y la venta involucra efectivo (o hay vuelto).
         const involvesCash = payments.some(p => /efectivo|cash/i.test(p.method)) || (changeDue || 0) > 0;
@@ -1148,6 +1197,11 @@ export const POSCashierPage: React.FC = () => {
                                         <p className="font-bold text-xl text-primary">{selectedClient.name} {selectedClient.lastName}</p>
                                         <p className="text-base text-neutral-500">{selectedClient.email} | {selectedClient.phone}</p>
                                         {selectedClient.companyName && <p className="text-base text-neutral-500">{selectedClient.companyName}</p>}
+                                        {(settings.loyaltyPointsPerDollar ?? 0) > 0 && (
+                                            <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
+                                                ⭐ {selectedClient.loyaltyPoints ?? 0} puntos{selectedClient.loyaltyLevel ? ` · ${selectedClient.loyaltyLevel}` : ''}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="flex space-x-2 flex-shrink-0">
                                         <button onClick={() => setActiveModal('clientSearch')} title="Atajo: U" className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900">Cambiar <span className="border border-blue-400/60 rounded px-1 text-[8px] font-bold leading-none">U</span></button>
@@ -1202,17 +1256,23 @@ export const POSCashierPage: React.FC = () => {
                             <div className="divide-y divide-gray-200 dark:divide-neutral-700">
                                 {cart.map(item => (
                                     <div key={item.id} className="flex flex-col sm:grid sm:grid-cols-12 items-start sm:items-center p-2 sm:p-3 gap-2 sm:gap-3">
-                                        <div className="flex w-full sm:col-span-6 items-center gap-3">
+                                        <div
+                                            className="flex w-full sm:col-span-6 items-center gap-3 cursor-pointer"
+                                            onClick={() => setEditingLineId(item.id)}
+                                            role="button"
+                                            title="Modificar línea (cantidad, descuento, comentario)"
+                                        >
                                             <div className="flex-shrink-0">
-                                                <img 
+                                                <img
                                                     src={item.imageUrl || logo}
-                                                    alt={item.name} 
-                                                    className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-md shadow-sm" 
+                                                    alt={item.name}
+                                                    className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-md shadow-sm"
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-semibold leading-tight text-sm sm:text-base truncate">{item.name}</p>
                                                 <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 truncate">Ref: {item.skus?.[0] || 'N/A'}</p>
+                                                {item.note && <p className="text-[10px] sm:text-xs text-primary italic truncate">📝 {item.note}</p>}
                                                 
                                                 <div className="flex items-center flex-wrap gap-1.5 mt-0.5">
                                                     {item.discount ? (
@@ -1302,10 +1362,33 @@ export const POSCashierPage: React.FC = () => {
                             </div>
                         )}
 
-                         <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
-                            <span className="text-neutral-500">{t('pos.tax')}:</span>
-                            <span className="font-medium w-24 sm:w-32">${tax.toFixed(2)}</span>
-                        </div>
+                        {settings.taxBreakdownEnabled ? (
+                            <>
+                                {taxState > 0 && (
+                                    <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
+                                        <span className="text-neutral-500">IVU Estatal:</span>
+                                        <span className="font-medium w-24 sm:w-32">${taxState.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {taxMunicipal > 0 && (
+                                    <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
+                                        <span className="text-neutral-500">IVU Municipal:</span>
+                                        <span className="font-medium w-24 sm:w-32">${taxMunicipal.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {taxReduced > 0 && (
+                                    <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
+                                        <span className="text-neutral-500">IVU Reducido:</span>
+                                        <span className="font-medium w-24 sm:w-32">${taxReduced.toFixed(2)}</span>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
+                                <span className="text-neutral-500">{t('pos.tax')}:</span>
+                                <span className="font-medium w-24 sm:w-32">${tax.toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-end items-center gap-2 sm:gap-4 text-lg sm:text-2xl font-bold pt-2 border-t dark:border-neutral-600">
                             <span className="text-[#00897B]">{t('pos.total')}:</span>
                             <span className="w-24 sm:w-32 text-[#00897B]">${total.toFixed(2)}</span>
@@ -1367,6 +1450,28 @@ export const POSCashierPage: React.FC = () => {
                 onFinalizeSale={handleFinalizeSale}
             />
             <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
+
+            {/* Venta rechazada por el backend (stock/turno/etc.): aviso claro y persistente. */}
+            <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title="No se pudo completar la venta" size="md">
+                <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                        <ExclamationTriangleIcon className="w-9 h-9 text-red-500 flex-shrink-0" />
+                        <div>
+                            <p className="text-base font-medium text-neutral-800 dark:text-neutral-100">{saleError?.message}</p>
+                            {saleError?.code === 'INSUFFICIENT_STOCK' && (
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Ajusta el stock del producto en <strong>Inventario</strong>, o quítalo del carrito.</p>
+                            )}
+                            {saleError?.code === 'CAJA_NOT_OPEN' && (
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Abre el <strong>turno de la caja</strong> antes de vender.</p>
+                            )}
+                        </div>
+                    </div>
+                    <p className="text-xs text-neutral-400">El carrito se mantiene para que corrijas y reintentes.</p>
+                    <div className="flex justify-end">
+                        <button onClick={() => setSaleError(null)} className={BUTTON_PRIMARY_SM_CLASSES}>Entendido</button>
+                    </div>
+                </div>
+            </Modal>
             {currentUser && (
                 <ReprintModal
                     isOpen={activeModal === 'reprint'}
@@ -1375,6 +1480,23 @@ export const POSCashierPage: React.FC = () => {
                     onSelectReceipt={(rs) => { setActiveModal(null); setLastReceipt(rs); }}
                 />
             )}
+
+            {/* Modificar Línea: cantidad, comentario, descuento, eliminar. */}
+            <CartLineModal
+                item={editingLineId ? cart.find(c => c.id === editingLineId) || null : null}
+                onClose={() => setEditingLineId(null)}
+                onQuantity={updateQuantity}
+                onNote={updateItemNote}
+                onDiscount={handleOpenDiscountModal}
+                onDelete={(item) => { setEditingLineId(null); handleRequestItemDelete(item); }}
+            />
+
+            {/* Precio manual: pide el precio al agregar un producto de servicio / "Solo Precio". */}
+            <ManualPriceModal
+                product={manualPriceProduct}
+                onClose={() => setManualPriceProduct(null)}
+                onConfirm={handleAddManualPrice}
+            />
 
             {selectedCajaId && (
                 <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} onClosed={() => handleEndShift()} />

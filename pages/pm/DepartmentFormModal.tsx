@@ -17,19 +17,19 @@ interface DepartmentFormModalProps {
 export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen, onClose, department }) => {
     const { t } = useTranslation();
     const { setDepartments, departments } = useData();
-    const [formData, setFormData] = useState<DepartmentFormData>({ name: '' }); // Add isSubmitting state
+    const [formData, setFormData] = useState<{ name: string; reducedTax: boolean }>({ name: '', reducedTax: false });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (department) {
-            setFormData({ name: department.name });
+            setFormData({ name: department.name, reducedTax: !!department.reducedTax });
         } else {
-            setFormData({ name: '' });
+            setFormData({ name: '', reducedTax: false });
         }
     }, [department, isOpen]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ name: e.target.value });
+        setFormData(prev => ({ ...prev, name: e.target.value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => { // Make it async
@@ -54,7 +54,7 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ name: formData.name })
+                body: JSON.stringify({ name: formData.name, reducedTax: formData.reducedTax })
             });
 
             const result = await response.json();
@@ -92,6 +92,10 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                         required
                     />
                 </div>
+                <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                    <input type="checkbox" checked={formData.reducedTax} onChange={e => setFormData(prev => ({ ...prev, reducedTax: e.target.checked }))} className="h-4 w-4" />
+                    Tasa de IVU reducida (sus productos usan la tasa reducida)
+                </label>
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>

@@ -23,6 +23,11 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     paymentMethods: DEFAULT_PAYMENT_METHODS,
     paymentMethodScopes: DEFAULT_PAYMENT_METHOD_SCOPES,
     enabledModules: {},
+    loyaltyPointsPerDollar: 0,
+    taxBreakdownEnabled: false,
+    taxStateRate: 0.105,
+    taxMunicipalRate: 0.01,
+    taxReducedRate: 0.06,
 };
 
 // --- Translations Dictionary ---

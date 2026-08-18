@@ -24,6 +24,10 @@ export const salesService = {
   addPayment: (saleId: string, data: { amountPaid: number; paymentMethodUsed: string; notes?: string }) =>
     api.post<any>(`/sales/${saleId}/payment`, data),
 
+  /** Abono a múltiples facturas de un cliente (allocation). */
+  bulkPayment: (data: { clientId: string; method: string; reference?: string; note?: string; allocations: { saleId: string; amount: number }[] }) =>
+    api.post<{ ok: boolean; total: number; count: number }>('/sales/bulk-payment', data),
+
   voidSale: (saleId: string) =>
     api.post<any>(`/sales/${saleId}/void`),
 

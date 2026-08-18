@@ -114,6 +114,13 @@ export interface GlobalSettings {
      * esté explícitamente en `false`. Solo los módulos de TOGGLEABLE_MODULES son apagables.
      */
     enabledModules?: Record<string, boolean>;
+    /** Puntos de lealtad que gana el cliente por cada $1 de venta (0 = desactivado). */
+    loyaltyPointsPerDollar?: number;
+    /** Desglose de IVU (PR): Estatal / Municipal / Reducido en el recibo. */
+    taxBreakdownEnabled?: boolean;
+    taxStateRate?: number;      // estatal (ej. 0.105)
+    taxMunicipalRate?: number;  // municipal (ej. 0.01)
+    taxReducedRate?: number;    // reducida (ej. 0.06)
 }
 
 export interface AlertSettings {
@@ -242,6 +249,7 @@ export interface Product {
     isWic?: boolean; isSss?: boolean; isCoop?: boolean; isAlcohol?: boolean; isTobacco?: boolean; isSpecial?: boolean;
     commissionType?: string; commissionValue?: number;
     fifoCount?: boolean; isPerpetual?: boolean; printLabel?: boolean; manualPrice?: boolean;
+    reducedTax?: boolean; // heredado del depto/categoría: usa la tasa de IVU reducida (computado por el BE)
     allowDiscount?: boolean; isEcommerce?: boolean; isRaffle?: boolean;
     priceFlag?: string; companyId?: string; spareNum?: number; spareText?: string; productComment?: string;
     receivedQty?: number; orderedQty?: number; soldQty?: number; purchasedQty?: number; reservedQty?: number;
@@ -262,6 +270,7 @@ export interface Category {
     departmentId?: string | null;               // departamento al que pertenece (jerarquía)
     department?: { id: string; name: string } | null;
     storeOwnerId: string;
+    reducedTax?: boolean;                        // sus productos usan la tasa de IVU reducida
     _count?: { products: number };
 }
 
@@ -269,6 +278,7 @@ export interface Department {
     id: string;
     name: string;
     storeOwnerId: string;
+    reducedTax?: boolean;                        // sus productos usan la tasa de IVU reducida
     _count?: { products: number };
 }
 
@@ -438,6 +448,14 @@ export type CartItem = Product & {
         type: 'percentage' | 'fixed';
         value: number;
     };
+    /** Comentario/nota por línea (sale en el recibo). */
+    note?: string;
+    /** Línea de precio manual (servicio/artículo ad-hoc, no del catálogo directamente). */
+    isManual?: boolean;
+    /** Id del producto base (para variaciones o líneas manuales que apuntan a un producto genérico). */
+    productId?: string;
+    variationId?: string;
+    variationName?: string;
 };
 
 export interface Sale {

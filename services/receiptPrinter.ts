@@ -94,11 +94,18 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     for (const it of sale.items) {
         o += leftLine(it.name.slice(0, w));
         o += two(`  ${it.quantity} x ${money(it.unitPrice)}`, money(it.quantity * it.unitPrice), w);
+        if (it.note) o += leftLine(`  * ${it.note}`.slice(0, w));
     }
     o += rule(w);
     o += two('Subtotal', money(sale.subtotal), w);
     if (sale.discount > 0) o += two('Descuento', `-${money(sale.discount)}`, w);
-    if (cfg.showTaxBreakdown) o += two('IVU', money(sale.tax), w);
+    if (sale.taxState || sale.taxMunicipal || sale.taxReduced) {
+        if (sale.taxState) o += two('IVU Estatal', money(sale.taxState), w);
+        if (sale.taxMunicipal) o += two('IVU Municipal', money(sale.taxMunicipal), w);
+        if (sale.taxReduced) o += two('IVU Reducido', money(sale.taxReduced), w);
+    } else if (cfg.showTaxBreakdown) {
+        o += two('IVU', money(sale.tax), w);
+    }
     o += BOLD_ON + two('TOTAL', money(sale.total), w) + BOLD_OFF;
     o += rule(w);
     for (const p of sale.payments) {

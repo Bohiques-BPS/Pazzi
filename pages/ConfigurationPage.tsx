@@ -187,6 +187,65 @@ export const ConfigurationPage: React.FC = () => {
                         </div>
                     </div>
                 </section>
+
+                {/* Programa de lealtad */}
+                <section className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4 flex items-center border-b pb-2 dark:border-neutral-700">
+                        ⭐ <span className="ml-2">Programa de Lealtad</span>
+                    </h2>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Puntos por cada $1 de venta</label>
+                    <input
+                        type="number" min="0" step="0.1"
+                        value={settings.loyaltyPointsPerDollar ?? 0}
+                        onChange={(e) => updateSettings({ loyaltyPointsPerDollar: Math.max(0, parseFloat(e.target.value) || 0) })}
+                        className={`${inputFormStyle} max-w-xs`}
+                    />
+                    <p className="text-xs text-neutral-500 mt-1">
+                        Los puntos se acumulan al cliente al finalizar cada venta. <strong>0 = desactivado.</strong>
+                        {' '}Ej. 1 = el cliente gana 1 punto por dólar; en una venta de $40 gana 40 puntos.
+                    </p>
+                </section>
+
+                {/* Impuestos (IVU) */}
+                <section className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4 flex items-center border-b pb-2 dark:border-neutral-700">
+                        🧾 <span className="ml-2">Impuestos (IVU)</span>
+                    </h2>
+                    <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200 mb-3">
+                        <input
+                            type="checkbox"
+                            checked={!!settings.taxBreakdownEnabled}
+                            onChange={(e) => updateSettings({ taxBreakdownEnabled: e.target.checked })}
+                            className="h-4 w-4"
+                        />
+                        Desglosar IVU en <strong>Estatal / Municipal / Reducido</strong> (Puerto Rico)
+                    </label>
+                    {settings.taxBreakdownEnabled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Estatal (%)</label>
+                                <input type="number" min="0" step="0.1" value={((settings.taxStateRate ?? 0.105) * 100)}
+                                    onChange={(e) => updateSettings({ taxStateRate: Math.max(0, (parseFloat(e.target.value) || 0) / 100) })}
+                                    className={inputFormStyle} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Municipal (%)</label>
+                                <input type="number" min="0" step="0.1" value={((settings.taxMunicipalRate ?? 0.01) * 100)}
+                                    onChange={(e) => updateSettings({ taxMunicipalRate: Math.max(0, (parseFloat(e.target.value) || 0) / 100) })}
+                                    className={inputFormStyle} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Reducida (%)</label>
+                                <input type="number" min="0" step="0.1" value={((settings.taxReducedRate ?? 0.06) * 100)}
+                                    onChange={(e) => updateSettings({ taxReducedRate: Math.max(0, (parseFloat(e.target.value) || 0) / 100) })}
+                                    className={inputFormStyle} />
+                            </div>
+                        </div>
+                    )}
+                    <p className="text-xs text-neutral-500 mt-2">
+                        Con el desglose activo, los productos normales pagan Estatal + Municipal; los de <strong>departamentos o categorías marcados como "tasa reducida"</strong> pagan la tasa Reducida en su propia línea. Sin el desglose, se usa el IVU por producto/global de siempre.
+                    </p>
+                </section>
             </div>
         </div>
     );

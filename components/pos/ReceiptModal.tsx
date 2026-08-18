@@ -7,9 +7,13 @@ import { isReceiptPrinterEnabled, printReceiptViaQz, getPrintFormat } from '../.
 export interface ReceiptSale {
     saleNumber: string;
     date: string; // ISO
-    items: { name: string; quantity: number; unitPrice: number }[];
+    items: { name: string; quantity: number; unitPrice: number; note?: string }[];
     subtotal: number;
     tax: number;
+    /** Desglose de IVU (PR), opcional: si viene, el recibo muestra Estatal/Municipal/Reducido. */
+    taxState?: number;
+    taxMunicipal?: number;
+    taxReduced?: number;
     discount: number;
     total: number;
     payments: { method: string; amount: number; reference?: string }[];
@@ -58,7 +62,7 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig): string 
 
     const itemsRows = sale.items.map(it => `
         <tr>
-            <td style="padding:2px 0;">${esc(it.name)}<br/><span style="color:#666;">${it.quantity} x ${money(it.unitPrice)}</span></td>
+            <td style="padding:2px 0;">${esc(it.name)}<br/><span style="color:#666;">${it.quantity} x ${money(it.unitPrice)}</span>${it.note ? `<br/><span style="color:#555;font-style:italic;">* ${esc(it.note)}</span>` : ''}</td>
             <td style="padding:2px 0;text-align:right;vertical-align:top;">${money(it.quantity * it.unitPrice)}</td>
         </tr>`).join('');
 
@@ -66,7 +70,9 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig): string 
         <div style="border-top:1px dashed #999;padding-top:6px;margin-top:4px;">
             ${line('Subtotal', money(sale.subtotal))}
             ${sale.discount > 0 ? line('Descuento', `-${money(sale.discount)}`) : ''}
-            ${cfg.showTaxBreakdown ? line('IVU', money(sale.tax)) : ''}
+            ${(sale.taxState || sale.taxMunicipal || sale.taxReduced)
+                ? `${sale.taxState ? line('IVU Estatal', money(sale.taxState)) : ''}${sale.taxMunicipal ? line('IVU Municipal', money(sale.taxMunicipal)) : ''}${sale.taxReduced ? line('IVU Reducido', money(sale.taxReduced)) : ''}`
+                : (cfg.showTaxBreakdown ? line('IVU', money(sale.tax)) : '')}
             <div style="font-size:${is80 ? '14px' : '16px'};margin-top:4px;">${line('TOTAL', money(sale.total), true)}</div>
         </div>`;
 

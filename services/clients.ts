@@ -17,6 +17,9 @@ export interface ClientRecord {
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  /** Computados por el backend cuando se pide includeCredit/withBalance/withLayaway. */
+  outstandingBalance?: number;
+  activeLayaways?: number;
 }
 
 export interface ClientSaleRecent {
@@ -120,7 +123,7 @@ export interface ClientSummary {
 }
 
 export const clientsService = {
-  getAll: (filters?: { search?: string; clientType?: string; isActive?: boolean }) =>
+  getAll: (filters?: { search?: string; clientType?: string; isActive?: boolean; withBalance?: boolean; withLayaway?: boolean; includeCredit?: boolean }) =>
     api.get<ClientRecord[]>('/clients', filters as any),
 
   getById: (id: string) => api.get<ClientRecord>(`/clients/${id}`),
