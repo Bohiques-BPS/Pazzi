@@ -3,6 +3,7 @@ import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
 import { isReceiptPrinterEnabled, printReceiptViaQz, getPrintFormat } from '../../services/receiptPrinter';
+import { isWebUsbEnabled, printReceiptViaWebUsb } from '../../services/webusbPrinter';
 
 export interface ReceiptSale {
     saleNumber: string;
@@ -197,6 +198,15 @@ function printReceiptSmart(_html: string, sale: ReceiptSale, cfg: ReceiptConfig)
     const format = getPrintFormat();
     const paper: '80mm' | 'letter' = format === 'factura' ? 'letter' : '80mm';
     const useHtml = buildReceiptHTML(sale, { ...cfg, paperSize: paper });
+
+    // WebUSB (sin QZ Tray): solo para el recibo térmico (la factura carta es HTML → navegador/QZ).
+    if (format !== 'factura' && isWebUsbEnabled()) {
+        printReceiptViaWebUsb(sale, cfg).catch((e) => {
+            console.error('Impresión por WebUSB falló, uso el diálogo del navegador:', e);
+            printReceipt(useHtml, paper);
+        });
+        return;
+    }
 
     if (isReceiptPrinterEnabled()) {
         // recibo → ESC/POS (no usa html); factura → html carta a su impresora.

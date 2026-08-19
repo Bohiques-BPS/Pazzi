@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { invoicesService, type PublicInvoice } from '../../services/invoices';
 import { AgilPayCardForm } from '../../components/pos/AgilPayCardForm';
+import { AthMovilButton } from '../../components/pos/AthMovilButton';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
 import { ApiError } from '../../services/api';
@@ -44,6 +45,8 @@ export const PublicInvoicePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [payAmount, setPayAmount] = useState('');
+    const [athMsg, setAthMsg] = useState<string | null>(null);
+    const [athProcessing, setAthProcessing] = useState(false);
 
     const load = async () => {
         if (!token) return;
@@ -63,6 +66,10 @@ export const PublicInvoicePage: React.FC = () => {
     useEffect(() => { if (inv) setPayAmount((inv.balance ?? inv.total).toFixed(2)); }, [inv]);
 
     const cfg = useMemo(() => (inv ? configFrom(inv) : null), [inv]);
+    // Métodos que el negocio habilitó para este link (null = ambos, retrocompatible).
+    const allowedMethods = useMemo(() => (inv?.allowedMethods ? inv.allowedMethods.split(',').map(s => s.trim()) : ['agilpay', 'ath']), [inv]);
+    const allowAgil = allowedMethods.includes('agilpay');
+    const allowAth = allowedMethods.includes('ath');
     const isPaid = inv?.status === 'paid';
     const balance = inv ? (inv.balance ?? inv.total) : 0;
     // Monto validado para el cobro (no excede el saldo).
@@ -70,6 +77,20 @@ export const PublicInvoicePage: React.FC = () => {
 
     const handleAgilPaySuccess = async () => {
         await load(); // refresca saldo/estado/abonos
+    };
+
+    // El cliente completó el pago con el botón de ATH Móvil → verificar y registrar automáticamente.
+    const handleAthSuccess = async (referenceNumber: string) => {
+        if (!token) return;
+        setAthProcessing(true); setAthMsg('Verificando tu pago de ATH Móvil…'); setError(null);
+        try {
+            const r = await invoicesService.payPublicAthMovil(token, referenceNumber, charge > 0 ? charge : undefined);
+            setAthMsg(r.fullyPaid ? '¡Pago recibido! Gracias.' : 'Abono registrado. Gracias.');
+            await load();
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Recibimos tu pago pero no se pudo registrar automáticamente. El comercio lo confirmará.');
+            setAthMsg(null);
+        } finally { setAthProcessing(false); }
     };
 
     const downloadPDF = () => {
@@ -184,7 +205,7 @@ export const PublicInvoicePage: React.FC = () => {
                                 <p className="text-xs text-neutral-500 mt-1">Puedes pagar el saldo completo ({money(balance)}) o una parte.</p>
                             </div>
 
-                            {inv.agilpayEnabled ? (
+                            {allowAgil && (inv.agilpayEnabled ? (
                                 <AgilPayCardForm
                                     amount={charge}
                                     tax={inv.tax}
@@ -197,11 +218,35 @@ export const PublicInvoicePage: React.FC = () => {
                                 />
                             ) : (
                                 <p className="text-sm text-center text-neutral-500">El pago con tarjeta no está disponible para este comercio.</p>
+                            ))}
+                            {allowAth && (
+                                inv.athEnabled && inv.athPublicToken ? (
+                                    <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
+                                        <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-2 text-sm">Pagar con ATH Móvil</div>
+                                        {athProcessing || athMsg ? (
+                                            <p className={`text-sm text-center py-2 ${athProcessing ? 'text-neutral-500' : 'text-green-700 dark:text-green-300'}`}>{athMsg}</p>
+                                        ) : charge > 0 ? (
+                                            <AthMovilButton
+                                                publicToken={inv.athPublicToken}
+                                                environment={inv.athEnv || 'production'}
+                                                total={charge}
+                                                tax={inv.tax}
+                                                items={inv.items.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
+                                                onSuccess={handleAthSuccess}
+                                                onFail={(m) => setError(m)}
+                                            />
+                                        ) : (
+                                            <p className="text-sm text-neutral-500">Ingresa un monto mayor a 0 para pagar con ATH Móvil.</p>
+                                        )}
+                                        <p className="text-xs text-neutral-400 mt-2">Al completar el pago en tu app ATH Móvil, se registra automáticamente.</p>
+                                    </div>
+                                ) : (
+                                    <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3 text-sm text-neutral-600 dark:text-neutral-300">
+                                        <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-1">¿Pagar con ATH Móvil?</div>
+                                        Envía el monto por ATH Móvil al comercio. Una vez confirmado, el negocio registra tu abono (saldo actual: <span className="font-semibold">{money(balance)}</span>).
+                                    </div>
+                                )
                             )}
-                            <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3 text-sm text-neutral-600 dark:text-neutral-300">
-                                <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-1">¿Pagar con ATH Móvil?</div>
-                                Envía el monto por ATH Móvil al comercio. Una vez confirmado, el negocio registra tu abono (saldo actual: <span className="font-semibold">{money(balance)}</span>).
-                            </div>
                         </div>
                     )}
                 </div>

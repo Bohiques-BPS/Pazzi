@@ -16,6 +16,8 @@ export interface TimeClockPunch {
 }
 
 export const timeclockService = {
+    /** Ponche automático del usuario conectado (sin PIN). */
+    punchSelf: () => api.post<PunchResult>('/timeclock/punch/self', {}),
     punch: (identifier: string, pin: string) =>
         api.post<PunchResult>('/timeclock/punch', { identifier, pin }),
     list: (filters?: { employeeId?: string; startDate?: string; endDate?: string }) =>

@@ -3,7 +3,7 @@ import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_CLASSES } from '../../constants';
 import { AthMovilButton } from '../pos/AthMovilButton';
 import { AgilPayCardForm } from '../pos/AgilPayCardForm';
-import { invoicesService, type Invoice } from '../../services/invoices';
+import { invoicesService, type Invoice, type PublicInvoice } from '../../services/invoices';
 import { parseAmount, round2, computeBalance, evaluatePayment, coversBalance } from './paymentMath';
 import { getPrintFormat, setPrintFormat, type PrintFormat } from '../../services/receiptPrinter';
 import { toast } from 'react-hot-toast';
@@ -64,6 +64,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const changeFormat = (f: PrintFormat) => { setPrintFormat(f); setPrintFormatState(f); };
     const [athQr, setAthQr] = useState('');
     const [athGenerating, setAthGenerating] = useState(false);
+    // Sondeo del pago ATH por QR: cuando el cliente paga en el link, lo registramos solo (sin teclear).
+    const [athPaidMsg, setAthPaidMsg] = useState<string | null>(null);
+    const athHandledRef = useRef(false);
+    const athDetectRef = useRef<(pub: PublicInvoice) => void>(() => {});
     const amountInputRef = useRef<HTMLInputElement>(null);
     // Siempre apunta a la acción actual de Enter (evita closures obsoletos en el listener global).
     const onEnterRef = useRef<() => void>(() => {});
@@ -104,8 +108,29 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             setReferenceInput('');
             setAthInvoice(null);
             setAthQr('');
+            setAthPaidMsg(null);
+            athHandledRef.current = false;
         }
     }, [isOpen, initialMethod]);
+
+    // Sondeo automático: mientras haya un QR/link ATH activo y saldo pendiente, consulta la factura
+    // pública cada 4s; al detectar el pago, lo registra en la venta automáticamente.
+    useEffect(() => {
+        if (!isOpen || !athInvoice) return;
+        athHandledRef.current = false;
+        const token = athInvoice.publicToken;
+        let stop = false;
+        const tick = async () => {
+            if (stop || athHandledRef.current) return;
+            try {
+                const pub = await invoicesService.getPublic(token);
+                if (pub.amountPaid > 0 || pub.status === 'paid' || pub.status === 'partial') athDetectRef.current(pub);
+            } catch { /* reintenta en el próximo tick */ }
+        };
+        const id = window.setInterval(tick, 4000);
+        tick();
+        return () => { stop = true; window.clearInterval(id); };
+    }, [isOpen, athInvoice?.publicToken]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -181,11 +206,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         const amount = parseFloat(balance.toFixed(2));
         if (amount <= 0) { toast.error('No hay saldo por cobrar.'); return; }
         setAthGenerating(true);
+        setAthPaidMsg(null);
+        athHandledRef.current = false;
         try {
             const inv = await invoicesService.create({
                 items: [{ name: 'Pago en caja', quantity: 1, unitPrice: amount }],
                 taxRate: 0, // el monto ya es el total del saldo; no recalcular impuesto
                 description: 'Cobro por ATH Móvil (caja)',
+                allowedMethods: 'ath', // el link de caja es solo para ATH Móvil
             });
             const QR = await import('qrcode');
             const url = await QR.toDataURL(publicLink(inv.publicToken), { width: 220, margin: 1 });
@@ -248,6 +276,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     finalizeIfPaidRef.current = () => {
         if (isFullyPaid) handleFinalize();
         else toast.error('Aún falta saldo por pagar.');
+    };
+    // Pago ATH detectado por el sondeo → registra el abono automáticamente (una sola vez).
+    athDetectRef.current = (pub) => {
+        if (athHandledRef.current) return;
+        const paid = Math.min(round2(pub.amountPaid || 0), round2(balance));
+        if (paid <= 0.001) return;
+        athHandledRef.current = true;
+        const ref = pub.paidReference || pub.payments?.[pub.payments.length - 1]?.reference || 'ATH Móvil';
+        setPayments(prev => [...prev, { method: selectedMethod, amount: paid, reference: ref || undefined }]);
+        setAthPaidMsg('✅ Pago ATH Móvil recibido y registrado.');
+        toast.success('Pago ATH Móvil recibido.');
     };
 
     return (
@@ -333,15 +372,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                     >
                                         {athGenerating ? 'Generando…' : `Generar QR / link de pago · $${Math.max(0, balance).toFixed(2)}`}
                                     </button>
+                                ) : athPaidMsg ? (
+                                    <p className="text-center text-sm font-semibold text-green-700 dark:text-green-300 py-3">{athPaidMsg}</p>
                                 ) : (
                                     <div className="text-center space-y-2">
-                                        <p className="text-xs text-neutral-500">El cliente escanea el QR o abre el link para pagar. Luego confirma el número abajo.</p>
+                                        <p className="text-xs text-neutral-500">El cliente escanea el QR o abre el link y paga. El cobro se registra <b>automáticamente</b> al confirmarse.</p>
                                         {athQr && <img src={athQr} alt="QR de pago" className="mx-auto rounded-md border border-neutral-200 dark:border-neutral-700" />}
+                                        <p className="flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400">
+                                            <span className="inline-block h-2 w-2 rounded-full bg-indigo-500 animate-pulse" /> Esperando el pago del cliente…
+                                        </p>
                                         <div className="flex gap-2">
                                             <input readOnly value={publicLink(athInvoice.publicToken)} onFocus={e => e.currentTarget.select()} className="w-full text-xs px-2 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700" />
                                             <button type="button" onClick={copyAthLink} className="px-3 py-1.5 text-xs font-semibold bg-neutral-200 dark:bg-neutral-600 rounded-md hover:bg-neutral-300 dark:hover:bg-neutral-500">Copiar</button>
                                         </div>
                                         <a href={publicLink(athInvoice.publicToken)} target="_blank" rel="noreferrer" className="inline-block text-xs text-teal-600 dark:text-teal-400 hover:underline">Abrir vista del cliente ↗</a>
+                                        <p className="text-[11px] text-neutral-400">¿No confirma solo? Puedes escribir el Nº de confirmación abajo.</p>
                                     </div>
                                 )}
                             </div>

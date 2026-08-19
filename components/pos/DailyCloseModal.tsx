@@ -14,6 +14,8 @@ interface DailyCloseModalProps {
     differenceThreshold?: number;
     /** Se llama al cerrar el turno con éxito (para que el POS resetee/navegue). */
     onClosed?: () => void;
+    /** Abre el historial de turnos (para revisar/reimprimir turnos ya cerrados). */
+    onOpenHistory?: () => void;
 }
 
 const money = (n: number | null | undefined) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -34,6 +36,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     cajaName,
     differenceThreshold = 5,
     onClosed,
+    onOpenHistory,
 }) => {
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<CajaSession | null>(null);
@@ -144,6 +147,14 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                         <span className="text-xs opacity-90">{cajaName || ''}</span>
                     </div>
 
+                    {/* Aviso: este turno no tiene ventas (probablemente están en un turno anterior ya cerrado). */}
+                    {totals.salesCount === 0 && totals.returnsCount === 0 && (
+                        <div className="mb-3 flex items-center justify-between gap-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                            <span>Este turno aún no tiene ventas. Si vendiste y luego cerraste/abriste turno, esas ventas quedaron en el turno anterior.</span>
+                            {onOpenHistory && <button onClick={onOpenHistory} className="whitespace-nowrap px-3 py-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold">Ver turnos anteriores</button>}
+                        </div>
+                    )}
+
                     {/* Fila: Fecha / Cajero / Cuadre# */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
                         <Field label="Fecha" value={openedAt?.toLocaleDateString() || '—'} />
@@ -251,6 +262,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
 
                     {/* Footer */}
                     <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                        {onOpenHistory && <button onClick={onOpenHistory} className="mr-auto px-4 py-2 rounded-md bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-100 font-semibold text-sm">📋 Turnos anteriores</button>}
                         <button onClick={() => window.print()} className="px-4 py-2 rounded-md bg-yellow-400 hover:bg-yellow-500 text-neutral-800 font-semibold text-sm">🖨️ Imprimir</button>
                         <button onClick={onClose} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold text-sm">Cancelar</button>
                         <button onClick={handleClose} disabled={submitting} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white font-semibold text-sm disabled:opacity-50">

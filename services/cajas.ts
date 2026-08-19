@@ -110,6 +110,12 @@ export const cajasService = {
   getSessions: (cajaId: string, params?: { limit?: number; skip?: number }) =>
     api.get<{ items: CajaSession[]; total: number }>(`/cajas/${cajaId}/sessions`, params),
 
+  /** Detalle/cuadre de un turno (abierto o cerrado): totales recomputados + conteo guardado. */
+  getSessionDetail: (sessionId: string) =>
+    api.get<{ session: CajaSession; totals: SessionTotals; byMethod: { paymentMethod: string; _sum: { totalAmount: number | null }; _count: number }[] }>(
+      `/cajas/reports/session/${sessionId}`
+    ),
+
   recordCashMovement: (cajaId: string, data: CashMovementPayload) =>
     api.post<CashMovement>(`/cajas/${cajaId}/movements`, data),
 };

@@ -29,6 +29,7 @@ import {
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { ReceiptModal, buildReceiptHTML, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DailyCloseModal } from '../../components/pos/DailyCloseModal';
+import { CajaHistoryModal } from '../../components/pos/CajaHistoryModal';
 import { ReprintModal } from '../../components/pos/ReprintModal';
 import { CartLineModal } from '../../components/pos/CartLineModal';
 import { ManualPriceModal } from '../../components/pos/ManualPriceModal';
@@ -258,7 +259,7 @@ export const POSCashierPage: React.FC = () => {
 
     
     // Modal states
-    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'punch' | 'reprint' | null;
+    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | null;
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     
     const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
@@ -1499,7 +1500,11 @@ export const POSCashierPage: React.FC = () => {
             />
 
             {selectedCajaId && (
-                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} onClosed={() => handleEndShift()} />
+                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} onClosed={() => handleEndShift()} onOpenHistory={() => setActiveModal('cajaHistory')} />
+            )}
+
+            {selectedCajaId && (
+                <CajaHistoryModal isOpen={activeModal === 'cajaHistory'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} />
             )}
 
             <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />

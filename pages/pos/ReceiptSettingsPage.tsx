@@ -6,6 +6,7 @@ import { buildReceiptHTML, getReceiptAction, setReceiptAction, type ReceiptSale,
 import { getDrawerConfig, setDrawerConfig, listPrinters, openCashDrawer, type DrawerConfig } from '../../services/cashDrawer';
 import { getLabelConfig, setLabelConfig, printBarcodeLabel, type LabelConfig } from '../../services/labelPrinter';
 import { getReceiptPrinterConfig, setReceiptPrinterConfig, printTestReceipt, type ReceiptPrinterConfig } from '../../services/receiptPrinter';
+import { getWebUsbConfig, setWebUsbConfig, isWebUsbSupported, requestWebUsbPrinter, printWebUsbTest, type WebUsbPrinterConfig } from '../../services/webusbPrinter';
 import { toast } from '../../hooks/useToast';
 
 const TEXT_FIELDS: { key: keyof ReceiptConfig; label: string; placeholder?: string; textarea?: boolean }[] = [
@@ -70,6 +71,21 @@ export const ReceiptSettingsPage: React.FC = () => {
         .then(() => toast.success('Recibo de prueba enviado.')).catch(err => toast.error(`Recibo: ${err?.message || 'no se pudo imprimir'}`));
     const testFactura = () => printTestReceipt(cfg, 'factura', buildReceiptHTML(SAMPLE, { ...cfg, paperSize: 'letter' }))
         .then(() => toast.success('Factura de prueba enviada.')).catch(err => toast.error(`Factura: ${err?.message || 'no se pudo imprimir'}`));
+    // Impresora de recibos por WebUSB (sin QZ Tray) — POR DISPOSITIVO.
+    const [webusb, setWebusb] = useState<WebUsbPrinterConfig>(getWebUsbConfig());
+    const webUsbOk = isWebUsbSupported();
+    const updateWebusb = (patch: Partial<WebUsbPrinterConfig>) => { const next = { ...webusb, ...patch }; setWebusb(next); setWebUsbConfig(next); };
+    // Modo de impresión efectivo (3 vías, mutuamente excluyentes).
+    const printMode: 'browser' | 'qz' | 'webusb' = webusb.enabled ? 'webusb' : (receiptPrinter.enabled ? 'qz' : 'browser');
+    const setPrintMode = (m: 'browser' | 'qz' | 'webusb') => {
+        updateReceiptPrinter({ enabled: m === 'qz' });
+        updateWebusb({ enabled: m === 'webusb' });
+    };
+    const selectUsbPrinter = () => requestWebUsbPrinter()
+        .then(c => { setWebusb(c); toast.success(`Impresora USB seleccionada: ${c.productName}`); })
+        .catch(err => toast.error(err?.message || 'No se pudo seleccionar la impresora USB.'));
+    const testUsb = () => printWebUsbTest(cfg)
+        .then(() => toast.success('Recibo de prueba enviado (USB).')).catch(err => toast.error(`USB: ${err?.message || 'no se pudo imprimir'}`));
 
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
@@ -144,28 +160,56 @@ export const ReceiptSettingsPage: React.FC = () => {
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
                         <h3 className="font-semibold text-primary mb-1">Impresora de recibos</h3>
                         <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Modo de impresión (por dispositivo)</p>
-                        <div className="flex gap-2 mb-1">
+                        <div className="grid grid-cols-3 gap-2 mb-1">
                             <button
                                 type="button"
-                                onClick={() => updateReceiptPrinter({ enabled: false })}
-                                className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors ${!receiptPrinter.enabled ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+                                onClick={() => setPrintMode('browser')}
+                                className={`py-2 px-2 rounded-md border text-sm font-medium transition-colors ${printMode === 'browser' ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
                             >
-                                Navegador (sin instalar nada)
+                                Navegador
                             </button>
                             <button
                                 type="button"
-                                onClick={() => updateReceiptPrinter({ enabled: true })}
-                                className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors ${receiptPrinter.enabled ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+                                onClick={() => setPrintMode('qz')}
+                                className={`py-2 px-2 rounded-md border text-sm font-medium transition-colors ${printMode === 'qz' ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
                             >
-                                QZ Tray (directo)
+                                QZ Tray
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPrintMode('webusb')}
+                                disabled={!webUsbOk}
+                                title={webUsbOk ? '' : 'Tu navegador no soporta WebUSB (usa Chrome o Edge de escritorio)'}
+                                className={`py-2 px-2 rounded-md border text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${printMode === 'webusb' ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+                            >
+                                WebUSB
                             </button>
                         </div>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-                            {receiptPrinter.enabled
+                            {printMode === 'qz'
                                 ? 'Directo a una impresora fija, sin diálogo y con corte automático (sin espacio blanco). Requiere QZ Tray instalado en esta PC.'
+                                : printMode === 'webusb'
+                                ? 'Directo a una impresora térmica USB desde el navegador, SIN instalar QZ Tray. Solo Chrome/Edge de escritorio y solo para el recibo térmico. En Windows la impresora debe usar el driver WinUSB (Zadig).'
                                 : 'Usa el diálogo / driver del sistema — NO requiere instalar nada. Elige tu impresora en el diálogo o ponla como predeterminada en Windows. El espacio en blanco se ajusta en el driver de la impresora.'}
                         </p>
-                        {receiptPrinter.enabled && (
+                        {printMode === 'webusb' && (
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button type="button" onClick={selectUsbPrinter} className={BUTTON_SECONDARY_SM_CLASSES}>Seleccionar impresora USB…</button>
+                                    <span className="text-xs text-neutral-500">{webusb.productName ? `Elegida: ${webusb.productName}` : 'Ninguna seleccionada'}</span>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">Ancho del recibo térmico</label>
+                                    <select value={webusb.width} onChange={e => updateWebusb({ width: Number(e.target.value) })} className={`${INPUT_SM_CLASSES} w-full`}>
+                                        <option value={48}>80 mm (48 columnas)</option>
+                                        <option value={32}>58 mm (32 columnas)</option>
+                                    </select>
+                                </div>
+                                <button type="button" onClick={testUsb} disabled={webusb.vendorId == null} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>Probar Recibo (USB)</button>
+                                <p className="text-xs text-neutral-400">La factura carta seguirá usando el navegador (WebUSB es solo para el recibo térmico).</p>
+                            </div>
+                        )}
+                        {printMode === 'qz' && (
                             <div className="space-y-3">
                                 <div className="flex justify-end">
                                     <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>Detectar impresoras</button>

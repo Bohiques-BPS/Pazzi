@@ -33,6 +33,7 @@ export interface CreateInvoiceInput {
     items: InvoiceItemInput[];
     taxRate?: number;
     description?: string;
+    allowedMethods?: string; // "agilpay,ath" (null/omitido = ambos)
 }
 
 export interface PublicInvoiceBusiness {
@@ -69,6 +70,10 @@ export interface PublicInvoice {
     createdAt: string;
     business: PublicInvoiceBusiness;
     agilpayEnabled: boolean;
+    allowedMethods?: string | null; // "agilpay,ath" (null = ambos)
+    athEnabled?: boolean;           // ATH Móvil con verificación automática disponible
+    athPublicToken?: string | null; // token PÚBLICO para el botón (nunca el privado)
+    athEnv?: string;                // 'production' | 'sandbox'
 }
 
 export const invoicesService = {
@@ -85,4 +90,8 @@ export const invoicesService = {
     payPublicAgilPay: (token: string, card: AgilPayCardData, amount?: number) =>
         api.post<{ success: boolean; reference: string; amountPaid: number; balance: number; fullyPaid: boolean }>(
             `/public/invoices/${token}/pay-agilpay`, { ...card, ...(amount != null ? { amount } : {}) }),
+    /** Registra automáticamente un pago por ATH Móvil (verificado server-side por su referencia). */
+    payPublicAthMovil: (token: string, referenceNumber: string, amount?: number) =>
+        api.post<{ success: boolean; reference?: string; amountPaid: number; balance: number; fullyPaid: boolean; alreadyRecorded?: boolean }>(
+            `/public/invoices/${token}/pay-athmovil`, { referenceNumber, ...(amount != null ? { amount } : {}) }),
 };

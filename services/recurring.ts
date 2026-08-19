@@ -1,19 +1,36 @@
 import { api } from './api';
 
+export type RecurringMode = 'auto_charge' | 'invoice_link';
+export type LinkMethod = 'agilpay' | 'ath';
+export type PayState = 'approved' | 'declined' | 'error' | 'pending' | 'partial' | 'paid' | 'overdue' | 'cancelled';
+
 export interface RecurringCharge {
     id: string;
     date: string;
     amount: number;
-    status: 'approved' | 'declined' | 'error';
+    status: string;
     reference?: string | null;
     message?: string | null;
+    // Enriquecido por el backend (modo invoice_link):
+    payState?: PayState;
+    invoiceId?: string | null;
+    invoiceToken?: string | null;
+    invoiceNumber?: number | null;
+    invoicePaidAt?: string | null;
+    invoiceTotal?: number | null;
+    invoiceAmountPaid?: number | null;
+    dueDate?: string | null;
 }
 
 export interface RecurringPayment {
     id: string;
     clientId: string;
     clientName: string;
+    mode: RecurringMode;
     cardLast4?: string | null;
+    clientEmail?: string | null;
+    linkMethods?: string | null;   // "agilpay,ath"
+    graceDays?: number;
     amount: number;
     interval: 'weekly' | 'biweekly' | 'monthly';
     description?: string | null;
@@ -23,18 +40,25 @@ export interface RecurringPayment {
     lastResult?: string | null;
     failureCount: number;
     charges: RecurringCharge[];
+    currentState?: PayState | null;
 }
 
 export interface CreateRecurringInput {
     clientId: string;
-    card: string;
-    expMonth: string;
-    expYear: string;
-    cvv: string;
-    zipCode?: string;
+    mode: RecurringMode;
     amount: number;
     interval: 'weekly' | 'biweekly' | 'monthly';
     description?: string;
+    // Modo auto_charge:
+    card?: string;
+    expMonth?: string;
+    expYear?: string;
+    cvv?: string;
+    zipCode?: string;
+    // Modo invoice_link:
+    email?: string;
+    linkMethods?: LinkMethod[];
+    graceDays?: number;
 }
 
 export const recurringService = {
