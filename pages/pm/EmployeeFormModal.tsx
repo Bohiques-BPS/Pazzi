@@ -311,8 +311,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 ...rest,
                 profilePictureUrl: finalImageUrl,
                 salary: Number.isFinite(salaryNum) && salaryNum > 0 ? salaryNum : null,
-                // Solo enviar enableLogin si estamos creando o si se está habilitando por primera vez
-                ...(employee ? {} : { enableLogin: !!enableLogin }),
+                // Enviar enableLogin al crear, o al habilitar acceso por primera vez a un empleado sin cuenta.
+                ...(linkedUser ? {} : { enableLogin: !!enableLogin }),
                 // Si hay user vinculado o estamos creando con login → mandar rol + snapshot de permisos
                 ...(enableLogin || linkedUser ? { permissionRoleId: permissionRoleId || null, permissions: rolePerms } : {}),
             };
@@ -330,10 +330,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
 
             const activationLink = (saved as any)?.activationLink as string | undefined;
             const emailSent = (saved as any)?.emailSent as boolean | undefined;
-            if (!employee && enableLogin) {
+            // Se acaba de habilitar el acceso (al crear, o al editar un empleado que no tenía cuenta).
+            if (!linkedUser && enableLogin) {
                 toast.success(emailSent
-                    ? 'Empleado creado. Se envió una invitación por correo para activar su cuenta.'
-                    : 'Empleado creado. Comparte el enlace de activación (el correo no pudo enviarse).');
+                    ? `${employee ? 'Acceso habilitado' : 'Empleado creado'}. Se envió una invitación por correo para activar la cuenta.`
+                    : `${employee ? 'Acceso habilitado' : 'Empleado creado'}. Comparte el enlace de activación (el correo no pudo enviarse).`);
                 if (activationLink) {
                     onActivationLink?.({ name: `${formData.name} ${formData.lastName}`.trim(), link: activationLink, emailSent });
                 }
@@ -569,7 +570,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                             </div>
                         )}
 
-                        {!employee && (
+                        {!linkedUser && (
                             <label className="flex items-start gap-2 p-3 rounded-md border border-neutral-200 dark:border-neutral-600 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-700/50">
                                 <input
                                     type="checkbox"

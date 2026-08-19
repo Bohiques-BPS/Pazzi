@@ -77,13 +77,14 @@ export const EmployeesListPage: React.FC = () => {
         try {
             const res = await authService.resendInvitation(emp.id);
             toast.success(res.emailSent
-                ? `Invitación reenviada por correo. Expira el ${new Date(res.expiresAt).toLocaleString()}`
+                ? `Invitación enviada por correo. Expira el ${new Date(res.expiresAt).toLocaleString()}`
                 : 'Enlace de activación generado (el correo no pudo enviarse). Cópialo y compártelo.');
             if (res.activationLink) {
                 setActivationInfo({ name: `${emp.name} ${emp.lastName}`, link: res.activationLink, emailSent: res.emailSent });
             }
+            loadEmployees(); // refresca el estado de acceso (Sin acceso → Pendiente activación)
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al reenviar invitación');
+            toast.error(err instanceof ApiError ? err.message : 'Error al enviar la invitación');
         } finally {
             setResending(null);
         }
@@ -178,14 +179,15 @@ export const EmployeesListPage: React.FC = () => {
                         const user = (emp as any).user as { status?: UserStatus } | undefined;
                         const isInvited = user?.status === 'INVITED';
                         const isActive = user?.status === 'ACTIVE';
+                        const noAccess = !user; // "Sin acceso": aún no tiene cuenta
                         return (
                             <div className="flex items-center gap-0.5">
-                                {isInvited && (
+                                {(isInvited || noAccess) && (
                                     <PermissionGate require="employees.manage">
                                         <button
                                             onClick={() => handleResendInvitation(emp)}
                                             className="text-amber-600 dark:text-amber-400 p-1 hover:text-amber-800 disabled:opacity-40"
-                                            title="Reenviar invitación"
+                                            title={noAccess ? 'Dar acceso y enviar invitación por correo' : 'Reenviar invitación'}
                                             disabled={resending === emp.id}
                                         >
                                             <PaperAirplaneIcon className="w-4 h-4" />

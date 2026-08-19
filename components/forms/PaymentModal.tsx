@@ -472,23 +472,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
 
                     {/* Pagos aplicados + total */}
                     <div>
-                        <h3 className="font-semibold text-neutral-700 dark:text-neutral-200">Pagos Aplicados:</h3>
-                        <div className="mt-2 space-y-2 text-sm max-h-40 overflow-y-auto pr-2">
+                        <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Pagos Aplicados:</h3>
+                        <div className="mt-2 space-y-2 text-base max-h-48 overflow-y-auto pr-2">
                            {payments.length === 0 ? (
                                 <p className="text-neutral-500 dark:text-neutral-400">Ningún pago aplicado.</p>
                            ) : (
                                 payments.map((p, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 p-2 rounded">
+                                    <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 px-3 py-2.5 rounded">
                                         <span>{p.method}{p.reference ? ` (${p.reference})` : ''}:</span>
                                         <span className="font-semibold">${p.amount.toFixed(2)}</span>
-                                        <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 ml-2">&times;</button>
+                                        <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 ml-2 text-xl leading-none">&times;</button>
                                     </div>
                                 ))
                            )}
                         </div>
                     </div>
                     <div className="border-t dark:border-neutral-600 pt-3">
-                        <div className="flex justify-between items-center text-lg font-bold">
+                        <div className="flex justify-between items-center text-2xl font-bold">
                             <span>Total Pagado:</span>
                             <span>${totalPaid.toFixed(2)}</span>
                         </div>
