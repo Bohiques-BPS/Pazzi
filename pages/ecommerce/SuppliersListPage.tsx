@@ -43,7 +43,7 @@ export const SuppliersListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar proveedores:", error);
-                toast.error("Error al cargar proveedores.");
+                toast.error(t('ecomx.suppliers.load_error'));
             } finally {
                 setLoadingData(false);
             }
@@ -82,14 +82,14 @@ export const SuppliersListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setSuppliers(prev => prev.filter(s => s.id !== itemToDeleteId));
-                    toast.success('Proveedor eliminado');
+                    toast.success(t('ecomx.suppliers.deleted'));
                 } else {
                     const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || 'Error al eliminar el proveedor.');
+                    toast.error(errData.error || t('ecomx.suppliers.delete_error'));
                 }
             } catch (error) {
                 console.error('Error deleting supplier:', error);
-                toast.error('Error de conexión.');
+                toast.error(t('ecomx.common.connection_error'));
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);
@@ -115,7 +115,7 @@ export const SuppliersListPage: React.FC = () => {
             {loadingData && (
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando proveedores...</span>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">{t('ecomx.suppliers.loading')}</span>
                 </div>
             )}
 
@@ -143,9 +143,9 @@ export const SuppliersListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('ecomx.confirm.delete_title')}
+                message={t('ecomx.confirm.delete_message')}
+                confirmButtonText={t('ecomx.confirm.delete_yes')}
             />
         </div>
     );

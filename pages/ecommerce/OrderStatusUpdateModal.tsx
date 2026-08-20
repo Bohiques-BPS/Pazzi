@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Order } from '../../types'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 
 interface OrderStatusUpdateModalProps {
@@ -12,6 +13,7 @@ interface OrderStatusUpdateModalProps {
 }
 
 export const OrderStatusUpdateModal: React.FC<OrderStatusUpdateModalProps> = ({ isOpen, onClose, order, onUpdateStatus }) => {
+    const { t } = useTranslation();
     const [newStatus, setNewStatus] = useState<Order['status'] | ''>('');
 
     useEffect(() => {
@@ -29,7 +31,7 @@ export const OrderStatusUpdateModal: React.FC<OrderStatusUpdateModalProps> = ({ 
         if (newStatus && newStatus !== order.status) {
             onUpdateStatus(order.id, newStatus);
         } else if (!newStatus || newStatus === order.status) {
-            toast('No hay cambios que guardar.', { icon: 'ℹ️' });
+            toast(t('ecomx.common.no_changes'), { icon: 'ℹ️' });
         }
         onClose();
     };
@@ -37,14 +39,14 @@ export const OrderStatusUpdateModal: React.FC<OrderStatusUpdateModalProps> = ({ 
     const orderStatusOptions: Order['status'][] = ['Pendiente', 'Enviado', 'Completado', 'Cancelado'];
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Actualizar Estado Pedido #${order.id.substring(0,8)}`} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('ecomx.order_status.title', { id: order.id.substring(0,8) })} size="md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <p className="text-sm text-neutral-700 dark:text-neutral-200">
-                    Estado actual: <span className="font-semibold">{order.status}</span>
+                    {t('ecomx.order_status.current')}: <span className="font-semibold">{order.status}</span>
                 </p>
                 <div>
                     <label htmlFor="newStatus" className="block text-sm font-medium text-neutral-600 dark:text-neutral-300">
-                        Nuevo Estado
+                        {t('ecomx.order_status.new_status')}
                     </label>
                     <select
                         id="newStatus"
@@ -60,10 +62,10 @@ export const OrderStatusUpdateModal: React.FC<OrderStatusUpdateModalProps> = ({ 
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>
-                        Cancelar
+                        {t('common.cancel')}
                     </button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={!newStatus || newStatus === order.status}>
-                        Actualizar Estado
+                        {t('ecomx.order_status.update_btn')}
                     </button>
                 </div>
             </form>

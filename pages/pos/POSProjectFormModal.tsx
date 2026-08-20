@@ -5,6 +5,7 @@ import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface POSProjectFormModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface POSProjectFormModalProps {
 }
 
 export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen, onClose, clientId, onProjectCreated }) => {
+  const { t } = useTranslation();
   const { addProject } = useData();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -28,11 +30,11 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error('El nombre del proyecto es obligatorio.');
+      toast.error(t('posx.projectform.err_name'));
       return;
     }
     if (!clientId) {
-      toast.error('No se ha seleccionado un cliente.');
+      toast.error(t('posx.projectform.err_client'));
       return;
     }
 
@@ -49,18 +51,18 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
     };
 
     const newProject = addProject(projectData);
-    toast.success('Proyecto creado exitosamente.');
+    toast.success(t('posx.projectform.created'));
     onProjectCreated(newProject);
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Crear Nuevo Proyecto Rápido" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('posx.projectform.title')} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Cree un nuevo proyecto para el cliente seleccionado. Podrá añadir más detalles más tarde desde el módulo de Gestión de Proyectos.
+                {t('posx.projectform.intro')}
             </p>
             <div>
-                <label htmlFor="posProjectName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre del Proyecto</label>
+                <label htmlFor="posProjectName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('posx.projectform.name_label')}</label>
                 <input
                     type="text"
                     id="posProjectName"
@@ -72,16 +74,16 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción (Opcional)</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('posx.projectform.description_label')}</label>
                 <RichTextEditor
                     value={description}
                     onChange={setDescription}
-                    placeholder="Breve descripción del alcance del proyecto..."
+                    placeholder={t('posx.projectform.description_placeholder')}
                 />
             </div>
             <div className="flex justify-end space-x-2 pt-4">
-                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Crear y Asignar</button>
+                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.projectform.create_assign')}</button>
             </div>
         </form>
     </Modal>

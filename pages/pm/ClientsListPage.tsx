@@ -103,9 +103,9 @@ export const ClientsListPage: React.FC = () => {
         try {
             await clientsService.delete(itemToDeleteId);
             setClients(prev => prev.filter(c => c.id !== itemToDeleteId));
-            toast.success('Cliente eliminado');
+            toast.success(t('pmx.client.deleted_ok'));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al eliminar cliente');
+            toast.error(err instanceof ApiError ? err.message : t('pmx.client.delete_error'));
         } finally {
             setItemToDeleteId(null);
             setShowDeleteConfirmModal(false);
@@ -120,7 +120,7 @@ export const ClientsListPage: React.FC = () => {
                     <span className="truncate sm:whitespace-normal">{client.name}</span>
                     {client.isLoss && (
                         <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-full border border-red-200 dark:border-red-800">
-                            Pérdida
+                            {t('pmx.client.loss_badge')}
                         </span>
                     )}
                 </div>
@@ -139,7 +139,7 @@ export const ClientsListPage: React.FC = () => {
                 <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('client.list.title')}</h1>
                 <div className="flex items-center gap-2">
                     <PermissionGate require="clients.create">
-                        <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>Importar</button>
+                        <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center`}>{t('pmx.common.import')}</button>
                         <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
                             <PlusIcon /> {t('client.list.create')}
                         </button>
@@ -151,7 +151,7 @@ export const ClientsListPage: React.FC = () => {
                 <ImportModal
                     isOpen={showImportModal}
                     onClose={() => setShowImportModal(false)}
-                    title="Importar clientes (Excel/CSV o WordPress)"
+                    title={t('pmx.client.import_title')}
                     fields={CLIENT_IMPORT_FIELDS}
                     onImport={(rows) => clientsService.bulkImport(rows)}
                     onDone={loadClients}
@@ -162,12 +162,12 @@ export const ClientsListPage: React.FC = () => {
 
             {!isLoading && clients.length === 0 && (
                 <EmptyState
-                    title="Sin clientes"
-                    description="Aún no hay clientes registrados. Crea el primero para empezar."
+                    title={t('pmx.client.empty_title')}
+                    description={t('pmx.client.empty_desc')}
                     cta={
                         <PermissionGate require="clients.create">
                             <button onClick={() => openModalForCreate()} className={BUTTON_PRIMARY_SM_CLASSES}>
-                                + Crear primer cliente
+                                {t('pmx.client.create_first')}
                             </button>
                         </PermissionGate>
                     }
@@ -184,8 +184,8 @@ export const ClientsListPage: React.FC = () => {
                                 <button
                                     onClick={() => setClientForDetail(client)}
                                     className="text-teal-600 dark:text-teal-400 p-1 hover:text-teal-800"
-                                    title="Ver detalles"
-                                    aria-label={`Detalles de ${client.name}`}
+                                    title={t('pmx.client.view_details')}
+                                    aria-label={t('pmx.client.details_of', { name: client.name })}
                                 >
                                     <EyeIcon className="w-5 h-5" />
                                 </button>
@@ -194,8 +194,8 @@ export const ClientsListPage: React.FC = () => {
                                 <button
                                     onClick={() => setClientForAccount(client)}
                                     className="text-purple-600 dark:text-purple-400 p-1 hover:text-purple-800"
-                                    title="Estado de cuenta (vista 360°)"
-                                    aria-label={`Estado de cuenta de ${client.name}`}
+                                    title={t('pmx.client.account_360')}
+                                    aria-label={t('pmx.client.account_of', { name: client.name })}
                                 >
                                     <BanknotesIcon className="w-5 h-5" />
                                 </button>
@@ -204,8 +204,8 @@ export const ClientsListPage: React.FC = () => {
                                 <button
                                     onClick={() => setClientForPOSReport(client)}
                                     className="text-emerald-600 dark:text-emerald-400 p-1 hover:text-emerald-800"
-                                    title="Reporte de ventas POS"
-                                    aria-label={`Reporte POS de ${client.name}`}
+                                    title={t('pmx.client.pos_report')}
+                                    aria-label={t('pmx.client.pos_report_of', { name: client.name })}
                                 >
                                     <ClipboardDocumentListIcon className="w-5 h-5" />
                                 </button>
@@ -214,8 +214,8 @@ export const ClientsListPage: React.FC = () => {
                                 <button
                                     onClick={() => setClientForInvoice(client)}
                                     className="text-indigo-600 dark:text-indigo-400 p-1 hover:text-indigo-800"
-                                    title="Generar factura"
-                                    aria-label={`Generar factura a ${client.name}`}
+                                    title={t('pmx.client.generate_invoice')}
+                                    aria-label={t('pmx.client.generate_invoice_to', { name: client.name })}
                                 >
                                     <DocumentTextIcon className="w-5 h-5" />
                                 </button>
@@ -224,8 +224,8 @@ export const ClientsListPage: React.FC = () => {
                                 <button
                                     onClick={() => openModalForEdit(client)}
                                     className="text-blue-600 dark:text-blue-400 p-1 hover:text-blue-800"
-                                    title="Editar"
-                                    aria-label={`Editar ${client.name} ${client.lastName}`}
+                                    title={t('common.edit')}
+                                    aria-label={t('pmx.client.edit_name', { name: `${client.name} ${client.lastName}` })}
                                 >
                                     <EditIcon className="w-5 h-5" />
                                 </button>
@@ -234,8 +234,8 @@ export const ClientsListPage: React.FC = () => {
                                 <button
                                     onClick={() => requestDelete(client.id)}
                                     className="text-red-600 dark:text-red-400 p-1 hover:text-red-800"
-                                    title="Eliminar"
-                                    aria-label={`Eliminar ${client.name} ${client.lastName}`}
+                                    title={t('common.delete')}
+                                    aria-label={t('pmx.client.delete_name', { name: `${client.name} ${client.lastName}` })}
                                 >
                                     <DeleteIcon className="w-5 h-5" />
                                 </button>
@@ -276,10 +276,10 @@ export const ClientsListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => { setShowDeleteConfirmModal(false); setItemToDeleteId(null); }}
                 onConfirm={confirmDelete}
-                title="¿Eliminar cliente?"
-                message="Esta acción eliminará al cliente de la lista. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
-                cancelButtonText="Cancelar"
+                title={t('pmx.client.confirm_delete_title')}
+                message={t('pmx.client.confirm_delete_msg')}
+                confirmButtonText={t('pmx.common.yes_delete')}
+                cancelButtonText={t('common.cancel')}
             />
         </div>
     );

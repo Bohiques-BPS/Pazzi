@@ -27,6 +27,7 @@ interface ProductAutocompleteProps {
 }
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, value, onChange, className }) => {
+    const { t } = useTranslation();
     const selectedProduct = products.find(p => p.id === value);
     const [query, setQuery] = useState(selectedProduct?.name || '');
     const [open, setOpen] = useState(false);
@@ -74,14 +75,14 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, val
                 value={query}
                 onChange={e => { setQuery(e.target.value); setOpen(true); onChange(''); }}
                 onFocus={() => setOpen(true)}
-                placeholder="Buscar producto..."
+                placeholder={t('ecomx.supplier_orders.product_search_ph')}
                 className={className}
                 autoComplete="off"
             />
             {open && (
                 <ul className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg text-sm">
                     {filtered.length === 0 ? (
-                        <li className="px-3 py-2 text-neutral-500 dark:text-neutral-400">Sin resultados</li>
+                        <li className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{t('ecomx.common.no_results')}</li>
                     ) : filtered.map(p => {
                         const totalStock = p.stockByBranch?.reduce((s: number, sb: any) => s + sb.quantity, 0) ?? 0;
                         return (
@@ -92,7 +93,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, val
                             >
                                 <span className="truncate">{p.name}</span>
                                 <span className="text-xs text-neutral-400 dark:text-neutral-500 whitespace-nowrap shrink-0">
-                                    Stock: {totalStock}
+                                    {t('ecomx.common.stock', { n: totalStock })}
                                 </span>
                             </li>
                         );
@@ -163,15 +164,15 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
 
     const handleAddItem = () => {
         if (!currentItem.productId) {
-            toast.error("Selecciona un producto.");
+            toast.error(t('ecomx.supplier_orders.select_product'));
             return;
         }
         if (currentItem.quantityOrdered <= 0 || currentItem.unitCost < 0) {
-            toast.error("Cantidad debe ser mayor a 0 y el costo no puede ser negativo.");
+            toast.error(t('ecomx.supplier_orders.qty_cost_invalid'));
             return;
         }
         if (formData.items.find(item => item.productId === currentItem.productId)) {
-            toast.error("Este producto ya está en el pedido. Edita la cantidad existente si es necesario.");
+            toast.error(t('ecomx.supplier_orders.product_already'));
             return;
         }
         setFormData(prev => ({ ...prev, items: [...prev.items, currentItem] }));
@@ -188,8 +189,8 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.supplierId) { toast.error("Por favor, seleccione un proveedor."); return; }
-        if (formData.items.length === 0) { toast.error("El pedido debe contener al menos un artículo."); return; }
+        if (!formData.supplierId) { toast.error(t('ecomx.supplier_orders.select_supplier')); return; }
+        if (formData.items.length === 0) { toast.error(t('ecomx.supplier_orders.need_item')); return; }
 
         setIsSubmitting(true);
         try {
@@ -212,13 +213,13 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 } else {
                     setSupplierOrders(prev => [result, ...prev]);
                 }
-                toast.success(orderToEdit ? 'Pedido actualizado' : 'Pedido creado');
+                toast.success(orderToEdit ? t('ecomx.supplier_orders.updated') : t('ecomx.supplier_orders.created'));
                 onClose();
             } else {
-                toast.error(result.error || "Error al guardar el pedido.");
+                toast.error(result.error || t('ecomx.supplier_orders.save_error'));
             }
         } catch {
-            toast.error("Error de conexión con el servidor.");
+            toast.error(t('ecomx.common.server_connection_error'));
         } finally {
             setIsSubmitting(false);
         }
@@ -238,9 +239,9 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                         options={filteredSuppliers.map(s => ({ value: s.id, label: s.name }))}
                         onCreateClick={() => setShowCreateSupplier(true)}
                         required
-                        placeholder="Seleccionar Proveedor"
-                        emptyHint="No hay proveedores. Usa + para crear uno sin perder esta orden."
-                        createTitle="Crear nuevo proveedor"
+                        placeholder={t('ecomx.supplier_orders.select_supplier_ph')}
+                        emptyHint={t('ecomx.supplier_orders.empty_hint')}
+                        createTitle={t('ecomx.supplier_orders.create_supplier_title')}
                     />
                     <div>
                         <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.status')}</label>
@@ -300,10 +301,10 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                             <table className="min-w-full text-sm">
                                 <thead className="bg-neutral-50 dark:bg-neutral-700 sticky top-0">
                                     <tr>
-                                        <th className="px-2 py-1 text-left">Producto</th>
-                                        <th className="px-2 py-1 text-right">Cant.</th>
-                                        <th className="px-2 py-1 text-right">Costo U.</th>
-                                        <th className="px-2 py-1 text-right">Subtotal</th>
+                                        <th className="px-2 py-1 text-left">{t('ecommerce.supplier_orders.form.item_product')}</th>
+                                        <th className="px-2 py-1 text-right">{t('ecomx.common.qty_short')}</th>
+                                        <th className="px-2 py-1 text-right">{t('ecomx.common.unit_cost_short')}</th>
+                                        <th className="px-2 py-1 text-right">{t('ecomx.common.subtotal')}</th>
                                         <th className="px-1 py-1"></th>
                                     </tr>
                                 </thead>
@@ -312,12 +313,12 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                                         const product = products.find(p => p.id === item.productId);
                                         return (
                                             <tr key={item.productId} className="hover:bg-neutral-100 dark:hover:bg-neutral-700/50">
-                                                <td className="px-2 py-1">{product?.name || 'Desconocido'}</td>
+                                                <td className="px-2 py-1">{product?.name || t('ecomx.common.unknown')}</td>
                                                 <td className="px-2 py-1 text-right">{item.quantityOrdered}</td>
                                                 <td className="px-2 py-1 text-right">${item.unitCost.toFixed(2)}</td>
                                                 <td className="px-2 py-1 text-right">${(item.quantityOrdered * item.unitCost).toFixed(2)}</td>
                                                 <td className="px-1 py-1 text-center">
-                                                    <button type="button" onClick={() => handleRemoveItem(item.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label="Quitar artículo">
+                                                    <button type="button" onClick={() => handleRemoveItem(item.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={t('ecomx.supplier_orders.remove_item')}>
                                                         <TrashIconMini />
                                                     </button>
                                                 </td>
@@ -331,13 +332,13 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 </fieldset>
 
                 <div className="text-right font-semibold text-lg text-neutral-800 dark:text-neutral-100 mt-4">
-                    Costo Total del Pedido: ${totalCost.toFixed(2)}
+                    {t('ecomx.supplier_orders.total_cost_label')}: ${totalCost.toFixed(2)}
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700 mt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
-                        {isSubmitting ? 'Guardando...' : t('common.save')}
+                        {isSubmitting ? t('common.saving') : t('common.save')}
                     </button>
                 </div>
             </form>
@@ -350,7 +351,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 onClose={(createdSupplier) => {
                     if (createdSupplier) {
                         setFormData(prev => ({ ...prev, supplierId: createdSupplier.id }));
-                        toast.success(`Proveedor "${createdSupplier.name}" creado y seleccionado.`);
+                        toast.success(t('ecomx.supplier_orders.supplier_created', { name: createdSupplier.name }));
                     }
                     setShowCreateSupplier(false);
                 }}

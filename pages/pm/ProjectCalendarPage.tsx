@@ -258,7 +258,7 @@ export const ProjectCalendarPage: React.FC = () => {
                                             {event.title}
                                         </div>
                                     ))}
-                                    {dayObj.events.length > 3 && <div className="text-center text-[9px] text-neutral-500 dark:text-neutral-400">+{dayObj.events.length - 3} más</div>}
+                                    {dayObj.events.length > 3 && <div className="text-center text-[9px] text-neutral-500 dark:text-neutral-400">{t('pm2x.calendar.more_events', { n: dayObj.events.length - 3 })}</div>}
                                 </div>
                             </div>
                         ))}
@@ -281,7 +281,7 @@ export const ProjectCalendarPage: React.FC = () => {
                                     {event.type === 'visit' && <VisitStatusBadge status={event.status as VisitStatus} />}
                                 </div>
                                 {!event.isAllDay && <p className="text-xs text-neutral-500 dark:text-neutral-400">{event.start.toLocaleTimeString(locale, {hour: '2-digit', minute:'2-digit'})} - {event.end.toLocaleTimeString(locale, {hour: '2-digit', minute:'2-digit'})}</p>}
-                                {event.type === 'project' && <p className="text-xs text-neutral-500 dark:text-neutral-400">Todo el día</p>}
+                                {event.type === 'project' && <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('pm2x.calendar.all_day')}</p>}
                             </li>
                         ))}
                     </ul>

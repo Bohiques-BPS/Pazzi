@@ -4,6 +4,7 @@ import { DEFAULT_ECOMMERCE_SETTINGS, inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, 
 import { ecommerceSettingsService } from '../../services/ecommerceSettings';
 import { ApiError } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 
@@ -42,6 +43,7 @@ const ColorField: React.FC<{ label: string; value: string; onChange: (v: string)
 );
 
 export const ECommerceSettingsPage: React.FC = () => {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [formData, setFormData] = useState<ECommerceSettings>(DEFAULT_ECOMMERCE_SETTINGS);
     const [storeOwnerId, setStoreOwnerId] = useState<string>(currentUser?.id || '');
@@ -84,8 +86,8 @@ export const ECommerceSettingsPage: React.FC = () => {
     };
 
     const handleCopyUrl = async () => {
-        try { await navigator.clipboard.writeText(storeUrl); toast.success('URL copiada al portapapeles.'); }
-        catch { toast.error('No se pudo copiar. Copia la URL manualmente.'); }
+        try { await navigator.clipboard.writeText(storeUrl); toast.success(t('ecomx.store_settings.url_copied')); }
+        catch { toast.error(t('ecomx.store_settings.url_copy_error')); }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -94,9 +96,9 @@ export const ECommerceSettingsPage: React.FC = () => {
         try {
             const saved = await ecommerceSettingsService.updateMine(formData);
             setFormData({ ...DEFAULT_ECOMMERCE_SETTINGS, ...saved });
-            toast.success('Tienda actualizada. Los cambios ya son visibles en tu tienda pública.');
+            toast.success(t('ecomx.store_settings.saved'));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al guardar.');
+            toast.error(err instanceof ApiError ? err.message : t('ecomx.store_settings.save_error'));
         } finally {
             setSaving(false);
         }
@@ -106,58 +108,58 @@ export const ECommerceSettingsPage: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto pb-10">
-            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-1">Mi tienda online</h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Personaliza cómo se ve tu tienda pública y compártela con tus clientes.</p>
+            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-1">{t('ecomx.store_settings.title')}</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{t('ecomx.store_settings.subtitle')}</p>
 
             {/* ── Tarjeta de URL de la tienda ── */}
             <div className="mb-6 rounded-xl p-5 text-white shadow-md" style={{ background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor || formData.primaryColor})` }}>
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-wide opacity-80">🔗 La URL de tu tienda</p>
+                        <p className="text-xs uppercase tracking-wide opacity-80">{t('ecomx.store_settings.url_label')}</p>
                         <p className="font-mono text-sm sm:text-base truncate">{storeUrl}</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
-                        <button type="button" onClick={handleCopyUrl} className="px-3 py-1.5 rounded-md bg-white/20 hover:bg-white/30 text-sm font-medium">📋 Copiar</button>
-                        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-md bg-white text-neutral-800 hover:bg-white/90 text-sm font-medium">Abrir ↗</a>
+                        <button type="button" onClick={handleCopyUrl} className="px-3 py-1.5 rounded-md bg-white/20 hover:bg-white/30 text-sm font-medium">{t('ecomx.store_settings.copy')}</button>
+                        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-md bg-white text-neutral-800 hover:bg-white/90 text-sm font-medium">{t('ecomx.store_settings.open')}</a>
                     </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                         <input type="checkbox" checked={formData.isActive ?? true} onChange={e => set('isActive', e.target.checked)} className="h-4 w-4" />
-                        Tienda activa (visible al público)
+                        {t('ecomx.store_settings.active_label')}
                     </label>
                 </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* ── Identidad ── */}
-                <Section title="Identidad de la tienda" subtitle="Nombre, logo y mensaje principal.">
+                <Section title={t('ecomx.store_settings.identity_title')} subtitle={t('ecomx.store_settings.identity_subtitle')}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium mb-1">Nombre de la tienda</label>
+                            <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.store_name')}</label>
                             <input type="text" value={formData.storeName} onChange={e => set('storeName', e.target.value)} className={inputFormStyle} required />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium mb-1">Eslogan / tagline</label>
-                            <input type="text" value={formData.tagline || ''} onChange={e => set('tagline', e.target.value)} className={inputFormStyle} placeholder="Los mejores precios de la isla" />
+                            <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.tagline')}</label>
+                            <input type="text" value={formData.tagline || ''} onChange={e => set('tagline', e.target.value)} className={inputFormStyle} placeholder={t('ecomx.store_settings.tagline_ph')} />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium mb-1">URL del logo</label>
+                            <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.logo_url')}</label>
                             <input type="url" value={formData.logoUrl || ''} onChange={e => set('logoUrl', e.target.value)} className={inputFormStyle} placeholder="https://…/logo.png" />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium mb-1">URL del banner (portada)</label>
+                            <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.banner_url')}</label>
                             <input type="url" value={formData.bannerUrl || ''} onChange={e => set('bannerUrl', e.target.value)} className={inputFormStyle} placeholder="https://…/banner.jpg" />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-xs font-medium mb-1">Descripción</label>
-                            <textarea value={formData.description || ''} onChange={e => set('description', e.target.value)} rows={2} className={inputFormStyle} placeholder="Cuéntale a tus clientes sobre tu tienda…" />
+                            <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.description')}</label>
+                            <textarea value={formData.description || ''} onChange={e => set('description', e.target.value)} rows={2} className={inputFormStyle} placeholder={t('ecomx.store_settings.description_ph')} />
                         </div>
                     </div>
                 </Section>
 
                 {/* ── Plantilla ── */}
-                <Section title="Plantilla" subtitle="Elige el estilo de tu tienda.">
+                <Section title={t('ecomx.store_settings.template_title')} subtitle={t('ecomx.store_settings.template_subtitle')}>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {TEMPLATES.map(tpl => {
                             const active = formData.template === tpl.id;
@@ -167,7 +169,7 @@ export const ECommerceSettingsPage: React.FC = () => {
                                     <div className="text-2xl mb-1">{tpl.emoji}</div>
                                     <div className="text-sm font-semibold">{tpl.name}</div>
                                     <div className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight mt-0.5">{tpl.desc}</div>
-                                    {active && <div className="text-[11px] text-primary font-medium mt-1">✓ Seleccionada</div>}
+                                    {active && <div className="text-[11px] text-primary font-medium mt-1">{t('ecomx.store_settings.selected')}</div>}
                                 </button>
                             );
                         })}
@@ -175,19 +177,19 @@ export const ECommerceSettingsPage: React.FC = () => {
                 </Section>
 
                 {/* ── Colores + preview ── */}
-                <Section title="Colores del tema" subtitle="Se aplican a tu tienda pública en tiempo real.">
+                <Section title={t('ecomx.store_settings.colors_title')} subtitle={t('ecomx.store_settings.colors_subtitle')}>
                     <div className="flex flex-col md:flex-row gap-6">
                         <div className="flex flex-wrap gap-4">
-                            <ColorField label="Primario" value={formData.primaryColor} onChange={v => set('primaryColor', v)} />
-                            <ColorField label="Secundario" value={formData.secondaryColor || ''} onChange={v => set('secondaryColor', v)} />
-                            <ColorField label="Acento" value={formData.accentColor || ''} onChange={v => set('accentColor', v)} />
+                            <ColorField label={t('ecomx.store_settings.color_primary')} value={formData.primaryColor} onChange={v => set('primaryColor', v)} />
+                            <ColorField label={t('ecomx.store_settings.color_secondary')} value={formData.secondaryColor || ''} onChange={v => set('secondaryColor', v)} />
+                            <ColorField label={t('ecomx.store_settings.color_accent')} value={formData.accentColor || ''} onChange={v => set('accentColor', v)} />
                         </div>
                         {/* Mini vista previa */}
                         <div className="flex-1 min-w-[220px]">
-                            <p className="text-xs text-neutral-500 mb-1">Vista previa</p>
+                            <p className="text-xs text-neutral-500 mb-1">{t('ecomx.store_settings.preview')}</p>
                             <div className="rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
                                 <div className="h-10 flex items-center px-3 text-white text-sm font-semibold" style={{ backgroundColor: formData.primaryColor }}>
-                                    {formData.storeName || 'Mi Tienda'}
+                                    {formData.storeName || t('ecomx.store_settings.my_store_default')}
                                 </div>
                                 <div className="p-3 bg-neutral-50 dark:bg-neutral-900 flex items-center gap-2">
                                     <div className="w-12 h-12 rounded" style={{ backgroundColor: formData.secondaryColor || formData.primaryColor }} />
@@ -195,7 +197,7 @@ export const ECommerceSettingsPage: React.FC = () => {
                                         <div className="h-2 w-2/3 rounded bg-neutral-300 dark:bg-neutral-600 mb-1" />
                                         <div className="h-2 w-1/3 rounded bg-neutral-300 dark:bg-neutral-600" />
                                     </div>
-                                    <span className="px-2 py-1 rounded text-white text-xs font-medium" style={{ backgroundColor: formData.accentColor || formData.primaryColor }}>Comprar</span>
+                                    <span className="px-2 py-1 rounded text-white text-xs font-medium" style={{ backgroundColor: formData.accentColor || formData.primaryColor }}>{t('ecomx.store_settings.buy')}</span>
                                 </div>
                             </div>
                         </div>
@@ -203,31 +205,31 @@ export const ECommerceSettingsPage: React.FC = () => {
                 </Section>
 
                 {/* ── Envío ── */}
-                <Section title="Envío" subtitle="Configura si cobras envío y cuánto.">
+                <Section title={t('ecomx.store_settings.shipping_title')} subtitle={t('ecomx.store_settings.shipping_subtitle')}>
                     <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer">
                         <input type="checkbox" checked={formData.shippingEnabled ?? false} onChange={e => set('shippingEnabled', e.target.checked)} className="h-4 w-4" />
-                        Cobrar envío
+                        {t('ecomx.store_settings.charge_shipping')}
                     </label>
                     {formData.shippingEnabled && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-medium mb-1">Costo de envío ({formData.currency || '$'})</label>
+                                <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.shipping_cost', { currency: formData.currency || '$' })}</label>
                                 <input type="number" min="0" step="0.01" value={formData.shippingCost ?? 0} onChange={e => set('shippingCost', parseFloat(e.target.value) || 0)} className={inputFormStyle} />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium mb-1">Envío gratis desde (opcional)</label>
-                                <input type="number" min="0" step="0.01" value={formData.freeShippingThreshold ?? ''} onChange={e => set('freeShippingThreshold', e.target.value === '' ? null : parseFloat(e.target.value))} className={inputFormStyle} placeholder="Ej. 50" />
+                                <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.free_shipping_from')}</label>
+                                <input type="number" min="0" step="0.01" value={formData.freeShippingThreshold ?? ''} onChange={e => set('freeShippingThreshold', e.target.value === '' ? null : parseFloat(e.target.value))} className={inputFormStyle} placeholder={t('ecomx.store_settings.free_shipping_ph')} />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium mb-1">Nota de envío</label>
-                                <input type="text" value={formData.shippingNote || ''} onChange={e => set('shippingNote', e.target.value)} className={inputFormStyle} placeholder="Entrega en 2-3 días" />
+                                <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.shipping_note')}</label>
+                                <input type="text" value={formData.shippingNote || ''} onChange={e => set('shippingNote', e.target.value)} className={inputFormStyle} placeholder={t('ecomx.store_settings.shipping_note_ph')} />
                             </div>
                         </div>
                     )}
                 </Section>
 
                 {/* ── Pagos ── */}
-                <Section title="Métodos de pago" subtitle="Qué formas de pago aceptas en la tienda.">
+                <Section title={t('ecomx.store_settings.payments_title')} subtitle={t('ecomx.store_settings.payments_subtitle')}>
                     <div className="flex flex-wrap gap-2">
                         {PAYMENT_OPTIONS.map(opt => {
                             const active = selectedPayments.includes(opt.key);
@@ -240,26 +242,26 @@ export const ECommerceSettingsPage: React.FC = () => {
                         })}
                     </div>
                     <div className="mt-3 max-w-[120px]">
-                        <label className="block text-xs font-medium mb-1">Moneda</label>
+                        <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.currency')}</label>
                         <input type="text" value={formData.currency || '$'} onChange={e => set('currency', e.target.value)} className={inputFormStyle} maxLength={4} />
                     </div>
                 </Section>
 
                 {/* ── Contacto / redes ── */}
-                <Section title="Contacto y redes" subtitle="Para que tus clientes te encuentren.">
+                <Section title={t('ecomx.store_settings.contact_title')} subtitle={t('ecomx.store_settings.contact_subtitle')}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label className="block text-xs font-medium mb-1">WhatsApp</label><input type="text" value={formData.whatsapp || ''} onChange={e => set('whatsapp', e.target.value)} className={inputFormStyle} placeholder="+1 787 000 0000" /></div>
-                        <div><label className="block text-xs font-medium mb-1">Teléfono</label><input type="text" value={formData.contactPhone || ''} onChange={e => set('contactPhone', e.target.value)} className={inputFormStyle} /></div>
-                        <div><label className="block text-xs font-medium mb-1">Email</label><input type="email" value={formData.contactEmail || ''} onChange={e => set('contactEmail', e.target.value)} className={inputFormStyle} /></div>
-                        <div><label className="block text-xs font-medium mb-1">Dirección</label><input type="text" value={formData.address || ''} onChange={e => set('address', e.target.value)} className={inputFormStyle} /></div>
-                        <div><label className="block text-xs font-medium mb-1">Facebook</label><input type="text" value={formData.facebook || ''} onChange={e => set('facebook', e.target.value)} className={inputFormStyle} placeholder="usuario o URL" /></div>
+                        <div><label className="block text-xs font-medium mb-1">{t('common.phone')}</label><input type="text" value={formData.contactPhone || ''} onChange={e => set('contactPhone', e.target.value)} className={inputFormStyle} /></div>
+                        <div><label className="block text-xs font-medium mb-1">{t('common.email')}</label><input type="email" value={formData.contactEmail || ''} onChange={e => set('contactEmail', e.target.value)} className={inputFormStyle} /></div>
+                        <div><label className="block text-xs font-medium mb-1">{t('common.address')}</label><input type="text" value={formData.address || ''} onChange={e => set('address', e.target.value)} className={inputFormStyle} /></div>
+                        <div><label className="block text-xs font-medium mb-1">Facebook</label><input type="text" value={formData.facebook || ''} onChange={e => set('facebook', e.target.value)} className={inputFormStyle} placeholder={t('ecomx.store_settings.user_or_url')} /></div>
                         <div><label className="block text-xs font-medium mb-1">Instagram</label><input type="text" value={formData.instagram || ''} onChange={e => set('instagram', e.target.value)} className={inputFormStyle} placeholder="@usuario" /></div>
                     </div>
                 </Section>
 
                 <div className="flex justify-end gap-3 sticky bottom-0 bg-gradient-to-t from-neutral-100 dark:from-neutral-900 to-transparent py-4">
-                    <a href={storeUrl} target="_blank" rel="noopener noreferrer" className={BUTTON_SECONDARY_SM_CLASSES}>Ver mi tienda ↗</a>
-                    <button type="submit" disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? 'Guardando…' : 'Guardar cambios'}</button>
+                    <a href={storeUrl} target="_blank" rel="noopener noreferrer" className={BUTTON_SECONDARY_SM_CLASSES}>{t('ecomx.store_settings.view_store')}</a>
+                    <button type="submit" disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('common.saving') : t('ecomx.store_settings.save_changes')}</button>
                 </div>
             </form>
         </div>

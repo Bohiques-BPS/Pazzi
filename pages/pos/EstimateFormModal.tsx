@@ -123,15 +123,15 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.clientId) {
-            toast.error('Debe seleccionar un cliente.');
+            toast.error(t('posx.estimateform.err_client'));
             return;
         }
         if (formData.items.length === 0) {
-            toast.error('El estimado debe contener al menos un producto.');
+            toast.error(t('posx.estimateform.err_no_products'));
             return;
         }
         if (!currentUser) {
-            toast.error('Error de autenticación. No se puede guardar.');
+            toast.error(t('posx.estimateform.err_auth'));
             return;
         }
 
@@ -145,11 +145,11 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
 
         if (estimateToEdit) {
             setEstimates(prev => prev.map(e => e.id === estimateToEdit.id ? { ...e, ...estimateData } : e));
-            toast.success('Cotización actualizada.');
+            toast.success(t('posx.estimateform.updated'));
         } else {
             const newEstimate: Estimate = { id: `est-${Date.now()}`, ...estimateData };
             setEstimates(prev => [...prev, newEstimate]);
-            toast.success('Cotización creada.');
+            toast.success(t('posx.estimateform.created'));
         }
         onClose();
     };
@@ -191,7 +191,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                                     <div className="flex items-center flex-shrink-0">
                                         <input type="number" value={item.quantity} onChange={e => handleUpdateQuantity(item.id, e.target.value)} className="w-12 text-center text-sm border-neutral-300 dark:border-neutral-600 rounded p-0.5 bg-white dark:bg-neutral-700"/>
                                         <p className="w-20 text-right text-sm font-semibold mx-2">${(item.unitPrice * item.quantity).toFixed(2)}</p>
-                                        <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700 p-1" title="Quitar"><TrashIconMini/></button>
+                                        <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700 p-1" title={t('posx.estimateform.remove')}><TrashIconMini/></button>
                                     </div>
                                 </div>
                            )) : <p className="text-xs text-center text-neutral-500">{t('pos.empty_cart')}</p>}
@@ -212,7 +212,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
 
                          <div>
                             <label htmlFor="notes" className="block text-sm font-medium">{t('pos.estimates.form.notes')}</label>
-                            <RichTextEditor value={formData.notes || ''} onChange={(value) => setFormData(prev => ({...prev, notes: value}))} placeholder="Añada notas, términos o condiciones para el estimado..." />
+                            <RichTextEditor value={formData.notes || ''} onChange={(value) => setFormData(prev => ({...prev, notes: value}))} placeholder={t('posx.estimateform.notes_placeholder')} />
                         </div>
                     </div>
                     
@@ -241,7 +241,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                     onClose={(newClient) => {
                         if (newClient) {
                             handleClientSelect(newClient);
-                            toast.success(`Cliente "${newClient.name} ${newClient.lastName}" creado y seleccionado.`);
+                            toast.success(t('posx.estimateform.client_created', { name: `${newClient.name} ${newClient.lastName}` }));
                         }
                         setShowCreateClient(false);
                     }}

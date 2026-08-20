@@ -43,7 +43,7 @@ export const DepartmentsListPage: React.FC = () => {
             }
         } catch (error) {
             console.error("Error al cargar departamentos:", error);
-            toast.error('Error al cargar los departamentos.');
+            toast.error(t('pmx.department.load_error'));
         } finally {
             setLoadingData(false);
         }
@@ -80,13 +80,13 @@ export const DepartmentsListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setDepartments(prev => prev.filter(d => d.id !== itemToDeleteId));
-                    toast.success('Departamento eliminado');
+                    toast.success(t('pmx.department.deleted_ok'));
                 } else {
                     const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || 'Error al eliminar el departamento.');
+                    toast.error(errData.error || t('pmx.department.delete_error'));
                 }
             } catch (error) {
-                toast.error('Error de conexión al intentar eliminar.');
+                toast.error(t('pmx.common.conn_delete_error'));
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);
@@ -97,7 +97,7 @@ export const DepartmentsListPage: React.FC = () => {
     const columns: TableColumn<Department>[] = [
         { header: t('department.field.name'), accessor: 'name' },
         {
-            header: 'Productos',
+            header: t('pmx.common.products'),
             accessor: (department) => (
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
                     {department._count?.products ?? 0}
@@ -117,11 +117,11 @@ export const DepartmentsListPage: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <input
                         type="text"
-                        placeholder="Buscar departamento…"
+                        placeholder={t('pmx.department.search_ph')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label="Buscar departamento"
+                        aria-label={t('pmx.department.search_aria')}
                     />
                     <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                         <PlusIcon /> {t('department.list.create')}
@@ -131,7 +131,7 @@ export const DepartmentsListPage: React.FC = () => {
             {loadingData && (
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando departamentos...</span>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">{t('pmx.department.loading')}</span>
                 </div>
             )}
             {!loadingData && (
@@ -140,7 +140,7 @@ export const DepartmentsListPage: React.FC = () => {
                     columns={columns}
                     actions={(department) => (
                         <>
-                            <button onClick={() => setScanTarget(department)} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 p-1" aria-label="Escanear producto para asignar departamento" title="Escanear y asignar departamento">
+                            <button onClick={() => setScanTarget(department)} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 p-1" aria-label={t('pmx.department.scan_aria')} title={t('pmx.department.scan_title')}>
                                 <BarcodeScanIcon className="w-5 h-5" />
                             </button>
                             <button onClick={() => openModalForEdit(department)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')} title={t('common.edit')}>
@@ -165,9 +165,9 @@ export const DepartmentsListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('pmx.common.confirm_delete_title')}
+                message={t('pmx.common.cannot_undo')}
+                confirmButtonText={t('pmx.common.yes_delete')}
             />
         </div>
     );

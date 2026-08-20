@@ -6,8 +6,10 @@ import { BriefcaseIcon, CalendarDaysIcon, ClockIcon, UsersIcon, ChatBubbleLeftRi
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge';
 import { ProjectFormModal } from './ProjectFormModal'; // Import the modal
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const ProjectsDashboardPage: React.FC = () => {
+    const { t } = useTranslation();
     const { projects, visits, chatMessages, getProjectById, getClientById, getEmployeeById, sales, employees } = useData();
     const navigate = useNavigate();
 
@@ -93,24 +95,24 @@ export const ProjectsDashboardPage: React.FC = () => {
             } else if (project.workEndDate) {
                 const endDate = new Date(project.workEndDate + 'T00:00:00');
                 if (endDate >= today) {
-                    return `En curso: ${format(startDate)} - ${format(endDate)}`;
+                    return t('pm2x.dashboard.activity.ongoing', { range: `${format(startDate)} - ${format(endDate)}` });
                 }
             }
         }
-        
+
         // Find the earliest future date
         if (allFutureDates.length > 0) {
             allFutureDates.sort((a, b) => a.date.getTime() - b.date.getTime());
             const nextActivity = allFutureDates[0];
-            const prefix = nextActivity.type === 'Visita' ? 'Próxima visita:' : nextActivity.type === 'Inicio' ? 'Inicia:' : 'Próximo trabajo:';
+            const prefix = nextActivity.type === 'Visita' ? t('pm2x.dashboard.activity.next_visit') : nextActivity.type === 'Inicio' ? t('pm2x.dashboard.activity.starts') : t('pm2x.dashboard.activity.next_work');
             return `${prefix} ${format(nextActivity.date)}`;
         }
 
         if (project.status === ProjectStatus.ACTIVE) {
-            return "En progreso";
+            return t('pm2x.dashboard.activity.in_progress');
         }
 
-        return "Planificación pendiente";
+        return t('pm2x.dashboard.activity.planning_pending');
     };
 
 
@@ -252,36 +254,36 @@ export const ProjectsDashboardPage: React.FC = () => {
         const past = new Date(isoTimestamp);
         const diffInSeconds = Math.round((now.getTime() - past.getTime()) / 1000);
         const minutes = Math.round(diffInSeconds / 60);
-        if (minutes < 1) return 'Ahora';
-        if (minutes < 60) return `${minutes}m atrás`;
+        if (minutes < 1) return t('pm2x.dashboard.time.now');
+        if (minutes < 60) return t('pm2x.dashboard.time.minutes_ago', { n: minutes });
         const hours = Math.round(minutes / 60);
-        if (hours < 24) return `${hours}h atrás`;
+        if (hours < 24) return t('pm2x.dashboard.time.hours_ago', { n: hours });
         const days = Math.round(hours / 24);
-        return `${days}d atrás`;
+        return t('pm2x.dashboard.time.days_ago', { n: days });
     };
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Dashboard de Proyectos</h1>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Un resumen de la actividad reciente y próxima.</p>
+                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.dashboard.title')}</h1>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('pm2x.dashboard.subtitle')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Link to="/pm/projects" className={BUTTON_PRIMARY_SM_CLASSES}>
-                        <BriefcaseIcon className="w-4 h-4 mr-1.5" /> Ver Todos los Proyectos
+                        <BriefcaseIcon className="w-4 h-4 mr-1.5" /> {t('pm2x.dashboard.view_all_projects')}
                     </Link>
                     <Link to="/pm/calendar" className={BUTTON_PRIMARY_SM_CLASSES}>
-                        <CalendarDaysIcon className="w-4 h-4 mr-1.5" /> Calendario Completo
+                        <CalendarDaysIcon className="w-4 h-4 mr-1.5" /> {t('pm2x.dashboard.full_calendar')}
                     </Link>
                 </div>
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatCard title="Proyectos Activos" value={stats.active} icon={<BriefcaseIcon />} />
-                <StatCard title="Proyectos Pendientes" value={stats.pending} icon={<ClockIcon />} />
-                <StatCard title="Completados (Este Mes)" value={stats.completedThisMonth} icon={<BriefcaseIcon />} />
+                <StatCard title={t('pm2x.dashboard.stat.active')} value={stats.active} icon={<BriefcaseIcon />} />
+                <StatCard title={t('pm2x.dashboard.stat.pending')} value={stats.pending} icon={<ClockIcon />} />
+                <StatCard title={t('pm2x.dashboard.stat.completed_month')} value={stats.completedThisMonth} icon={<BriefcaseIcon />} />
             </div>
 
             {/* Main Content Grid */}
@@ -289,7 +291,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                 <div className="space-y-6">
                     {/* Projects in Progress */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
-                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">Proyectos en Curso o Próximos</h2>
+                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">{t('pm2x.dashboard.in_progress_title')}</h2>
                          <div className="space-y-3">
                             {projectsInProgress.length > 0 ? (
                                 projectsInProgress.map(project => {
@@ -311,7 +313,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <p className="font-semibold text-sm text-primary dark:text-accent">{project.name}</p>
-                                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{client ? `Cliente: ${client.name} ${client.lastName}` : 'Sin cliente asignado'}</p>
+                                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{client ? t('pm2x.dashboard.client_label', { name: `${client.name} ${client.lastName}` }) : t('pm2x.dashboard.no_client')}</p>
                                                     </div>
                                                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block ${project.status === ProjectStatus.ACTIVE ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-200' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200'}`}>{project.status}</span>
                                                 </div>
@@ -325,20 +327,20 @@ export const ProjectsDashboardPage: React.FC = () => {
                                                     onClick={(e) => handleOpenChat(e, project)} 
                                                     className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center z-10 relative`}
                                                 >
-                                                    <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1"/> Ver Chat
+                                                    <ChatBubbleLeftRightIcon className="w-3 h-3 mr-1"/> {t('pm2x.dashboard.view_chat')}
                                                 </button>
                                             </div>
                                         </button>
                                     );
                                 })
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay proyectos activos o por iniciar próximamente.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm2x.dashboard.no_projects')}</p>
                             )}
                         </div>
                     </div>
                      {/* Upcoming Visits */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
-                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">Próximas Visitas</h2>
+                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">{t('pm2x.dashboard.upcoming_visits')}</h2>
                         <div className="space-y-3">
                             {upcomingVisits.length > 0 ? (
                                 upcomingVisits.map(visit => {
@@ -348,25 +350,25 @@ export const ProjectsDashboardPage: React.FC = () => {
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="font-semibold text-sm text-primary dark:text-accent">{visit.title}</p>
-                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{project ? `Proyecto: ${project.name}` : 'Visita General'}</p>
+                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{project ? t('pm2x.dashboard.project_label', { name: project.name }) : t('pm2x.dashboard.general_visit')}</p>
                                                 </div>
                                                 <VisitStatusBadge status={visit.status} />
                                             </div>
                                             <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1">
-                                                {new Date(`${visit.date}T00:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })} a las {visit.startTime}
+                                                {new Date(`${visit.date}T00:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })} {t('pm2x.dashboard.at')} {visit.startTime}
                                             </p>
                                         </div>
                                     );
                                 })
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay visitas programadas.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm2x.dashboard.no_visits')}</p>
                             )}
                         </div>
                     </div>
                     {/* Top Clients */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
                         <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3 flex items-center">
-                            <BanknotesIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> Top Clientes (Este Mes)
+                            <BanknotesIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> {t('pm2x.dashboard.top_clients')}
                         </h2>
                         <div className="space-y-3">
                             {topClientsThisMonth.length > 0 ? (
@@ -385,7 +387,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay datos de ventas de clientes este mes.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm2x.dashboard.no_client_sales')}</p>
                             )}
                         </div>
                     </div>
@@ -394,7 +396,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                 <div className="space-y-6">
                     {/* Recent Messages */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
-                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">Actividad Reciente en Chats</h2>
+                        <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">{t('pm2x.dashboard.recent_chats')}</h2>
                         <div className="space-y-2">
                             {recentMessages.length > 0 ? (
                                 recentMessages.map(message => {
@@ -417,14 +419,14 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     );
                                 })
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay mensajes recientes.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm2x.dashboard.no_messages')}</p>
                             )}
                         </div>
                     </div>
                     {/* Most Active Employees */}
                     <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-md">
                         <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3 flex items-center">
-                            <UsersIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> Colaboradores más Activos (Este Mes)
+                            <UsersIcon className="w-5 h-5 mr-2 text-primary dark:text-accent"/> {t('pm2x.dashboard.most_active')}
                         </h2>
                         <div className="space-y-3">
                             {mostActiveEmployeesThisMonth.length > 0 ? (
@@ -432,7 +434,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     <div key={employee!.id} className="text-sm">
                                         <div className="flex justify-between items-center mb-1">
                                             <span className="font-medium text-neutral-700 dark:text-neutral-200 truncate pr-2">{index + 1}. {employee!.name} {employee!.lastName}</span>
-                                            <span className="font-semibold text-neutral-600 dark:text-neutral-300 flex-shrink-0">{totalHours.toFixed(1)} horas</span>
+                                            <span className="font-semibold text-neutral-600 dark:text-neutral-300 flex-shrink-0">{t('pm2x.dashboard.hours', { n: totalHours.toFixed(1) })}</span>
                                         </div>
                                         <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5">
                                             <div 
@@ -443,7 +445,7 @@ export const ProjectsDashboardPage: React.FC = () => {
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">No hay horas de visita registradas este mes.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('pm2x.dashboard.no_hours')}</p>
                             )}
                         </div>
                     </div>

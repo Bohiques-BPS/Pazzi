@@ -21,7 +21,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
     const isClientProduct = product.storeOwnerId !== ADMIN_USER_ID;
 
     return (
-        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md flex flex-col overflow-hidden hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-200">
+        <div
+            onClick={() => onEdit(product)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') onEdit(product); }}
+            title="Editar producto"
+            className="bg-white dark:bg-neutral-800 rounded-lg shadow-md flex flex-col overflow-hidden hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-200 cursor-pointer"
+        >
             <div className="w-full h-44 bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center overflow-hidden">
                 <img
                     src={product.imageUrl
@@ -37,8 +44,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
             <div className="p-3 flex flex-col flex-grow">
                 <div className="flex justify-between items-start mb-1">
                     <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 line-clamp-2 flex-grow leading-tight">{product.name}</h3>
-                    <div className="relative flex-shrink-0 ml-1">
-                        <button onClick={() => setActionsOpen(!actionsOpen)} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-0.5 rounded-full focus:outline-none" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`}>
+                    <div className="relative flex-shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={(e) => { e.stopPropagation(); setActionsOpen(!actionsOpen); }} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-0.5 rounded-full focus:outline-none" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`}>
                             <EllipsisVerticalIcon />
                         </button>
                         {actionsOpen && (
@@ -70,7 +77,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
                             {product.stockByBranch.map(stockItem => (
                                 <div key={stockItem.branchId} className="flex justify-between items-center">
                                     <span>{stockItem.quantity}</span>
-                                    <button onClick={() => onAdjustStock(product, stockItem.branchId)} className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-0.5" title={`Ajustar stock`}>
+                                    <button onClick={(e) => { e.stopPropagation(); onAdjustStock(product, stockItem.branchId); }} className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-0.5" title={`Ajustar stock`}>
                                         <AdjustIcon className="w-3 h-3"/>
                                     </button>
                                 </div>
@@ -86,7 +93,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
                                     return (
                                         <div key={branch.id} className="flex justify-between items-center">
                                             <span>{branch.name}: {stockQty}</span>
-                                            <button onClick={() => onAdjustStock(product, branch.id)} className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-0.5" title={`Ajustar stock en ${branch.name}`}>
+                                            <button onClick={(e) => { e.stopPropagation(); onAdjustStock(product, branch.id); }} className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-0.5" title={`Ajustar stock en ${branch.name}`}>
                                                 <AdjustIcon className="w-3 h-3"/>
                                             </button>
                                         </div>

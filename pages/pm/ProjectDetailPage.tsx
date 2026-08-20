@@ -21,6 +21,7 @@ import { projectsService, normalizeProjectFromApi } from '../../services/project
 type ActiveTab = 'details' | 'chat' | 'tasks';
 
 export const ProjectDetailPage: React.FC = () => {
+    const { t } = useTranslation();
     const { projectId } = useParams<{ projectId: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -50,9 +51,9 @@ export const ProjectDetailPage: React.FC = () => {
     if (project === null && projectId !== 'new') {
         return (
             <div className="text-center p-8">
-                <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">Proyecto no encontrado</h2>
-                <p className="text-neutral-500 dark:text-neutral-400 mt-2">El proyecto que buscas no existe o ha sido eliminado.</p>
-                <Link to="/pm/projects" className="mt-4 inline-block text-primary hover:underline">Volver a la lista de proyectos</Link>
+                <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.project.not_found')}</h2>
+                <p className="text-neutral-500 dark:text-neutral-400 mt-2">{t('pm2x.project.not_found_desc')}</p>
+                <Link to="/pm/projects" className="mt-4 inline-block text-primary hover:underline">{t('pm2x.project.back_to_list')}</Link>
             </div>
         );
     }
@@ -66,25 +67,25 @@ export const ProjectDetailPage: React.FC = () => {
                 <div>
                     <Link to="/pm/projects" className="text-sm text-neutral-500 dark:text-neutral-400 hover:underline flex items-center">
                         <ArrowUturnLeftIcon className="w-4 h-4 mr-1" />
-                        Volver a Proyectos
+                        {t('pm2x.project.back_to_projects')}
                     </Link>
                     <h1 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">
-                        {isNewProject ? 'Crear Nuevo Proyecto' : (projectData && projectData.name)}
+                        {isNewProject ? t('pm2x.project.create_new') : (projectData && projectData.name)}
                     </h1>
                 </div>
             </div>
 
             <div className="flex border-b border-neutral-200 dark:border-neutral-700">
                 <button onClick={() => handleTabChange('details')} className={`px-4 py-2 text-base font-medium ${activeTab === 'details' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                    Detalles
+                    {t('project.tab.details')}
                 </button>
                 {!isNewProject && (
                     <>
                         <button onClick={() => handleTabChange('chat')} className={`px-4 py-2 text-base font-medium ${activeTab === 'chat' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                            Chat del Proyecto
+                            {t('pm2x.project.tab_chat')}
                         </button>
                         <button onClick={() => handleTabChange('tasks')} className={`px-4 py-2 text-base font-medium ${activeTab === 'tasks' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                            Tareas
+                            {t('pm2x.project.tab_tasks')}
                         </button>
                     </>
                 )}
@@ -213,24 +214,24 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const handleAddSingleWorkDay = () => { if (!canEditDetails || !currentSingleWorkDay) return; const action = () => { if (!formData.workDays.includes(currentSingleWorkDay)) { setFormData(prev => ({ ...prev, workDays: [...prev.workDays, currentSingleWorkDay].sort() })); } }; checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentSingleWorkDay]); };
     const handleRemoveSingleWorkDay = (dateToRemove: string) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, workDays: prev.workDays.filter(d => d !== dateToRemove) })); };
     const handleWorkDayRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const { name, value } = e.target; setCurrentWorkDayRange(prev => ({...prev, [name]: value })); };
-    const handleAddWorkDayTimeRange = () => { if (!canEditDetails || !currentWorkDayRange.date || !currentWorkDayRange.startTime || !currentWorkDayRange.endTime) { toast.error('Por favor, complete todos los campos para el rango de trabajo.'); return; } if (currentWorkDayRange.endTime <= currentWorkDayRange.startTime) { toast.error('La hora de fin debe ser posterior a la hora de inicio.'); return; } const action = () => { setFormData(prev => ({ ...prev, workDayTimeRanges: [...prev.workDayTimeRanges, currentWorkDayRange].sort((a,b) => { if (a.date < b.date) return -1; if (a.date > b.date) return 1; return a.startTime.localeCompare(b.startTime); }) })); setCurrentWorkDayRange({...defaultWorkDayTime, date: defaultToday}); }; checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentWorkDayRange.date]); };
+    const handleAddWorkDayTimeRange = () => { if (!canEditDetails || !currentWorkDayRange.date || !currentWorkDayRange.startTime || !currentWorkDayRange.endTime) { toast.error(t('pm2x.project.range_fields_required')); return; } if (currentWorkDayRange.endTime <= currentWorkDayRange.startTime) { toast.error(t('pm2x.visit.form.end_after_start')); return; } const action = () => { setFormData(prev => ({ ...prev, workDayTimeRanges: [...prev.workDayTimeRanges, currentWorkDayRange].sort((a,b) => { if (a.date < b.date) return -1; if (a.date > b.date) return 1; return a.startTime.localeCompare(b.startTime); }) })); setCurrentWorkDayRange({...defaultWorkDayTime, date: defaultToday}); }; checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentWorkDayRange.date]); };
     const handleRemoveWorkDayTimeRange = (indexToRemove: number) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, workDayTimeRanges: prev.workDayTimeRanges.filter((_, index) => index !== indexToRemove) })); };
 
-    const handleAddCustomProduct = () => { if (!canEditDetails || !customProduct.name.trim() || customProduct.quantity <= 0) { toast.error('Por favor, ingrese un nombre y una cantidad válida.'); return; } const newCustom: CustomProjectResource = { id: `custom-${Date.now()}`, ...customProduct }; setFormData(prev => ({ ...prev, customProducts: [...(prev.customProducts || []), newCustom] })); setCustomProduct({ name: '', quantity: 1, unitPrice: 0 }); };
+    const handleAddCustomProduct = () => { if (!canEditDetails || !customProduct.name.trim() || customProduct.quantity <= 0) { toast.error(t('pm2x.project.name_qty_required')); return; } const newCustom: CustomProjectResource = { id: `custom-${Date.now()}`, ...customProduct }; setFormData(prev => ({ ...prev, customProducts: [...(prev.customProducts || []), newCustom] })); setCustomProduct({ name: '', quantity: 1, unitPrice: 0 }); };
     const handleRemoveCustomProduct = (id: string) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, customProducts: prev.customProducts?.filter(p => p.id !== id) })); };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name.trim()) {
-            toast.error('El nombre del proyecto es requerido.');
+            toast.error(t('pm2x.project.name_required'));
             return;
         }
         if (!formData.clientId) {
-            toast.error('Debe seleccionar un cliente.');
+            toast.error(t('pm2x.project.client_required'));
             return;
         }
         if (formData.workMode === 'dateRange' && formData.workStartDate && formData.workEndDate && formData.workStartDate > formData.workEndDate) {
-            toast.error('La fecha de inicio no puede ser posterior a la fecha de fin.');
+            toast.error(t('pm2x.project.start_before_end'));
             return;
         }
         setSubmitting(true);
@@ -239,17 +240,17 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                 const saved = await projectsService.update(project.id, formData);
                 const normalized = normalizeProjectFromApi(saved);
                 setProjects(prev => prev.map(p => p.id === project.id ? normalized : p));
-                toast.success('Proyecto actualizado.');
+                toast.success(t('pm2x.project.updated'));
                 onSuccess(normalized);
             } else {
                 const saved = await projectsService.create(formData);
                 const normalized = normalizeProjectFromApi(saved);
                 setProjects(prev => [...prev, normalized]);
-                toast.success('Proyecto creado.');
+                toast.success(t('pm2x.project.created'));
                 onSuccess(normalized);
             }
         } catch (err: any) {
-            toast.error(err?.message || 'Error al guardar el proyecto.');
+            toast.error(err?.message || t('pm2x.project.save_error'));
         } finally {
             setSubmitting(false);
         }
@@ -288,7 +289,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                 <div className="relative flex-grow">
                                     <select name="clientId" id="clientId" value={formData.clientId} onChange={handleChange} className={selectFormStyle} required>
                                         {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
-                                        {clients.length === 0 && <option value="" disabled>No hay clientes</option>}
+                                        {clients.length === 0 && <option value="" disabled>{t('pm2x.project.no_clients')}</option>}
                                     </select>
                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-700 dark:text-neutral-200">
                                         <ChevronDownIcon className="w-4 h-4" />
@@ -299,8 +300,8 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                     onClick={() => setShowCreateClient(true)}
                                     disabled={!canEditDetails}
                                     className="flex-shrink-0 p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Crear nuevo cliente"
-                                    aria-label="Crear nuevo cliente"
+                                    title={t('pm2x.project.create_client')}
+                                    aria-label={t('pm2x.project.create_client')}
                                 >
                                     <PlusIcon className="w-5 h-5" />
                                 </button>
@@ -309,7 +310,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                     onClick={() => setIsClientDetailModalOpen(true)}
                                     disabled={!selectedClientDetails || !canEditDetails}
                                     className="p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    aria-label="Ver detalles del cliente"
+                                    aria-label={t('pm2x.project.view_client')}
                                 >
                                     <EyeIcon className="w-5 h-5" />
                                 </button>
@@ -319,30 +320,30 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                     
                     {selectedClientDetails && (
                         <div className="mt-2">
-                             <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Detalles del Cliente Seleccionado</label>
+                             <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('pm2x.project.selected_client')}</label>
                             <div className="p-3 border rounded-md bg-neutral-50 dark:bg-neutral-700/50 space-y-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Email</label>
+                                        <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('common.email')}</label>
                                         <input type="text" value={selectedClientDetails.email || ''} className={disabledInputStyle} readOnly tabIndex={-1} />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Teléfono</label>
+                                        <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('common.phone')}</label>
                                         <input type="text" value={selectedClientDetails.phone || ''} className={disabledInputStyle} readOnly tabIndex={-1} />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Dirección</label>
+                                    <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('common.address')}</label>
                                     <input type="text" value={selectedClientDetails.address || ''} className={disabledInputStyle} readOnly tabIndex={-1} />
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Tipo Cliente</label>
+                                        <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('pm2x.project.client_type')}</label>
                                         <input type="text" value={selectedClientDetails.clientType || ''} className={disabledInputStyle} readOnly tabIndex={-1} />
                                     </div>
                                     {selectedClientDetails.companyName && (
                                         <div>
-                                            <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Compañía</label>
+                                            <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('pm2x.project.company')}</label>
                                             <input type="text" value={selectedClientDetails.companyName} className={disabledInputStyle} readOnly tabIndex={-1} />
                                         </div>
                                     )}
@@ -365,12 +366,12 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         </div>
                         {(currentUser?.role === UserRole.MANAGER || (currentUser?.role === UserRole.EMPLOYEE && currentUser.permissions?.manageProjects)) && (
                             <div>
-                                <label htmlFor="priority" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Prioridad (Interna)</label>
+                                <label htmlFor="priority" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('pm2x.project.priority')}</label>
                                 <div className="relative">
                                     <select name="priority" id="priority" value={formData.priority || 1} onChange={handleChange} className={selectFormStyle}>
-                                        <option value={ProjectPriority.LOW}>Baja (1)</option>
-                                        <option value={ProjectPriority.MEDIUM}>Media (2)</option>
-                                        <option value={ProjectPriority.HIGH}>Alta (3)</option>
+                                        <option value={ProjectPriority.LOW}>{t('pm2x.project.priority_low')}</option>
+                                        <option value={ProjectPriority.MEDIUM}>{t('pm2x.project.priority_medium')}</option>
+                                        <option value={ProjectPriority.HIGH}>{t('pm2x.project.priority_high')}</option>
                                     </select>
                                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-700 dark:text-neutral-200">
                                         <ChevronDownIcon className="w-4 h-4" />
@@ -381,11 +382,11 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <label htmlFor="purchaseOrder" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Nº Orden de Compra (PO) / ID Contrato</label>
+                            <label htmlFor="purchaseOrder" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('pm2x.project.po_number')}</label>
                             <input type="text" name="purchaseOrder" id="purchaseOrder" value={formData.purchaseOrder || ''} onChange={handleChange} className={inputFormStyle} />
                         </div>
                         <div>
-                            <label htmlFor="projectKey" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Clave del Proyecto / Prefijo</label>
+                            <label htmlFor="projectKey" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('pm2x.project.project_key')}</label>
                             <input type="text" name="projectKey" id="projectKey" value={formData.projectKey || ''} onChange={handleChange} className={inputFormStyle} />
                         </div>
                     </div>
@@ -394,7 +395,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         <RichTextEditor 
                             value={formData.description} 
                             onChange={(value) => setFormData(prev => ({...prev, description: value}))} 
-                            placeholder="Descripción detallada del proyecto..."
+                            placeholder={t('pm2x.project.desc_placeholder')}
                         />
                     </div>
                  </fieldset>
@@ -430,10 +431,10 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                     </div>
                                     <button type="button" onClick={handleAddSingleWorkDay} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.add')}</button>
                                 </div>
-                                {formData.workDays.length > 0 && <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">{formData.workDays.map(day => (<li key={day} className="flex justify-between items-center">{new Date(day + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}<button type="button" onClick={() => handleRemoveSingleWorkDay(day)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={`Quitar día ${day}`}><TrashIconMini/></button></li>))}</ul>}
+                                {formData.workDays.length > 0 && <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">{formData.workDays.map(day => (<li key={day} className="flex justify-between items-center">{new Date(day + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}<button type="button" onClick={() => handleRemoveSingleWorkDay(day)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={t('pm2x.project.remove_day', { day })}><TrashIconMini/></button></li>))}</ul>}
                             </div>
                         )}
-                        {formData.workMode === 'daysAndTimes' && <div className="space-y-2"><div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end"><div className="md:col-span-2"><label htmlFor="rangeDate" className="block text-xs font-medium">{t('project.schedule.date')}</label><input type="date" name="date" id="rangeDate" value={currentWorkDayRange.date} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeStartTime" className="block text-xs font-medium">{t('project.schedule.start_time')}</label><input type="time" name="startTime" id="rangeStartTime" value={currentWorkDayRange.startTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeEndTime" className="block text-xs font-medium">{t('project.schedule.end_time')}</label><input type="time" name="endTime" id="rangeEndTime" value={currentWorkDayRange.endTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div></div><button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} w-full`}><PlusIcon className="w-4 h-4 mr-1" />{t('project.schedule.add_range')}</button>{formData.workDayTimeRanges.length > 0 && <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">{formData.workDayTimeRanges.map((range, index) => (<li key={index} className="flex justify-between items-center"><span>{new Date(range.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} de {range.startTime} a {range.endTime}</span><button type="button" onClick={() => handleRemoveWorkDayTimeRange(index)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={`Quitar rango ${index}`}><TrashIconMini/></button></li>))}</ul>}</div>}
+                        {formData.workMode === 'daysAndTimes' && <div className="space-y-2"><div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end"><div className="md:col-span-2"><label htmlFor="rangeDate" className="block text-xs font-medium">{t('project.schedule.date')}</label><input type="date" name="date" id="rangeDate" value={currentWorkDayRange.date} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeStartTime" className="block text-xs font-medium">{t('project.schedule.start_time')}</label><input type="time" name="startTime" id="rangeStartTime" value={currentWorkDayRange.startTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeEndTime" className="block text-xs font-medium">{t('project.schedule.end_time')}</label><input type="time" name="endTime" id="rangeEndTime" value={currentWorkDayRange.endTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div></div><button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} w-full`}><PlusIcon className="w-4 h-4 mr-1" />{t('project.schedule.add_range')}</button>{formData.workDayTimeRanges.length > 0 && <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">{formData.workDayTimeRanges.map((range, index) => (<li key={index} className="flex justify-between items-center"><span>{new Date(range.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} de {range.startTime} a {range.endTime}</span><button type="button" onClick={() => handleRemoveWorkDayTimeRange(index)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={t('pm2x.project.remove_range', { n: index })}><TrashIconMini/></button></li>))}</ul>}</div>}
                         {formData.workMode === 'dateRange' && <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><div><label htmlFor="workStartDate" className="block text-xs font-medium">{t('project.schedule.range_start')}</label><input type="date" name="workStartDate" id="workStartDate" value={formData.workStartDate || ''} onChange={handleChange} className={inputFormStyle} /></div><div><label htmlFor="workEndDate" className="block text-xs font-medium">{t('project.schedule.range_end')}</label><input type="date" name="workEndDate" id="workEndDate" value={formData.workEndDate || ''} onChange={handleChange} className={inputFormStyle} /></div></div>}
                     </div>
                  </fieldset>
@@ -451,7 +452,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                             <button type="button" onClick={handleProductAdd} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>{t('common.add')}</button>
                         </div>
                         {formData.assignedProducts.length > 0 && (
-                            <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">{formData.assignedProducts.map(ap => { const product = projectRelevantProducts.find(p => p.id === ap.productId); return (<li key={ap.productId} className="flex justify-between items-center"><span>{product?.name || 'Producto Desconocido'} (x{ap.quantity})</span><button type="button" onClick={() => handleProductRemove(ap.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={`Quitar ${product?.name}`}><TrashIconMini/></button></li>); })}</ul>
+                            <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">{formData.assignedProducts.map(ap => { const product = projectRelevantProducts.find(p => p.id === ap.productId); return (<li key={ap.productId} className="flex justify-between items-center"><span>{product?.name || t('pm2x.project.unknown_product')} (x{ap.quantity})</span><button type="button" onClick={() => handleProductRemove(ap.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={t('pm2x.common.remove_name', { name: product?.name ?? '' })}><TrashIconMini/></button></li>); })}</ul>
                         )}
                     </div>
                     
@@ -464,7 +465,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         </div>
                         <div className="mt-2 flex justify-end"><button type="button" onClick={handleAddCustomProduct} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>{t('project.resources.add_custom_btn')}</button></div>
                         {formData.customProducts && formData.customProducts.length > 0 && (
-                             <ul className="list-disc list-inside mt-2 space-y-0.5 max-h-20 overflow-y-auto text-xs">{formData.customProducts.map(cp => (<li key={cp.id} className="flex justify-between items-center"><span>{cp.name} (x{cp.quantity}) {cp.unitPrice ? `@ $${cp.unitPrice.toFixed(2)}` : ''}</span><button type="button" onClick={() => handleRemoveCustomProduct(cp.id)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={`Quitar ${cp.name}`}><TrashIconMini/></button></li>))}</ul>
+                             <ul className="list-disc list-inside mt-2 space-y-0.5 max-h-20 overflow-y-auto text-xs">{formData.customProducts.map(cp => (<li key={cp.id} className="flex justify-between items-center"><span>{cp.name} (x{cp.quantity}) {cp.unitPrice ? `@ $${cp.unitPrice.toFixed(2)}` : ''}</span><button type="button" onClick={() => handleRemoveCustomProduct(cp.id)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={t('pm2x.common.remove_name', { name: cp.name })}><TrashIconMini/></button></li>))}</ul>
                         )}
                     </fieldset>
 
@@ -473,12 +474,12 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.map(emp => (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>))}</div>
                     </div>
                  </fieldset>
-                 {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}><p>Contenido de Facturación aquí...</p></fieldset>}
+                 {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}><p>{t('pm2x.project.invoicing_placeholder')}</p></fieldset>}
             </div>
             {canEditDetails && (
                 <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
                     <button type="button" onClick={() => navigate('/pm/projects')} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>{submitting ? 'Guardando...' : (project ? 'Guardar Cambios' : 'Crear Proyecto')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>{submitting ? t('common.saving') : (project ? t('pm2x.common.save_changes') : t('project.form.create'))}</button>
                 </div>
             )}
         </form>
@@ -496,7 +497,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                     // Lo seleccionamos y volvemos al formulario intacto (sin perder progreso).
                     if (newClient) {
                         setFormData(prev => ({ ...prev, clientId: newClient.id }));
-                        toast.success(`Cliente "${newClient.name} ${newClient.lastName}" creado y seleccionado.`);
+                        toast.success(t('pm2x.project.client_created', { name: `${newClient.name} ${newClient.lastName}` }));
                     }
                     setShowCreateClient(false);
                 }}
@@ -509,6 +510,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
 
 // --- Chat Component (migrated from ProjectFormModal) ---
 const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
+    const { t } = useTranslation();
     const { getChatMessagesForProject, addChatMessage, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
     
@@ -532,7 +534,7 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
             <div className="flex-1 p-3 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin">
                 {projectMessages.length > 0 ? projectMessages.map(msg => (
                     <ChatMessageItem key={msg.id} message={msg} isCurrentUser={currentUser.id === msg.senderId} />
-                )) : <p className="text-center text-sm text-neutral-400 pt-10">No hay mensajes.</p>}
+                )) : <p className="text-center text-sm text-neutral-400 pt-10">{t('pm2x.project.no_messages')}</p>}
                 <div ref={messagesEndRef} />
             </div>
             <div className="p-3 border-t bg-white dark:bg-neutral-800">
@@ -541,7 +543,7 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                         <RichTextEditor
                             value={newMessage}
                             onChange={setNewMessage}
-                            placeholder="Escribe un mensaje..."
+                            placeholder={t('pm2x.chat.message_placeholder')}
                         />
                     </div>
                     <button type="submit" className={`${BUTTON_PRIMARY_SM_CLASSES} !py-2 !px-3 self-end`} disabled={!newMessage.trim()}><PaperAirplaneIcon /></button>

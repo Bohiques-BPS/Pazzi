@@ -47,7 +47,7 @@ export const POSSalesHistoryPage: React.FC = () => {
               id: sale.id,
               originalId: sale.id,
               date: sale.date,
-              entityName: client ? `${client.name} ${client.lastName}` : 'Cliente Contado',
+              entityName: client ? `${client.name} ${client.lastName}` : t('posx.saleshistory.walkInClient'),
               type: isCxC ? 'CxC' : 'Venta',
               total: sale.totalAmount,
               status: sale.paymentStatus,
@@ -64,7 +64,7 @@ export const POSSalesHistoryPage: React.FC = () => {
               id: order.id,
               originalId: order.id,
               date: order.orderDate + 'T00:00:00', // Normalize date for sorting
-              entityName: supplier ? supplier.name : 'Proveedor Desconocido',
+              entityName: supplier ? supplier.name : t('posx.saleshistory.unknownSupplier'),
               type: 'CxP',
               total: order.totalCost,
               status: order.paymentStatus,
@@ -226,25 +226,25 @@ export const POSSalesHistoryPage: React.FC = () => {
             </span>
         )
     },
-    { 
-        header: 'Tipo', 
+    {
+        header: t('posx.saleshistory.col.type'),
         accessor: (item) => (
-            <button 
+            <button
                 onClick={() => handleTypeClick(item)}
                 className={`px-2 py-0.5 rounded-full text-xs font-bold flex items-center w-fit cursor-pointer hover:opacity-80 transition-opacity ${
                 item.type === 'Venta' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200 ring-1 ring-green-300' :
                 item.type === 'CxC' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 ring-1 ring-blue-300' :
                 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 ring-1 ring-red-300'
             }`}
-                title="Ver Detalles"
+                title={t('posx.saleshistory.viewDetails')}
             >
                 {item.type === 'CxP' ? <ArrowDownIcon className="w-3 h-3 mr-1"/> : <ArrowUpIcon className="w-3 h-3 mr-1"/>}
-                {item.type}
+                {item.type === 'Venta' ? t('posx.saleshistory.type.sale') : item.type}
             </button>
         )
     },
     { header: t('pos.sales_history.col.date'), accessor: (item) => new Date(item.date).toLocaleString('es-ES') },
-    { header: 'Cliente / Proveedor', accessor: 'entityName' },
+    { header: t('posx.saleshistory.col.entity'), accessor: 'entityName' },
     { 
         header: t('pos.sales_history.col.method'), 
         accessor: (item) => {
@@ -254,7 +254,7 @@ export const POSSalesHistoryPage: React.FC = () => {
             if (sale.payments && sale.payments.length > 1) {
                 return (
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Múltiple</span>
+                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{t('posx.saleshistory.multiple')}</span>
                         <span className="text-[10px] text-neutral-500">
                             {sale.payments.map(p => p.method).join(', ')}
                         </span>
@@ -277,13 +277,13 @@ export const POSSalesHistoryPage: React.FC = () => {
             </span>
         )
     },
-    { header: 'Estado', accessor: (item) => item.status },
+    { header: t('posx.saleshistory.col.status'), accessor: (item) => item.status },
   ];
 
   return (
     <div>
       <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">
-          Historial de Movimientos (Ventas, CxC y CxP)
+          {t('posx.saleshistory.title')}
       </h1>
       <DataTable<HistoryItem>
         data={combinedHistory}

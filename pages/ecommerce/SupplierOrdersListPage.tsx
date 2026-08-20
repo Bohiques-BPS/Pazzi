@@ -53,11 +53,11 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
                 if (response.ok) {
                     const updated = await response.json();
                     onUpdate(order.id, updated.status);
-                    toast.success("Estado actualizado");
+                    toast.success(t('ecomx.supplier_orders.status_updated'));
                 }
             } catch (error) {
                 console.error("Error updating status:", error);
-                toast.error('Error de conexión al actualizar el estado.');
+                toast.error(t('ecomx.supplier_orders.status_update_error'));
             }
         }
         onClose();
@@ -67,15 +67,15 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
         <Modal 
             isOpen={isOpen} 
             onClose={onClose} 
-            title={`Actualizar Estado Pedido #${order.id.substring(0,8)}`}
+            title={t('ecomx.order_status.title', { id: order.id.substring(0,8) })}
             size="md"
         >
             <form onSubmit={handleSubmit}>
                 <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-300">
-                    Seleccione el nuevo estado para el pedido.
+                    {t('ecomx.supplier_orders.select_new_status')}
                 </p>
                 <div className="my-4">
-                    <label htmlFor="so_status_update" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Nuevo Estado</label>
+                    <label htmlFor="so_status_update" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('ecomx.order_status.new_status')}</label>
                     <select 
                         id="so_status_update"
                         value={newStatus} 
@@ -83,7 +83,7 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
                         className={inputFormStyle + " w-full"}
                         required
                     >
-                        <option value="" disabled>Seleccione un estado</option>
+                        <option value="" disabled>{t('ecomx.supplier_orders.choose_status')}</option>
                         {SUPPLIER_ORDER_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
@@ -91,12 +91,12 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>
                         {t('common.cancel')}
                     </button>
-                    <button 
-                        type="submit" 
-                        className={BUTTON_PRIMARY_SM_CLASSES} 
+                    <button
+                        type="submit"
+                        className={BUTTON_PRIMARY_SM_CLASSES}
                         disabled={!newStatus || (order && newStatus === order.status)}
                     >
-                        Actualizar Estado
+                        {t('ecomx.order_status.update_btn')}
                     </button>
                 </div>
             </form>
@@ -149,7 +149,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar pedidos:", error);
-                toast.error("Error al conectar con el servidor");
+                toast.error(t('ecomx.common.server_connection_error'));
             } finally {
                 setLoadingData(false);
             }
@@ -178,7 +178,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar productos para órdenes:", error);
-                toast.error('Error al cargar los productos.');
+                toast.error(t('ecomx.supplier_orders.products_load_error'));
             }
         };
         fetchProducts();
@@ -199,7 +199,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar proveedores para órdenes:", error);
-                toast.error('Error al cargar los proveedores.');
+                toast.error(t('ecomx.suppliers.load_error'));
             }
         };
         fetchSuppliers();
@@ -241,13 +241,13 @@ export const SupplierOrdersListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setSupplierOrders(prev => prev.filter(o => o.id !== itemToDeleteId));
-                    toast.success("Pedido eliminado");
+                    toast.success(t('ecomx.supplier_orders.deleted'));
                 } else {
-                    toast.error("No se pudo eliminar el pedido");
+                    toast.error(t('ecomx.supplier_orders.delete_error'));
                 }
             } catch (error) {
                 console.error("Error deleting order:", error);
-                toast.error('Error de conexión al intentar eliminar.');
+                toast.error(t('ecomx.common.delete_connection_error'));
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);
@@ -297,15 +297,15 @@ export const SupplierOrdersListPage: React.FC = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label="Buscar pedidos a proveedor"
+                        aria-label={t('ecomx.supplier_orders.search_aria')}
                     />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as SupplierOrderStatus | 'Todos')}
                         className={`${INPUT_SM_CLASSES} flex-shrink-0`}
-                        aria-label="Filtrar por estado de pedido"
+                        aria-label={t('ecommerce.orders.filter_status')}
                     >
-                        <option value="Todos">Todos los Estados</option>
+                        <option value="Todos">{t('ecomx.supplier_orders.all_statuses')}</option>
                         {SUPPLIER_ORDER_STATUS_OPTIONS.map(status => (
                             <option key={status} value={status}>{status}</option>
                         ))}
@@ -318,7 +318,7 @@ export const SupplierOrdersListPage: React.FC = () => {
             {loadingData && (
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando pedidos...</span>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">{t('ecomx.supplier_orders.loading')}</span>
                 </div>
             )}
 
@@ -332,7 +332,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                         return (
                             <div className="flex space-x-1 items-center">
                                 <PermissionGate require="supplierOrders.manage">
-                                    <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title="Ver / Editar">
+                                    <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title={t('ecomx.supplier_orders.view_edit')}>
                                         <EditIcon />
                                     </button>
                                 </PermissionGate>
@@ -340,7 +340,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                                     <button
                                         onClick={() => setOrderForReceive(order as unknown as SupplierOrderRecord)}
                                         className="p-1 text-green-600 dark:text-green-400 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title={isReceived ? 'Ya recibida' : 'Recibir e ingresar a inventario'}
+                                        title={isReceived ? t('ecomx.supplier_orders.already_received') : t('ecomx.supplier_orders.receive_title')}
                                         disabled={isReceived || order.status === 'Cancelado'}
                                     >
                                         <ArchiveBoxIcon />
@@ -350,19 +350,19 @@ export const SupplierOrdersListPage: React.FC = () => {
                                     <button
                                         onClick={() => setOrderForPayment(order as unknown as SupplierOrderRecord)}
                                         className="p-1 text-amber-600 dark:text-amber-400 hover:text-amber-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title={isPaidFull ? 'Pagado completo' : 'Registrar pago'}
+                                        title={isPaidFull ? t('ecomx.supplier_orders.paid_full') : t('ecomx.supplier_orders.register_payment')}
                                         disabled={isPaidFull || order.status === 'Cancelado'}
                                     >
                                         <BanknotesIcon />
                                     </button>
                                 </PermissionGate>
                                 <PermissionGate require="supplierOrders.manage">
-                                    <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" title="Cambiar estado">
+                                    <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" title={t('ecomx.supplier_orders.change_status')}>
                                         <Cog6ToothIcon />
                                     </button>
                                 </PermissionGate>
                                 <PermissionGate require="supplierOrders.manage">
-                                    <button onClick={() => requestDelete(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title="Eliminar">
+                                    <button onClick={() => requestDelete(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title={t('common.delete')}>
                                         <DeleteIcon />
                                     </button>
                                 </PermissionGate>
@@ -376,9 +376,9 @@ export const SupplierOrdersListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('ecomx.confirm.delete_title')}
+                message={t('ecomx.confirm.delete_message')}
+                confirmButtonText={t('ecomx.confirm.delete_yes')}
             />
             <SupplierOrderFormModal 
                 isOpen={showFormModal} 

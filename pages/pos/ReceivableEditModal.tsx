@@ -41,14 +41,14 @@ export const ReceivableEditModal: React.FC<ReceivableEditModalProps> = ({ isOpen
         };
 
         setSales(prevSales => prevSales.map(s => s.id === saleToEdit.id ? updatedSale : s));
-        toast.success('Cuenta por cobrar actualizada.');
+        toast.success(t('posx.receivableedit.updated'));
         onClose();
     };
 
     if (!saleToEdit) return null;
 
     const client = saleToEdit.clientId ? getClientById(saleToEdit.clientId) : null;
-    const clientName = client ? `${client.name} ${client.lastName}` : (saleToEdit.clientId || 'Contado');
+    const clientName = client ? `${client.name} ${client.lastName}` : (saleToEdit.clientId || t('posx.receivableedit.cash_client'));
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('pos.receivable.edit_modal.title', { id: saleToEdit.id.substring(0,8) })} size="lg">
@@ -57,20 +57,20 @@ export const ReceivableEditModal: React.FC<ReceivableEditModalProps> = ({ isOpen
                     <p className="text-sm text-neutral-600 dark:text-neutral-300">
                         <strong>{t('pos.receivable.edit_modal.client')}:</strong> {clientName} <br/>
                         <strong>{t('pos.receivable.edit_modal.original_amount')}:</strong> ${saleToEdit.totalAmount.toFixed(2)} <br/>
-                        <strong>Fecha Venta:</strong> {new Date(saleToEdit.date).toLocaleDateString()}
+                        <strong>{t('posx.receivableedit.sale_date')}:</strong> {new Date(saleToEdit.date).toLocaleDateString()}
                     </p>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Detalle de Productos</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('posx.receivableedit.products_detail')}</label>
                     <div className="border border-neutral-200 dark:border-neutral-600 rounded-md overflow-hidden max-h-40 overflow-y-auto">
                         <table className="min-w-full text-xs sm:text-sm">
                             <thead className="bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 sticky top-0">
                                 <tr>
-                                    <th className="px-3 py-2 text-left font-medium">Producto</th>
-                                    <th className="px-3 py-2 text-right font-medium">Cant.</th>
-                                    <th className="px-3 py-2 text-right font-medium">Precio</th>
-                                    <th className="px-3 py-2 text-right font-medium">Total</th>
+                                    <th className="px-3 py-2 text-left font-medium">{t('posx.receivableedit.product')}</th>
+                                    <th className="px-3 py-2 text-right font-medium">{t('posx.receivableedit.qty')}</th>
+                                    <th className="px-3 py-2 text-right font-medium">{t('posx.receivableedit.price')}</th>
+                                    <th className="px-3 py-2 text-right font-medium">{t('posx.receivableedit.total')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-600 bg-white dark:bg-neutral-800">
@@ -105,7 +105,7 @@ export const ReceivableEditModal: React.FC<ReceivableEditModalProps> = ({ isOpen
                     <RichTextEditor
                         value={notes}
                         onChange={setNotes}
-                        placeholder="Notas internas sobre esta cuenta por cobrar..."
+                        placeholder={t('posx.receivableedit.notes_placeholder')}
                     />
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">

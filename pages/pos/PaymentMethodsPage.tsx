@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
 import { useData } from '../../contexts/DataContext';
 import { DEFAULT_PAYMENT_METHODS, type PaymentMethodConfig, type PaymentMethodScopes } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<string, string> = {
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `metodo-${Date.now()}`;
 
 export const PaymentMethodsPage: React.FC = () => {
+    const { t } = useTranslation();
     const { settings, updateSettings } = useGlobalSettings();
     const { branches, cajas } = useData();
     const [methods, setMethods] = useState<PaymentMethodConfig[]>(
@@ -65,7 +66,7 @@ export const PaymentMethodsPage: React.FC = () => {
 
     const addCustom = () => {
         const id = `custom-${Date.now()}`;
-        setMethods(prev => [...prev, { id, name: 'Nuevo método', enabled: true, color: '#607D8B', type: 'custom', requiresReference: false, referenceLabel: '', builtin: false }]);
+        setMethods(prev => [...prev, { id, name: t('posx.paymentmethods.new_method_name'), enabled: true, color: '#607D8B', type: 'custom', requiresReference: false, referenceLabel: '', builtin: false }]);
     };
 
     const remove = (id: string) => setMethods(prev => prev.filter(m => m.id !== id));
@@ -75,19 +76,19 @@ export const PaymentMethodsPage: React.FC = () => {
         const cleaned = methods.map(m => (m.builtin ? m : { ...m, id: m.id.startsWith('custom-') ? m.id : slug(m.name) }));
         setSaving(true);
         updateSettings({ paymentMethods: cleaned, paymentMethodScopes: scopes });
-        setTimeout(() => { setSaving(false); toast.success('Métodos de pago guardados.'); }, 300);
+        setTimeout(() => { setSaving(false); toast.success(t('posx.paymentmethods.saved')); }, 300);
     };
 
     return (
         <div>
             <div className="flex justify-between items-center mb-2">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Métodos de Pago</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.paymentmethods.title')}</h1>
                 <div className="flex gap-2">
-                    <button onClick={addCustom} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center gap-1`}><PlusIcon className="w-4 h-4" /> Agregar método</button>
-                    <button onClick={handleSave} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : 'Guardar'}</button>
+                    <button onClick={addCustom} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center gap-1`}><PlusIcon className="w-4 h-4" /> {t('posx.paymentmethods.add_method')}</button>
+                    <button onClick={handleSave} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.paymentmethods.saving') : t('common.save')}</button>
                 </div>
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Activa, desactiva, reordena o agrega los métodos de pago que aparecen en la caja. Se guarda en la base de datos para todo el negocio.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.paymentmethods.intro')}</p>
 
             <div className="space-y-3">
                 {methods.map((m, idx) => (
@@ -99,16 +100,16 @@ export const PaymentMethodsPage: React.FC = () => {
                                 <button onClick={() => move(idx, 1)} disabled={idx === methods.length - 1} className="text-neutral-400 hover:text-primary disabled:opacity-30"><ArrowDownIcon className="w-4 h-4" /></button>
                             </div>
                             {/* Color */}
-                            <input type="color" value={m.color} onChange={e => patch(m.id, { color: e.target.value })} className="w-9 h-9 rounded cursor-pointer border border-neutral-300 dark:border-neutral-600 bg-transparent" title="Color del botón" />
+                            <input type="color" value={m.color} onChange={e => patch(m.id, { color: e.target.value })} className="w-9 h-9 rounded cursor-pointer border border-neutral-300 dark:border-neutral-600 bg-transparent" title={t('posx.paymentmethods.button_color')} />
                             {/* Nombre */}
-                            <input type="text" value={m.name} onChange={e => patch(m.id, { name: e.target.value })} disabled={m.builtin} className={`${INPUT_SM_CLASSES} flex-grow min-w-[140px] disabled:opacity-70`} placeholder="Nombre del método" />
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{TYPE_LABEL[m.type] || m.type}{m.builtin ? '' : ' · personalizado'}</span>
+                            <input type="text" value={m.name} onChange={e => patch(m.id, { name: e.target.value })} disabled={m.builtin} className={`${INPUT_SM_CLASSES} flex-grow min-w-[140px] disabled:opacity-70`} placeholder={t('posx.paymentmethods.method_name_placeholder')} />
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{TYPE_LABEL[m.type] || m.type}{m.builtin ? '' : t('posx.paymentmethods.custom_suffix')}</span>
                             {/* Activar */}
                             <label className="flex items-center gap-2 text-sm ml-auto">
                                 <input type="checkbox" checked={m.enabled} onChange={e => patch(m.id, { enabled: e.target.checked })} className="h-4 w-4" />
-                                {m.enabled ? 'Activo' : 'Inactivo'}
+                                {m.enabled ? t('posx.paymentmethods.active') : t('posx.paymentmethods.inactive')}
                             </label>
-                            {!m.builtin && <button onClick={() => remove(m.id)} className="text-red-500 hover:text-red-700 p-1" title="Eliminar"><DeleteIcon className="w-4 h-4" /></button>}
+                            {!m.builtin && <button onClick={() => remove(m.id)} className="text-red-500 hover:text-red-700 p-1" title={t('posx.paymentmethods.delete')}><DeleteIcon className="w-4 h-4" /></button>}
                         </div>
 
                         {/* Requiere referencia (cheque, ATH, etc.) */}
@@ -116,10 +117,10 @@ export const PaymentMethodsPage: React.FC = () => {
                             <div className="mt-3 flex items-center gap-3 flex-wrap pl-1">
                                 <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300">
                                     <input type="checkbox" checked={m.requiresReference} onChange={e => patch(m.id, { requiresReference: e.target.checked })} className="h-4 w-4" />
-                                    Pide un dato al cobrar
+                                    {t('posx.paymentmethods.requires_reference')}
                                 </label>
                                 {m.requiresReference && (
-                                    <input type="text" value={m.referenceLabel} onChange={e => patch(m.id, { referenceLabel: e.target.value })} placeholder="Etiqueta (ej. Nº de confirmación)" className={`${INPUT_SM_CLASSES} min-w-[220px]`} />
+                                    <input type="text" value={m.referenceLabel} onChange={e => patch(m.id, { referenceLabel: e.target.value })} placeholder={t('posx.paymentmethods.reference_label_placeholder')} className={`${INPUT_SM_CLASSES} min-w-[220px]`} />
                                 )}
                             </div>
                         )}
@@ -136,13 +137,13 @@ export const PaymentMethodsPage: React.FC = () => {
                                     <input type="password" value={m.config?.privateToken || ''} onChange={e => patchConfig(m.id, 'privateToken', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} placeholder="••••••••" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Ambiente</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.paymentmethods.environment')}</label>
                                     <select value={m.config?.environment || 'production'} onChange={e => patchConfig(m.id, 'environment', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
-                                        <option value="production">Producción</option>
-                                        <option value="sandbox">Sandbox (pruebas)</option>
+                                        <option value="production">{t('posx.paymentmethods.env_production')}</option>
+                                        <option value="sandbox">{t('posx.paymentmethods.env_sandbox')}</option>
                                     </select>
                                 </div>
-                                <p className="sm:col-span-3 text-xs text-neutral-400">Se guardan para la integración; hoy el cobro se registra con el número de confirmación de la app ATH Móvil.</p>
+                                <p className="sm:col-span-3 text-xs text-neutral-400">{t('posx.paymentmethods.ath_note')}</p>
                             </div>
                         )}
 
@@ -162,13 +163,13 @@ export const PaymentMethodsPage: React.FC = () => {
                                     <input type="password" value={m.config?.clientSecret || ''} onChange={e => patchConfig(m.id, 'clientSecret', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} placeholder="•••••••• (guardado)" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Ambiente</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.paymentmethods.environment')}</label>
                                     <select value={m.config?.environment || 'sandbox'} onChange={e => patchConfig(m.id, 'environment', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
-                                        <option value="production">Producción</option>
-                                        <option value="sandbox">Sandbox (pruebas)</option>
+                                        <option value="production">{t('posx.paymentmethods.env_production')}</option>
+                                        <option value="sandbox">{t('posx.paymentmethods.env_sandbox')}</option>
                                     </select>
                                 </div>
-                                <p className="sm:col-span-4 text-xs text-neutral-400">Cobro real con tarjeta vía AgilPay (Dynamics Payments). El Client Secret se guarda cifrado en el servidor; déjalo vacío para conservar el actual.</p>
+                                <p className="sm:col-span-4 text-xs text-neutral-400">{t('posx.paymentmethods.agilpay_note')}</p>
                             </div>
                         )}
 
@@ -179,10 +180,10 @@ export const PaymentMethodsPage: React.FC = () => {
                                 onClick={() => setExpandedScope(expandedScope === m.id ? null : m.id)}
                                 className="text-sm text-primary hover:underline flex items-center gap-1"
                             >
-                                Disponibilidad por sucursal / caja
+                                {t('posx.paymentmethods.availability')}
                                 {disabledScopeCount(m.id) > 0 && (
                                     <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                                        {disabledScopeCount(m.id)} apagada(s)
+                                        {t('posx.paymentmethods.disabled_count', { count: disabledScopeCount(m.id) })}
                                     </span>
                                 )}
                                 <span className="text-neutral-400">{expandedScope === m.id ? '▲' : '▼'}</span>
@@ -191,9 +192,9 @@ export const PaymentMethodsPage: React.FC = () => {
                             {expandedScope === m.id && (
                                 <div className="mt-2">
                                     {!m.enabled ? (
-                                        <p className="text-xs text-neutral-500">Este método está <strong>inactivo</strong> globalmente. Actívalo arriba para poder habilitarlo por sucursal o caja.</p>
+                                        <p className="text-xs text-neutral-500">{t('posx.paymentmethods.inactive_global_pre')} <strong>{t('posx.paymentmethods.inactive_word')}</strong> {t('posx.paymentmethods.inactive_global_post')}</p>
                                     ) : branches.length === 0 ? (
-                                        <p className="text-xs text-neutral-500">No hay sucursales configuradas.</p>
+                                        <p className="text-xs text-neutral-500">{t('posx.paymentmethods.no_branches')}</p>
                                     ) : (
                                         <div className="space-y-2">
                                             {branches.map(b => {
@@ -204,7 +205,7 @@ export const PaymentMethodsPage: React.FC = () => {
                                                         <label className="flex items-center gap-2 text-sm font-medium">
                                                             <input type="checkbox" checked={bOn} onChange={e => setBranchDisabled(m.id, b.id, !e.target.checked)} className="h-4 w-4" />
                                                             {b.name}
-                                                            {!bOn && <span className="text-xs text-red-500">(apagado en esta sucursal)</span>}
+                                                            {!bOn && <span className="text-xs text-red-500">{t('posx.paymentmethods.off_in_branch')}</span>}
                                                         </label>
                                                         {branchCajas.length > 0 && (
                                                             <div className="mt-1.5 ml-6 space-y-1">
@@ -225,7 +226,7 @@ export const PaymentMethodsPage: React.FC = () => {
                                                     </div>
                                                 );
                                             })}
-                                            <p className="text-xs text-neutral-400">Destildar apaga el método en esa sucursal/caja. Una sucursal apagada apaga también sus cajas.</p>
+                                            <p className="text-xs text-neutral-400">{t('posx.paymentmethods.scope_help')}</p>
                                         </div>
                                     )}
                                 </div>
@@ -236,7 +237,7 @@ export const PaymentMethodsPage: React.FC = () => {
             </div>
 
             <div className="flex justify-end mt-4">
-                <button onClick={handleSave} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : 'Guardar'}</button>
+                <button onClick={handleSave} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.paymentmethods.saving') : t('common.save')}</button>
             </div>
         </div>
     );

@@ -142,10 +142,10 @@ export const POSInventoryPage: React.FC = () => {
 
     // ─── Columnas ────────────────────────────────────────────
     const stockColumns: TableColumn<CurrentStockItem>[] = useMemo(() => [
-        { header: 'Producto', accessor: 'name' },
-        { header: 'Categoría', accessor: (i) => i.category?.name || '—' },
+        { header: t('posx.inventory.colProduct'), accessor: 'name' },
+        { header: t('posx.inventory.colCategory'), accessor: (i) => i.category?.name || '—' },
         {
-            header: 'Stock total',
+            header: t('posx.inventory.colTotalStock'),
             accessor: (i) => (
                 <span className={`font-bold ${i.isLowStock ? 'text-red-600 dark:text-red-400' : ''}`}>
                     {i.totalStock}{i.isLowStock && ' ⚠'}
@@ -153,24 +153,24 @@ export const POSInventoryPage: React.FC = () => {
             ),
             className: 'text-center',
         },
-        { header: 'Costo unit.', accessor: (i) => `$${(i.costPrice ?? 0).toFixed(2)}`, className: 'text-right' },
-        { header: 'Valor inventario', accessor: (i) => `$${i.inventoryValue.toFixed(2)}`, className: 'text-right' },
-    ], []);
+        { header: t('posx.inventory.colUnitCost'), accessor: (i) => `$${(i.costPrice ?? 0).toFixed(2)}`, className: 'text-right' },
+        { header: t('posx.inventory.colInventoryValue'), accessor: (i) => `$${i.inventoryValue.toFixed(2)}`, className: 'text-right' },
+    ], [t]);
 
     const logColumns: TableColumn<InventoryLog>[] = useMemo(() => [
-        { header: 'Fecha', accessor: (l) => new Date(l.date).toLocaleString() },
-        { header: 'Producto', accessor: (l) => l.product?.name || 'N/A' },
-        { header: 'Sucursal', accessor: (l) => l.branch?.name || 'N/A' },
+        { header: t('posx.inventory.colDate'), accessor: (l) => new Date(l.date).toLocaleString() },
+        { header: t('posx.inventory.colProduct'), accessor: (l) => l.product?.name || 'N/A' },
+        { header: t('posx.inventory.colBranch'), accessor: (l) => l.branch?.name || 'N/A' },
         {
-            header: 'Tipo',
+            header: t('posx.inventory.colType'),
             accessor: (l) => (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700">
-                    {LOG_TYPE_LABELS[l.type as InventoryLogType] || l.type}
+                    {LOG_TYPE_LABELS[l.type as InventoryLogType] ? t('posx.inventory.logType.' + l.type) : l.type}
                 </span>
             ),
         },
         {
-            header: 'Cambio',
+            header: t('posx.inventory.colChange'),
             accessor: (l) => (
                 <span className={l.quantityChange > 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
                     {l.quantityChange > 0 ? '+' : ''}{l.quantityChange}
@@ -178,15 +178,15 @@ export const POSInventoryPage: React.FC = () => {
             ),
             className: 'text-center',
         },
-        { header: 'Stock final', accessor: (l) => l.stockAfter, className: 'text-center font-semibold' },
-        { header: 'Por', accessor: (l) => l.employee ? `${l.employee.name} ${l.employee.lastName || ''}`.trim() : 'Sistema' },
-        { header: 'Notas', accessor: 'notes', className: 'text-xs max-w-xs truncate' },
-    ], []);
+        { header: t('posx.inventory.colFinalStock'), accessor: (l) => l.stockAfter, className: 'text-center font-semibold' },
+        { header: t('posx.inventory.colBy'), accessor: (l) => l.employee ? `${l.employee.name} ${l.employee.lastName || ''}`.trim() : t('posx.inventory.system') },
+        { header: t('posx.inventory.colNotes'), accessor: 'notes', className: 'text-xs max-w-xs truncate' },
+    ], [t]);
 
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Inventario</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.inventory.title')}</h1>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <input
                         type="text"
@@ -207,7 +207,7 @@ export const POSInventoryPage: React.FC = () => {
                         tab === 'stock' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-neutral-700'
                     }`}
                 >
-                    <ListBulletIcon className="w-4 h-4 inline mr-1" /> Stock actual
+                    <ListBulletIcon className="w-4 h-4 inline mr-1" /> {t('posx.inventory.tabStock')}
                 </button>
                 <button
                     type="button"
@@ -216,16 +216,16 @@ export const POSInventoryPage: React.FC = () => {
                         tab === 'logs' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-neutral-700'
                     }`}
                 >
-                    <Cog6ToothIcon className="w-4 h-4 inline mr-1" /> Bitácora ({logsTotal})
+                    <Cog6ToothIcon className="w-4 h-4 inline mr-1" /> {t('posx.inventory.tabLogs', { count: logsTotal })}
                 </button>
             </div>
 
             {/* Filtros */}
             <div className="flex flex-wrap gap-2 mb-4 items-end">
                 <div>
-                    <label className="block text-xs text-neutral-500">Sucursal</label>
+                    <label className="block text-xs text-neutral-500">{t('posx.inventory.branch')}</label>
                     <select value={filterBranchId} onChange={e => setFilterBranchId(e.target.value)} className={INPUT_SM_CLASSES}>
-                        <option value="">Todas</option>
+                        <option value="">{t('posx.inventory.all')}</option>
                         {branches.filter(b => b.isActive).map(b => (
                             <option key={b.id} value={b.id}>{b.name}</option>
                         ))}
@@ -235,16 +235,16 @@ export const POSInventoryPage: React.FC = () => {
                 {tab === 'stock' && (
                     <>
                         <div>
-                            <label className="block text-xs text-neutral-500">Categoría</label>
+                            <label className="block text-xs text-neutral-500">{t('posx.inventory.category')}</label>
                             <select value={filterCategoryId} onChange={e => setFilterCategoryId(e.target.value)} className={INPUT_SM_CLASSES}>
-                                <option value="">Todas</option>
+                                <option value="">{t('posx.inventory.all')}</option>
                                 {categories.map(c => (
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500">Umbral stock bajo</label>
+                            <label className="block text-xs text-neutral-500">{t('posx.inventory.lowStockThreshold')}</label>
                             <input
                                 type="number"
                                 min="0"
@@ -259,20 +259,20 @@ export const POSInventoryPage: React.FC = () => {
                 {tab === 'logs' && (
                     <>
                         <div>
-                            <label className="block text-xs text-neutral-500">Tipo</label>
+                            <label className="block text-xs text-neutral-500">{t('posx.inventory.type')}</label>
                             <select value={filterLogType} onChange={e => setFilterLogType(e.target.value as any)} className={INPUT_SM_CLASSES}>
-                                <option value="">Todos</option>
-                                {(Object.keys(LOG_TYPE_LABELS) as InventoryLogType[]).map(t => (
-                                    <option key={t} value={t}>{LOG_TYPE_LABELS[t]}</option>
+                                <option value="">{t('posx.inventory.allMasc')}</option>
+                                {(Object.keys(LOG_TYPE_LABELS) as InventoryLogType[]).map(lt => (
+                                    <option key={lt} value={lt}>{t('posx.inventory.logType.' + lt)}</option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500">Desde</label>
+                            <label className="block text-xs text-neutral-500">{t('posx.inventory.from')}</label>
                             <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} className={INPUT_SM_CLASSES} />
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500">Hasta</label>
+                            <label className="block text-xs text-neutral-500">{t('posx.inventory.to')}</label>
                             <input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} className={INPUT_SM_CLASSES} />
                         </div>
                     </>
@@ -283,17 +283,17 @@ export const POSInventoryPage: React.FC = () => {
                     onClick={() => (tab === 'stock' ? loadStock() : loadLogs())}
                     className={BUTTON_SECONDARY_SM_CLASSES}
                 >
-                    Refrescar
+                    {t('posx.inventory.refresh')}
                 </button>
             </div>
 
             {/* Summary card (solo en tab stock) */}
             {tab === 'stock' && stockSummary && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <SummaryCard title="Productos" value={stockSummary.totalProducts.toString()} />
-                    <SummaryCard title="Unidades totales" value={stockSummary.totalUnits.toString()} />
-                    <SummaryCard title="Valor inventario" value={`$${stockSummary.totalValue.toFixed(2)}`} />
-                    <SummaryCard title="Stock bajo" value={stockSummary.lowStockCount.toString()} highlight={stockSummary.lowStockCount > 0} />
+                    <SummaryCard title={t('posx.inventory.products')} value={stockSummary.totalProducts.toString()} />
+                    <SummaryCard title={t('posx.inventory.totalUnits')} value={stockSummary.totalUnits.toString()} />
+                    <SummaryCard title={t('posx.inventory.colInventoryValue')} value={`$${stockSummary.totalValue.toFixed(2)}`} />
+                    <SummaryCard title={t('posx.inventory.lowStock')} value={stockSummary.lowStockCount.toString()} highlight={stockSummary.lowStockCount > 0} />
                 </div>
             )}
 
@@ -302,7 +302,7 @@ export const POSInventoryPage: React.FC = () => {
                 <>
                     {stockLoading && <LoadingSkeleton variant="table" rows={6} />}
                     {!stockLoading && filteredStock.length === 0 && (
-                        <EmptyState title="Sin productos" description="No hay productos que coincidan con los filtros." />
+                        <EmptyState title={t('posx.inventory.noProductsTitle')} description={t('posx.inventory.noProductsDesc')} />
                     )}
                     {!stockLoading && filteredStock.length > 0 && (
                         <DataTable<CurrentStockItem>
@@ -316,25 +316,25 @@ export const POSInventoryPage: React.FC = () => {
                                             <button
                                                 onClick={() => product && setProductForAdjust(product)}
                                                 className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300"
-                                                title="Ajustar stock"
+                                                title={t('posx.inventory.adjustStock')}
                                             >
-                                                Ajustar
+                                                {t('posx.inventory.adjust')}
                                             </button>
                                         </PermissionGate>
                                         <PermissionGate require="inventory.transfer">
                                             <button
                                                 onClick={() => product && setProductForTransfer(product)}
                                                 className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
-                                                title="Transferir entre sucursales"
+                                                title={t('posx.inventory.transferBetweenBranches')}
                                             >
-                                                Transferir
+                                                {t('posx.inventory.transfer')}
                                             </button>
                                         </PermissionGate>
                                         <PermissionGate require={['inventory.viewHistory', 'inventory.view']}>
                                             <button
                                                 onClick={() => product && setProductForHistory(product)}
                                                 className="text-neutral-500 hover:text-neutral-700 p-1"
-                                                title="Ver historial"
+                                                title={t('posx.inventory.viewHistory')}
                                             >
                                                 <EyeIcon className="w-4 h-4" />
                                             </button>
@@ -351,7 +351,7 @@ export const POSInventoryPage: React.FC = () => {
                 <>
                     {logsLoading && <LoadingSkeleton variant="table" rows={6} />}
                     {!logsLoading && filteredLogs.length === 0 && (
-                        <EmptyState title="Sin movimientos" description="No hay registros con los filtros aplicados." />
+                        <EmptyState title={t('posx.inventory.noMovementsTitle')} description={t('posx.inventory.noMovementsDesc')} />
                     )}
                     {!logsLoading && filteredLogs.length > 0 && (
                         <DataTable<InventoryLog> data={filteredLogs} columns={logColumns} />

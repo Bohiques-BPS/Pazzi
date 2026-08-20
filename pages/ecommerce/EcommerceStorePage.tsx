@@ -8,8 +8,10 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIEN
 import { publicStoreService, type PublicProduct } from '../../services/publicStore';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { usePublicT } from '../../hooks/usePublicTranslation';
 
 const ProductStoreCard: React.FC<{ product: PublicProduct; onAddToCart: (product: PublicProduct) => void; storePrimaryColor: string; }> = ({ product, onAddToCart, storePrimaryColor }) => {
+    const t = usePublicT();
     return (
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md overflow-hidden flex flex-col transition-all duration-300 hover:shadow-xl dark:hover:shadow-primary/20">
             <img 
@@ -19,16 +21,16 @@ const ProductStoreCard: React.FC<{ product: PublicProduct; onAddToCart: (product
             />
             <div className="p-4 flex flex-col flex-grow">
                 <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-1 truncate" title={product.name}>{product.name}</h3>
-                <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-2 line-clamp-2 flex-grow">{product.description || "Descripción no disponible."}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-2 line-clamp-2 flex-grow">{product.description || t('store.no_description')}</p>
                 <div className="flex justify-between items-center mt-auto">
                     <p className="text-xl font-bold" style={{ color: storePrimaryColor }}>${product.unitPrice.toFixed(2)}</p>
                     <button 
                         onClick={() => onAddToCart(product)}
                         className={`${BUTTON_PRIMARY_SM_CLASSES} !bg-opacity-90 hover:!bg-opacity-100`}
                         style={{ backgroundColor: storePrimaryColor }}
-                        aria-label={`Añadir ${product.name} al carrito`}
+                        aria-label={t('store.add_aria', { name: product.name })}
                     >
-                        <PlusIcon /> Añadir
+                        <PlusIcon /> {t('store.add')}
                     </button>
                 </div>
             </div>
@@ -45,6 +47,7 @@ export const EcommerceStorePage: React.FC = () => {
     const [storeSettings, setStoreSettings] = useState<StoreSettingsType | null>(null);
     const [storeProducts, setStoreProducts] = useState<PublicProduct[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
+    const t = usePublicT();
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -80,13 +83,13 @@ export const EcommerceStorePage: React.FC = () => {
             const existingItem = prevCart.find(item => item.id === product.id);
             if (existingItem) {
                 if (existingItem.quantity >= product.totalStock) {
-                    toast.warning(`Stock máximo disponible: ${product.totalStock}`);
+                    toast.warning(t('store.max_stock', { max: product.totalStock }));
                     return prevCart;
                 }
                 return prevCart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
             }
             if (product.totalStock <= 0) {
-                toast.error('Producto sin stock disponible');
+                toast.error(t('store.out_of_stock'));
                 return prevCart;
             }
             return [...prevCart, { ...(product as unknown as Product), quantity: 1 }];
@@ -111,7 +114,7 @@ export const EcommerceStorePage: React.FC = () => {
 
     const handleCheckout = () => {
         if (cart.length === 0) {
-            toast.error("Tu carrito está vacío.");
+            toast.error(t('store.cart_empty'));
             return;
         }
         // Navigate to the checkout page with cart data
@@ -125,7 +128,7 @@ export const EcommerceStorePage: React.FC = () => {
 
 
     if (!storeSettings) {
-        return <div className="p-6 text-center">Cargando tienda...</div>;
+        return <div className="p-6 text-center">{t('store.loading')}</div>;
     }
 
     const storePrimaryColor = storeSettings.primaryColor || DEFAULT_ECOMMERCE_SETTINGS.primaryColor;
@@ -150,12 +153,12 @@ export const EcommerceStorePage: React.FC = () => {
                     <div className="flex items-center gap-4">
                          <input 
                             type="text"
-                            placeholder="Buscar productos..."
+                            placeholder={t('store.search_ph')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="px-3 py-1.5 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-white/80 bg-white/20 placeholder-white/70 text-sm text-white"
                         />
-                        <button onClick={() => setIsCartOpen(true)} className="relative p-2 hover:bg-white/10 rounded-full" aria-label="Ver carrito">
+                        <button onClick={() => setIsCartOpen(true)} className="relative p-2 hover:bg-white/10 rounded-full" aria-label={t('store.view_cart_aria')}>
                             <ShoppingCartIcon className="w-6 h-6" />
                             {cart.length > 0 && (
                                 <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -163,7 +166,7 @@ export const EcommerceStorePage: React.FC = () => {
                                 </span>
                             )}
                         </button>
-                        <RouterLink to="/login" className="text-sm hover:underline">Ingresar</RouterLink>
+                        <RouterLink to="/login" className="text-sm hover:underline">{t('store.login')}</RouterLink>
                     </div>
                 </div>
             </header>
@@ -193,7 +196,7 @@ export const EcommerceStorePage: React.FC = () => {
                     </div>
                 ) : (
                     <p className="text-center text-neutral-500 dark:text-neutral-400 py-10">
-                        {searchTerm ? 'No se encontraron productos con tu búsqueda.' : 'Esta tienda aún no tiene productos listados.'}
+                        {searchTerm ? t('store.no_products_search') : t('store.no_products')}
                     </p>
                 )}
             </main>
@@ -204,11 +207,11 @@ export const EcommerceStorePage: React.FC = () => {
             )}
             <aside className={`fixed top-0 right-0 h-full w-full max-w-sm bg-white dark:bg-neutral-800 shadow-xl transform transition-transform duration-300 ease-in-out z-50 flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="flex justify-between items-center p-4 border-b border-neutral-200 dark:border-neutral-700">
-                    <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">Tu Carrito</h2>
+                    <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">{t('store.your_cart')}</h2>
                     <button onClick={() => setIsCartOpen(false)} className="text-neutral-500 dark:text-neutral-400 hover:text-red-500 dark:hover:text-red-400">&times;</button>
                 </div>
                 {cart.length === 0 ? (
-                    <p className="p-6 text-center text-neutral-500 dark:text-neutral-400">Tu carrito está vacío.</p>
+                    <p className="p-6 text-center text-neutral-500 dark:text-neutral-400">{t('store.cart_empty')}</p>
                 ) : (
                     <div className="flex-grow overflow-y-auto p-4 space-y-3">
                         {cart.map(item => (
@@ -226,7 +229,7 @@ export const EcommerceStorePage: React.FC = () => {
                                         className="w-12 text-center text-sm border border-neutral-300 dark:border-neutral-600 rounded-md p-0.5 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 mx-2"
                                         min="1"
                                     />
-                                    <button onClick={() => handleRemoveFromCart(item.id)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1" aria-label="Quitar del carrito">
+                                    <button onClick={() => handleRemoveFromCart(item.id)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1" aria-label={t('store.remove_aria')}>
                                         <TrashIconMini className="w-4 h-4"/>
                                     </button>
                                 </div>
@@ -237,7 +240,7 @@ export const EcommerceStorePage: React.FC = () => {
                 {cart.length > 0 && (
                     <div className="p-4 border-t border-neutral-200 dark:border-neutral-700">
                         <div className="flex justify-between items-center mb-3">
-                            <p className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Total:</p>
+                            <p className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">{t('store.total')}:</p>
                             <p className="text-xl font-bold" style={{color: storePrimaryColor}}>${cartTotal.toFixed(2)}</p>
                         </div>
                         <button 
@@ -245,7 +248,7 @@ export const EcommerceStorePage: React.FC = () => {
                             className="w-full text-white font-semibold py-2.5 px-4 rounded-md transition-colors"
                             style={{ backgroundColor: storePrimaryColor }}
                         >
-                            Proceder al Pago
+                            {t('store.checkout_btn')}
                         </button>
                     </div>
                 )}
@@ -253,7 +256,7 @@ export const EcommerceStorePage: React.FC = () => {
             
             {/* Store Footer - Simple for now */}
             <footer className="py-8 text-center border-t border-neutral-200 dark:border-neutral-700 mt-12">
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">&copy; {new Date().getFullYear()} {storeSettings.storeName}. Potenciado por Pazzi.</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">&copy; {new Date().getFullYear()} {storeSettings.storeName}. {t('store.powered_by')}</p>
             </footer>
         </div>
     );

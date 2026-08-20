@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useData } from '../../contexts/DataContext';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { recurringService, type RecurringPayment, type RecurringCharge, type CreateRecurringInput, type RecurringMode, type LinkMethod } from '../../services/recurring';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -8,14 +9,15 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
-const INTERVAL_LABEL: Record<string, string> = { weekly: 'Semanal', biweekly: 'Quincenal', monthly: 'Mensual' };
-const STATUS_LABEL: Record<string, string> = { active: 'Activo', paused: 'Pausado', cancelled: 'Cancelado' };
+// Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
+const INTERVAL_LABEL: Record<string, string> = { weekly: 'posx.recurring.interval.weekly', biweekly: 'posx.recurring.interval.biweekly', monthly: 'posx.recurring.interval.monthly' };
+const STATUS_LABEL: Record<string, string> = { active: 'posx.recurring.status.active', paused: 'posx.recurring.status.paused', cancelled: 'posx.recurring.status.cancelled' };
 const STATUS_COLOR: Record<string, string> = { active: 'bg-green-100 text-green-700', paused: 'bg-amber-100 text-amber-700', cancelled: 'bg-neutral-200 text-neutral-500' };
 
 // Estado de pago de un período (para el modo factura + link, y compat con el modo cobro).
 const PAY_LABEL: Record<string, string> = {
-    approved: 'Aprobado', declined: 'Declinado', error: 'Error',
-    paid: 'Pagó', partial: 'Abono parcial', pending: 'Pendiente', overdue: 'No pagó', cancelled: 'Cancelada',
+    approved: 'posx.recurring.pay.approved', declined: 'posx.recurring.pay.declined', error: 'posx.recurring.pay.error',
+    paid: 'posx.recurring.pay.paid', partial: 'posx.recurring.pay.partial', pending: 'posx.recurring.pay.pending', overdue: 'posx.recurring.pay.overdue', cancelled: 'posx.recurring.pay.cancelled',
 };
 const PAY_COLOR: Record<string, string> = {
     approved: 'text-green-600', paid: 'text-green-600',
@@ -31,6 +33,7 @@ const PAY_BADGE: Record<string, string> = {
 const payState = (c: RecurringCharge) => c.payState || c.status;
 
 export const RecurringPaymentsPage: React.FC = () => {
+    const { t } = useTranslation();
     const { clients } = useData();
     const [items, setItems] = useState<RecurringPayment[]>([]);
     const [loading, setLoading] = useState(false);
@@ -81,22 +84,22 @@ export const RecurringPaymentsPage: React.FC = () => {
     const toggleMethod = (m: LinkMethod) => setMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
 
     const create = async () => {
-        if (!clientId) return toast.error('Selecciona un cliente.');
-        if (!amount || Number(amount) <= 0) return toast.error('Ingresa un monto válido.');
+        if (!clientId) return toast.error(t('posx.recurring.toast.selectClient'));
+        if (!amount || Number(amount) <= 0) return toast.error(t('posx.recurring.toast.invalidAmount'));
 
         const base: CreateRecurringInput = { clientId, mode, amount: Number(amount), interval, description: description || undefined };
 
         if (mode === 'invoice_link') {
-            if (methods.length === 0) return toast.error('Selecciona al menos un método de pago para el link.');
+            if (methods.length === 0) return toast.error(t('posx.recurring.toast.selectMethod'));
             const client = clients.find(c => c.id === clientId);
             const finalEmail = (email || client?.email || '').trim();
-            if (!finalEmail) return toast.error('El cliente no tiene correo. Escribe uno para enviarle la factura.');
+            if (!finalEmail) return toast.error(t('posx.recurring.toast.noEmail'));
             base.email = finalEmail;
             base.linkMethods = methods;
             base.graceDays = Math.max(0, Number(graceDays) || 0);
         } else {
             const [mm, yy] = expiry.split('/');
-            if (!mm || !yy) return toast.error('Fecha de expiración inválida.');
+            if (!mm || !yy) return toast.error(t('posx.recurring.toast.invalidExpiry'));
             base.card = card.replace(/\s/g, '');
             base.expMonth = mm; base.expYear = yy;
             base.cvv = cvv.replace(/\D/g, '');
@@ -106,83 +109,83 @@ export const RecurringPaymentsPage: React.FC = () => {
         setSaving(true);
         try {
             await recurringService.create(base);
-            toast.success(mode === 'invoice_link' ? 'Recurrente creado. Primera factura enviada.' : 'Pago recurrente creado. Primer cobro realizado.');
+            toast.success(mode === 'invoice_link' ? t('posx.recurring.toast.createdInvoice') : t('posx.recurring.toast.createdCharge'));
             setShowForm(false); resetForm(); load();
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo crear el pago recurrente.');
+            toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.createFailed'));
         } finally { setSaving(false); }
     };
 
     const doAction = async (id: string, action: 'pause' | 'resume' | 'cancel') => {
-        if (action === 'cancel' && !confirm('¿Cancelar este pago recurrente? No se volverá a cobrar/facturar.')) return;
+        if (action === 'cancel' && !confirm(t('posx.recurring.confirm.cancel'))) return;
         try { await recurringService.setStatus(id, action); load(); }
-        catch (err) { toast.error(err instanceof ApiError ? err.message : 'Error.'); }
+        catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
     };
 
     const chargeNow = async (rp: RecurringPayment) => {
         try {
             const r = await recurringService.chargeNow(rp.id);
-            if (rp.mode === 'invoice_link') toast.success(r.message || 'Factura enviada.');
-            else if (r.status === 'approved') toast.success(`Cobro aprobado. Ref: ${r.reference || '—'}`);
-            else toast.warning(`Cobro ${r.status}: ${r.message}`);
+            if (rp.mode === 'invoice_link') toast.success(r.message || t('posx.recurring.toast.invoiceSent'));
+            else if (r.status === 'approved') toast.success(t('posx.recurring.toast.chargeApproved', { ref: r.reference || '—' }));
+            else toast.warning(t('posx.recurring.toast.chargeResult', { status: r.status, message: r.message }));
             load();
-        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'Error.'); }
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
     };
 
     const copyLink = (token: string) => {
         const url = `${window.location.origin}/#/pay/${token}`;
-        navigator.clipboard?.writeText(url).then(() => toast.success('Link de pago copiado.'), () => toast.error('No se pudo copiar.'));
+        navigator.clipboard?.writeText(url).then(() => toast.success(t('posx.recurring.toast.linkCopied')), () => toast.error(t('posx.recurring.toast.copyFailed')));
     };
 
     return (
         <div>
             <div className="flex justify-between items-center mb-2">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Pagos Recurrentes</h1>
-                <button onClick={() => setShowForm(s => !s)} className={BUTTON_PRIMARY_SM_CLASSES}>{showForm ? 'Cerrar' : '+ Nuevo pago recurrente'}</button>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.recurring.title')}</h1>
+                <button onClick={() => setShowForm(s => !s)} className={BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.recurring.close') : t('posx.recurring.new')}</button>
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Dos modos por período: <b>cobro automático</b> con tarjeta tokenizada (AgilPay), o <b>factura + link</b> que se envía por correo para que el cliente pague (ATH Móvil y/o AgilPay). En modo factura, la lista muestra si pagó o no.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.recurring.subtitle.a')} <b>{t('posx.recurring.subtitle.autoCharge')}</b> {t('posx.recurring.subtitle.b')} <b>{t('posx.recurring.subtitle.invoiceLink')}</b> {t('posx.recurring.subtitle.c')}</p>
 
             {showForm && (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 mb-4 space-y-3">
-                    <h3 className="font-semibold text-primary">Nuevo pago recurrente</h3>
+                    <h3 className="font-semibold text-primary">{t('posx.recurring.form.title')}</h3>
 
                     {/* Selector de modo */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button type="button" onClick={() => setMode('invoice_link')}
                             className={`text-left p-3 rounded-lg border ${mode === 'invoice_link' ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}`}>
-                            <div className="font-medium text-sm">📧 Factura + link</div>
-                            <div className="text-xs text-neutral-500">Envía la factura cada período; el cliente paga con el link (ATH/AgilPay).</div>
+                            <div className="font-medium text-sm">📧 {t('posx.recurring.mode.invoiceLink')}</div>
+                            <div className="text-xs text-neutral-500">{t('posx.recurring.mode.invoiceLink.desc')}</div>
                         </button>
                         <button type="button" onClick={() => setMode('auto_charge')}
                             className={`text-left p-3 rounded-lg border ${mode === 'auto_charge' ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}`}>
-                            <div className="font-medium text-sm">💳 Cobro automático</div>
-                            <div className="text-xs text-neutral-500">Cobra la tarjeta tokenizada automáticamente cada período.</div>
+                            <div className="font-medium text-sm">💳 {t('posx.recurring.mode.autoCharge')}</div>
+                            <div className="text-xs text-neutral-500">{t('posx.recurring.mode.autoCharge.desc')}</div>
                         </button>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">Cliente</label>
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.client')}</label>
                             <select value={clientId} onChange={e => onSelectClient(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
-                                <option value="">Selecciona…</option>
+                                <option value="">{t('posx.recurring.form.select')}</option>
                                 {clients.filter(c => !c.isDefault).map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">Monto por período</label>
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.amount')}</label>
                             <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-full`} />
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">Frecuencia</label>
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.frequency')}</label>
                             <select value={interval} onChange={e => setInterval(e.target.value as any)} className={`${INPUT_SM_CLASSES} w-full`}>
-                                <option value="weekly">Semanal</option>
-                                <option value="biweekly">Quincenal</option>
-                                <option value="monthly">Mensual</option>
+                                <option value="weekly">{t('posx.recurring.interval.weekly')}</option>
+                                <option value="biweekly">{t('posx.recurring.interval.biweekly')}</option>
+                                <option value="monthly">{t('posx.recurring.interval.monthly')}</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">Descripción (opcional)</label>
-                            <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ej. Membresía mensual" className={`${INPUT_SM_CLASSES} w-full`} />
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.description')}</label>
+                            <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder={t('posx.recurring.form.description.ph')} className={`${INPUT_SM_CLASSES} w-full`} />
                         </div>
                     </div>
 
@@ -190,21 +193,21 @@ export const RecurringPaymentsPage: React.FC = () => {
                         <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-3">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Correo del cliente (se le envía la factura)</label>
-                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="cliente@correo.com" className={`${INPUT_SM_CLASSES} w-full`} autoComplete="off" />
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.clientEmail')}</label>
+                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('posx.recurring.form.clientEmail.ph')} className={`${INPUT_SM_CLASSES} w-full`} autoComplete="off" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Holgura (días de tolerancia para pagar)</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.grace')}</label>
                                     <input type="number" min={0} value={graceDays} onChange={e => setGraceDays(e.target.value)} placeholder="3" className={`${INPUT_SM_CLASSES} w-full`} />
-                                    <p className="text-[11px] text-neutral-400 mt-1">Tras vencer + estos días sin pago, el período se marca <b>“No pagó”</b>.</p>
+                                    <p className="text-[11px] text-neutral-400 mt-1">{t('posx.recurring.form.grace.note.a')} <b>{t('posx.recurring.form.grace.note.unpaid')}</b>.</p>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs text-neutral-500 mb-1">Métodos de pago que ofrece el link</label>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.linkMethods')}</label>
                                 <div className="flex gap-4">
                                     <label className="flex items-center gap-2 text-sm">
                                         <input type="checkbox" checked={methods.includes('agilpay')} onChange={() => toggleMethod('agilpay')} className="h-4 w-4" />
-                                        💳 AgilPay (tarjeta)
+                                        💳 {t('posx.recurring.form.agilpayCard')}
                                     </label>
                                     <label className="flex items-center gap-2 text-sm">
                                         <input type="checkbox" checked={methods.includes('ath')} onChange={() => toggleMethod('ath')} className="h-4 w-4" />
@@ -215,10 +218,10 @@ export const RecurringPaymentsPage: React.FC = () => {
                         </div>
                     ) : (
                         <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3">
-                            <label className="block text-xs text-neutral-500 mb-1">Tarjeta (se cobra el primer período ahora y se guarda como token)</label>
-                            <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder="Número de tarjeta" className={`${INPUT_SM_CLASSES} w-full mb-2`} autoComplete="off" />
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.card')}</label>
+                            <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder={t('posx.recurring.form.cardNumber.ph')} className={`${INPUT_SM_CLASSES} w-full mb-2`} autoComplete="off" />
                             <div className="grid grid-cols-3 gap-2">
-                                <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder="MM/AA" className={INPUT_SM_CLASSES} autoComplete="off" />
+                                <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder={t('posx.recurring.form.expiry.ph')} className={INPUT_SM_CLASSES} autoComplete="off" />
                                 <input type="text" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={INPUT_SM_CLASSES} autoComplete="off" />
                                 <input type="text" inputMode="numeric" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))} placeholder="Zip" className={INPUT_SM_CLASSES} autoComplete="off" />
                             </div>
@@ -226,16 +229,16 @@ export const RecurringPaymentsPage: React.FC = () => {
                     )}
 
                     <div className="flex justify-end gap-2">
-                        <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                        <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.recurring.form.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                            {saving ? 'Procesando…' : mode === 'invoice_link' ? 'Crear y enviar primera factura' : 'Crear y cobrar primer período'}
+                            {saving ? t('posx.recurring.form.processing') : mode === 'invoice_link' ? t('posx.recurring.form.submitInvoice') : t('posx.recurring.form.submitCharge')}
                         </button>
                     </div>
                 </div>
             )}
 
             {loading ? <LoadingSkeleton variant="list" rows={4} /> : items.length === 0 ? (
-                <EmptyState title="Sin pagos recurrentes" description="Crea uno para cobrar o facturar automáticamente a un cliente cada período." />
+                <EmptyState title={t('posx.recurring.empty.title')} description={t('posx.recurring.empty.desc')} />
             ) : (
                 <div className="space-y-2">
                     {items.map(rp => {
@@ -244,41 +247,41 @@ export const RecurringPaymentsPage: React.FC = () => {
                         return (
                         <div key={rp.id} className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3">
                             <div className="flex items-center gap-3 flex-wrap">
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLOR[rp.status]}`}>{STATUS_LABEL[rp.status]}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${isInvoice ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{isInvoice ? '📧 Factura + link' : '💳 Cobro auto'}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLOR[rp.status]}`}>{t(STATUS_LABEL[rp.status])}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${isInvoice ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{isInvoice ? `📧 ${t('posx.recurring.mode.invoiceLink')}` : `💳 ${t('posx.recurring.badge.autoCharge')}`}</span>
                                 <span className="font-semibold text-neutral-800 dark:text-neutral-100">{rp.clientName}</span>
-                                <span className="text-neutral-500">· {money(rp.amount)} {INTERVAL_LABEL[rp.interval]}</span>
+                                <span className="text-neutral-500">· {money(rp.amount)} {t(INTERVAL_LABEL[rp.interval])}</span>
                                 {!isInvoice && rp.cardLast4 && <span className="text-xs text-neutral-400">·•••• {rp.cardLast4}</span>}
-                                {isInvoice && cur && <span className={`text-xs px-2 py-0.5 rounded-full ${PAY_BADGE[cur] || 'bg-neutral-100 text-neutral-600'}`}>{PAY_LABEL[cur] || cur}</span>}
-                                <span className="text-xs text-neutral-400 ml-auto">Próx{isInvoice ? '. factura' : '. cobro'}: {rp.status === 'cancelled' ? '—' : new Date(rp.nextChargeDate).toLocaleDateString()}</span>
+                                {isInvoice && cur && <span className={`text-xs px-2 py-0.5 rounded-full ${PAY_BADGE[cur] || 'bg-neutral-100 text-neutral-600'}`}>{PAY_LABEL[cur] ? t(PAY_LABEL[cur]) : cur}</span>}
+                                <span className="text-xs text-neutral-400 ml-auto">{isInvoice ? t('posx.recurring.nextInvoice') : t('posx.recurring.nextCharge')}: {rp.status === 'cancelled' ? '—' : new Date(rp.nextChargeDate).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-neutral-500">
                                 {rp.description && <span>{rp.description}</span>}
                                 {isInvoice && rp.clientEmail && <span>· ✉ {rp.clientEmail}</span>}
                                 {isInvoice && <span>· Link: {(rp.linkMethods || 'agilpay,ath').split(',').map(m => m === 'ath' ? 'ATH Móvil' : 'AgilPay').join(' + ')}</span>}
-                                {isInvoice && (rp.graceDays ?? 0) > 0 && <span>· Holgura: {rp.graceDays} día(s)</span>}
+                                {isInvoice && (rp.graceDays ?? 0) > 0 && <span>· {t('posx.recurring.graceLabel', { days: rp.graceDays ?? 0 })}</span>}
                             </div>
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                {rp.status !== 'cancelled' && <button onClick={() => chargeNow(rp)} className="text-xs text-primary hover:underline">{isInvoice ? 'Enviar factura ahora' : 'Cobrar ahora'}</button>}
-                                {rp.status === 'active' && <button onClick={() => doAction(rp.id, 'pause')} className="text-xs text-amber-600 hover:underline">Pausar</button>}
-                                {rp.status === 'paused' && <button onClick={() => doAction(rp.id, 'resume')} className="text-xs text-green-600 hover:underline">Reanudar</button>}
-                                {rp.status !== 'cancelled' && <button onClick={() => doAction(rp.id, 'cancel')} className="text-xs text-red-600 hover:underline">Cancelar</button>}
-                                <button onClick={() => setExpanded(expanded === rp.id ? null : rp.id)} className="text-xs text-neutral-500 hover:underline ml-auto">{expanded === rp.id ? 'Ocultar' : 'Historial'} ({rp.charges.length})</button>
+                                {rp.status !== 'cancelled' && <button onClick={() => chargeNow(rp)} className="text-xs text-primary hover:underline">{isInvoice ? t('posx.recurring.action.sendInvoiceNow') : t('posx.recurring.action.chargeNow')}</button>}
+                                {rp.status === 'active' && <button onClick={() => doAction(rp.id, 'pause')} className="text-xs text-amber-600 hover:underline">{t('posx.recurring.action.pause')}</button>}
+                                {rp.status === 'paused' && <button onClick={() => doAction(rp.id, 'resume')} className="text-xs text-green-600 hover:underline">{t('posx.recurring.action.resume')}</button>}
+                                {rp.status !== 'cancelled' && <button onClick={() => doAction(rp.id, 'cancel')} className="text-xs text-red-600 hover:underline">{t('posx.recurring.action.cancel')}</button>}
+                                <button onClick={() => setExpanded(expanded === rp.id ? null : rp.id)} className="text-xs text-neutral-500 hover:underline ml-auto">{expanded === rp.id ? t('posx.recurring.action.hide') : t('posx.recurring.action.history')} ({rp.charges.length})</button>
                             </div>
                             {expanded === rp.id && (
                                 <table className="min-w-full text-sm mt-2 border-t border-neutral-100 dark:border-neutral-700">
                                     <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700">
-                                        {rp.charges.length === 0 ? <tr><td className="p-2 text-neutral-400">Sin movimientos aún.</td></tr> : rp.charges.map(c => {
+                                        {rp.charges.length === 0 ? <tr><td className="p-2 text-neutral-400">{t('posx.recurring.noMovements')}</td></tr> : rp.charges.map(c => {
                                             const st = payState(c);
                                             return (
                                             <tr key={c.id}>
                                                 <td className="p-2 whitespace-nowrap">{new Date(c.date).toLocaleDateString()}</td>
                                                 <td className="p-2">{money(c.amount)}</td>
-                                                <td className={`p-2 font-medium ${PAY_COLOR[st] || 'text-neutral-500'}`}>{PAY_LABEL[st] || st}</td>
+                                                <td className={`p-2 font-medium ${PAY_COLOR[st] || 'text-neutral-500'}`}>{PAY_LABEL[st] ? t(PAY_LABEL[st]) : st}</td>
                                                 <td className="p-2 text-neutral-500 text-xs">
                                                     {c.reference || c.message || ''}
                                                     {c.invoiceToken && (st === 'pending' || st === 'overdue' || st === 'partial') && (
-                                                        <button onClick={() => copyLink(c.invoiceToken!)} className="ml-2 text-primary hover:underline">Copiar link</button>
+                                                        <button onClick={() => copyLink(c.invoiceToken!)} className="ml-2 text-primary hover:underline">{t('posx.recurring.copyLink')}</button>
                                                     )}
                                                 </td>
                                             </tr>

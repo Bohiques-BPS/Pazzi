@@ -50,6 +50,7 @@ interface QuickCreateModalProps {
 }
 
 const QuickCreateModal: React.FC<QuickCreateModalProps> = ({ isOpen, title, placeholder, onClose, onCreate }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [saving, setSaving] = useState(false);
     if (!isOpen) return null;
@@ -62,7 +63,7 @@ const QuickCreateModal: React.FC<QuickCreateModalProps> = ({ isOpen, title, plac
             setName('');
             onClose();
         } catch {
-            toast.error('Error al guardar. Intente de nuevo.');
+            toast.error(t('pm2x.quickcreate.save_error'));
         } finally {
             setSaving(false);
         }
@@ -79,9 +80,9 @@ const QuickCreateModal: React.FC<QuickCreateModalProps> = ({ isOpen, title, plac
                     autoFocus
                 />
                 <div className="flex justify-end space-x-2">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={saving}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={saving}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={saving || !name.trim()}>
-                        {saving ? 'Guardando...' : 'Crear'}
+                        {saving ? t('common.saving') : t('common.create')}
                     </button>
                 </div>
             </form>
@@ -104,7 +105,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
     const tabs = [
         { id: 'Personal', label: t('employee.tab.personal') || 'Personal' },
         { id: 'Acceso y Empleo', label: t('employee.tab.access') || 'Acceso y Empleo' },
-        { id: 'Acceso y Permisos', label: 'Acceso y Permisos' },
+        { id: 'Acceso y Permisos', label: t('pm2x.employee.tab.permissions_access') },
         { id: 'Información Adicional', label: t('employee.tab.info') || 'Información Adicional' },
     ];
 
@@ -154,7 +155,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
         setCatalogLoading(true);
         permissionsService.getCatalog()
             .then(res => { if (!cancelled) setCatalog(res.categories); })
-            .catch(() => { if (!cancelled) toast.error('No se pudo cargar el catálogo de permisos'); })
+            .catch(() => { if (!cancelled) toast.error(t('pm2x.employee.catalog_error')); })
             .finally(() => { if (!cancelled) setCatalogLoading(false); });
         employeePositionsService.getAll().then(data => { if (!cancelled) setPositions(data); }).catch(() => {});
         employeeDepartmentsService.getAll().then(data => { if (!cancelled) setEmpDepartments(data); }).catch(() => {});
@@ -248,9 +249,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
         setResending(true);
         try {
             const res = await authService.resendInvitation(employee.id);
-            toast.success(`Invitación reenviada. Expira el ${new Date(res.expiresAt).toLocaleString()}`);
+            toast.success(t('pm2x.employee.invite_resent', { date: new Date(res.expiresAt).toLocaleString() }));
         } catch (err) {
-            const msg = err instanceof ApiError ? err.message : 'Error al reenviar invitación';
+            const msg = err instanceof ApiError ? err.message : t('pm2x.employee.resend_error');
             toast.error(msg);
         } finally {
             setResending(false);
@@ -259,17 +260,17 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
 
     const validateForm = (): Record<string, string> => {
         const errors: Record<string, string> = {};
-        if (!formData.name.trim()) errors.name = 'El nombre es requerido';
-        if (!formData.lastName.trim()) errors.lastName = 'El apellido es requerido';
-        if (!formData.email.trim()) errors.email = 'El email es requerido';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'El formato del email es inválido';
+        if (!formData.name.trim()) errors.name = t('pm2x.employee.err.name_required');
+        if (!formData.lastName.trim()) errors.lastName = t('pm2x.employee.err.lastname_required');
+        if (!formData.email.trim()) errors.email = t('pm2x.employee.err.email_required');
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = t('pm2x.employee.err.email_invalid');
 
         if (formData.pin || formData.confirmPin) {
-            if (!/^\d{4}$/.test(formData.pin || '')) errors.pin = 'Deben ser 4 números';
-            if (formData.pin !== formData.confirmPin) errors.confirmPin = 'PIN no coincide';
+            if (!/^\d{4}$/.test(formData.pin || '')) errors.pin = t('pm2x.employee.err.pin_4digits');
+            if (formData.pin !== formData.confirmPin) errors.confirmPin = t('pm2x.employee.err.pin_mismatch');
         }
 
-        if (salaryInput.trim() && !Number.isFinite(parseFloat(salaryInput.replace(',', '.')))) errors.salary = 'Monto inválido';
+        if (salaryInput.trim() && !Number.isFinite(parseFloat(salaryInput.replace(',', '.')))) errors.salary = t('pm2x.employee.err.invalid_amount');
 
         return errors;
     };
@@ -332,14 +333,15 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             const emailSent = (saved as any)?.emailSent as boolean | undefined;
             // Se acaba de habilitar el acceso (al crear, o al editar un empleado que no tenía cuenta).
             if (!linkedUser && enableLogin) {
+                const base = employee ? t('pm2x.employee.access_enabled') : t('pm2x.employee.created');
                 toast.success(emailSent
-                    ? `${employee ? 'Acceso habilitado' : 'Empleado creado'}. Se envió una invitación por correo para activar la cuenta.`
-                    : `${employee ? 'Acceso habilitado' : 'Empleado creado'}. Comparte el enlace de activación (el correo no pudo enviarse).`);
+                    ? `${base}${t('pm2x.employee.invite_email_sent_suffix')}`
+                    : `${base}${t('pm2x.employee.invite_share_suffix')}`);
                 if (activationLink) {
                     onActivationLink?.({ name: `${formData.name} ${formData.lastName}`.trim(), link: activationLink, emailSent });
                 }
             } else {
-                toast.success(employee ? 'Empleado actualizado' : 'Empleado creado');
+                toast.success(employee ? t('pm2x.employee.updated') : t('pm2x.employee.created'));
             }
 
             if (emailChanged) {
@@ -357,12 +359,12 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         if (path) backendErrors[path] = err.message;
                     });
                     setFieldErrors(backendErrors);
-                    toast.error('Revise los errores marcados en el formulario');
+                    toast.error(t('pm2x.employee.check_errors'));
                 } else {
                     toast.error(error.message);
                 }
             } else {
-                toast.error('Error de conexión con el servidor');
+                toast.error(t('pm2x.employee.connection_error'));
             }
         } finally {
             setIsSubmitting(false);
@@ -414,7 +416,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                     {Object.keys(fieldErrors).length > 0 && (
                         <div className="p-3 mb-2 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-xs">
                             <ExclamationTriangleIcon className="w-4 h-4 mr-2 flex-shrink-0" />
-                            Por favor, corrija los errores en las pestañas marcadas.
+                            {t('pm2x.employee.fix_errors')}
                         </div>
                     )}
 
@@ -440,25 +442,25 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         </div>
                         <div>
                             <label className="block text-sm font-medium">{t('employee.field.address') || 'Dirección'}</label>
-                            <RichTextEditor value={formData.address || ''} onChange={(value) => setFormData(prev => ({ ...prev, address: value }))} placeholder="Dirección completa" />
+                            <RichTextEditor value={formData.address || ''} onChange={(value) => setFormData(prev => ({ ...prev, address: value }))} placeholder={t('pm2x.employee.address_placeholder')} />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium">Foto de Perfil</label>
+                            <label className="block text-sm font-medium">{t('employee.field.photo')}</label>
                             <div className="mt-1 flex items-center space-x-4">
                                 {formData.profilePictureUrl ? (
                                     <div className="relative w-24 h-24 border rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-inner">
-                                        <img src={formData.profilePictureUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        <img src={formData.profilePictureUrl} alt={t('pm2x.common.preview')} className="w-full h-full object-cover" />
                                         <button type="button" onClick={() => { setFormData(prev => ({ ...prev, profilePictureUrl: '' })); setImageFile(null); }} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-full hover:bg-red-600">
                                             <TrashIconMini className="w-3 h-3" />
                                         </button>
                                     </div>
                                 ) : (
-                                    <label htmlFor="employee-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title="Haz clic para elegir una imagen">
+                                    <label htmlFor="employee-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title={t('pm2x.employee.choose_image_title')}>
                                         <CameraIcon className="w-8 h-8 text-neutral-400" />
                                     </label>
                                 )}
                                 <label className={BUTTON_SECONDARY_SM_CLASSES + ' cursor-pointer'}>
-                                    Elegir Archivo
+                                    {t('common.choose_file')}
                                     <input id="employee-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 </label>
                             </div>
@@ -468,20 +470,20 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                     {/* Acceso y Empleo Tab */}
                     <div className={activeTab === 'Acceso y Empleo' ? 'space-y-4' : 'hidden'}>
                         <div>
-                            <label className="block text-sm font-medium">Email (usuario)</label>
+                            <label className="block text-sm font-medium">{t('pm2x.employee.email_user')}</label>
                             <input type="email" name="email" value={formData.email} onChange={handleChange} className={`${inputFormStyle} ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : ''}`} />
                             {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
-                            {!!employee && linkedUser && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Si cambias el email, también se actualiza el correo de acceso del empleado.</p>}
+                            {!!employee && linkedUser && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('pm2x.employee.email_change_note')}</p>}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 dark:border-neutral-600">
                             <div>
-                                <label className="block text-sm font-medium flex items-center"><KeyIcon className="w-3 h-3 mr-1" />PIN POS (4 dígitos)</label>
+                                <label className="block text-sm font-medium flex items-center"><KeyIcon className="w-3 h-3 mr-1" />{t('pm2x.employee.pin_pos')}</label>
                                 <input type="password" name="pin" value={formData.pin || ''} onChange={handleChange} className={`${inputFormStyle} ${fieldErrors.pin ? 'border-red-500 focus:ring-red-500' : ''}`} placeholder="****" maxLength={4} />
                                 {fieldErrors.pin && <p className="mt-1 text-xs text-red-500">{fieldErrors.pin}</p>}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium flex items-center"><KeyIcon className="w-3 h-3 mr-1" />Confirmar PIN</label>
+                                <label className="block text-sm font-medium flex items-center"><KeyIcon className="w-3 h-3 mr-1" />{t('pm2x.employee.confirm_pin')}</label>
                                 <input type="password" name="confirmPin" value={formData.confirmPin || ''} onChange={handleChange} className={`${inputFormStyle} ${fieldErrors.confirmPin ? 'border-red-500 focus:ring-red-500' : ''}`} placeholder="****" maxLength={4} />
                                 {fieldErrors.confirmPin && <p className="mt-1 text-xs text-red-500">{fieldErrors.confirmPin}</p>}
                             </div>
@@ -489,25 +491,25 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium">Puesto</label>
+                                <label className="block text-sm font-medium">{t('pm2x.employee.position')}</label>
                                 <div className="flex gap-2">
                                     <select name="role" value={formData.role} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
-                                        <option value="">-- Seleccionar --</option>
+                                        <option value="">{t('pm2x.common.select_placeholder')}</option>
                                         {positions.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                     </select>
-                                    <button type="button" onClick={() => setShowPositionModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title="Agregar nuevo puesto">
+                                    <button type="button" onClick={() => setShowPositionModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('pm2x.employee.add_position')}>
                                         <PlusIcon className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">Departamento</label>
+                                <label className="block text-sm font-medium">{t('pm2x.employee.department')}</label>
                                 <div className="flex gap-2">
                                     <select name="department" value={formData.department || ''} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
-                                        <option value="">-- Seleccionar --</option>
+                                        <option value="">{t('pm2x.common.select_placeholder')}</option>
                                         {empDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                                     </select>
-                                    <button type="button" onClick={() => setShowDeptModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title="Agregar nuevo departamento">
+                                    <button type="button" onClick={() => setShowDeptModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('pm2x.employee.add_department')}>
                                         <PlusIcon className="w-4 h-4" />
                                     </button>
                                 </div>
@@ -515,7 +517,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium">Número de empleado</label>
+                                <label className="block text-sm font-medium">{t('pm2x.employee.number')}</label>
                                 <input
                                     type="text"
                                     inputMode="numeric"
@@ -525,17 +527,17 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                                         const digits = e.target.value.replace(/\D/g, '');
                                         setFormData(prev => ({ ...prev, employeeNumber: digits ? Number(digits) : undefined } as EmployeeFormState));
                                     }}
-                                    placeholder="Automático si lo dejas vacío"
+                                    placeholder={t('pm2x.employee.number_placeholder')}
                                     className={inputFormStyle}
                                 />
-                                <p className="mt-1 text-xs text-neutral-500">Identificador del empleado (para el ponche). Se asigna solo si lo dejas vacío.</p>
+                                <p className="mt-1 text-xs text-neutral-500">{t('pm2x.employee.number_hint')}</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">Fecha de contratación</label>
+                                <label className="block text-sm font-medium">{t('pm2x.employee.hire_date')}</label>
                                 <input type="date" name="hireDate" value={formData.hireDate || ''} onChange={handleChange} className={inputFormStyle} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">Salario (anual)</label>
+                                <label className="block text-sm font-medium">{t('pm2x.employee.salary')}</label>
                                 <input
                                     type="text"
                                     inputMode="decimal"
@@ -556,15 +558,15 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         {linkedUser && (
                             <div className="p-3 rounded-md bg-neutral-50 dark:bg-neutral-700/50 border border-neutral-200 dark:border-neutral-600 flex items-center justify-between flex-wrap gap-2">
                                 <div className="text-sm">
-                                    <span className="font-medium">Estado de la cuenta:</span>{' '}
-                                    {linkedUser.status === UserStatus.ACTIVE && <span className="text-green-600 dark:text-green-400">Activa</span>}
-                                    {linkedUser.status === UserStatus.INVITED && <span className="text-amber-600 dark:text-amber-400">Pendiente de activación</span>}
-                                    {linkedUser.status === UserStatus.DISABLED && <span className="text-red-600 dark:text-red-400">Deshabilitada</span>}
-                                    {linkedUser.lastLoginAt && <span className="text-xs text-neutral-500 ml-2">(último login: {new Date(linkedUser.lastLoginAt).toLocaleString()})</span>}
+                                    <span className="font-medium">{t('pm2x.employee.account_status')}</span>{' '}
+                                    {linkedUser.status === UserStatus.ACTIVE && <span className="text-green-600 dark:text-green-400">{t('pm2x.employee.status.active')}</span>}
+                                    {linkedUser.status === UserStatus.INVITED && <span className="text-amber-600 dark:text-amber-400">{t('pm2x.employee.status_pending_activation')}</span>}
+                                    {linkedUser.status === UserStatus.DISABLED && <span className="text-red-600 dark:text-red-400">{t('pm2x.employee.status.disabled')}</span>}
+                                    {linkedUser.lastLoginAt && <span className="text-xs text-neutral-500 ml-2">{t('pm2x.employee.last_login', { date: new Date(linkedUser.lastLoginAt).toLocaleString() })}</span>}
                                 </div>
                                 {linkedUser.status === UserStatus.INVITED && (
                                     <button type="button" className={BUTTON_SECONDARY_SM_CLASSES} disabled={resending} onClick={handleResendInvitation}>
-                                        {resending ? 'Reenviando...' : 'Reenviar invitación'}
+                                        {resending ? t('pm2x.employee.resending') : t('pm2x.employee.resend_title')}
                                     </button>
                                 )}
                             </div>
@@ -579,10 +581,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                                     className="mt-0.5"
                                 />
                                 <div>
-                                    <div className="text-sm font-medium flex items-center"><LockClosedIcon className="w-4 h-4 mr-1" /> Habilitar acceso al sistema</div>
+                                    <div className="text-sm font-medium flex items-center"><LockClosedIcon className="w-4 h-4 mr-1" /> {t('pm2x.employee.enable_access')}</div>
                                     <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                                        Se enviará un correo a {formData.email || 'el empleado'} con un enlace para que cree su contraseña.
-                                        Si lo dejas desactivado, el empleado solo será un registro de RRHH sin login.
+                                        {t('pm2x.employee.enable_access_desc', { email: formData.email || t('pm2x.employee.the_employee') })}
                                     </p>
                                 </div>
                             </label>
@@ -593,27 +594,26 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                                 {/* Selector de ROL centralizado. Los permisos vienen 100% del rol. */}
                                 <SelectWithCreate
                                     id="permissionRoleId"
-                                    label="Rol del empleado"
+                                    label={t('pm2x.employee.role_label')}
                                     value={permissionRoleId}
                                     onChange={setPermissionRoleId}
                                     options={roles.map(r => ({ value: r.id, label: r.name }))}
                                     onCreateClick={() => setShowRoleModal(true)}
-                                    placeholder="Sin rol asignado"
-                                    emptyHint="No hay roles. Usa + para crear uno (ej: Caja) con sus permisos."
-                                    createTitle="Crear nuevo rol"
+                                    placeholder={t('pm2x.employee.no_role')}
+                                    emptyHint={t('pm2x.employee.no_roles_hint')}
+                                    createTitle={t('pm2x.employee.create_role')}
                                 />
 
                                 <div className="flex items-center justify-between pt-2">
-                                    <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Permisos del rol (solo lectura)</h4>
+                                    <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.employee.role_perms_readonly')}</h4>
                                     <span className="text-xs text-neutral-500">
-                                        {Object.values(roles.find(r => r.id === permissionRoleId)?.permissions || {}).filter(Boolean).length} permiso(s)
+                                        {t('pm2x.employee.perms_count', { n: Object.values(roles.find(r => r.id === permissionRoleId)?.permissions || {}).filter(Boolean).length })}
                                     </span>
                                 </div>
 
                                 {!permissionRoleId ? (
                                     <div className="text-sm text-neutral-500 bg-neutral-50 dark:bg-neutral-700/40 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md p-3">
-                                        Selecciona un rol arriba (o créalo con +). Los permisos se administran en el rol —
-                                        editarlo actualiza a todos los empleados que lo tengan.
+                                        {t('pm2x.employee.select_role_hint')}
                                     </div>
                                 ) : catalog.map(category => {
                                     const perms = roles.find(r => r.id === permissionRoleId)?.permissions || {};
@@ -640,39 +640,39 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                     {/* Información Adicional Tab */}
                     <div className={activeTab === 'Información Adicional' ? 'space-y-4' : 'hidden'}>
                         <div>
-                            <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Contacto de emergencia</h4>
+                            <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.employee.emergency_contact')}</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                                 <div>
-                                    <label className="block text-sm font-medium">Nombre del contacto</label>
+                                    <label className="block text-sm font-medium">{t('pm2x.employee.contact_name')}</label>
                                     <input type="text" name="emergencyContactName" value={formData.emergencyContactName || ''} onChange={handleChange} className={inputFormStyle} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium">Relación</label>
+                                    <label className="block text-sm font-medium">{t('pm2x.employee.relationship')}</label>
                                     <input type="text" name="emergencyContactRelationship" value={formData.emergencyContactRelationship || ''} onChange={handleChange} className={inputFormStyle} />
                                 </div>
                             </div>
                             <div className="mt-2">
-                                <label className="block text-sm font-medium">Teléfono de emergencia</label>
+                                <label className="block text-sm font-medium">{t('pm2x.employee.emergency_phone')}</label>
                                 <input type="tel" name="emergencyContactPhone" value={formData.emergencyContactPhone || ''} onChange={handleChange} className={inputFormStyle} />
                             </div>
                         </div>
                         <div className="pt-4 border-t dark:border-neutral-700">
-                            <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Información bancaria (sensible)</h4>
+                            <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.employee.bank_info')}</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                                 <div>
-                                    <label className="block text-sm font-medium">Banco</label>
+                                    <label className="block text-sm font-medium">{t('pm2x.employee.bank')}</label>
                                     <input type="text" name="bankName" value={formData.bankName || ''} onChange={handleChange} className={inputFormStyle} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium">Número de cuenta</label>
+                                    <label className="block text-sm font-medium">{t('pm2x.employee.account_number')}</label>
                                     <input type="text" name="bankAccountNumber" value={formData.bankAccountNumber || ''} onChange={handleChange} className={inputFormStyle} />
                                 </div>
                             </div>
                         </div>
                         <div className="pt-4 border-t dark:border-neutral-700">
-                            <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Información social (sensible)</h4>
+                            <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.employee.social_info')}</h4>
                             <div className="mt-2">
-                                <label className="block text-sm font-medium">Número de seguro social</label>
+                                <label className="block text-sm font-medium">{t('pm2x.employee.ssn')}</label>
                                 <input type="text" name="socialSecurityNumber" value={formData.socialSecurityNumber || ''} onChange={handleChange} className={inputFormStyle} />
                             </div>
                         </div>
@@ -682,7 +682,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                 <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel') || 'Cancelar'}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
-                        {isSubmitting ? 'Guardando...' : (t('common.save') || 'Guardar')}
+                        {isSubmitting ? t('common.saving') : (t('common.save') || 'Guardar')}
                     </button>
                 </div>
             </form>
@@ -690,8 +690,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
 
         <QuickCreateModal
             isOpen={showPositionModal}
-            title="Nuevo puesto"
-            placeholder="Ej: Cajero, Vendedor, Supervisor..."
+            title={t('pm2x.employee.new_position')}
+            placeholder={t('pm2x.employee.position_placeholder')}
             onClose={() => setShowPositionModal(false)}
             onCreate={async (name) => {
                 const created = await employeePositionsService.create(name);
@@ -701,8 +701,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
         />
         <QuickCreateModal
             isOpen={showDeptModal}
-            title="Nuevo departamento"
-            placeholder="Ej: Ventas, Almacén, Administración..."
+            title={t('pm2x.employee.new_department')}
+            placeholder={t('pm2x.employee.department_placeholder')}
             onClose={() => setShowDeptModal(false)}
             onCreate={async (name) => {
                 const created = await employeeDepartmentsService.create(name);
@@ -712,10 +712,10 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
         />
         <ConfirmationModal
             isOpen={askResend}
-            title="Correo actualizado"
-            message={`Cambiaste el correo a ${formData.email}. ¿Deseas enviar nuevamente el mensaje de activación a este correo?`}
-            confirmButtonText="Sí, reenviar"
-            cancelButtonText="No, gracias"
+            title={t('pm2x.employee.email_updated_title')}
+            message={t('pm2x.employee.email_updated_msg', { email: formData.email })}
+            confirmButtonText={t('pm2x.employee.yes_resend')}
+            cancelButtonText={t('pm2x.common.no_thanks')}
             onConfirm={async () => { await handleResendInvitation(); }}
             onClose={() => { setAskResend(false); onClose(); }}
         />

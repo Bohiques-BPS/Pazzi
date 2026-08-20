@@ -90,7 +90,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
     const handleConfirm = () => {
         const paymentAmount = parseFloat(amount);
         if (isNaN(paymentAmount) || paymentAmount <= 0 || paymentAmount > sale.balance + 0.001) {
-            toast.error(`Monto inválido. No puede ser mayor al balance de $${sale.balance.toFixed(2)}.`);
+            toast.error(t('posx.receivable.invalid_amount', { balance: sale.balance.toFixed(2) }));
             return;
         }
         onConfirm(sale.id, paymentAmount, method, notes, attachment);
@@ -113,7 +113,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                 </div>
                 <div>
                     <label className="block text-sm">{t('pos.receivable.payment_modal.reference')}</label>
-                    <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className={inputFormStyle} placeholder="Factura #12345" />
+                    <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className={inputFormStyle} placeholder={t('posx.receivable.reference_placeholder')} />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('pos.receivable.payment_modal.attachment')}</label>
@@ -160,12 +160,18 @@ interface PaymentReminderModalProps {
 }
 
 const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ isOpen, onClose, sale, clientName, onSend }) => {
+    const { t } = useTranslation();
     const [message, setMessage] = useState('');
 
     useEffect(() => {
         if (sale && isOpen) {
             // Generate default message
-            const defaultMessage = `Estimado/a ${clientName},<br/><br/>Le recordamos amablemente que tiene un saldo pendiente de <b>$${sale.balance.toFixed(2)}</b> correspondiente a la venta <b>#${sale.id.slice(-6).toUpperCase()}</b> con fecha del ${new Date(sale.date).toLocaleDateString()}.<br/><br/>Agradecemos su pronto pago.<br/><br/>Atentamente,<br/>El equipo de Pazzi.`;
+            const defaultMessage = t('posx.receivable.reminder_default_message', {
+                clientName,
+                balance: sale.balance.toFixed(2),
+                saleId: sale.id.slice(-6).toUpperCase(),
+                date: new Date(sale.date).toLocaleDateString(),
+            });
             setMessage(defaultMessage);
         }
     }, [sale, clientName, isOpen]);
@@ -178,30 +184,30 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ isOpen, onC
     if (!isOpen || !sale) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Enviar Notificación de Cobro" size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('posx.receivable.reminder_modal_title')} size="lg">
             <div className="space-y-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-100 dark:border-blue-800">
                     <p className="text-sm text-neutral-700 dark:text-neutral-200">
-                        <strong>Cliente:</strong> {clientName}<br/>
-                        <strong>Venta:</strong> #{sale.id.slice(-6).toUpperCase()}<br/>
-                        <strong>Saldo Pendiente:</strong> ${sale.balance.toFixed(2)}
+                        <strong>{t('posx.receivable.reminder_client')}:</strong> {clientName}<br/>
+                        <strong>{t('posx.receivable.reminder_sale')}:</strong> #{sale.id.slice(-6).toUpperCase()}<br/>
+                        <strong>{t('posx.receivable.reminder_balance')}:</strong> ${sale.balance.toFixed(2)}
                     </p>
                 </div>
-                
+
                 <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Mensaje a Enviar</label>
-                    <RichTextEditor 
-                        value={message} 
-                        onChange={setMessage} 
-                        placeholder="Escriba el mensaje de recordatorio aquí..." 
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('posx.receivable.reminder_message_label')}</label>
+                    <RichTextEditor
+                        value={message}
+                        onChange={setMessage}
+                        placeholder={t('posx.receivable.reminder_message_placeholder')}
                     />
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700">
-                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button onClick={handleSend} className={BUTTON_PRIMARY_SM_CLASSES}>
                         <EnvelopeIcon className="w-4 h-4 mr-2" />
-                        Sí, Enviar Mensaje
+                        {t('posx.receivable.reminder_send_btn')}
                     </button>
                 </div>
             </div>
@@ -373,7 +379,7 @@ export const AccountsReceivablePage: React.FC = () => {
     const requestSendReminder = (sale: (typeof receivableData)[0]) => {
         const client = sale.clientId ? getClientById(sale.clientId) : null;
         if (!client || !client.email) {
-            toast.error('El cliente no tiene un correo electrónico registrado para enviar un recordatorio.');
+            toast.error(t('posx.receivable.no_email'));
             return;
         }
         setSaleForReminder(sale);
@@ -386,8 +392,8 @@ export const AccountsReceivablePage: React.FC = () => {
         console.log(`Enviando recordatorio a ${client?.email}:`, customMessage);
         
         addNotification({
-            title: 'Mensaje Enviado',
-            message: `Se ha enviado el recordatorio a ${client?.name}.`,
+            title: t('posx.receivable.reminder_sent_title'),
+            message: t('posx.receivable.reminder_sent_message', { name: client?.name || '' }),
             type: 'generic',
             link: '/pos/accounts-receivable'
         });
@@ -399,7 +405,7 @@ export const AccountsReceivablePage: React.FC = () => {
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                 <div className="flex items-center gap-3">
                     <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pos.receivable.title')}</h1>
-                    <button onClick={() => setShowCreditSearch(true)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0`}>💳 Pagos y Créditos</button>
+                    <button onClick={() => setShowCreditSearch(true)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0`}>💳 {t('posx.receivable.payments_credits')}</button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                     <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
@@ -414,7 +420,7 @@ export const AccountsReceivablePage: React.FC = () => {
                             <div className="relative">
                                 <input 
                                     type="text"
-                                    placeholder="Filtrar por Cliente..."
+                                    placeholder={t('posx.receivable.filter_by_client')}
                                     value={clientSearchInput}
                                     onChange={(e) => { setClientSearchInput(e.target.value); if(e.target.value === '') setClientFilterId(null); }}
                                     onFocus={() => setIsClientDropdownOpen(true)}
@@ -435,7 +441,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                         onClick={() => { clearClientFilter(); setIsClientDropdownOpen(false); }}
                                         className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm"
                                     >
-                                        Todos los Clientes
+                                        {t('posx.receivable.all_clients')}
                                     </li>
                                     {clientSuggestions.map(c => (
                                         <li 
@@ -447,19 +453,19 @@ export const AccountsReceivablePage: React.FC = () => {
                                         </li>
                                     ))}
                                     {clientSuggestions.length === 0 && (
-                                        <li className="px-3 py-2 text-neutral-500 text-sm">No se encontraron clientes.</li>
+                                        <li className="px-3 py-2 text-neutral-500 text-sm">{t('posx.receivable.no_clients_found')}</li>
                                     )}
                                 </ul>
                             )}
                         </div>
 
                         <select value={dueFilter} onChange={e => setDueFilter(e.target.value as any)} className={INPUT_SM_CLASSES}>
-                            <option value="all">Vencimiento: Todos</option>
-                            <option value="overdue">Vencidas</option>
-                            <option value="today">Vence Hoy</option>
-                            <option value="7days">Próx. 7 Días</option>
-                            <option value="30days">Próx. 30 Días</option>
-                            <option value="plus30">+30 Días</option>
+                            <option value="all">{t('posx.receivable.due.all')}</option>
+                            <option value="overdue">{t('posx.receivable.due.overdue')}</option>
+                            <option value="today">{t('posx.receivable.due.today')}</option>
+                            <option value="7days">{t('posx.receivable.due.7days')}</option>
+                            <option value="30days">{t('posx.receivable.due.30days')}</option>
+                            <option value="plus30">{t('posx.receivable.due.plus30')}</option>
                         </select>
                     </div>
                 </div>
@@ -506,7 +512,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                         <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.id.substring(0, 8).toUpperCase()}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(sale.date).toLocaleDateString()}</td>
                                         {vencimiento()}
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getClientById(sale.clientId || '')?.name || 'Contado'}</td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getClientById(sale.clientId || '')?.name || t('posx.receivable.walk_in')}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalAmount.toFixed(2)}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalPaid.toFixed(2)}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${sale.balance.toFixed(2)}</span></td>
@@ -515,7 +521,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                              <div className="flex space-x-1">
                                                 <button onClick={() => requestSendReminder(sale)} className="text-orange-500 p-1" title={t('pos.receivable.action.reminder')}><EnvelopeIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => handleEditReceivable(sale)} className="text-blue-600 p-1" title={t('pos.receivable.action.edit')}><EditIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => setReceiptToPrint(saleToReceipt(sale))} className="text-blue-600 p-1" title="Reimprimir factura"><PrinterIcon className="w-4 h-4"/></button>
+                                                <button onClick={() => setReceiptToPrint(saleToReceipt(sale))} className="text-blue-600 p-1" title={t('posx.receivable.reprint_invoice')}><PrinterIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => setPaymentModalSale(sale)} className="text-green-600 p-1" title={t('pos.receivable.action.payment')} disabled={sale.balance <= 0}><BanknotesIcon className="w-4 h-4"/></button>
                                                 <button onClick={() => handleVoidReceivable(sale)} className="text-red-600 p-1" title={t('pos.receivable.action.void')}><TrashIconMini className="w-4 h-4"/></button>
                                             </div>
@@ -524,15 +530,15 @@ export const AccountsReceivablePage: React.FC = () => {
                                     {isExpanded && paymentsForSale.length > 0 && (
                                         <tr className="bg-neutral-50 dark:bg-neutral-900/50">
                                             <td colSpan={10} className="p-3">
-                                                <h4 className="text-sm font-semibold mb-2 text-neutral-600 dark:text-neutral-300">Historial de Abonos</h4>
+                                                <h4 className="text-sm font-semibold mb-2 text-neutral-600 dark:text-neutral-300">{t('posx.receivable.payment_history')}</h4>
                                                 <table className="min-w-full bg-white dark:bg-neutral-800 rounded-md">
                                                     <thead className="bg-neutral-100 dark:bg-neutral-700 text-xs uppercase">
                                                         <tr>
-                                                            <th className="px-3 py-1.5 text-left">Fecha</th>
-                                                            <th className="px-3 py-1.5 text-right">Monto</th>
-                                                            <th className="px-3 py-1.5 text-left">Método</th>
-                                                            <th className="px-3 py-1.5 text-left">Referencia/Notas</th>
-                                                            <th className="px-3 py-1.5 text-center">Adjunto</th>
+                                                            <th className="px-3 py-1.5 text-left">{t('posx.receivable.hist.date')}</th>
+                                                            <th className="px-3 py-1.5 text-right">{t('posx.receivable.hist.amount')}</th>
+                                                            <th className="px-3 py-1.5 text-left">{t('posx.receivable.hist.method')}</th>
+                                                            <th className="px-3 py-1.5 text-left">{t('posx.receivable.hist.reference')}</th>
+                                                            <th className="px-3 py-1.5 text-center">{t('posx.receivable.hist.attachment')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -544,10 +550,10 @@ export const AccountsReceivablePage: React.FC = () => {
                                                                 <td className="px-3 py-1.5">{payment.notes}</td>
                                                                 <td className="px-3 py-1.5 text-center">
                                                                     {payment.attachment ? (
-                                                                        <a href={payment.attachment} target="_blank" rel="noopener noreferrer" className="inline-block text-blue-500 hover:text-blue-600" title="Ver adjunto">
+                                                                        <a href={payment.attachment} target="_blank" rel="noopener noreferrer" className="inline-block text-blue-500 hover:text-blue-600" title={t('posx.receivable.view_attachment')}>
                                                                             <PhotoIcon className="w-5 h-5" />
                                                                         </a>
-                                                                    ) : 'No'}
+                                                                    ) : t('posx.receivable.no')}
                                                                 </td>
                                                             </tr>
                                                         ))}
@@ -561,7 +567,7 @@ export const AccountsReceivablePage: React.FC = () => {
                         }) : (
                             <tr>
                                 <td colSpan={10} className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">
-                                    No se encontraron cuentas por cobrar con los filtros seleccionados.
+                                    {t('posx.receivable.empty')}
                                 </td>
                             </tr>
                         )}

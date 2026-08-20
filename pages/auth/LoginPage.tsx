@@ -12,6 +12,7 @@ import {
 } from '../../constants';
 import { ArrowUturnLeftIcon, EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini } from '../../components/icons';
 import { PasswordInput } from '../../components/ui/PasswordInput';
+import { usePublicT } from '../../hooks/usePublicTranslation';
 
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
@@ -33,6 +34,7 @@ export const LoginPage: React.FC = () => {
   const { login, currentUser } = useAuth();
   const navigate = useNavigate();
   const appContextValue = useAppContext();
+  const t = usePublicT();
 
   useEffect(() => {
     if (currentUser && appContextValue) {
@@ -94,8 +96,8 @@ export const LoginPage: React.FC = () => {
     } catch (err: any) {
       const backendError = err?.error || err?.message;
       const finalMessage = Array.isArray(backendError)
-        ? backendError[0]?.message || 'Error de validación'
-        : typeof backendError === 'string' ? backendError : 'Error al conectar con el servidor';
+        ? backendError[0]?.message || t('auth.err.validation')
+        : typeof backendError === 'string' ? backendError : t('auth.err.server');
       setError(finalMessage);
     } finally {
       setLoading(false);
@@ -116,7 +118,7 @@ export const LoginPage: React.FC = () => {
             <img src={logo} alt="Pazzi Logo" className="h-10" />
           </div>
           <h2 className="text-3xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-6">
-            Inicie sesión en su cuenta
+            {t('auth.login.title')}
           </h2>
 
           {error && (
@@ -127,7 +129,7 @@ export const LoginPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">Email</label>
+              <label htmlFor="email" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">{t('common.email')}</label>
               <div className="relative mt-1">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <EnvelopeIcon className="h-5 w-5 text-neutral-400" />
@@ -136,7 +138,7 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
             <div>
-              <label htmlFor="password" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">Contraseña</label>
+              <label htmlFor="password" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">{t('auth.password')}</label>
               <div className="relative mt-1">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <LockClosedIcon className="h-5 w-5 text-neutral-400" />
@@ -148,22 +150,22 @@ export const LoginPage: React.FC = () => {
                 <div className="flex items-center">
                     <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded" />
                     <label htmlFor="remember-me" className="ml-2 block text-base text-neutral-700 dark:text-neutral-300">
-                        Recordar contraseña
+                        {t('auth.remember')}
                     </label>
                 </div>
                 <div className="text-base">
-                    <Link to="/forgot-password" className={`${authLinkStyle} !text-base`}>¿Contraseña olvidada?</Link>
+                    <Link to="/forgot-password" className={`${authLinkStyle} !text-base`}>{t('auth.forgot_q')}</Link>
                 </div>
             </div>
             <button type="submit" disabled={loading} className={`${authButtonPrimary} bg-teal-500 hover:bg-teal-600 dark:bg-teal-600 dark:hover:bg-teal-700`}>
-              {loading ? 'Iniciando...' : 'Iniciar sesión'}
+              {loading ? t('auth.logging_in') : t('auth.login_btn')}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-base text-neutral-600 dark:text-neutral-400">
-              ¿Todavía no tienes una cuenta?{' '}
-              <Link to="/register" className={authLinkStyle}>Crea una ahora</Link>
+              {t('auth.no_account')}{' '}
+              <Link to="/register" className={authLinkStyle}>{t('auth.create_now')}</Link>
             </p>
           </div>
 
@@ -171,7 +173,7 @@ export const LoginPage: React.FC = () => {
 
           <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700 text-center">
               <Link to="/" className={`${authSecondaryLinkStyle} inline-flex items-center justify-center`}>
-                <ArrowUturnLeftIcon /> Volver al Inicio
+                <ArrowUturnLeftIcon /> {t('auth.back_home')}
               </Link>
             </div>
         </div>
@@ -186,7 +188,7 @@ export const LoginPage: React.FC = () => {
         <div className="relative z-10 flex flex-col items-center">
           <img src={logoWhite} alt="Pazzi Logo" className="max-w-[180px] lg:max-w-[220px] mb-8 drop-shadow-lg" />
           <p className="text-2xl lg:text-3xl text-white text-center font-semibold leading-relaxed max-w-md drop-shadow">
-            Simplificamos la gestión de tu negocio para que te enfoques en crecer.
+            {t('auth.tagline')}
           </p>
         </div>
       </div>

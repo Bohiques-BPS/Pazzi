@@ -39,9 +39,9 @@ export const ProjectsListPage: React.FC = () => {
         try {
             await projectsService.delete(itemToDeleteId);
             setProjects(prev => prev.filter(p => p.id !== itemToDeleteId));
-            toast.success('Proyecto eliminado.');
+            toast.success(t('pm2x.project.deleted'));
         } catch (err: any) {
-            toast.error(err?.message || 'No se pudo eliminar el proyecto.');
+            toast.error(err?.message || t('pm2x.project.delete_error'));
         } finally {
             setItemToDeleteId(null);
             setShowDeleteConfirmModal(false);
@@ -51,15 +51,15 @@ export const ProjectsListPage: React.FC = () => {
     const handleGenerateInvoice = (project: Project) => {
         const success = generateInvoiceForProject(project.id);
         if (success) {
-            toast.success(`Factura generada para el proyecto "${project.name}".`);
+            toast.success(t('pm2x.project.invoice_generated', { name: project.name }));
         } else {
-            toast.error(`No se pudo generar la factura para "${project.name}". Verifique que el proyecto esté completo.`);
+            toast.error(t('pm2x.project.invoice_error', { name: project.name }));
         }
     };
-    
+
     const handleViewInvoice = (project: Project) => {
         // In a real app, this would generate and open a PDF. Here, we'll just show an alert.
-        toast(`Factura #${project.invoiceNumber} — ${project.invoiceDate} — $${project.invoiceAmount?.toFixed(2)}`, { icon: '🧾', duration: 5000 });
+        toast(t('pm2x.project.invoice_toast', { num: project.invoiceNumber ?? '', date: project.invoiceDate ?? '', amount: project.invoiceAmount?.toFixed(2) ?? '' }), { icon: '🧾', duration: 5000 });
     };
 
     const filteredProjects = useMemo(() => {
@@ -111,7 +111,7 @@ export const ProjectsListPage: React.FC = () => {
                     .map(empId => allEmployees.find(e => e.id === empId))
                     .filter(emp => emp !== undefined);
                 if (assigned.length === 0) return 'N/A';
-                return assigned.slice(0, 2).map(e => e!.name).join(', ') + (assigned.length > 2 ? ` y ${assigned.length - 2} más` : '');
+                return assigned.slice(0, 2).map(e => e!.name).join(', ') + (assigned.length > 2 ? ` ${t('pm2x.common.and_more', { n: assigned.length - 2 })}` : '');
             }
         },
     ], [getClientById, allEmployees, t]);
@@ -128,22 +128,22 @@ export const ProjectsListPage: React.FC = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label="Buscar proyectos"
+                        aria-label={t('pm2x.project.search_aria')}
                     />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'Todos')}
                         className={`${INPUT_SM_CLASSES}`}
-                        aria-label="Filtrar por estado"
+                        aria-label={t('pm2x.project.filter_status_aria')}
                     >
-                        <option value="Todos">Todos los estados</option>
+                        <option value="Todos">{t('pm2x.project.all_statuses')}</option>
                         {PROJECT_STATUS_OPTIONS.map(status => (
                             <option key={status} value={status}>{status}</option>
                         ))}
                     </select>
                     <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
-                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tarjetas"><Squares2X2Icon className="w-5 h-5"/></button>
-                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon className="w-5 h-5"/></button>
+                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.card_view')}><Squares2X2Icon className="w-5 h-5"/></button>
+                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.table_view')}><ListBulletIcon className="w-5 h-5"/></button>
                     </div>
                     <button
                         onClick={() => navigate('/pm/projects/new')}
@@ -164,7 +164,7 @@ export const ProjectsListPage: React.FC = () => {
                                     project={project}
                                     onViewProject={handleViewProject}
                                     onRequestDelete={requestDelete}
-                                    onViewQuotation={() => toast('Función "Ver Cotización" aún no implementada.', { icon: '📄' })}
+                                    onViewQuotation={() => toast(t('pm2x.project.quotation_not_impl'), { icon: '📄' })}
                                     onGenerateInvoice={handleGenerateInvoice}
                                     onViewInvoice={handleViewInvoice}
                                     allEmployees={allEmployees}
@@ -173,8 +173,8 @@ export const ProjectsListPage: React.FC = () => {
                         </div>
                     ) : (
                         <div className="text-center py-16 bg-white dark:bg-neutral-800 rounded-lg shadow-sm">
-                            <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">No se encontraron proyectos</h3>
-                            <p className="text-neutral-500 dark:text-neutral-400 mt-2">Intente ajustar los filtros o cree un nuevo proyecto.</p>
+                            <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.project.none_found')}</h3>
+                            <p className="text-neutral-500 dark:text-neutral-400 mt-2">{t('pm2x.project.adjust_filters')}</p>
                         </div>
                     )}
                 </>
@@ -184,8 +184,8 @@ export const ProjectsListPage: React.FC = () => {
                     columns={tableColumns}
                     actions={(project) => (
                         <div className="flex space-x-1">
-                            <button onClick={() => handleViewProject(project)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Ver/Editar ${project.name}`}><EditIcon /></button>
-                            <button onClick={() => requestDelete(project.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={`Eliminar ${project.name}`}><DeleteIcon /></button>
+                            <button onClick={() => handleViewProject(project)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('pm2x.project.view_edit_aria', { name: project.name })}><EditIcon /></button>
+                            <button onClick={() => requestDelete(project.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('pm2x.common.delete_name', { name: project.name })}><DeleteIcon /></button>
                         </div>
                     )}
                 />
@@ -196,9 +196,9 @@ export const ProjectsListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('pm2x.project.confirm_delete_title')}
+                message={t('pm2x.project.confirm_delete_msg')}
+                confirmButtonText={t('pm2x.common.yes_delete')}
             />
         </div>
     );

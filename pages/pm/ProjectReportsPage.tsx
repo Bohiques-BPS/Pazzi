@@ -125,7 +125,7 @@ export const ProjectReportsPage: React.FC = () => {
                 id: emp.id,
                 employeeName: `${emp.name} ${emp.lastName}`,
                 activeProjectCount: assigned.length,
-                assignedProjectsSummary: assigned.slice(0, 2).map(p => p.name).join(', ') + (assigned.length > 2 ? ` y ${assigned.length - 2} más...` : ''),
+                assignedProjectsSummary: assigned.slice(0, 2).map(p => p.name).join(', ') + (assigned.length > 2 ? ` ${t('pm2x.common.and_more', { n: assigned.length - 2 })}...` : ''),
                 rawEmployee: emp,
             };
         });
@@ -231,14 +231,14 @@ export const ProjectReportsPage: React.FC = () => {
     const pendingProjectData = useMemo(() => {
         let data = projects.filter(p => p.status === ProjectStatus.ACTIVE || p.status === ProjectStatus.PENDING).map(p => {
             const client = getClientById(p.clientId);
-            let nextActivity = "Por definir";
+            let nextActivity = t('pm2x.reports.to_define');
             const workDates: Date[] = [];
             if (p.workMode === 'daysOnly' && p.workDays && p.workDays.length > 0) p.workDays.forEach(d => workDates.push(new Date(d + "T00:00:00")));
             else if (p.workMode === 'daysAndTimes' && p.workDayTimeRanges && p.workDayTimeRanges.length > 0) p.workDayTimeRanges.forEach(r => workDates.push(new Date(r.date + "T00:00:00")));
-            
+
             const futureDates = workDates.filter(d => d >= new Date()).sort((a,b) => a.getTime() - b.getTime());
-            if (futureDates.length > 0) nextActivity = `Próx. Act.: ${futureDates[0].toLocaleDateString('es-ES', {day: '2-digit', month: 'short'})}`;
-            else if (p.visitDate && new Date(p.visitDate + "T00:00:00") >= new Date()) nextActivity = `Visita: ${new Date(p.visitDate + "T00:00:00").toLocaleDateString('es-ES', {day: '2-digit', month: 'short'})}`;
+            if (futureDates.length > 0) nextActivity = `${t('pm2x.reports.next_act_prefix')}: ${futureDates[0].toLocaleDateString('es-ES', {day: '2-digit', month: 'short'})}`;
+            else if (p.visitDate && new Date(p.visitDate + "T00:00:00") >= new Date()) nextActivity = `${t('calendar.visit')}: ${new Date(p.visitDate + "T00:00:00").toLocaleDateString('es-ES', {day: '2-digit', month: 'short'})}`;
             
             return {
                 id: p.id,
@@ -366,7 +366,7 @@ export const ProjectReportsPage: React.FC = () => {
                 <div className="flex flex-col sm:flex-row gap-2 mb-3">
                     <input type="text" placeholder={t('common.search') + "..."} value={projectCostSearch} onChange={e => setProjectCostSearch(e.target.value)} className={`${INPUT_SM_CLASSES} flex-grow`} />
                     <select value={projectCostStatusFilter} onChange={e => setProjectCostStatusFilter(e.target.value as ProjectStatus | 'Todos')} className={INPUT_SM_CLASSES}>
-                        <option value="Todos">Todos Estados</option>
+                        <option value="Todos">{t('pm2x.reports.all_statuses')}</option>
                         {Object.values(ProjectStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>,
@@ -384,9 +384,9 @@ export const ProjectReportsPage: React.FC = () => {
                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
                     <input type="text" placeholder={t('common.search') + "..."} value={pendingProjectSearch} onChange={e => setPendingProjectSearch(e.target.value)} className={`${INPUT_SM_CLASSES} flex-grow`} />
                     <select value={pendingProjectStatusFilter} onChange={e => setPendingProjectStatusFilter(e.target.value as ProjectStatus | 'Todos')} className={INPUT_SM_CLASSES}>
-                        <option value="Todos">Todos Estados</option>
-                        <option value={ProjectStatus.ACTIVE}>Activo</option>
-                        <option value={ProjectStatus.PENDING}>Pendiente</option>
+                        <option value="Todos">{t('pm2x.reports.all_statuses')}</option>
+                        <option value={ProjectStatus.ACTIVE}>{t('pm2x.reports.status_active')}</option>
+                        <option value={ProjectStatus.PENDING}>{t('pm2x.reports.status_pending')}</option>
                     </select>
                 </div>,
                 paginatedPendingProjectData, pendingProjectColumns, pendingProjectPage, pendingProjectData.length, setPendingProjectPage

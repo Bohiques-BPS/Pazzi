@@ -55,11 +55,11 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
         e.preventDefault();
         setNameError('');
         if (!formData.name.trim()) {
-            setNameError('El nombre del proveedor es requerido.');
+            setNameError(t('ecomx.suppliers.form.name_required'));
             return;
         }
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            toast.error('El formato del email no es válido.');
+            toast.error(t('ecomx.common.invalid_email'));
             return;
         }
         setIsSubmitting(true);
@@ -91,14 +91,14 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                 } else {
                     setSuppliers(prev => [...prev, result]);
                 }
-                toast.success(supplier ? "Proveedor actualizado" : "Proveedor creado");
+                toast.success(supplier ? t('ecomx.suppliers.updated') : t('ecomx.suppliers.created'));
                 onClose(supplier ? undefined : result);
             } else {
-                toast.error(result.error || "Error al guardar el proveedor.");
+                toast.error(result.error || t('ecomx.suppliers.save_error'));
             }
         } catch (error) {
             console.error("Error saving supplier:", error);
-            toast.error("Error de conexión con el servidor.");
+            toast.error(t('ecomx.common.server_connection_error'));
         } finally {
             setIsSubmitting(false);
         }
@@ -139,7 +139,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
-                                Guardando...
+                                {t('common.saving')}
                             </span>
                         ) : t('common.save')}
                     </button>

@@ -6,6 +6,7 @@ import { EnvelopeIcon, LockClosedIcon, ExclamationTriangleIcon } from '../../com
 import { PasswordInput } from '../../components/ui/PasswordInput';
 import type { InvitationInfo } from '../../services/auth';
 import { ApiError } from '../../services/api';
+import { usePublicT } from '../../hooks/usePublicTranslation';
 
 type LoadState =
   | { kind: 'loading' }
@@ -17,6 +18,7 @@ export const ActivateAccountPage: React.FC = () => {
   const token = params.get('token') || '';
   const { getInvitation, activate } = useAuth();
   const navigate = useNavigate();
+  const t = usePublicT();
 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [password, setPassword] = useState('');
@@ -28,7 +30,7 @@ export const ActivateAccountPage: React.FC = () => {
 
   useEffect(() => {
     if (!token) {
-      setState({ kind: 'invalid', message: 'No se proporcionó un token de invitación.' });
+      setState({ kind: 'invalid', message: t('auth.err.invite_missing') });
       return;
     }
     let cancelled = false;
@@ -41,13 +43,13 @@ export const ActivateAccountPage: React.FC = () => {
         if (err instanceof ApiError) {
           const msg =
             err.status === 410
-              ? 'Esta invitación expiró o ya fue utilizada. Solicite una nueva al administrador.'
+              ? t('auth.err.invite_expired')
               : err.status === 404
-              ? 'Invitación no encontrada. Verifique el enlace o solicite una nueva.'
+              ? t('auth.err.invite_notfound')
               : err.message;
           setState({ kind: 'invalid', message: msg, code: err.status });
         } else {
-          setState({ kind: 'invalid', message: 'No se pudo verificar la invitación. Intente más tarde.' });
+          setState({ kind: 'invalid', message: t('auth.err.invite_verify') });
         }
       }
     })();
@@ -57,12 +59,12 @@ export const ActivateAccountPage: React.FC = () => {
   }, [token, getInvitation]);
 
   const validatePassword = (): string | null => {
-    if (password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
-    if (!/[A-Za-z]/.test(password)) return 'La contraseña debe contener al menos una letra.';
-    if (!/[0-9]/.test(password)) return 'La contraseña debe contener al menos un número.';
-    if (password !== confirmPassword) return 'Las contraseñas no coinciden.';
-    if (!/^\d{4}$/.test(pin)) return 'El PIN debe ser de 4 dígitos.';
-    if (pin !== confirmPin) return 'Los PIN no coinciden.';
+    if (password.length < 8) return t('auth.err.pw_min');
+    if (!/[A-Za-z]/.test(password)) return t('auth.err.pw_letter');
+    if (!/[0-9]/.test(password)) return t('auth.err.pw_number');
+    if (password !== confirmPassword) return t('auth.err.pw_match');
+    if (!/^\d{4}$/.test(pin)) return t('auth.err.pin4');
+    if (pin !== confirmPin) return t('auth.err.pin_match');
     return null;
   };
 
@@ -87,13 +89,13 @@ export const ActivateAccountPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 p-4">
       <div className="w-full max-w-md bg-white dark:bg-neutral-800 rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-semibold text-center mb-2">Activar tu cuenta</h1>
+        <h1 className="text-2xl font-semibold text-center mb-2">{t('auth.activate.title')}</h1>
         <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 mb-6">
-          Crea tu contraseña y tu PIN de ponche para empezar a usar Pazzi.
+          {t('auth.activate.subtitle')}
         </p>
 
         {state.kind === 'loading' && (
-          <div className="text-center text-sm text-neutral-500">Verificando invitación...</div>
+          <div className="text-center text-sm text-neutral-500">{t('auth.activate.verifying')}</div>
         )}
 
         {state.kind === 'invalid' && (
@@ -103,7 +105,7 @@ export const ActivateAccountPage: React.FC = () => {
               <span>{state.message}</span>
             </div>
             <Link to="/login" className={authLinkStyle + ' block text-center'}>
-              Volver al inicio de sesión
+              {t('auth.activate.back_login')}
             </Link>
           </div>
         )}
@@ -116,12 +118,12 @@ export const ActivateAccountPage: React.FC = () => {
                 <span><strong>{state.info.email}</strong></span>
               </div>
               <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                Esta invitación expira el {new Date(state.info.expiresAt).toLocaleString()}.
+                {t('auth.activate.expires', { date: new Date(state.info.expiresAt).toLocaleString() })}
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Contraseña</label>
+              <label className="block text-sm font-medium mb-1">{t('auth.password')}</label>
               <div className="relative">
                 <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 z-10" />
                 <PasswordInput
@@ -134,12 +136,12 @@ export const ActivateAccountPage: React.FC = () => {
                 />
               </div>
               <p className="text-xs text-neutral-500 mt-1">
-                Mínimo 8 caracteres, con al menos una letra y un número.
+                {t('auth.password_hint')}
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Confirmar contraseña</label>
+              <label className="block text-sm font-medium mb-1">{t('auth.confirm_password')}</label>
               <div className="relative">
                 <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 z-10" />
                 <PasswordInput
@@ -154,14 +156,14 @@ export const ActivateAccountPage: React.FC = () => {
             </div>
 
             <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
-              <label className="block text-sm font-medium mb-1">PIN de 4 dígitos (para ponchar en la caja)</label>
+              <label className="block text-sm font-medium mb-1">{t('auth.pin_label')}</label>
               <div className="grid grid-cols-2 gap-2">
                 <input
                   type="password"
                   inputMode="numeric"
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="PIN"
+                  placeholder={t('auth.pin_placeholder')}
                   maxLength={4}
                   className={`${authInputStyle} text-center tracking-[0.3em]`}
                   required
@@ -171,13 +173,13 @@ export const ActivateAccountPage: React.FC = () => {
                   inputMode="numeric"
                   value={confirmPin}
                   onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="Confirmar PIN"
+                  placeholder={t('auth.pin_confirm_placeholder')}
                   maxLength={4}
                   className={`${authInputStyle} text-center tracking-[0.3em]`}
                   required
                 />
               </div>
-              <p className="text-xs text-neutral-500 mt-1">Lo usarás para marcar tu entrada/salida (ponche) en la caja registradora.</p>
+              <p className="text-xs text-neutral-500 mt-1">{t('auth.pin_hint')}</p>
             </div>
 
             {error && (
@@ -187,11 +189,11 @@ export const ActivateAccountPage: React.FC = () => {
             )}
 
             <button type="submit" className={authButtonPrimary} disabled={submitting}>
-              {submitting ? 'Activando...' : 'Activar y entrar'}
+              {submitting ? t('auth.activating') : t('auth.activate.submit')}
             </button>
 
             <Link to="/login" className={authLinkStyle + ' block text-center text-sm'}>
-              ¿Ya tienes cuenta? Inicia sesión
+              {t('auth.have_account')}
             </Link>
           </form>
         )}

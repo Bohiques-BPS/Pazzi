@@ -28,6 +28,8 @@ export interface ReceiptConfig {
     phone: string;
     email: string;
     logoUrl: string;        // URL o data URL del logo
+    businessDescription?: string; // descripción de la empresa (onboarding)
+    onboardedAt?: string;   // ISO: cuándo se completó/omitió el onboarding de la empresa
     headerNote: string;     // mensaje arriba de la factura
     footerNote: string;     // términos legales / pie
     showLogo: boolean;

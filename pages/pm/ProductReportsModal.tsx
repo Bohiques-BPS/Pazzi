@@ -7,6 +7,7 @@ import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { DeleteIcon } from '../../components/icons';
 import { exportToPDF, exportToExcel, type ExportColumn } from '../../utils/reportExport';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ProductReportsModalProps {
     isOpen: boolean;
@@ -53,6 +54,7 @@ const toExportRows = (rows: ProductReportRow[]) =>
     }));
 
 export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen, onClose, onProductsDeleted }) => {
+    const { t } = useTranslation();
     const [active, setActive] = useState<ProductReportType>('top-sold');
     const [rows, setRows] = useState<ProductReportRow[]>([]);
     const [loading, setLoading] = useState(false);
@@ -94,24 +96,24 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
         setDeleting(true);
         try {
             const res = await productsService.bulkDelete(Array.from(selected));
-            let msg = `${res.deleted} producto(s) eliminado(s).`;
-            if (res.skippedCount > 0) msg += ` ${res.skippedCount} omitido(s) (tienen ventas).`;
+            let msg = t('pmx.report.deleted_count', { n: res.deleted });
+            if (res.skippedCount > 0) msg += ' ' + t('pmx.report.skipped_count', { n: res.skippedCount });
             toast.success(msg);
             setRows(prev => prev.filter(r => !selected.has(r.id) || res.skipped.some(s => s.id === r.id)));
             setSelected(new Set());
             onProductsDeleted?.();
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al eliminar.');
+            toast.error(err instanceof ApiError ? err.message : t('pmx.report.delete_error'));
         } finally {
             setDeleting(false);
         }
     };
 
     const currentHint = useMemo(() => REPORTS.find(r => r.id === active)?.hint, [active]);
-    const exportTitle = useMemo(() => `Reportes de productos — ${plainLabel(active)}`, [active]);
+    const exportTitle = useMemo(() => `${t('pmx.report.title')} — ${plainLabel(active)}`, [active, t]);
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Reportes de productos" size="6xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('pmx.report.title')} size="6xl">
             {/* Pestañas */}
             <div className="flex gap-1 flex-wrap border-b border-neutral-200 dark:border-neutral-700 mb-3 pb-2">
                 {REPORTS.map(r => (
@@ -134,7 +136,7 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                         onClick={() => exportToPDF(exportTitle, EXPORT_COLUMNS, toExportRows(rows))}
                         disabled={loading || rows.length === 0}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-40`}
-                        title="Descargar este reporte en PDF"
+                        title={t('pmx.report.download_pdf')}
                     >
                         📄 PDF
                     </button>
@@ -143,7 +145,7 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                         onClick={() => exportToExcel(exportTitle, EXPORT_COLUMNS, toExportRows(rows))}
                         disabled={loading || rows.length === 0}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-40`}
-                        title="Descargar este reporte en Excel"
+                        title={t('pmx.report.download_excel')}
                     >
                         📊 Excel
                     </button>
@@ -156,10 +158,10 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                     <div className="flex items-center gap-3 flex-wrap">
                         <label className="flex items-center gap-2 text-sm">
                             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4" />
-                            Seleccionar todos ({selected.size} de {rows.length})
+                            {t('pmx.report.select_all', { n: selected.size, total: rows.length })}
                         </label>
                         <label className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-300">
-                            Sin vender hace ≥
+                            {t('pmx.report.unsold_since')}
                             <input
                                 type="number"
                                 min={1}
@@ -167,8 +169,8 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                                 onChange={e => setUnusedDays(Math.max(1, Number(e.target.value) || 1))}
                                 className="w-20 px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700"
                             />
-                            días
-                            <span className="text-xs text-neutral-400">(365 = 1 año, 730 = 2 años)</span>
+                            {t('pmx.report.days')}
+                            <span className="text-xs text-neutral-400">{t('pmx.report.days_hint')}</span>
                         </label>
                     </div>
                     <button
@@ -177,7 +179,7 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                         disabled={selected.size === 0 || deleting}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
                     >
-                        <DeleteIcon className="w-4 h-4" /> {deleting ? 'Eliminando…' : `Eliminar seleccionados (${selected.size})`}
+                        <DeleteIcon className="w-4 h-4" /> {deleting ? t('pmx.report.deleting') : t('pmx.report.delete_selected', { n: selected.size })}
                     </button>
                 </div>
             )}
@@ -185,19 +187,19 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
             {loading ? (
                 <LoadingSkeleton variant="table" rows={6} />
             ) : rows.length === 0 ? (
-                <p className="text-center text-neutral-500 py-8">No hay datos para este reporte.</p>
+                <p className="text-center text-neutral-500 py-8">{t('pmx.report.no_data')}</p>
             ) : (
                 <div className="max-h-[55vh] overflow-y-auto border rounded-md dark:border-neutral-700">
                     <table className="min-w-full text-sm">
                         <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
                             <tr>
                                 {isUnused && <th className="p-2 w-10"></th>}
-                                <th className="text-left p-2">Producto</th>
-                                <th className="text-right p-2">Vendidos</th>
-                                <th className="text-right p-2">Ingresos</th>
-                                <th className="text-right p-2">Ganancia</th>
-                                <th className="text-left p-2">Última venta</th>
-                                <th className="text-left p-2">Creado</th>
+                                <th className="text-left p-2">{t('pmx.report.col_product')}</th>
+                                <th className="text-right p-2">{t('pmx.report.col_sold')}</th>
+                                <th className="text-right p-2">{t('pmx.report.col_revenue')}</th>
+                                <th className="text-right p-2">{t('pmx.report.col_profit')}</th>
+                                <th className="text-left p-2">{t('pmx.report.col_last_sale')}</th>
+                                <th className="text-left p-2">{t('pmx.report.col_created')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -210,7 +212,7 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                                     )}
                                     <td className="p-2 font-medium">
                                         {r.name}
-                                        {!r.isActive && <span className="ml-2 text-[10px] px-1 rounded bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300">Inactivo</span>}
+                                        {!r.isActive && <span className="ml-2 text-[10px] px-1 rounded bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300">{t('pmx.report.inactive')}</span>}
                                     </td>
                                     <td className="p-2 text-right">{r.qtySold}</td>
                                     <td className="p-2 text-right">{money(r.revenue)}</td>
@@ -225,16 +227,16 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
             )}
 
             <div className="flex justify-end pt-3">
-                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
+                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('pmx.common.close')}</button>
             </div>
 
             <ConfirmationModal
                 isOpen={confirmDelete}
                 onClose={() => setConfirmDelete(false)}
                 onConfirm={handleDelete}
-                title="Eliminar productos"
-                message={`¿Eliminar ${selected.size} producto(s) seleccionado(s)? Esta acción no se puede deshacer. Los que tengan ventas se omitirán automáticamente.`}
-                confirmButtonText="Sí, eliminar"
+                title={t('pmx.report.confirm_delete_title')}
+                message={t('pmx.report.confirm_delete_msg', { n: selected.size })}
+                confirmButtonText={t('pmx.common.yes_delete')}
             />
         </Modal>
     );

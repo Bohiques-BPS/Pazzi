@@ -34,7 +34,7 @@ export const BranchesListPage: React.FC = () => {
                 if (Array.isArray(data)) setBranches(data);
             } catch (error) {
                 console.error("Error al cargar sucursales:", error);
-                toast.error('Error al cargar las sucursales.');
+                toast.error(t('adminx.branches.load_error'));
             } finally {
                 setLoadingData(false);
             }
@@ -68,14 +68,14 @@ export const BranchesListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setBranches(prev => prev.filter(b => b.id !== itemToDeleteId));
-                    toast.success('Sucursal eliminada');
+                    toast.success(t('adminx.branches.deleted'));
                 } else {
                     const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || 'No se pudo eliminar la sucursal.');
+                    toast.error(errData.error || t('adminx.branches.delete_error'));
                 }
             } catch (error) {
                 console.error('Error al eliminar sucursal:', error);
-                toast.error('Error de conexión al intentar eliminar.');
+                toast.error(t('adminx.common.delete_connection_error'));
             }
             setItemToDeleteId(null);
         }
@@ -92,7 +92,7 @@ export const BranchesListPage: React.FC = () => {
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                     branch.isActive ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' : 'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100'
                 }`}>
-                    {branch.isActive ? 'Activa' : 'Inactiva'}
+                    {branch.isActive ? t('adminx.status.active') : t('adminx.status.inactive')}
                 </span>
             )
         },
@@ -110,7 +110,7 @@ export const BranchesListPage: React.FC = () => {
             {loadingData && (
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando sucursales...</span>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">{t('adminx.branches.loading')}</span>
                 </div>
             )}
 
@@ -137,9 +137,9 @@ export const BranchesListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('adminx.confirm.delete_title')}
+                message={t('adminx.confirm.delete_message')}
+                confirmButtonText={t('adminx.confirm.delete_yes')}
             />
         </div>
     );

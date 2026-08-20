@@ -138,22 +138,22 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         e.preventDefault();
 
         if (!formData.name.trim()) {
-            toast.error('El nombre es requerido.');
+            toast.error(t('pmx.client.err_name_required'));
             return;
         }
         if (!formData.lastName.trim()) {
-            toast.error('El apellido es requerido.');
+            toast.error(t('pmx.client.err_lastname_required'));
             return;
         }
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            toast.error('El formato del email no es válido.');
+            toast.error(t('pmx.client.err_email_invalid'));
             return;
         }
         const isDuplicateEmail = formData.email && allClients.some(
             c => c.email && c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
         );
         if (isDuplicateEmail) {
-            toast.error('Ya existe un cliente con este correo electrónico.');
+            toast.error(t('pmx.client.err_email_duplicate'));
             return;
         }
 
@@ -182,7 +182,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al actualizar cliente'); }
                 const updatedClient = await res.json();
                 setClients(prev => prev.map(c => c.id === client.id ? { ...c, ...updatedClient } : c));
-                toast.success('Cliente actualizado correctamente');
+                toast.success(t('pmx.client.updated_ok'));
                 onClose(updatedClient);
             } else {
                 const res = await fetch(`${API_URL}/clients`, {
@@ -196,11 +196,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al crear cliente'); }
                 const newClient = await res.json();
                 setClients(prev => [...prev, newClient]);
-                toast.success('Cliente creado correctamente');
+                toast.success(t('pmx.client.created_ok'));
                 onClose(newClient);
             }
         } catch (err) {
-            toast.error('Error al guardar cliente. Usando almacenamiento local.');
+            toast.error(t('pmx.client.save_local_fallback'));
             console.error('Error al guardar cliente:', err);
             if (client) {
                 const updatedClient: Client = { ...client, ...dataToSave as any };
@@ -233,7 +233,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                         onClick={() => setIsQuickProjectModalOpen(true)}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center`}
                         disabled={!client}
-                        title={!client ? "Guarde el cliente primero para crear proyectos" : "Crear un nuevo proyecto rápido para este cliente"}
+                        title={!client ? t('pmx.client.save_first_hint') : t('pmx.client.quick_project_hint')}
                     >
                         <PlusIcon className="w-3 h-3 mr-1"/> {t('pos.new_project')}
                     </button>
@@ -270,7 +270,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             </div>
             <div>
                 <label className="block text-sm font-medium">{t('common.notes')}</label>
-                <RichTextEditor value={formData.clientNotes || ''} onChange={(value) => setFormData(prev => ({...prev, clientNotes: value}))} placeholder="Notas sobre el cliente..." />
+                <RichTextEditor value={formData.clientNotes || ''} onChange={(value) => setFormData(prev => ({...prev, clientNotes: value}))} placeholder={t('pmx.client.notes_ph')} />
             </div>
             <div className="pt-2"><label className="flex items-center text-sm"><input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> {t('product.field.active')}</label></div>
         </div>
@@ -342,7 +342,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 <label className="flex items-center text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded border border-red-200 dark:border-red-800">
                     <input type="checkbox" name="isLoss" checked={!!formData.isLoss} onChange={handleChange} className="form-checkbox rounded mr-2 text-red-600 focus:ring-red-500"/>
                     <ExclamationTriangleIcon className="w-4 h-4 mr-1"/>
-                    Cliente en Pérdida
+                    {t('pmx.client.in_loss')}
                 </label>
              </div>
         </div>
@@ -363,7 +363,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const renderLoyaltyTab = () => (
         <div className="space-y-3 max-w-md">
             <div><label className="block text-sm font-medium">{t('client.loyalty.points')}</label><input type="number" name="loyaltyPoints" value={formData.loyaltyPoints === 0 ? '' : formData.loyaltyPoints} onChange={handleChange} className={inputFormStyle}/></div>
-            <div><label className="block text-sm font-medium">{t('client.loyalty.level')}</label><input type="text" name="loyaltyLevel" value={formData.loyaltyLevel} onChange={handleChange} className={inputFormStyle} placeholder="Ej: Bronce, Plata, Oro"/></div>
+            <div><label className="block text-sm font-medium">{t('client.loyalty.level')}</label><input type="text" name="loyaltyLevel" value={formData.loyaltyLevel} onChange={handleChange} className={inputFormStyle} placeholder={t('pmx.client.loyalty_level_ph')}/></div>
         </div>
     );
     
@@ -371,7 +371,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         <div className="space-y-3 max-w-full">
              <label className="block text-sm font-medium">{t('client.photo.add_url')}</label>
             <div className="flex items-center gap-2">
-                <input type="url" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} placeholder="https://ejemplo.com/imagen.jpg" className={inputFormStyle + " flex-grow"} />
+                <input type="url" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} placeholder={t('pmx.client.image_url_ph')} className={inputFormStyle + " flex-grow"} />
                 <button type="button" onClick={handleAddImage} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.add')}</button>
             </div>
              {formData.images && formData.images.length > 0 && (
@@ -379,7 +379,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                     {formData.images.map(url => (
                         <li key={url} className="flex justify-between items-center group">
                             <a href={url} target="_blank" rel="noopener noreferrer" className="truncate text-blue-600 dark:text-blue-400 hover:underline">{url}</a>
-                            <button type="button" onClick={() => handleRemoveImage(url)} className="text-red-500 hover:text-red-700 text-xs p-0.5 opacity-0 group-hover:opacity-100" aria-label={`Quitar imagen ${url}`}><TrashIconMini/></button>
+                            <button type="button" onClick={() => handleRemoveImage(url)} className="text-red-500 hover:text-red-700 text-xs p-0.5 opacity-0 group-hover:opacity-100" aria-label={t('pmx.client.remove_image', { url })}><TrashIconMini/></button>
                         </li>
                     ))}
                 </ul>

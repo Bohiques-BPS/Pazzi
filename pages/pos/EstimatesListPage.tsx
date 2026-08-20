@@ -186,9 +186,9 @@ export const EstimatesListPage: React.FC = () => {
         try {
             await estimatesService.delete(itemToDeleteId);
             setEstimates(prev => prev.filter(e => e.id !== itemToDeleteId));
-            toast.success('Estimado eliminado');
+            toast.success(t('posx.estimates.deleted'));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al eliminar estimado');
+            toast.error(err instanceof ApiError ? err.message : t('posx.estimates.delete_error'));
         } finally {
             setItemToDeleteId(null);
             setShowDeleteConfirmModal(false);
@@ -198,7 +198,7 @@ export const EstimatesListPage: React.FC = () => {
     const navigate = useNavigate();
     const handleConvertToSale = async (estimate: Estimate) => {
         if (estimate.status === EstimateStatus.COMBINADO) {
-            toast.warning('Este estimado ya fue convertido a venta');
+            toast.warning(t('posx.estimates.already_converted'));
             return;
         }
         try {
@@ -211,10 +211,10 @@ export const EstimatesListPage: React.FC = () => {
                 items: estimate.items,
                 notes: estimate.notes,
             }));
-            toast.info('Cargando estimado en la caja...');
+            toast.info(t('posx.estimates.loading_to_register'));
             navigate('/pos/cashier');
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo convertir el estimado');
+            toast.error(err instanceof ApiError ? err.message : t('posx.estimates.convert_error'));
         }
     };
     
@@ -226,14 +226,14 @@ export const EstimatesListPage: React.FC = () => {
 
     const handleCombine = () => {
         if (selectedEstimateIds.length < 2) {
-            toast.error('Seleccione al menos dos estimados para combinar.');
+            toast.error(t('posx.estimates.select_two_combine'));
             return;
         }
 
         const selected = sortedEstimates.filter(e => selectedEstimateIds.includes(e.id));
         const firstClientId = selected[0].clientId;
         if (!selected.every(e => e.clientId === firstClientId)) {
-            toast.error('Solo se pueden combinar estimados del mismo cliente.');
+            toast.error(t('posx.estimates.same_client_combine'));
             return;
         }
 
@@ -242,7 +242,7 @@ export const EstimatesListPage: React.FC = () => {
 
     const confirmCombine = () => {
         if (!currentUser) {
-            toast.error('Error de autenticación.');
+            toast.error(t('posx.estimates.auth_error'));
             return;
         }
         const selected = estimates.filter(e => selectedEstimateIds.includes(e.id));
@@ -293,19 +293,19 @@ export const EstimatesListPage: React.FC = () => {
     const handleGeneratePDF = async () => {
         const selected = estimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0) {
-            toast.error('Seleccione al menos un estimado para generar el PDF.');
+            toast.error(t('posx.estimates.select_one_pdf'));
             return;
         }
 
         const firstClientId = selected[0].clientId;
         if (!selected.every(e => e.clientId === firstClientId)) {
-            toast.error('Solo puede generar un PDF combinado para estimados del mismo cliente.');
+            toast.error(t('posx.estimates.same_client_pdf'));
             return;
         }
 
         const client = getClientById(firstClientId);
         if (!client) {
-            toast.error('No se pudo encontrar la información del cliente para los estimados seleccionados.');
+            toast.error(t('posx.estimates.client_not_found'));
             return;
         }
     
@@ -504,7 +504,7 @@ export const EstimatesListPage: React.FC = () => {
                                 <button
                                     onClick={() => handleConvertToSale(estimate)}
                                     className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                                    title={isClosed ? 'Ya convertido' : 'Convertir a venta'}
+                                    title={isClosed ? t('posx.estimates.already_converted_title') : t('posx.estimates.convert_to_sale')}
                                     disabled={isClosed || estimate.status === EstimateStatus.RECHAZADO || estimate.status === EstimateStatus.EXPIRADO}
                                 >
                                     <ShoppingCartIcon className="w-4 h-4" />
@@ -546,9 +546,9 @@ export const EstimatesListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('posx.estimates.confirm_delete_title')}
+                message={t('posx.estimates.confirm_delete_message')}
+                confirmButtonText={t('posx.estimates.confirm_delete_btn')}
                 cancelButtonText={t('confirm.cancel.btn')}
             />
             <ConfirmationModal

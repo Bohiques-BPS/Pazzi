@@ -8,6 +8,7 @@ import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon, Phot
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 // ... (Keep RecordPaymentModal as is) ...
 interface RecordPaymentModalProps {
@@ -19,6 +20,7 @@ interface RecordPaymentModalProps {
 
 const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, order, onRecordPayment }) => {
     const { getSupplierById } = useData();
+    const { t } = useTranslation();
     const [amountPaidInput, setAmountPaidInput] = useState<string>('');
     const [invoiceRefInput, setInvoiceRefInput] = useState<string>('');
     const [attachment, setAttachment] = useState<string | undefined>(undefined);
@@ -57,11 +59,11 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
         e.preventDefault();
         const amount = parseFloat(amountPaidInput);
         if (isNaN(amount) || amount <= 0) {
-            toast.error('Por favor, ingrese un monto de pago válido.');
+            toast.error(t('posx.payable.invalidAmount'));
             return;
         }
         if (amount > remainingBalance + 0.001) {
-            toast.error(`El monto ($${amount.toFixed(2)}) no puede exceder el saldo pendiente ($${remainingBalance.toFixed(2)}).`);
+            toast.error(t('posx.payable.amountExceedsBalance', { amount: amount.toFixed(2), balance: remainingBalance.toFixed(2) }));
             return;
         }
         onRecordPayment(order.id, amount, invoiceRefInput, attachment);
@@ -69,33 +71,33 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Registrar Pago para Pedido #${order.id.substring(0,8)}`} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('posx.payable.recordPaymentTitle', { id: order.id.substring(0,8) })} size="md">
             <form onSubmit={handleSubmitPayment} className="space-y-4">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                    Pedido a: {getSupplierById(order.supplierId)?.name || order.supplierId} <br/>
-                    Total Pedido: ${order.totalCost.toFixed(2)} <br/>
-                    Pagado Hasta Ahora: ${(order.amountPaid || 0).toFixed(2)} <br/>
-                    <strong className="text-primary">Saldo Pendiente: ${remainingBalance.toFixed(2)}</strong>
+                    {t('posx.payable.orderTo')} {getSupplierById(order.supplierId)?.name || order.supplierId} <br/>
+                    {t('posx.payable.orderTotal')} ${order.totalCost.toFixed(2)} <br/>
+                    {t('posx.payable.paidSoFar')} ${(order.amountPaid || 0).toFixed(2)} <br/>
+                    <strong className="text-primary">{t('posx.payable.pendingBalance')} ${remainingBalance.toFixed(2)}</strong>
                 </p>
                 <div>
-                    <label htmlFor="paymentAmount" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Monto a Pagar</label>
+                    <label htmlFor="paymentAmount" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('posx.payable.amountToPay')}</label>
                     <input
                         type="number" id="paymentAmount" value={amountPaidInput}
                         onChange={(e) => setAmountPaidInput(e.target.value)}
-                        className={inputFormStyle} placeholder={`Máx. ${remainingBalance.toFixed(2)}`}
+                        className={inputFormStyle} placeholder={t('posx.payable.maxPlaceholder', { max: remainingBalance.toFixed(2) })}
                         min="0.01" step="0.01" max={remainingBalance.toFixed(2)} required autoFocus
                     />
                 </div>
                  <div>
-                    <label htmlFor="invoiceRef" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nº de Factura (Opcional)</label>
+                    <label htmlFor="invoiceRef" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('posx.payable.invoiceNumber')}</label>
                     <input
                         type="text" id="invoiceRef" value={invoiceRefInput}
                         onChange={(e) => setInvoiceRefInput(e.target.value)}
-                        className={inputFormStyle} placeholder="Ej: F-12345"
+                        className={inputFormStyle} placeholder={t('posx.payable.invoicePlaceholder')}
                     />
                 </div>
                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Adjuntar Comprobante (Opcional)</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('posx.payable.attachReceipt')}</label>
                     <div className="mt-1 flex items-center space-x-2">
                         <button
                             type="button"
@@ -103,7 +105,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                             className={BUTTON_SECONDARY_SM_CLASSES}
                         >
                             <DocumentArrowUpIcon className="w-4 h-4 mr-2" />
-                            Seleccionar archivo...
+                            {t('posx.payable.selectFile')}
                         </button>
                         <input
                             ref={fileInputRef}
@@ -122,8 +124,8 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                     </div>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>Registrar Pago</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.payable.cancel')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.payable.recordPayment')}</button>
                 </div>
             </form>
         </Modal>
@@ -134,6 +136,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
 export const AccountsPayablePage: React.FC = () => {
     const { supplierOrders, getSupplierById, suppliers, recordSupplierOrderPayment, updateSupplierOrderStatus } = useData();
     const { getDefaultSettings } = useECommerceSettings();
+    const { t } = useTranslation();
 
     const [paymentModalOrder, setPaymentModalOrder] = useState<SupplierOrder | null>(null);
     const [showEditOrderModal, setShowEditOrderModal] = useState(false);
@@ -242,30 +245,30 @@ export const AccountsPayablePage: React.FC = () => {
 
     const handleEditOrder = (order: SupplierOrder) => { setOrderToEdit(order); setShowEditOrderModal(true); };
     const handleCancelOrder = (orderId: string) => { setOrderToCancelId(orderId); setShowCancelConfirmModal(true); };
-    const confirmCancelOrder = () => { if (orderToCancelId) { updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO); toast.success('Pedido cancelado.'); } setOrderToCancelId(null); setShowCancelConfirmModal(false); };
-    
+    const confirmCancelOrder = () => { if (orderToCancelId) { updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO); toast.success(t('posx.payable.orderCancelled')); } setOrderToCancelId(null); setShowCancelConfirmModal(false); };
+
     const generatePayablePDF = async (order: SupplierOrder) => {
-        toast(`Generando PDF para pedido #${order.id.slice(0,8)}...`, { icon: '🖨️' });
+        toast(t('posx.payable.generatingPdf', { id: order.id.slice(0,8) }), { icon: '🖨️' });
     };
 
     return (
         <div>
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Cuentas por Pagar</h1>
+                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.payable.title')}</h1>
                  <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                     <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                         <select id="apStatusFilter" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className={INPUT_SM_CLASSES}>
-                            <option value="Pendientes">Pendientes</option>
-                            <option value="Pagado Completo">Pagado Completo</option>
-                            <option value="Todas">Todas</option>
+                            <option value="Pendientes">{t('posx.payable.statusPending')}</option>
+                            <option value="Pagado Completo">{t('posx.payable.statusPaidFull')}</option>
+                            <option value="Todas">{t('posx.payable.statusAll')}</option>
                         </select>
 
                         {/* Supplier Autocomplete Filter */}
                         <div className="relative" ref={supplierInputRef}>
                             <div className="relative">
-                                <input 
+                                <input
                                     type="text"
-                                    placeholder="Filtrar por Proveedor..."
+                                    placeholder={t('posx.payable.filterBySupplier')}
                                     value={supplierSearchInput}
                                     onChange={(e) => { setSupplierSearchInput(e.target.value); if(e.target.value === '') setSupplierFilterId(null); }}
                                     onFocus={() => setIsSupplierDropdownOpen(true)}
@@ -286,7 +289,7 @@ export const AccountsPayablePage: React.FC = () => {
                                         onClick={() => { clearSupplierFilter(); setIsSupplierDropdownOpen(false); }}
                                         className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm"
                                     >
-                                        Todos los Proveedores
+                                        {t('posx.payable.allSuppliers')}
                                     </li>
                                     {supplierSuggestions.map(s => (
                                         <li 
@@ -298,19 +301,19 @@ export const AccountsPayablePage: React.FC = () => {
                                         </li>
                                     ))}
                                     {supplierSuggestions.length === 0 && (
-                                        <li className="px-3 py-2 text-neutral-500 text-sm">No se encontraron proveedores.</li>
+                                        <li className="px-3 py-2 text-neutral-500 text-sm">{t('posx.payable.noSuppliersFound')}</li>
                                     )}
                                 </ul>
                             )}
                         </div>
 
                         <select value={dueFilter} onChange={e => setDueFilter(e.target.value as any)} className={INPUT_SM_CLASSES}>
-                            <option value="all">Vencimiento (Net 30): Todos</option>
-                            <option value="overdue">Vencidas</option>
-                            <option value="today">Vence Hoy</option>
-                            <option value="7days">Próx. 7 Días</option>
-                            <option value="30days">Próx. 30 Días</option>
-                            <option value="plus30">+30 Días</option>
+                            <option value="all">{t('posx.payable.dueAll')}</option>
+                            <option value="overdue">{t('posx.payable.dueOverdue')}</option>
+                            <option value="today">{t('posx.payable.dueToday')}</option>
+                            <option value="7days">{t('posx.payable.dueNext7')}</option>
+                            <option value="30days">{t('posx.payable.dueNext30')}</option>
+                            <option value="plus30">{t('posx.payable.duePlus30')}</option>
                         </select>
                     </div>
                 </div>
@@ -320,14 +323,14 @@ export const AccountsPayablePage: React.FC = () => {
                     <thead className="bg-neutral-50 dark:bg-neutral-700">
                         <tr>
                             <th scope="col" className="w-12 px-4 py-2"></th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">ID Pedido</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Proveedor</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Fecha Pedido</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Costo Total</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Monto Pagado</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Saldo Pendiente</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Estado Pago</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Acciones</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colOrderId')}</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colSupplier')}</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colOrderDate')}</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colTotalCost')}</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colAmountPaid')}</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colPendingBalance')}</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colPaymentStatus')}</th>
+                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colActions')}</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -337,7 +340,7 @@ export const AccountsPayablePage: React.FC = () => {
                                 try {
                                     return JSON.parse(note);
                                 } catch (e) {
-                                    return { d: 'Error de formato', p: '0', i: note, a: null };
+                                    return { d: t('posx.payable.formatError'), p: '0', i: note, a: null };
                                 }
                             });
                             return (
@@ -359,24 +362,24 @@ export const AccountsPayablePage: React.FC = () => {
                                         <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{order.paymentStatus}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-base font-medium">
                                             <div className="flex space-x-1">
-                                                <button onClick={() => handleEditOrder(order)} className="text-blue-500 p-1" title="Editar Pedido"><EditIcon className="w-4 h-4" /></button>
-                                                <button onClick={() => generatePayablePDF(order)} className="text-blue-500 p-1" title="Imprimir Estado de Cuenta"><PrinterIcon className="w-4 h-4" /></button>
-                                                <button onClick={() => setPaymentModalOrder(order)} className="text-green-500 p-1" title="Registrar Pago" disabled={order.balance <= 0}><BanknotesIcon className="w-4 h-4" /></button>
-                                                <button onClick={() => handleCancelOrder(order.id)} className="text-red-500 p-1" title="Cancelar Pedido" disabled={order.status === SupplierOrderStatus.RECIBIDO_COMPLETO}><CancelIcon className="w-4 h-4" /></button>
+                                                <button onClick={() => handleEditOrder(order)} className="text-blue-500 p-1" title={t('posx.payable.editOrder')}><EditIcon className="w-4 h-4" /></button>
+                                                <button onClick={() => generatePayablePDF(order)} className="text-blue-500 p-1" title={t('posx.payable.printStatement')}><PrinterIcon className="w-4 h-4" /></button>
+                                                <button onClick={() => setPaymentModalOrder(order)} className="text-green-500 p-1" title={t('posx.payable.recordPayment')} disabled={order.balance <= 0}><BanknotesIcon className="w-4 h-4" /></button>
+                                                <button onClick={() => handleCancelOrder(order.id)} className="text-red-500 p-1" title={t('posx.payable.cancelOrder')} disabled={order.status === SupplierOrderStatus.RECIBIDO_COMPLETO}><CancelIcon className="w-4 h-4" /></button>
                                             </div>
                                         </td>
                                     </tr>
                                     {isExpanded && paymentNotesParsed.length > 0 && (
                                         <tr className="bg-neutral-50 dark:bg-neutral-900/50">
                                             <td colSpan={9} className="p-3">
-                                                <h4 className="text-sm font-semibold mb-2 text-neutral-600 dark:text-neutral-300">Historial de Pagos</h4>
+                                                <h4 className="text-sm font-semibold mb-2 text-neutral-600 dark:text-neutral-300">{t('posx.payable.paymentHistory')}</h4>
                                                 <table className="min-w-full bg-white dark:bg-neutral-800 rounded-md">
                                                     <thead className="bg-neutral-100 dark:bg-neutral-700 text-xs uppercase">
                                                         <tr>
-                                                            <th className="px-3 py-1.5 text-left">Fecha</th>
-                                                            <th className="px-3 py-1.5 text-right">Monto</th>
-                                                            <th className="px-3 py-1.5 text-left">Ref. Factura</th>
-                                                            <th className="px-3 py-1.5 text-center">Adjunto</th>
+                                                            <th className="px-3 py-1.5 text-left">{t('posx.payable.histDate')}</th>
+                                                            <th className="px-3 py-1.5 text-right">{t('posx.payable.histAmount')}</th>
+                                                            <th className="px-3 py-1.5 text-left">{t('posx.payable.histInvoiceRef')}</th>
+                                                            <th className="px-3 py-1.5 text-center">{t('posx.payable.histAttachment')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -387,7 +390,7 @@ export const AccountsPayablePage: React.FC = () => {
                                                                 <td className="px-3 py-1.5">{payment.i || 'N/A'}</td>
                                                                 <td className="px-3 py-1.5 text-center">
                                                                     {payment.a ? (
-                                                                        <a href={payment.a} target="_blank" rel="noopener noreferrer" className="inline-block text-blue-500 hover:text-blue-600" title="Ver adjunto">
+                                                                        <a href={payment.a} target="_blank" rel="noopener noreferrer" className="inline-block text-blue-500 hover:text-blue-600" title={t('posx.payable.viewAttachment')}>
                                                                             <PhotoIcon className="w-5 h-5" />
                                                                         </a>
                                                                     ) : 'No'}
@@ -404,7 +407,7 @@ export const AccountsPayablePage: React.FC = () => {
                         }) : (
                             <tr>
                                 <td colSpan={9} className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">
-                                    No se encontraron cuentas por pagar con los filtros seleccionados.
+                                    {t('posx.payable.noResults')}
                                 </td>
                             </tr>
                         )}
@@ -413,7 +416,7 @@ export const AccountsPayablePage: React.FC = () => {
             </div>
             <RecordPaymentModal isOpen={!!paymentModalOrder} onClose={() => setPaymentModalOrder(null)} order={paymentModalOrder} onRecordPayment={recordSupplierOrderPayment}/>
             <SupplierOrderFormModal isOpen={showEditOrderModal} onClose={() => setShowEditOrderModal(false)} orderToEdit={orderToEdit} />
-            {orderToCancelId && <ConfirmationModal isOpen={showCancelConfirmModal} onClose={() => setShowCancelConfirmModal(false)} onConfirm={confirmCancelOrder} title="Confirmar Cancelación" message={`¿Seguro que desea cancelar el pedido PO-${orderToCancelId.slice(-6).toUpperCase()}?`} confirmButtonText="Sí, Cancelar Pedido" />}
+            {orderToCancelId && <ConfirmationModal isOpen={showCancelConfirmModal} onClose={() => setShowCancelConfirmModal(false)} onConfirm={confirmCancelOrder} title={t('posx.payable.confirmCancelTitle')} message={t('posx.payable.confirmCancelMessage', { po: orderToCancelId.slice(-6).toUpperCase() })} confirmButtonText={t('posx.payable.confirmCancelButton')} />}
         </div>
     );
 };

@@ -8,11 +8,13 @@ import { LockClosedIcon, ExclamationTriangleIcon, ArrowUturnLeftIcon } from '../
 import logo from '../../assets/logo.png';
 import banner from '../../assets/img/banner.png';
 import { PasswordInput } from '../../components/ui/PasswordInput';
+import { usePublicT } from '../../hooks/usePublicTranslation';
 
 export const ResetPasswordPage: React.FC = () => {
     const [params] = useSearchParams();
     const token = params.get('token') || '';
     const navigate = useNavigate();
+    const t = usePublicT();
     useAuth(); // Asegurar provider montado
 
     const [password, setPassword] = useState('');
@@ -21,11 +23,11 @@ export const ResetPasswordPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     const validate = (): string | null => {
-        if (!token) return 'Token de recuperación faltante. Verifica el enlace.';
-        if (password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
-        if (!/[A-Za-z]/.test(password)) return 'La contraseña debe contener al menos una letra.';
-        if (!/[0-9]/.test(password)) return 'La contraseña debe contener al menos un número.';
-        if (password !== confirmPassword) return 'Las contraseñas no coinciden.';
+        if (!token) return t('auth.err.token_missing');
+        if (password.length < 8) return t('auth.err.pw_min');
+        if (!/[A-Za-z]/.test(password)) return t('auth.err.pw_letter');
+        if (!/[0-9]/.test(password)) return t('auth.err.pw_number');
+        if (password !== confirmPassword) return t('auth.err.pw_match');
         return null;
     };
 
@@ -46,9 +48,9 @@ export const ResetPasswordPage: React.FC = () => {
             window.location.reload();
         } catch (err) {
             if (err instanceof ApiError) {
-                setError(err.status === 410 ? 'Este enlace expiró o ya fue utilizado. Solicita uno nuevo.' : err.message);
+                setError(err.status === 410 ? t('auth.err.link_expired') : err.message);
             } else {
-                setError('Error al resetear la contraseña');
+                setError(t('auth.err.reset_generic'));
             }
         } finally {
             setSubmitting(false);
@@ -63,8 +65,8 @@ export const ResetPasswordPage: React.FC = () => {
               <div className="flex justify-center mb-6">
                 <img src={logo} alt="Pazzi" className="h-9" />
               </div>
-                <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-1">Crear nueva contraseña</h2>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center mb-6">Elige una contraseña segura de al menos 8 caracteres.</p>
+                <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-1">{t('auth.reset.title')}</h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center mb-6">{t('auth.reset.subtitle')}</p>
 
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-start text-red-700 text-sm mb-4">
@@ -75,7 +77,7 @@ export const ResetPasswordPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-base font-medium">Nueva contraseña</label>
+                        <label className="block text-base font-medium">{t('auth.new_password')}</label>
                         <div className="relative mt-1">
                             <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 z-10" />
                             <PasswordInput
@@ -89,12 +91,12 @@ export const ResetPasswordPage: React.FC = () => {
                             />
                         </div>
                         <p className="text-xs text-neutral-500 mt-1">
-                            Mínimo 8 caracteres, con al menos una letra y un número.
+                            {t('auth.password_hint')}
                         </p>
                     </div>
 
                     <div>
-                        <label className="block text-base font-medium">Confirmar contraseña</label>
+                        <label className="block text-base font-medium">{t('auth.confirm_password')}</label>
                         <div className="relative mt-1">
                             <LockClosedIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 z-10" />
                             <PasswordInput
@@ -109,13 +111,13 @@ export const ResetPasswordPage: React.FC = () => {
                     </div>
 
                     <button type="submit" className={authButtonPrimary} disabled={submitting}>
-                        {submitting ? 'Guardando...' : 'Cambiar contraseña'}
+                        {submitting ? t('auth.saving') : t('auth.reset.submit')}
                     </button>
                 </form>
 
                 <p className="mt-6 text-center">
                     <Link to="/login" className={`${authLinkStyle} inline-flex items-center gap-1`}>
-                      <ArrowUturnLeftIcon className="w-4 h-4" /> Volver a iniciar sesión
+                      <ArrowUturnLeftIcon className="w-4 h-4" /> {t('auth.back_login')}
                     </Link>
                 </p>
             </div>
@@ -126,8 +128,8 @@ export const ResetPasswordPage: React.FC = () => {
             <img src={banner} alt="" className="absolute inset-0 w-full h-full object-cover opacity-80 dark:opacity-50" />
             <div className="absolute inset-0 bg-gradient-to-br from-primary/60 to-secondary/60 dark:from-neutral-900/80 dark:to-neutral-800/80" />
             <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center text-white">
-              <h3 className="text-3xl font-bold mb-3 drop-shadow">Nueva contraseña</h3>
-              <p className="text-base opacity-90 max-w-xs drop-shadow">Crea una contraseña segura para proteger tu cuenta.</p>
+              <h3 className="text-3xl font-bold mb-3 drop-shadow">{t('auth.reset.banner_title')}</h3>
+              <p className="text-base opacity-90 max-w-xs drop-shadow">{t('auth.reset.banner_text')}</p>
             </div>
           </div>
         </div>

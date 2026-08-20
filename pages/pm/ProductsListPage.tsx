@@ -148,7 +148,7 @@ export const ProductsListPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar productos:", error);
-                toast.error('Error al cargar los productos.');
+                toast.error(t('pmx.product.load_error'));
             } finally {
                 setLoadingData(false);
             }
@@ -168,7 +168,7 @@ export const ProductsListPage: React.FC = () => {
             setEditingProduct(product);
             setShowFormModal(true);
         } else {
-                       toast.error('No tienes permisos para editar este producto.');
+                       toast.error(t('pmx.product.no_permission_edit'));
 
         }
     };
@@ -180,7 +180,7 @@ export const ProductsListPage: React.FC = () => {
             setItemToDeleteId(productId);
             setShowDeleteConfirmModal(true);
         } else {
-                     toast.error('No tienes permisos para eliminar este producto.');
+                     toast.error(t('pmx.product.no_permission_delete'));
 
         }
     };
@@ -208,14 +208,14 @@ export const ProductsListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setProducts(prev => prev.filter(p => p.id !== itemToDeleteId));
-                    toast.success('Producto eliminado');
+                    toast.success(t('pmx.product.deleted_ok'));
                 } else {
                     const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || 'No se pudo eliminar el producto.');
+                    toast.error(errData.error || t('pmx.product.delete_error'));
                 }
             } catch (error) {
                 console.error('Error al eliminar producto:', error);
-                toast.error('Error de conexión al intentar eliminar.');
+                toast.error(t('pmx.common.conn_delete_error'));
             } finally {
                 setItemToDeleteId(null);
             }
@@ -266,7 +266,7 @@ export const ProductsListPage: React.FC = () => {
                 return (
                     <div className="flex items-center justify-end space-x-1">
                         <span>{stockQty}</span>
-                        <button onClick={() => openAdjustmentModal(product, branch.id)} className="p-0.5 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" title={`Ajustar stock en ${branch.name}`}>
+                        <button onClick={() => openAdjustmentModal(product, branch.id)} className="p-0.5 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" title={t('pmx.product.adjust_stock_in', { branch: branch.name })}>
                             <Cog6ToothIcon className="w-4 h-4" />
                         </button>
                     </div>
@@ -297,29 +297,29 @@ export const ProductsListPage: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <input 
                         type="text" 
-                        placeholder="Buscar por nombre, SKU, código de barras, categoría, proveedor…"
+                        placeholder={t('pmx.product.search_ph')}
                         value={searchTerm}
                         onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1);}}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label="Buscar productos"
+                        aria-label={t('pmx.product.search_aria')}
                     />
                      <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
-                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tarjetas"><Squares2X2Icon className="w-5 h-5"/></button>
-                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label="Vista de Tabla"><ListBulletIcon className="w-5 h-5"/></button>
+                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label={t('pmx.product.view_cards')}><Squares2X2Icon className="w-5 h-5"/></button>
+                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label={t('pmx.product.view_table')}><ListBulletIcon className="w-5 h-5"/></button>
                     </div>
                     <button
                         onClick={() => setShowReportsModal(true)}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
-                        title="Ver reportes de productos"
+                        title={t('pmx.product.view_reports_title')}
                     >
-                       📊 Ver reporte de productos
+                       📊 {t('pmx.product.view_reports')}
                     </button>
                     <button
                         onClick={() => setShowImportModal(true)}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
-                        title="Importar productos desde Excel o CSV"
+                        title={t('pmx.product.import_title')}
                     >
-                       📥 Importar
+                       📥 {t('pmx.common.import')}
                     </button>
                     <button
                         onClick={openModalForCreate}
@@ -332,60 +332,60 @@ export const ProductsListPage: React.FC = () => {
 
             {/* Barra de filtros por columna (server-side) */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
-                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Filtros:</span>
+                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">{t('pmx.common.filters_label')}</span>
                 <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
                     className={INPUT_SM_CLASSES}
-                    aria-label="Filtrar por categoría"
+                    aria-label={t('pmx.product.filter_category')}
                 >
-                    <option value="Todos">Categoría: todas</option>
+                    <option value="Todos">{t('pmx.product.category_all')}</option>
                     {availableCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                 </select>
                 <select
                     value={selectedDepartment}
                     onChange={(e) => setSelectedDepartment(e.target.value)}
                     className={INPUT_SM_CLASSES}
-                    aria-label="Filtrar por departamento"
+                    aria-label={t('pmx.product.filter_department')}
                 >
-                    <option value="Todos">Departamento: todos</option>
+                    <option value="Todos">{t('pmx.product.department_all')}</option>
                     {departments.map(dep => <option key={dep.id} value={dep.id}>{dep.name}</option>)}
                 </select>
                 <select
                     value={selectedSupplier}
                     onChange={(e) => setSelectedSupplier(e.target.value)}
                     className={INPUT_SM_CLASSES}
-                    aria-label="Filtrar por proveedor"
+                    aria-label={t('pmx.product.filter_supplier')}
                 >
-                    <option value="Todos">Proveedor: todos</option>
+                    <option value="Todos">{t('pmx.product.supplier_all')}</option>
                     {suppliers.map(sup => <option key={sup.id} value={sup.id}>{sup.name}</option>)}
                 </select>
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
                     className={INPUT_SM_CLASSES}
-                    aria-label="Filtrar por estado"
+                    aria-label={t('pmx.product.filter_status')}
                 >
-                    <option value="all">Estado: todos</option>
-                    <option value="active">Solo activos</option>
-                    <option value="inactive">Solo inactivos</option>
+                    <option value="all">{t('pmx.product.status_all')}</option>
+                    <option value="active">{t('pmx.product.status_active')}</option>
+                    <option value="inactive">{t('pmx.product.status_inactive')}</option>
                 </select>
                 <select
                     value={stockFilter}
                     onChange={(e) => setStockFilter(e.target.value as 'all' | 'in' | 'out')}
                     className={INPUT_SM_CLASSES}
-                    aria-label="Filtrar por stock"
+                    aria-label={t('pmx.product.filter_stock')}
                 >
-                    <option value="all">Stock: todos</option>
-                    <option value="in">Con stock</option>
-                    <option value="out">Sin stock</option>
+                    <option value="all">{t('pmx.product.stock_all')}</option>
+                    <option value="in">{t('pmx.product.stock_in')}</option>
+                    <option value="out">{t('pmx.product.stock_out')}</option>
                 </select>
                 {(selectedCategory !== 'Todos' || selectedDepartment !== 'Todos' || selectedSupplier !== 'Todos' || statusFilter !== 'all' || stockFilter !== 'all') && (
                     <button
                         onClick={() => { setSelectedCategory('Todos'); setSelectedDepartment('Todos'); setSelectedSupplier('Todos'); setStatusFilter('all'); setStockFilter('all'); }}
                         className="text-sm text-primary hover:underline flex-shrink-0"
                     >
-                        Limpiar filtros
+                        {t('pmx.common.clear_filters')}
                     </button>
                 )}
             </div>
@@ -393,7 +393,7 @@ export const ProductsListPage: React.FC = () => {
             {loadingData && (
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando productos desde la base de datos...</span>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">{t('pmx.product.loading')}</span>
                 </div>
             )}
 
@@ -413,7 +413,7 @@ export const ProductsListPage: React.FC = () => {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">No se encontraron productos con los filtros actuales.</p>
+                        <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">{t('pmx.product.none_found')}</p>
                     )}
                     {totalCardPages > 1 && (
                         <div className="mt-6 flex justify-center items-center space-x-2">
@@ -430,15 +430,15 @@ export const ProductsListPage: React.FC = () => {
                     columns={tableColumns}
                     actions={(product) => (
                         <div className="flex space-x-1">
-                            <button onClick={() => openModalForEdit(product)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Editar ${product.name}`}><EditIcon /></button>
+                            <button onClick={() => openModalForEdit(product)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('pmx.product.edit_name', { name: product.name })}><EditIcon /></button>
                             <button
-                                onClick={() => printBarcodeLabel(product).then(() => toast.success('Etiqueta enviada.')).catch(err => toast.error(err?.message || 'No se pudo imprimir la etiqueta.'))}
+                                onClick={() => printBarcodeLabel(product).then(() => toast.success(t('pmx.product.label_sent_short'))).catch(err => toast.error(err?.message || t('pmx.product.label_print_failed')))}
                                 className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1 text-base leading-none"
-                                title={`Imprimir código de barras de ${product.name}`}
-                                aria-label={`Imprimir código de barras de ${product.name}`}
+                                title={t('pmx.product.print_barcode_of', { name: product.name })}
+                                aria-label={t('pmx.product.print_barcode_of', { name: product.name })}
                             >🏷️</button>
-                            <button onClick={() => openHistoryModal(product)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 p-1" aria-label={`Ver movimientos de ${product.name}`}><ListBulletIcon/></button>
-                            <button onClick={() => requestDelete(product.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={`Eliminar ${product.name}`}><DeleteIcon /></button>
+                            <button onClick={() => openHistoryModal(product)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 p-1" aria-label={t('pmx.product.view_movements_of', { name: product.name })}><ListBulletIcon/></button>
+                            <button onClick={() => requestDelete(product.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('pmx.product.delete_name', { name: product.name })}><DeleteIcon /></button>
                         </div>
                     )}
                 />
@@ -461,11 +461,11 @@ export const ProductsListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('pmx.common.confirm_delete_title')}
+                message={t('pmx.common.cannot_undo')}
+                confirmButtonText={t('pmx.common.yes_delete')}
             />
-            <InventoryHistoryModal 
+            <InventoryHistoryModal
                 isOpen={showHistoryModal}
                 onClose={() => setShowHistoryModal(false)}
                 productId={productForHistory?.id || null}
@@ -480,7 +480,7 @@ export const ProductsListPage: React.FC = () => {
                 <ImportModal
                     isOpen={showImportModal}
                     onClose={() => setShowImportModal(false)}
-                    title="Importar productos"
+                    title={t('pmx.product.import_modal_title')}
                     fields={PRODUCT_IMPORT_FIELDS}
                     onImport={async (rows) => {
                         // Mapear a la forma del backend: sku (columna) -> skus (array).

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { invoicesService, type PublicInvoice } from '../../services/invoices';
 import { AgilPayCardForm } from '../../components/pos/AgilPayCardForm';
 import { AthMovilButton } from '../../components/pos/AthMovilButton';
+import { usePublicT } from '../../hooks/usePublicTranslation';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
 import { ApiError } from '../../services/api';
@@ -47,6 +48,7 @@ export const PublicInvoicePage: React.FC = () => {
     const [payAmount, setPayAmount] = useState('');
     const [athMsg, setAthMsg] = useState<string | null>(null);
     const [athProcessing, setAthProcessing] = useState(false);
+    const t = usePublicT();
 
     const load = async () => {
         if (!token) return;
@@ -82,13 +84,13 @@ export const PublicInvoicePage: React.FC = () => {
     // El cliente completó el pago con el botón de ATH Móvil → verificar y registrar automáticamente.
     const handleAthSuccess = async (referenceNumber: string) => {
         if (!token) return;
-        setAthProcessing(true); setAthMsg('Verificando tu pago de ATH Móvil…'); setError(null);
+        setAthProcessing(true); setAthMsg(t('pay.ath_verifying')); setError(null);
         try {
             const r = await invoicesService.payPublicAthMovil(token, referenceNumber, charge > 0 ? charge : undefined);
-            setAthMsg(r.fullyPaid ? '¡Pago recibido! Gracias.' : 'Abono registrado. Gracias.');
+            setAthMsg(r.fullyPaid ? t('pay.ath_received') : t('pay.ath_partial'));
             await load();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Recibimos tu pago pero no se pudo registrar automáticamente. El comercio lo confirmará.');
+            setError(err instanceof ApiError ? err.message : t('pay.ath_error'));
             setAthMsg(null);
         } finally { setAthProcessing(false); }
     };
@@ -98,14 +100,14 @@ export const PublicInvoicePage: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center text-neutral-500">Cargando factura…</div>;
+        return <div className="min-h-screen flex items-center justify-center text-neutral-500">{t('pay.loading')}</div>;
     }
     if (error || !inv || !cfg) {
         return (
             <div className="min-h-screen flex items-center justify-center px-4">
                 <div className="text-center">
                     <div className="text-5xl mb-3">🧾</div>
-                    <p className="text-neutral-600 dark:text-neutral-300">{error || 'Factura no encontrada.'}</p>
+                    <p className="text-neutral-600 dark:text-neutral-300">{error || t('pay.not_found')}</p>
                 </div>
             </div>
         );
@@ -119,7 +121,7 @@ export const PublicInvoicePage: React.FC = () => {
                 {/* Encabezado del negocio */}
                 <div className="p-6 text-center border-b border-neutral-200 dark:border-neutral-700">
                     {b.logoUrl && <img src={b.logoUrl} alt="" className="mx-auto max-h-16 object-contain mb-3" />}
-                    <h1 className="text-xl font-bold text-neutral-800 dark:text-neutral-100">{b.businessName || 'Factura'}</h1>
+                    <h1 className="text-xl font-bold text-neutral-800 dark:text-neutral-100">{b.businessName || t('pay.invoice')}</h1>
                     {b.rnc && <p className="text-xs text-neutral-500">RNC/Reg: {b.rnc}</p>}
                     {b.address && <p className="text-xs text-neutral-500">{b.address}</p>}
                     {b.phone && <p className="text-xs text-neutral-500">Tel: {b.phone}</p>}
@@ -127,12 +129,12 @@ export const PublicInvoicePage: React.FC = () => {
 
                 {/* Estado */}
                 <div className="px-6 pt-4 flex items-center justify-between">
-                    <span className="text-sm text-neutral-500">Factura {inv.number ? `#${inv.number}` : ''}</span>
+                    <span className="text-sm text-neutral-500">{t('pay.invoice')} {inv.number ? `#${inv.number}` : ''}</span>
                     {isPaid
-                        ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">✓ Pagada</span>
+                        ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">✓ {t('pay.status.paid')}</span>
                         : inv.status === 'partial'
-                            ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Pago parcial</span>
-                            : <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Pendiente</span>}
+                            ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{t('pay.status.partial')}</span>
+                            : <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">{t('pay.status.pending')}</span>}
                 </div>
 
                 {/* Detalle */}
@@ -152,13 +154,13 @@ export const PublicInvoicePage: React.FC = () => {
                         </tbody>
                     </table>
                     <div className="mt-4 space-y-1 text-sm">
-                        <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>Subtotal</span><span>{money(inv.subtotal)}</span></div>
-                        <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>IVU</span><span>{money(inv.tax)}</span></div>
-                        <div className="flex justify-between text-lg font-bold text-neutral-900 dark:text-white pt-1"><span>Total</span><span>{money(inv.total)}</span></div>
+                        <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>{t('pay.subtotal')}</span><span>{money(inv.subtotal)}</span></div>
+                        <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>{t('pay.tax')}</span><span>{money(inv.tax)}</span></div>
+                        <div className="flex justify-between text-lg font-bold text-neutral-900 dark:text-white pt-1"><span>{t('pay.total')}</span><span>{money(inv.total)}</span></div>
                         {(inv.amountPaid || 0) > 0 && (
                             <>
-                                <div className="flex justify-between text-green-700 dark:text-green-400"><span>Pagado</span><span>−{money(inv.amountPaid)}</span></div>
-                                <div className="flex justify-between text-base font-bold text-red-600 dark:text-red-400"><span>Saldo</span><span>{money(balance)}</span></div>
+                                <div className="flex justify-between text-green-700 dark:text-green-400"><span>{t('pay.paid')}</span><span>−{money(inv.amountPaid)}</span></div>
+                                <div className="flex justify-between text-base font-bold text-red-600 dark:text-red-400"><span>{t('pay.balance')}</span><span>{money(balance)}</span></div>
                             </>
                         )}
                     </div>
@@ -166,7 +168,7 @@ export const PublicInvoicePage: React.FC = () => {
                     {/* Abonos recibidos */}
                     {inv.payments && inv.payments.length > 0 && (
                         <div className="mt-3 border-t border-neutral-100 dark:border-neutral-700 pt-2">
-                            <p className="text-xs font-semibold text-neutral-500 mb-1">Abonos recibidos</p>
+                            <p className="text-xs font-semibold text-neutral-500 mb-1">{t('pay.payments_received')}</p>
                             {inv.payments.map((p, i) => (
                                 <div key={i} className="flex justify-between text-xs text-neutral-500">
                                     <span>{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ''} {p.method || ''}</span>
@@ -182,27 +184,27 @@ export const PublicInvoicePage: React.FC = () => {
                     {isPaid ? (
                         <div className="space-y-3">
                             <div className="text-center text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 rounded-md py-3">
-                                Pago recibido. ¡Gracias!
-                                {inv.paidReference && <div className="text-xs text-neutral-500 mt-1">Ref: {inv.paidReference}</div>}
+                                {t('pay.received_thanks')}
+                                {inv.paidReference && <div className="text-xs text-neutral-500 mt-1">{t('pay.ref')} {inv.paidReference}</div>}
                             </div>
                             <button onClick={downloadPDF} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-md">
-                                📄 Descargar factura (PDF)
+                                {t('pay.download_pdf')}
                             </button>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {/* Monto a pagar (permite abonar una parte del saldo). */}
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Monto a pagar</label>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">{t('pay.amount_to_pay')}</label>
                                 <div className="flex gap-2">
                                     <input
                                         type="text" inputMode="decimal" value={payAmount}
                                         onChange={e => setPayAmount(e.target.value)}
                                         className="w-full text-lg px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700"
                                     />
-                                    <button type="button" onClick={() => setPayAmount(balance.toFixed(2))} className="px-3 py-2 text-sm rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 whitespace-nowrap">Saldo completo</button>
+                                    <button type="button" onClick={() => setPayAmount(balance.toFixed(2))} className="px-3 py-2 text-sm rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 whitespace-nowrap">{t('pay.full_balance')}</button>
                                 </div>
-                                <p className="text-xs text-neutral-500 mt-1">Puedes pagar el saldo completo ({money(balance)}) o una parte.</p>
+                                <p className="text-xs text-neutral-500 mt-1">{t('pay.pay_help', { balance: money(balance) })}</p>
                             </div>
 
                             {allowAgil && (inv.agilpayEnabled ? (
@@ -217,12 +219,12 @@ export const PublicInvoicePage: React.FC = () => {
                                     }}
                                 />
                             ) : (
-                                <p className="text-sm text-center text-neutral-500">El pago con tarjeta no está disponible para este comercio.</p>
+                                <p className="text-sm text-center text-neutral-500">{t('pay.card_unavailable')}</p>
                             ))}
                             {allowAth && (
                                 inv.athEnabled && inv.athPublicToken ? (
                                     <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
-                                        <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-2 text-sm">Pagar con ATH Móvil</div>
+                                        <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-2 text-sm">{t('pay.pay_ath')}</div>
                                         {athProcessing || athMsg ? (
                                             <p className={`text-sm text-center py-2 ${athProcessing ? 'text-neutral-500' : 'text-green-700 dark:text-green-300'}`}>{athMsg}</p>
                                         ) : charge > 0 ? (
@@ -236,14 +238,14 @@ export const PublicInvoicePage: React.FC = () => {
                                                 onFail={(m) => setError(m)}
                                             />
                                         ) : (
-                                            <p className="text-sm text-neutral-500">Ingresa un monto mayor a 0 para pagar con ATH Móvil.</p>
+                                            <p className="text-sm text-neutral-500">{t('pay.ath_amount_gt0')}</p>
                                         )}
-                                        <p className="text-xs text-neutral-400 mt-2">Al completar el pago en tu app ATH Móvil, se registra automáticamente.</p>
+                                        <p className="text-xs text-neutral-400 mt-2">{t('pay.ath_auto')}</p>
                                     </div>
                                 ) : (
                                     <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3 text-sm text-neutral-600 dark:text-neutral-300">
-                                        <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-1">¿Pagar con ATH Móvil?</div>
-                                        Envía el monto por ATH Móvil al comercio. Una vez confirmado, el negocio registra tu abono (saldo actual: <span className="font-semibold">{money(balance)}</span>).
+                                        <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-1">{t('pay.pay_ath_q')}</div>
+                                        {t('pay.ath_manual', { balance: money(balance) })}
                                     </div>
                                 )
                             )}
@@ -251,7 +253,7 @@ export const PublicInvoicePage: React.FC = () => {
                     )}
                 </div>
             </div>
-            <p className="text-center text-xs text-neutral-400 mt-4">Pazzi · Pago seguro</p>
+            <p className="text-center text-xs text-neutral-400 mt-4">{t('pay.secure')}</p>
         </div>
     );
 };

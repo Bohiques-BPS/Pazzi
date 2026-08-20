@@ -62,9 +62,9 @@ export const LayawaysListPage: React.FC = () => {
         try {
             const updated = await layawaysService.cancel(cancelConfirmLayaway.id);
             setLayaways(prev => prev.map(l => l.id === updated.id ? updated : l));
-            toast.success('Apartado cancelado');
+            toast.success(t('posx.layaways.cancelled_ok'));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al cancelar el apartado');
+            toast.error(err instanceof ApiError ? err.message : t('posx.layaways.cancel_error'));
         } finally {
             setCancelConfirmLayaway(null);
         }
@@ -95,7 +95,7 @@ export const LayawaysListPage: React.FC = () => {
             className: 'text-right',
         },
         {
-            header: 'Progreso',
+            header: t('posx.layaways.col.progress') || 'Progreso',
             accessor: (l) => (
                 <div className="w-24">
                     <div className="text-xs text-neutral-500 mb-0.5">{l.progressPct.toFixed(0)}%</div>
@@ -108,7 +108,7 @@ export const LayawaysListPage: React.FC = () => {
                 </div>
             ),
         },
-        { header: 'Estado', accessor: (l) => statusBadge(l.status) },
+        { header: t('posx.layaways.col.status') || 'Estado', accessor: (l) => statusBadge(l.status) },
     ];
 
     return (
@@ -123,8 +123,8 @@ export const LayawaysListPage: React.FC = () => {
 
             {!loading && layawayData.length === 0 && (
                 <EmptyState
-                    title="Sin apartados"
-                    description="Aún no hay apartados registrados. Crea uno desde la caja registradora (POS)."
+                    title={t('posx.layaways.empty_title') || 'Sin apartados'}
+                    description={t('posx.layaways.empty_desc') || 'Aún no hay apartados registrados. Crea uno desde la caja registradora (POS).'}
                 />
             )}
 
@@ -171,10 +171,10 @@ export const LayawaysListPage: React.FC = () => {
                     isOpen={!!cancelConfirmLayaway}
                     onClose={() => setCancelConfirmLayaway(null)}
                     onConfirm={confirmCancellation}
-                    title="Cancelar apartado"
-                    message={`¿Estás seguro de cancelar el apartado #${cancelConfirmLayaway.id.slice(-6).toUpperCase()}? Esta acción no se puede deshacer. Los pagos ya registrados quedarán pendientes de devolución manual.`}
-                    confirmButtonText="Sí, cancelar"
-                    cancelButtonText="No, mantener"
+                    title={t('posx.layaways.cancel_title') || 'Cancelar apartado'}
+                    message={t('posx.layaways.cancel_confirm', { id: cancelConfirmLayaway.id.slice(-6).toUpperCase() }) || `¿Estás seguro de cancelar el apartado #${cancelConfirmLayaway.id.slice(-6).toUpperCase()}? Esta acción no se puede deshacer. Los pagos ya registrados quedarán pendientes de devolución manual.`}
+                    confirmButtonText={t('posx.layaways.cancel_yes') || 'Sí, cancelar'}
+                    cancelButtonText={t('posx.layaways.cancel_no') || 'No, mantener'}
                 />
             )}
         </div>

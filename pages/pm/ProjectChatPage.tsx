@@ -9,10 +9,12 @@ import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const POLLING_INTERVAL_MS = 7000;
 
 export const ProjectChatPage: React.FC = () => {
+    const { t } = useTranslation();
     const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -86,14 +88,14 @@ export const ProjectChatPage: React.FC = () => {
             setProjectMessages(prev => [...prev, message]);
             setNewMessage('');
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al enviar mensaje');
+            toast.error(err instanceof ApiError ? err.message : t('pm2x.chat.send_error'));
         } finally {
             setSending(false);
         }
     };
 
     if (!currentUser) {
-        return <div className="p-6 text-center text-neutral-500 dark:text-neutral-400">Por favor, inicie sesión para usar el chat.</div>;
+        return <div className="p-6 text-center text-neutral-500 dark:text-neutral-400">{t('pm2x.chat.login_required')}</div>;
     }
 
     const projectClient = selectedProject ? getClientById(selectedProject.clientId) : null;
@@ -107,7 +109,7 @@ export const ProjectChatPage: React.FC = () => {
             if (emp) participants.push(`${emp.name} ${emp.lastName}`);
         });
          if (currentUser && !participants.some(p => p.includes(currentUser.name || ''))) {
-             participants.push(currentUser.name || currentUser.email || 'Tú');
+             participants.push(currentUser.name || currentUser.email || t('pm2x.common.you'));
         }
         return Array.from(new Set(participants)); 
     };
@@ -126,7 +128,7 @@ export const ProjectChatPage: React.FC = () => {
             {/* Sidebar: Project List */}
             <div className="w-full sm:w-1/3 md:w-1/4 border-r border-neutral-200 dark:border-neutral-700 flex flex-col">
                 <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
-                    <h2 className="text-lg font-semibold text-primary">Proyectos</h2>
+                    <h2 className="text-lg font-semibold text-primary">{t('pm2x.chat.projects')}</h2>
                 </div>
                 <div className="flex-grow overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
                     {activeProjects.length > 0 ? activeProjects.map(project => (
@@ -147,7 +149,7 @@ export const ProjectChatPage: React.FC = () => {
                              </span>
                         </button>
                     )) : (
-                        <p className="p-3 text-xs text-center text-neutral-500 dark:text-neutral-400">No hay proyectos disponibles para chatear.</p>
+                        <p className="p-3 text-xs text-center text-neutral-500 dark:text-neutral-400">{t('pm2x.chat.no_projects')}</p>
                     )}
                 </div>
             </div>
@@ -156,7 +158,7 @@ export const ProjectChatPage: React.FC = () => {
             <div className="flex-1 flex flex-col">
                 {!selectedProject ? (
                     <div className="flex-1 flex items-center justify-center p-4">
-                        <p className="text-neutral-500 dark:text-neutral-400 text-center">Seleccione un proyecto de la lista para comenzar a chatear.</p>
+                        <p className="text-neutral-500 dark:text-neutral-400 text-center">{t('pm2x.chat.select_project')}</p>
                     </div>
                 ) : (
                     <>
@@ -169,8 +171,8 @@ export const ProjectChatPage: React.FC = () => {
                                     <span className="ml-1.5 truncate">
                                         {projectClient?.name}{projectClient ? ", " : ""} 
                                         {projectAssignedEmployees.slice(0,2).map(e => e?.name).join(', ')}
-                                        {projectAssignedEmployees.length > 2 ? ` y ${projectAssignedEmployees.length - 2} más` : ''}
-                                        {(!projectClient && projectAssignedEmployees.length === 0) && "Sin participantes visibles."}
+                                        {projectAssignedEmployees.length > 2 ? ` ${t('pm2x.common.and_more', { n: projectAssignedEmployees.length - 2 })}` : ''}
+                                        {(!projectClient && projectAssignedEmployees.length === 0) && t('pm2x.chat.no_participants')}
                                     </span>
                                 </div>
                             </div>
@@ -178,16 +180,16 @@ export const ProjectChatPage: React.FC = () => {
                                 <button 
                                     onClick={() => handleInitiateCall('audio')} 
                                     className="p-1.5 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full"
-                                    title="Iniciar llamada de audio"
-                                    aria-label="Iniciar llamada de audio"
+                                    title={t('pm2x.chat.start_audio_call')}
+                                    aria-label={t('pm2x.chat.start_audio_call')}
                                 >
                                     <PhoneIcon className="w-5 h-5" />
                                 </button>
                                 <button 
                                     onClick={() => handleInitiateCall('video')} 
                                     className="p-1.5 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full"
-                                    title="Iniciar videollamada"
-                                    aria-label="Iniciar videollamada"
+                                    title={t('pm2x.chat.start_video_call')}
+                                    aria-label={t('pm2x.chat.start_video_call')}
                                 >
                                     <VideoCameraIcon className="w-5 h-5" />
                                 </button>
@@ -203,7 +205,7 @@ export const ProjectChatPage: React.FC = () => {
                                     isCurrentUser={currentUser.id === msg.senderId} 
                                 />
                             )) : (
-                                <p className="text-center text-sm text-neutral-400 dark:text-neutral-500 pt-10">No hay mensajes aún. ¡Comienza la conversación!</p>
+                                <p className="text-center text-sm text-neutral-400 dark:text-neutral-500 pt-10">{t('pm2x.chat.no_messages_yet')}</p>
                             )}
                             <div ref={messagesEndRef} />
                         </div>
@@ -220,19 +222,19 @@ export const ProjectChatPage: React.FC = () => {
                                             handleSendMessage();
                                         }
                                     }}
-                                    placeholder="Escribe un mensaje..."
+                                    placeholder={t('pm2x.chat.message_placeholder')}
                                     className={`${inputFormStyle} flex-grow !py-2 resize-none max-h-24`}
                                     rows={1}
-                                    aria-label="Escribir mensaje"
+                                    aria-label={t('pm2x.chat.write_message')}
                                 />
                                 <button
                                     type="submit"
                                     className={`${BUTTON_PRIMARY_CLASSES} !py-2 !px-3 sm:!px-4 rounded-lg flex items-center justify-center flex-shrink-0`}
                                     disabled={!newMessage.trim() || sending}
-                                    aria-label="Enviar mensaje"
+                                    aria-label={t('pm2x.chat.send_message')}
                                 >
                                     <PaperAirplaneIcon />
-                                    <span className="ml-1.5 hidden sm:inline text-sm">{sending ? 'Enviando...' : 'Enviar'}</span>
+                                    <span className="ml-1.5 hidden sm:inline text-sm">{sending ? t('pm2x.chat.sending') : t('pm2x.chat.send')}</span>
                                 </button>
                             </form>
                         </div>

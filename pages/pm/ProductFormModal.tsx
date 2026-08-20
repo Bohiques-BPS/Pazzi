@@ -225,8 +225,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             barcode13Digits: formData.barcode13Digits,
             barcode2: formData.barcode2,
             skus: formData.skus,
-        }).then(() => toast.success('Etiqueta enviada a la impresora.'))
-          .catch(err => toast.error(`Etiqueta: ${err?.message || 'no se pudo imprimir (¿QZ Tray / impresora?)'}`));
+        }).then(() => toast.success(t('pmx.product.label_sent')))
+          .catch(err => toast.error(`${t('pmx.product.label')}: ${err?.message || t('pmx.product.label_print_error')}`));
     };
 
     // Custom Specs Logic
@@ -319,27 +319,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             : zodIssuesToFieldErrors(zodResult.error.issues);
 
         // Reglas de negocio que no caben en el schema
-        if (!formData.category) errors.category = 'Debe seleccionar una categoría';
+        if (!formData.category) errors.category = t('pmx.product.err_category');
 
         const activeBranches = branches.filter(b => b.isActive);
 
         if (formData.unitPrice && formData.costPrice && formData.unitPrice < formData.costPrice) {
-            errors.unitPrice = 'El precio de venta es menor al costo';
+            errors.unitPrice = t('pmx.product.err_price_below_cost');
         }
 
         if (!productToEdit && (formData.availableStock || 0) > 0 && activeBranches.length === 0) {
-            errors.availableStock = 'No puede asignar inventario inicial porque no tiene sucursales activas. Cree una sucursal primero o deje el stock en 0.';
+            errors.availableStock = t('pmx.product.err_no_active_branch');
         }
 
         if (!formData.creationDate) {
-            errors.creationDate = 'La fecha de creación es obligatoria';
+            errors.creationDate = t('pmx.product.err_date_required');
         } else {
             const date = new Date(formData.creationDate + 'T00:00:00');
             const year = date.getFullYear();
             if (isNaN(date.getTime())) {
-                errors.creationDate = 'El formato de la fecha es inválido';
+                errors.creationDate = t('pmx.product.err_date_invalid');
             } else if (year < 1900 || year > 2100) {
-                errors.creationDate = 'El año debe estar entre 1900 y 2100';
+                errors.creationDate = t('pmx.product.err_year_range');
             }
         }
 
@@ -358,7 +358,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             const targetTab = fieldToTabMap[firstErrorField];
             if (targetTab) setActiveTab(targetTab);
             
-            setGeneralError(`Existen errores en el formulario: ${Object.values(localErrors).join('. ')}`);
+            setGeneralError(`${t('pmx.product.form_errors_prefix')}: ${Object.values(localErrors).join('. ')}`);
             return;
         }
 
@@ -454,13 +454,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     const targetTab = fieldToTabMap[firstErrorField];
                     if (targetTab) setActiveTab(targetTab);
 
-                    setGeneralError(`Error en el servidor: ${Object.values(backendErrors).join('. ')}`);
+                    setGeneralError(`${t('pmx.product.server_error_prefix')}: ${Object.values(backendErrors).join('. ')}`);
             } else {
-                setGeneralError(result.error || result.msg || "Error inesperado al guardar el producto.");
+                setGeneralError(result.error || result.msg || t('pmx.product.save_unexpected'));
             }
         } catch (error) {
             console.error("Error submitting product:", error);
-            setGeneralError("Error de conexión con el servidor. Verifique su red.");
+            setGeneralError(t('pmx.product.conn_error_net'));
         } finally {
             setIsSubmitting(false);
         }
@@ -475,7 +475,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
         { id: 'Niveles de Precio', label: t('product.tab.prices') },
         { id: 'Variaciones', label: t('product.tab.variations') },
         { id: 'Configuración POS', label: t('product.tab.pos') },
-        { id: 'Avanzado', label: 'Avanzado' },
+        { id: 'Avanzado', label: t('pmx.common.advanced') },
     ];
 
     const tabsWithErrors = useMemo(() => {
@@ -554,7 +554,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             </button>
                                         </div>
                                     ) : (
-                                        <label htmlFor="product-image-input" className="w-32 h-32 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-md flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title="Haz clic para elegir una imagen">
+                                        <label htmlFor="product-image-input" className="w-32 h-32 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-md flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title={t('pmx.product.choose_image_hint')}>
                                             <CameraIcon className="w-8 h-8 text-neutral-400" />
                                         </label>
                                     )}
@@ -563,7 +563,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             {t('product.image_file') || 'Elegir Imagen'}
                                             <input id="product-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                         </label>
-                                        <p className="text-xs text-neutral-500">Opcional. PNG, JPG hasta 5MB</p>
+                                        <p className="text-xs text-neutral-500">{t('pmx.product.image_optional')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -599,11 +599,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                 {!productToEdit && (
                                     <>
                                         <div>
-                                            <label className="block text-sm font-medium">{t('product.field.inventory')} (Inicial)</label>
+                                            <label className="block text-sm font-medium">{t('product.field.inventory')} ({t('pmx.product.initial')})</label>
                                             <input type="number" name="availableStock" value={formData.availableStock ?? ''} onChange={handleChange} className={inputFormStyle} min="0" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium">Sucursal para Stock Inicial</label>
+                                            <label className="block text-sm font-medium">{t('pmx.product.initial_stock_branch')}</label>
                                             <div className="flex gap-2">
                                                 <select 
                                                     name="initialBranchId" 
@@ -611,7 +611,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                                     onChange={handleChange} 
                                                     className={inputFormStyle + " flex-grow"}
                                                 >
-                                                    <option value="">Sucursal Activa por Defecto</option>
+                                                    <option value="">{t('pmx.product.default_active_branch')}</option>
                                                     {branches.filter(b => b.isActive).map(b => (
                                                         <option key={b.id} value={b.id}>{b.name}</option>
                                                     ))}
@@ -620,7 +620,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                                     type="button" 
                                                     onClick={() => setShowAddBranchModal(true)}
                                                     className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
-                                                    title="Nueva Sucursal"
+                                                    title={t('pmx.product.new_branch')}
                                                 >
                                                     <PlusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
                                                 </button>
@@ -639,9 +639,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     {activeTab === 'Identificación' && (
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium">SKUs / Códigos Alternos</label>
+                                <label className="block text-sm font-medium">{t('pmx.product.skus_alt')}</label>
                                 <div className="flex gap-2 mb-2">
-                                    <input type="text" value={skuInput} onChange={(e) => setSkuInput(e.target.value)} className={inputFormStyle} placeholder="Nuevo SKU" />
+                                    <input type="text" value={skuInput} onChange={(e) => setSkuInput(e.target.value)} className={inputFormStyle} placeholder={t('pmx.product.new_sku')} />
                                     <button type="button" onClick={handleAddSku} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.add')}</button>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -655,15 +655,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium">{t('product.field.barcode')} (13 Dígitos)</label>
+                                    <label className="block text-sm font-medium">{t('product.field.barcode')} ({t('pmx.product.barcode_13')})</label>
                                     <div className="flex gap-2">
-                                        <input type="text" name="barcode13Digits" value={formData.barcode13Digits} onChange={handleChange} className={inputFormStyle} placeholder="Vacío o genera uno" />
-                                        <button type="button" onClick={handleGenerateBarcode} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title="Generar un código EAN-13 válido">Generar</button>
-                                        <button type="button" onClick={handlePrintBarcode} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title="Imprimir la etiqueta de código de barras">🖨️ Etiqueta</button>
+                                        <input type="text" name="barcode13Digits" value={formData.barcode13Digits} onChange={handleChange} className={inputFormStyle} placeholder={t('pmx.product.barcode_empty_ph')} />
+                                        <button type="button" onClick={handleGenerateBarcode} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title={t('pmx.product.generate_ean_title')}>{t('pmx.common.generate')}</button>
+                                        <button type="button" onClick={handlePrintBarcode} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title={t('pmx.product.print_label_title')}>🖨️ {t('pmx.product.label')}</button>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium">{t('product.field.barcode')} (Secundario)</label>
+                                    <label className="block text-sm font-medium">{t('product.field.barcode')} ({t('pmx.product.barcode_secondary')})</label>
                                     <input type="text" name="barcode2" value={formData.barcode2} onChange={handleChange} className={inputFormStyle} />
                                 </div>
                             </div>
@@ -691,10 +691,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             }}
                                             className={inputFormStyle + " flex-grow"}
                                         >
-                                            <option value="">Seleccionar Departamento</option>
+                                            <option value="">{t('pmx.product.select_department')}</option>
                                             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                         </select>
-                                        <button type="button" onClick={() => setShowAddDepartmentModal(true)} className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors" title="Nuevo Departamento">
+                                        <button type="button" onClick={() => setShowAddDepartmentModal(true)} className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors" title={t('pmx.product.new_department')}>
                                             <PlusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
                                         </button>
                                     </div>
@@ -714,12 +714,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             }}
                                             className={`${inputFormStyle} ${fieldErrors.categoryId || fieldErrors.category ? 'border-red-500' : ''} flex-grow`}
                                         >
-                                            <option value="">Seleccionar Categoría</option>
+                                            <option value="">{t('pmx.product.select_category')}</option>
                                             {categories
                                                 .filter(c => !formData.departmentId || c.departmentId === formData.departmentId || !c.departmentId)
                                                 .map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
                                         </select>
-                                        <button type="button" onClick={() => setShowAddCategoryModal(true)} className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors" title="Nueva Categoría">
+                                        <button type="button" onClick={() => setShowAddCategoryModal(true)} className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors" title={t('pmx.product.new_category')}>
                                             <PlusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
                                         </button>
                                     </div>
@@ -741,10 +741,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                     <label className="block text-sm font-medium">{t('product.field.supplier')}</label>
                                     <div className="flex gap-2">
                                         <select name="supplierId" value={formData.supplierId || ''} onChange={handleChange} className={inputFormStyle}>
-                                            <option value="">Seleccionar Proveedor</option>
+                                            <option value="">{t('pmx.product.select_supplier')}</option>
                                             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                         </select>
-                                        <button type="button" className={BUTTON_SECONDARY_SM_CLASSES}>Buscar</button>
+                                        <button type="button" className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.search')}</button>
                                     </div>
                                 </div>
                                 <div>
@@ -772,26 +772,26 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.field.quality')}</label>
-                                    <input type="text" name="quality" value={formData.quality} onChange={handleChange} className={inputFormStyle} placeholder="Ej: Grado Comercial, Premium" />
+                                    <input type="text" name="quality" value={formData.quality} onChange={handleChange} className={inputFormStyle} placeholder={t('pmx.product.quality_ph')} />
                                 </div>
                             </div>
                             <fieldset className="border p-3 rounded dark:border-neutral-600">
-                                <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Dimensiones y Peso</legend>
+                                <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">{t('product.field.dimensions_weight')}</legend>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
                                     <div>
-                                        <label className="block text-xs font-medium">Largo (cm)</label>
+                                        <label className="block text-xs font-medium">{t('pmx.product.length_cm')}</label>
                                         <input type="number" name="length" value={formData.length ?? ''} onChange={handleChange} className={inputFormStyle} />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium">Ancho (cm)</label>
+                                        <label className="block text-xs font-medium">{t('pmx.product.width_cm')}</label>
                                         <input type="number" name="width" value={formData.width ?? ''} onChange={handleChange} className={inputFormStyle} />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium">Alto (cm)</label>
+                                        <label className="block text-xs font-medium">{t('pmx.product.height_cm')}</label>
                                         <input type="number" name="height" value={formData.height ?? ''} onChange={handleChange} className={inputFormStyle} />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium">Peso (kg)</label>
+                                        <label className="block text-xs font-medium">{t('pmx.product.weight_kg')}</label>
                                         <input type="number" name="weight" value={formData.weight ?? ''} onChange={handleChange} className={inputFormStyle} />
                                     </div>
                                 </div>
@@ -803,26 +803,26 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                             </div>
 
                             <div className="border-t pt-4 dark:border-neutral-700">
-                                <label className="block text-sm font-medium mb-2">Especificaciones Personalizadas</label>
+                                <label className="block text-sm font-medium mb-2">{t('pmx.product.custom_specs')}</label>
                                 <div className="flex gap-2 mb-3 items-end">
                                     <div className="flex-1">
-                                        <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Nombre (ej. Color)</label>
-                                        <input 
-                                            type="text" 
-                                            value={newSpec.name} 
+                                        <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('pmx.product.spec_name_ex')}</label>
+                                        <input
+                                            type="text"
+                                            value={newSpec.name}
                                             onChange={(e) => setNewSpec(prev => ({ ...prev, name: e.target.value }))}
                                             className={inputFormStyle}
-                                            placeholder="Nombre"
+                                            placeholder={t('common.name')}
                                         />
                                     </div>
                                     <div className="flex-1">
-                                        <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Valor (ej. Rojo)</label>
-                                        <input 
-                                            type="text" 
-                                            value={newSpec.value} 
+                                        <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('pmx.product.spec_value_ex')}</label>
+                                        <input
+                                            type="text"
+                                            value={newSpec.value}
                                             onChange={(e) => setNewSpec(prev => ({ ...prev, value: e.target.value }))}
                                             className={inputFormStyle}
-                                            placeholder="Valor"
+                                            placeholder={t('pmx.common.value')}
                                         />
                                     </div>
                                     <button 
@@ -860,16 +860,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                             {formData.hasPriceLevels && (
                                 <>
                                     <fieldset className="border p-3 rounded dark:border-neutral-600">
-                                        <legend className="text-sm font-medium px-1">Añadir Nuevo Nivel de Precio</legend>
+                                        <legend className="text-sm font-medium px-1">{t('pmx.product.add_price_level')}</legend>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 items-end">
                                             <div>
-                                                <label className="block text-xs font-medium">Nivel</label>
-                                                <select 
-                                                    value={newPriceLevel.levelName} 
-                                                    onChange={e => setNewPriceLevel(prev => ({...prev, levelName: e.target.value}))} 
+                                                <label className="block text-xs font-medium">{t('product.field.price_level')}</label>
+                                                <select
+                                                    value={newPriceLevel.levelName}
+                                                    onChange={e => setNewPriceLevel(prev => ({...prev, levelName: e.target.value}))}
                                                     className={inputFormStyle}
                                                 >
-                                                    <option value="">Seleccionar...</option>
+                                                    <option value="">{t('pmx.common.select_ellipsis')}</option>
                                                     <option value="Precio Venta">Precio Venta</option>
                                                     <option value="Precio Mayorista">Precio Mayorista</option>
                                                     <option value="Precio Distribuidor">Precio Distribuidor</option>
@@ -878,11 +878,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             </div>
                                             <div className="flex gap-2 items-end">
                                                 <div className="flex-grow">
-                                                    <label className="block text-xs font-medium">Precio</label>
+                                                    <label className="block text-xs font-medium">{t('pmx.product.price')}</label>
                                                     <input type="number" value={newPriceLevel.price} onChange={e => handleLevelPriceChange(e.target.value)} className={inputFormStyle} step="0.01" min="0" />
                                                 </div>
                                                 <div className="w-24">
-                                                    <label className="block text-xs font-medium">% Ganancia</label>
+                                                    <label className="block text-xs font-medium">{t('pmx.product.margin_pct')}</label>
                                                     <div className="relative">
                                                         <input
                                                             type="number"
@@ -892,7 +892,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                                             step="0.1"
                                                             placeholder="10"
                                                             disabled={!formData.costPrice}
-                                                            title={!formData.costPrice ? 'Define el costo del producto primero' : 'Ganancia sobre el costo'}
+                                                            title={!formData.costPrice ? t('pmx.product.define_cost_first') : t('pmx.product.margin_over_cost')}
                                                         />
                                                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 text-sm pointer-events-none">%</span>
                                                     </div>
@@ -901,14 +901,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             </div>
                                             <p className="text-xs text-neutral-500 dark:text-neutral-400 md:col-span-2">
                                                 {formData.costPrice
-                                                    ? <>Costo: <strong>${(formData.costPrice || 0).toFixed(2)}</strong>. Escribe el % de ganancia y el precio se calcula solo (ej: 10% → ${((formData.costPrice || 0) * 1.1).toFixed(2)}).</>
-                                                    : <>Define el <strong>Costo</strong> del producto (pestaña Precios) para calcular el precio por % de ganancia.</>}
+                                                    ? <>{t('pmx.product.cost_colon')} <strong>${(formData.costPrice || 0).toFixed(2)}</strong>. {t('pmx.product.margin_auto_hint', { ex: ((formData.costPrice || 0) * 1.1).toFixed(2) })}</>
+                                                    : <>{t('pmx.product.define_cost_pre')} <strong>{t('product.field.cost')}</strong> {t('pmx.product.define_cost_post')}</>}
                                             </p>
                                         </div>
                                     </fieldset>
                                     {formData.priceLevels && formData.priceLevels.length > 0 && (
                                         <div className="bg-neutral-50 dark:bg-neutral-700/50 p-3 rounded-md">
-                                            <h4 className="text-sm font-medium mb-2">Niveles Existentes</h4>
+                                            <h4 className="text-sm font-medium mb-2">{t('product.field.price_levels_existing')}</h4>
                                             <ul className="space-y-2">
                                                 {formData.priceLevels.map(pl => (
                                                     <li key={pl.id} className="flex justify-between items-center p-2 bg-white dark:bg-neutral-700 rounded shadow-sm">
@@ -943,14 +943,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                             {formData.hasVariations && (
                                 <>
                                     <fieldset className="border p-3 rounded dark:border-neutral-600">
-                                        <legend className="text-sm font-medium px-1">Añadir Nueva Variación</legend>
+                                        <legend className="text-sm font-medium px-1">{t('pmx.product.add_variation')}</legend>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 items-end">
                                             <div>
                                                 <label className="block text-xs font-medium">{t('product.field.variation_name')}</label>
                                                 <input type="text" value={newVariation.name} onChange={e => setNewVariation(prev => ({...prev, name: e.target.value}))} className={inputFormStyle} />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-medium">SKU (Opcional)</label>
+                                                <label className="block text-xs font-medium">{t('pmx.product.sku_optional')}</label>
                                                 <input type="text" value={newVariation.sku} onChange={e => setNewVariation(prev => ({...prev, sku: e.target.value}))} className={inputFormStyle} />
                                             </div>
                                             <div className="flex gap-2">
@@ -964,7 +964,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                     </fieldset>
                                     {formData.variations && formData.variations.length > 0 && (
                                         <div className="bg-neutral-50 dark:bg-neutral-700/50 p-3 rounded-md">
-                                            <h4 className="text-sm font-medium mb-2">Variaciones Existentes</h4>
+                                            <h4 className="text-sm font-medium mb-2">{t('product.field.variations_existing')}</h4>
                                             <ul className="space-y-2">
                                                 {formData.variations.map(v => (
                                                     <li key={v.id} className="flex justify-between items-center p-2 bg-white dark:bg-neutral-700 rounded shadow-sm">
@@ -1009,7 +1009,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     {activeTab === 'Avanzado' && (
                         <div className="space-y-5">
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                Campos opcionales (traídos del sistema anterior / importación). Déjalos vacíos si no aplican.
+                                {t('pmx.product.advanced_hint')}
                             </p>
                             {ADVANCED_PRODUCT_GROUPS.map(group => (
                                 <fieldset key={group} className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
@@ -1053,7 +1053,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                 <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
-                        {isSubmitting ? 'Guardando...' : t('common.save')}
+                        {isSubmitting ? t('common.saving') : t('common.save')}
                     </button>
                 </div>
             </form>

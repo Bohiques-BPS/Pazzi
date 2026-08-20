@@ -57,7 +57,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.name.trim() === '') {
-            toast.error("El nombre de la categoría es obligatorio");
+            toast.error(t('pmx.category.name_required'));
             return;
         }
 
@@ -112,13 +112,13 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                 } else {
                     setCategories(prev => [...prev, result]);
                 }
-                toast.success(category ? 'Categoría actualizada' : 'Categoría creada');
+                toast.success(category ? t('pmx.category.updated_ok') : t('pmx.category.created_ok'));
                 onClose();
             } else {
-                toast.error(result.error || 'Error al guardar la categoría');
+                toast.error(result.error || t('pmx.category.save_error'));
             }
         } catch (error) {
-            toast.error('Error de conexión con el servidor');
+            toast.error(t('pmx.common.conn_error'));
         } finally {
             setIsSubmitting(false);
         }
@@ -140,7 +140,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                     />
                 </div>
                 <div>
-                    <label htmlFor="categoryDepartment" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Departamento</label>
+                    <label htmlFor="categoryDepartment" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('pmx.common.department')}</label>
                     <select
                         name="departmentId"
                         id="categoryDepartment"
@@ -148,17 +148,17 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                         onChange={handleChange}
                         className={inputFormStyle + " w-full"}
                     >
-                        <option value="">Sin departamento</option>
+                        <option value="">{t('pmx.category.no_department')}</option>
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
-                    <p className="mt-1 text-xs text-neutral-500">La categoría pertenece a este departamento (Departamento › Categoría › Producto).</p>
+                    <p className="mt-1 text-xs text-neutral-500">{t('pmx.category.dept_hierarchy_hint')}</p>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
                     <input type="checkbox" checked={!!formData.reducedTax} onChange={e => setFormData(prev => ({ ...prev, reducedTax: e.target.checked }))} className="h-4 w-4" />
-                    Tasa de IVU reducida (sus productos usan la tasa reducida)
+                    {t('pmx.common.reduced_tax_label')}
                 </label>
                 <div>
-                    <label htmlFor="categoryDescription" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
+                    <label htmlFor="categoryDescription" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('product.field.description')}</label>
                     <textarea
                         name="description"
                         id="categoryDescription"
@@ -168,7 +168,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 text-xs uppercase tracking-wider">Imagen de Categoría</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 text-xs uppercase tracking-wider">{t('pmx.category.image_label')}</label>
                     <div className="flex items-center space-x-4">
                         {imagePreview ? (
                             <div className="relative w-24 h-24 border rounded-md overflow-hidden bg-neutral-100">
@@ -181,10 +181,10 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                                 <button type="button" onClick={() => {setImageFile(null); setImagePreview(null);}} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-md"><TrashIconMini className="w-4 h-4" /></button>
                             </div>
                         ) : (
-                            <label htmlFor="category-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 rounded-md flex items-center justify-center bg-neutral-50 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title="Haz clic para elegir una imagen"><CameraIcon className="w-6 h-6 text-neutral-400" /></label>
+                            <label htmlFor="category-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 rounded-md flex items-center justify-center bg-neutral-50 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title={t('pmx.product.choose_image_hint')}><CameraIcon className="w-6 h-6 text-neutral-400" /></label>
                         )}
                         <label className={BUTTON_SECONDARY_SM_CLASSES + " cursor-pointer"}>
-                            Elegir Imagen
+                            {t('pmx.common.choose_image')}
                             <input id="category-image-input" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                         </label>
                     </div>
@@ -192,7 +192,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
-                        {isSubmitting ? 'Guardando...' : t('common.save')}
+                        {isSubmitting ? t('common.saving') : t('common.save')}
                     </button>
                 </div>
             </form>

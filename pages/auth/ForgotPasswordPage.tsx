@@ -4,6 +4,7 @@ import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constant
 import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { EnvelopeIcon, ArrowUturnLeftIcon } from '../../components/icons';
+import { usePublicT } from '../../hooks/usePublicTranslation';
 import logo from '../../assets/logo.png';
 import banner from '../../assets/img/banner.png';
 
@@ -12,6 +13,7 @@ export const ForgotPasswordPage: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const t = usePublicT();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ export const ForgotPasswordPage: React.FC = () => {
       setMessage(res.message);
       setEmail('');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Error al procesar la solicitud');
+      setError(err instanceof ApiError ? err.message : t('auth.error_generic'));
     } finally {
       setSubmitting(false);
     }
@@ -42,10 +44,10 @@ export const ForgotPasswordPage: React.FC = () => {
           </div>
 
           <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-1">
-            Recuperar contraseña
+            {t('auth.forgot.title')}
           </h2>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center mb-6">
-            Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+            {t('auth.forgot.subtitle')}
           </p>
 
           {message && (
@@ -62,7 +64,7 @@ export const ForgotPasswordPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                Email
+                {t('common.email')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -74,7 +76,7 @@ export const ForgotPasswordPage: React.FC = () => {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className={`${authInputStyle} pl-10`}
-                  placeholder="correo@ejemplo.com"
+                  placeholder={t('auth.email_placeholder')}
                   required
                   disabled={submitting}
                   autoFocus
@@ -87,14 +89,14 @@ export const ForgotPasswordPage: React.FC = () => {
               className={`${authButtonPrimary} bg-teal-500 hover:bg-teal-600 dark:bg-teal-600 dark:hover:bg-teal-700`}
               disabled={submitting}
             >
-              {submitting ? 'Enviando...' : 'Enviar enlace de recuperación'}
+              {submitting ? t('auth.sending') : t('auth.forgot.send')}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-neutral-600 dark:text-neutral-400">
             <Link to="/login" className={`${authLinkStyle} inline-flex items-center gap-1`}>
               <ArrowUturnLeftIcon className="w-4 h-4" />
-              Volver a iniciar sesión
+              {t('auth.back_login')}
             </Link>
           </p>
         </div>
@@ -105,9 +107,9 @@ export const ForgotPasswordPage: React.FC = () => {
         <img src={banner} alt="" className="absolute inset-0 w-full h-full object-cover opacity-80 dark:opacity-50" />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/60 to-secondary/60 dark:from-neutral-900/80 dark:to-neutral-800/80" />
         <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center text-white">
-          <h3 className="text-3xl font-bold mb-3 drop-shadow">¿Olvidaste tu contraseña?</h3>
+          <h3 className="text-3xl font-bold mb-3 drop-shadow">{t('auth.forgot.banner_title')}</h3>
           <p className="text-base opacity-90 max-w-xs drop-shadow">
-            Te enviaremos un enlace seguro para que puedas crear una nueva contraseña.
+            {t('auth.forgot.banner_text')}
           </p>
         </div>
       </div>

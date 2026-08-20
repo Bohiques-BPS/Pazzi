@@ -10,6 +10,7 @@ import { visitsService } from '../../services/visits';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../../components/icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ScheduleVisitModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ interface ScheduleVisitModalProps {
 }
 
 export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, onClose, visitToEdit, initialDate }) => {
+    const { t } = useTranslation();
     const { projects, employees: allEmployees, setVisits } = useData();
     const [formData, setFormData] = useState<VisitFormData>({
         projectId: '', title: '', date: initialDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
@@ -72,11 +74,11 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
         e.preventDefault();
         setError(null);
         if (!formData.title.trim()) {
-            setError('El título es requerido.');
+            setError(t('pm2x.visit.form.title_required'));
             return;
         }
         if (new Date(`${formData.date}T${formData.endTime}`) <= new Date(`${formData.date}T${formData.startTime}`)) {
-            setError('La hora de fin debe ser posterior a la hora de inicio.');
+            setError(t('pm2x.visit.form.end_after_start'));
             return;
         }
 
@@ -109,10 +111,10 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                 ? prev.map(v => v.id === visitToEdit.id ? (normalizedSaved as unknown as Visit) : v)
                 : [...prev, normalizedSaved as unknown as Visit]);
 
-            toast.success(visitToEdit ? 'Visita actualizada' : 'Visita programada');
+            toast.success(visitToEdit ? t('pm2x.visit.updated') : t('pm2x.visit.scheduled'));
             onClose();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error al guardar la visita');
+            setError(err instanceof ApiError ? err.message : t('pm2x.visit.save_error'));
         } finally {
             setSubmitting(false);
         }
@@ -120,7 +122,7 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
 
     return (
         <>
-        <Modal isOpen={isOpen} onClose={onClose} title={visitToEdit ? 'Editar visita' : 'Programar visita'} size="xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={visitToEdit ? t('pm2x.visit.form.edit_title') : t('pm2x.visit.form.create_title')} size="xl">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -129,13 +131,13 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                     </div>
                 )}
                 <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Título de la visita</label>
+                    <label htmlFor="title" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('pm2x.visit.form.title_label')}</label>
                     <input type="text" name="title" id="title" value={formData.title} onChange={handleChange} className={inputFormStyle} required autoFocus />
                 </div>
                 <SelectWithCreate
                     id="projectId"
                     name="projectId"
-                    label="Vincular a proyecto (opcional)"
+                    label={t('pm2x.visit.form.link_project')}
                     value={formData.projectId}
                     onChange={(v) => setFormData(prev => ({ ...prev, projectId: v }))}
                     options={projects.map(p => ({ value: p.id, label: p.name }))}
@@ -143,25 +145,25 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                         projectIdsBeforeCreate.current = new Set(projects.map(p => p.id));
                         setShowCreateProject(true);
                     }}
-                    placeholder="Ninguno"
-                    createTitle="Crear nuevo proyecto"
+                    placeholder={t('pm2x.common.none')}
+                    createTitle={t('pm2x.visit.form.create_project')}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label htmlFor="date" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha</label>
+                        <label htmlFor="date" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('common.date')}</label>
                         <input type="date" name="date" id="date" value={formData.date} onChange={handleChange} className={inputFormStyle} required />
                     </div>
                     <div>
-                        <label htmlFor="startTime" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Hora inicio</label>
+                        <label htmlFor="startTime" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('project.schedule.start_time')}</label>
                         <input type="time" name="startTime" id="startTime" value={formData.startTime} onChange={handleChange} className={inputFormStyle} required />
                     </div>
                     <div>
-                        <label htmlFor="endTime" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Hora fin</label>
+                        <label htmlFor="endTime" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('project.schedule.end_time')}</label>
                         <input type="time" name="endTime" id="endTime" value={formData.endTime} onChange={handleChange} className={inputFormStyle} required />
                     </div>
                 </div>
                 <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                    <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">Asignar empleados</legend>
+                    <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">{t('project.resources.assign_employees')}</legend>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                         {allEmployees.map(emp => (
                             <label key={emp.id} className="flex items-center space-x-2 p-1.5 bg-neutral-100 dark:bg-neutral-700 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-600">
@@ -172,19 +174,19 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                     </div>
                 </fieldset>
                 <div>
-                    <label htmlFor="notes" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Notas (opcional)</label>
-                    <RichTextEditor value={formData.notes || ''} onChange={(value) => setFormData(prev => ({ ...prev, notes: value }))} placeholder="Detalles o instrucciones..." />
+                    <label htmlFor="notes" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('pm2x.visit.form.notes_label')}</label>
+                    <RichTextEditor value={formData.notes || ''} onChange={(value) => setFormData(prev => ({ ...prev, notes: value }))} placeholder={t('pm2x.visit.form.notes_placeholder')} />
                 </div>
                 <div>
-                    <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Estado</label>
+                    <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('common.status')}</label>
                     <select name="status" id="status" value={formData.status} onChange={handleChange} className={inputFormStyle} required>
                         {VISIT_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                        {submitting ? 'Guardando...' : (visitToEdit ? 'Guardar cambios' : 'Programar visita')}
+                        {submitting ? t('common.saving') : (visitToEdit ? t('pm2x.visit.form.save_changes') : t('pm2x.visit.form.create_title'))}
                     </button>
                 </div>
             </form>
@@ -198,7 +200,7 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                     const nuevo = projects.find(p => !projectIdsBeforeCreate.current.has(p.id));
                     if (nuevo) {
                         setFormData(prev => ({ ...prev, projectId: nuevo.id }));
-                        toast.success(`Proyecto "${nuevo.name}" creado y vinculado.`);
+                        toast.success(t('pm2x.visit.form.project_linked', { name: nuevo.name }));
                     }
                     setShowCreateProject(false);
                 }}

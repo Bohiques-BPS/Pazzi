@@ -7,6 +7,7 @@ import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSE
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { buildTimesheet, bucketsFor, formatHours, timeOf, type Grouping } from '../../utils/timesheet';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const GROUP_LABELS: Record<Grouping, string> = { day: 'Día', month: 'Mes', year: 'Año' };
 
@@ -16,6 +17,7 @@ const todayISO = () => {
 };
 
 export const AttendancePage: React.FC = () => {
+    const { t } = useTranslation();
     const { employees } = useData();
     const [rows, setRows] = useState<TimeClockPunch[]>([]);
     const [loading, setLoading] = useState(false);
@@ -32,7 +34,7 @@ export const AttendancePage: React.FC = () => {
             const end = to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined;
             setRows(await timeclockService.list({ employeeId: employeeId || undefined, startDate: start, endDate: end }));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo cargar la asistencia.');
+            toast.error(err instanceof ApiError ? err.message : t('posx.attendance.err_load'));
         } finally {
             setLoading(false);
         }
@@ -75,51 +77,51 @@ export const AttendancePage: React.FC = () => {
             doc.text(`Total general: ${formatHours(timesheet.grandTotalHours)}`, 14, y);
             doc.save(`horas-trabajadas-${from}_a_${to}.pdf`);
         } catch (err: any) {
-            toast.error(err?.message || 'No se pudo generar el PDF.');
+            toast.error(err?.message || t('posx.attendance.err_pdf'));
         }
     };
 
     return (
         <div>
-            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-2">Horarios de empleados</h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Horas trabajadas calculadas desde los ponches (entrada/salida) que marcan los colaboradores con F9 en la caja.</p>
+            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-2">{t('posx.attendance.title')}</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.attendance.intro')}</p>
 
             <div className="flex flex-wrap gap-2 items-end mb-4">
                 <div>
-                    <label className="block text-xs text-neutral-500 mb-1">Colaborador</label>
+                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.attendance.employee')}</label>
                     <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} className={INPUT_SM_CLASSES}>
-                        <option value="">Todos</option>
+                        <option value="">{t('posx.attendance.all')}</option>
                         {employees.map(e => <option key={e.id} value={e.id}>{e.name} {e.lastName}</option>)}
                     </select>
                 </div>
                 <div>
-                    <label className="block text-xs text-neutral-500 mb-1">Desde</label>
+                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.attendance.from')}</label>
                     <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={INPUT_SM_CLASSES} />
                 </div>
                 <div>
-                    <label className="block text-xs text-neutral-500 mb-1">Hasta</label>
+                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.attendance.to')}</label>
                     <input type="date" value={to} onChange={e => setTo(e.target.value)} className={INPUT_SM_CLASSES} />
                 </div>
-                <button onClick={load} className={BUTTON_SECONDARY_SM_CLASSES}>Actualizar</button>
+                <button onClick={load} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.attendance.refresh')}</button>
                 <div>
-                    <label className="block text-xs text-neutral-500 mb-1">Agrupar por</label>
+                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.attendance.group_by')}</label>
                     <select value={grouping} onChange={e => setGrouping(e.target.value as Grouping)} className={INPUT_SM_CLASSES}>
-                        <option value="day">Día</option>
-                        <option value="month">Mes</option>
-                        <option value="year">Año</option>
+                        <option value="day">{t('posx.attendance.group.day')}</option>
+                        <option value="month">{t('posx.attendance.group.month')}</option>
+                        <option value="year">{t('posx.attendance.group.year')}</option>
                     </select>
                 </div>
                 <div className="ml-auto flex items-end gap-2">
                     <div className="inline-flex rounded-md overflow-hidden border border-neutral-300 dark:border-neutral-600">
-                        <button onClick={() => setView('hours')} className={`px-3 py-1.5 text-sm ${view === 'hours' ? 'bg-primary text-white' : 'bg-white dark:bg-neutral-800'}`}>Horas</button>
-                        <button onClick={() => setView('punches')} className={`px-3 py-1.5 text-sm ${view === 'punches' ? 'bg-primary text-white' : 'bg-white dark:bg-neutral-800'}`}>Ponches</button>
+                        <button onClick={() => setView('hours')} className={`px-3 py-1.5 text-sm ${view === 'hours' ? 'bg-primary text-white' : 'bg-white dark:bg-neutral-800'}`}>{t('posx.attendance.hours')}</button>
+                        <button onClick={() => setView('punches')} className={`px-3 py-1.5 text-sm ${view === 'punches' ? 'bg-primary text-white' : 'bg-white dark:bg-neutral-800'}`}>{t('posx.attendance.punches')}</button>
                     </div>
                     <button onClick={exportPdf} disabled={timesheet.employees.length === 0} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>📄 PDF</button>
                 </div>
             </div>
 
             {loading ? <LoadingSkeleton variant="list" rows={6} /> : rows.length === 0 ? (
-                <EmptyState title="Sin ponches" description="No hay entradas/salidas en el rango seleccionado." />
+                <EmptyState title={t('posx.attendance.empty_title')} description={t('posx.attendance.empty_desc')} />
             ) : view === 'hours' ? (
                 <div className="space-y-4">
                     {timesheet.employees.map(emp => {
@@ -129,8 +131,8 @@ export const AttendancePage: React.FC = () => {
                                 <div className="flex items-center justify-between px-4 py-2 bg-neutral-50 dark:bg-neutral-900/50">
                                     <span className="font-semibold text-neutral-800 dark:text-neutral-100">{emp.employeeName}</span>
                                     <span className="text-sm">
-                                        Total: <strong>{formatHours(emp.totalHours)}</strong>
-                                        {emp.openCount > 0 && <span className="ml-2 text-xs text-amber-600">({emp.openCount} sin salida)</span>}
+                                        {t('posx.attendance.total_label')} <strong>{formatHours(emp.totalHours)}</strong>
+                                        {emp.openCount > 0 && <span className="ml-2 text-xs text-amber-600">{t('posx.attendance.without_exit', { count: emp.openCount })}</span>}
                                     </span>
                                 </div>
                                 <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
@@ -138,7 +140,7 @@ export const AttendancePage: React.FC = () => {
                                         <div key={b.period} className="px-4 py-2">
                                             <div className="flex items-center justify-between">
                                                 <span className="font-medium text-neutral-700 dark:text-neutral-200 capitalize">{b.label}</span>
-                                                <span className="text-sm font-semibold">{formatHours(b.hours)}{b.openCount > 0 && <span className="ml-1 text-xs text-amber-600">({b.openCount} sin salida)</span>}</span>
+                                                <span className="text-sm font-semibold">{formatHours(b.hours)}{b.openCount > 0 && <span className="ml-1 text-xs text-amber-600">{t('posx.attendance.without_exit', { count: b.openCount })}</span>}</span>
                                             </div>
                                             {/* Por día: detalle de cada entrada/salida (el horario del día). */}
                                             {grouping === 'day' && (
@@ -146,7 +148,7 @@ export const AttendancePage: React.FC = () => {
                                                     {b.sessions.map((s, i) => (
                                                         <div key={i} className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400">
                                                             <span>{timeOf(s.inAt)} → {timeOf(s.outAt)}</span>
-                                                            <span>{s.open ? <span className="text-amber-600">Turno abierto</span> : formatHours(s.hours)}</span>
+                                                            <span>{s.open ? <span className="text-amber-600">{t('posx.attendance.open_shift')}</span> : formatHours(s.hours)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -158,7 +160,7 @@ export const AttendancePage: React.FC = () => {
                         );
                     })}
                     <div className="text-right text-lg font-bold text-neutral-800 dark:text-neutral-100">
-                        Total general: {formatHours(timesheet.grandTotalHours)}
+                        {t('posx.attendance.grand_total', { hours: formatHours(timesheet.grandTotalHours) })}
                     </div>
                 </div>
             ) : (
@@ -166,9 +168,9 @@ export const AttendancePage: React.FC = () => {
                     <table className="min-w-full text-sm">
                         <thead className="bg-neutral-50 dark:bg-neutral-900/50 text-neutral-500">
                             <tr>
-                                <th className="text-left px-4 py-2">Colaborador</th>
-                                <th className="text-left px-4 py-2">Tipo</th>
-                                <th className="text-left px-4 py-2">Fecha y hora</th>
+                                <th className="text-left px-4 py-2">{t('posx.attendance.employee')}</th>
+                                <th className="text-left px-4 py-2">{t('posx.attendance.type')}</th>
+                                <th className="text-left px-4 py-2">{t('posx.attendance.datetime')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700">
@@ -177,7 +179,7 @@ export const AttendancePage: React.FC = () => {
                                     <td className="px-4 py-2 font-medium text-neutral-800 dark:text-neutral-100">{r.employeeName}</td>
                                     <td className="px-4 py-2">
                                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.type === 'IN' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
-                                            {r.type === 'IN' ? 'Entrada' : 'Salida'}
+                                            {r.type === 'IN' ? t('posx.attendance.punch_in') : t('posx.attendance.punch_out')}
                                         </span>
                                     </td>
                                     <td className="px-4 py-2 text-neutral-600 dark:text-neutral-300">{new Date(r.punchedAt).toLocaleString()}</td>

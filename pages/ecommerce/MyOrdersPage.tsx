@@ -8,8 +8,10 @@ import { OrderDetailModal } from './OrderDetailModal';
 import { EyeIcon } from '../../components/icons';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { BUTTON_PRIMARY_CLASSES } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const MyOrdersPage: React.FC = () => {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const { orders } = useData();
     const [userOrders, setUserOrders] = useState<Order[]>([]);
@@ -31,11 +33,11 @@ export const MyOrdersPage: React.FC = () => {
     };
 
     const columns: TableColumn<Order>[] = [
-        { header: 'ID Pedido', accessor: (order) => order.id.substring(0, 8).toUpperCase() },
-        { header: 'Fecha', accessor: (order) => new Date(order.date).toLocaleDateString('es-ES') },
-        { header: 'Total', accessor: (order) => `$${order.totalAmount.toFixed(2)}` },
-        { 
-            header: 'Estado', 
+        { header: t('ecommerce.orders.col.id'), accessor: (order) => order.id.substring(0, 8).toUpperCase() },
+        { header: t('ecommerce.orders.col.date'), accessor: (order) => new Date(order.date).toLocaleDateString('es-ES') },
+        { header: t('ecommerce.orders.col.total'), accessor: (order) => `$${order.totalAmount.toFixed(2)}` },
+        {
+            header: t('ecommerce.orders.col.status'),
             accessor: (order) => (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                     order.status === 'Pendiente' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-600 dark:text-yellow-100' :
@@ -48,15 +50,15 @@ export const MyOrdersPage: React.FC = () => {
     ];
 
     if (!currentUser) {
-        return <p className="p-6 text-center text-neutral-500 dark:text-neutral-400">Por favor, inicie sesión para ver sus pedidos.</p>;
+        return <p className="p-6 text-center text-neutral-500 dark:text-neutral-400">{t('ecomx.myorders.login_required')}</p>;
     }
 
     return (
         <div className="p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Mis Pedidos</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('ecomx.myorders.title')}</h1>
                 <RouterLink to="/store" className={`${BUTTON_PRIMARY_CLASSES} mt-3 sm:mt-0 !py-1.5 !px-3 text-sm`}>
-                    Ir a la Tienda
+                    {t('ecomx.myorders.go_to_store')}
                 </RouterLink>
             </div>
 
@@ -68,7 +70,7 @@ export const MyOrdersPage: React.FC = () => {
                         <button 
                             onClick={() => handleOpenDetailModal(order)} 
                             className="text-primary hover:text-secondary p-1"
-                            aria-label={`Ver detalles del pedido ${order.id.substring(0,8)}`}
+                            aria-label={t('ecomx.orders.view_details_aria', { id: order.id.substring(0,8) })}
                         >
                             <EyeIcon />
                         </button>
@@ -76,7 +78,7 @@ export const MyOrdersPage: React.FC = () => {
                 />
             ) : (
                 <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">
-                    Aún no has realizado ningún pedido.
+                    {t('ecomx.myorders.empty')}
                 </p>
             )}
 

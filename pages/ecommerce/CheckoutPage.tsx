@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { CartItem } from '../../types';
-import { BUTTON_PRIMARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
+import { BUTTON_PRIMARY_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS, inputFormStyle } from '../../constants';
 import { CreditCardIcon, ArrowUturnLeftIcon } from '../../components/icons';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { publicStoreService } from '../../services/publicStore';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { usePublicT } from '../../hooks/usePublicTranslation';
 
 interface CheckoutLocationState {
     cart: CartItem[];
@@ -19,8 +21,9 @@ const PaymentMethodSelector: React.FC<{
     onSelectMethod: (method: 'Tarjeta' | 'PayPal' | 'ATH Móvil') => void;
     primaryColor: string;
 }> = ({ selectedMethod, onSelectMethod, primaryColor }) => {
+    const t = usePublicT();
     const paymentOptions = [
-        { id: 'Tarjeta', label: 'Tarjeta de Crédito/Débito' },
+        { id: 'Tarjeta', label: t('checkout.card_type') },
         { id: 'PayPal', label: 'PayPal' },
         { id: 'ATH Móvil', label: 'ATH Móvil' },
     ] as const;
@@ -60,6 +63,7 @@ export const CheckoutPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { getSettingsForClient } = useECommerceSettings();
+    const t = usePublicT();
 
     const { cart, cartTotal, storeOwnerId } = (location.state as CheckoutLocationState || {});
     
@@ -103,20 +107,20 @@ export const CheckoutPage: React.FC = () => {
     const validateForm = (): boolean => {
         for (const key in customerDetails) {
             if (!customerDetails[key as keyof typeof customerDetails]) {
-                setError(`El campo "${key.replace(/([A-Z])/g, ' $1').trim()}" es obligatorio.`);
+                setError(t('checkout.field_required', { field: key.replace(/([A-Z])/g, ' $1').trim() }));
                 return false;
             }
         }
         if (selectedPaymentMethod === 'Tarjeta') {
             for (const key in cardDetails) {
                 if (!cardDetails[key as keyof typeof cardDetails]) {
-                    setError(`El campo de tarjeta "${key}" es obligatorio.`);
+                    setError(t('checkout.card_field_required', { field: key }));
                     return false;
                 }
             }
         }
         if (selectedPaymentMethod === 'ATH Móvil' && !athConfirmationNumber) {
-            setError("El número de confirmación de ATH Móvil es obligatorio.");
+            setError(t('checkout.ath_required'));
             return false;
         }
         setError(null);
@@ -149,7 +153,7 @@ export const CheckoutPage: React.FC = () => {
                 })),
             });
 
-            toast.success(result.message || '¡Orden creada con éxito!');
+            toast.success(result.message || t('checkout.order_success'));
             navigate(`/order-confirmation/${result.order.id}`, {
                 state: { storeOwnerId: effectiveStoreOwnerId, orderId: result.order.id, email: customerDetails.clientEmail },
             });
@@ -158,7 +162,7 @@ export const CheckoutPage: React.FC = () => {
                 ? (Array.isArray(err.errors) && err.errors.length > 0
                     ? `${err.message}: ${err.errors.join('; ')}`
                     : err.message)
-                : 'Hubo un error al procesar tu pedido. Por favor, inténtalo de nuevo.';
+                : t('checkout.order_error');
             setError(msg);
         } finally {
             setIsLoading(false);
@@ -168,12 +172,12 @@ export const CheckoutPage: React.FC = () => {
     if (!cart || cart.length === 0) {
         return (
             <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 flex flex-col items-center justify-center p-4">
-                <p className="text-neutral-600 dark:text-neutral-300 text-lg mb-4">Tu carrito está vacío o la sesión de checkout ha expirado.</p>
+                <p className="text-neutral-600 dark:text-neutral-300 text-lg mb-4">{t('checkout.cart_empty')}</p>
                 <RouterLink 
                     to={`/store/${effectiveStoreOwnerId}`} 
                     className={`${BUTTON_PRIMARY_CLASSES} flex items-center`}
                 >
-                    <ArrowUturnLeftIcon /> Volver a la Tienda
+                    <ArrowUturnLeftIcon /> {t('checkout.back_store')}
                 </RouterLink>
             </div>
         );
@@ -190,13 +194,13 @@ export const CheckoutPage: React.FC = () => {
                         <h1 className="text-3xl font-bold" style={{color: storePrimaryColor}}>{storeSettings.storeName}</h1>
                     )}
                 </RouterLink>
-                <h2 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">Finalizar Compra</h2>
+                <h2 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">{t('checkout.title')}</h2>
             </header>
 
             <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Order Summary */}
                 <section className="lg:col-span-1 bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md order-last lg:order-first">
-                    <h3 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4">Resumen del Pedido</h3>
+                    <h3 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4">{t('checkout.summary')}</h3>
                     <div className="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">
                         {cart.map(item => (
                             <div key={item.id} className="flex justify-between items-start text-sm">
@@ -210,7 +214,7 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                     <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
                         <div className="flex justify-between text-lg font-semibold text-neutral-800 dark:text-neutral-100">
-                            <span>Total:</span>
+                            <span>{t('checkout.total')}</span>
                             <span style={{color: storePrimaryColor}}>${cartTotal.toFixed(2)}</span>
                         </div>
                     </div>
@@ -218,7 +222,7 @@ export const CheckoutPage: React.FC = () => {
                         to={`/store/${effectiveStoreOwnerId}`} 
                         className="mt-6 text-sm text-neutral-600 dark:text-neutral-400 hover:underline flex items-center justify-center"
                     >
-                        <ArrowUturnLeftIcon /> Volver a la Tienda
+                        <ArrowUturnLeftIcon /> {t('checkout.back_store')}
                     </RouterLink>
                 </section>
 
@@ -226,26 +230,26 @@ export const CheckoutPage: React.FC = () => {
                 <section className="lg:col-span-2 bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
                     <form onSubmit={handleSubmitOrder} className="space-y-6">
                         <div>
-                            <h3 className="text-lg font-medium text-neutral-700 dark:text-neutral-200 mb-3">Información de Contacto y Envío</h3>
+                            <h3 className="text-lg font-medium text-neutral-700 dark:text-neutral-200 mb-3">{t('checkout.contact_shipping')}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input type="text" name="clientName" placeholder="Nombre Completo" value={customerDetails.clientName} onChange={handleInputChange} className={inputFormStyle} required />
-                                <input type="email" name="clientEmail" placeholder="Email" value={customerDetails.clientEmail} onChange={handleInputChange} className={inputFormStyle} required />
+                                <input type="text" name="clientName" placeholder={t('checkout.full_name_ph')} value={customerDetails.clientName} onChange={handleInputChange} className={inputFormStyle} required />
+                                <input type="email" name="clientEmail" placeholder={t('common.email')} value={customerDetails.clientEmail} onChange={handleInputChange} className={inputFormStyle} required />
                             </div>
                             <div className="mt-4">
                                 <RichTextEditor
                                     value={customerDetails.shippingAddress}
                                     onChange={(value) => setCustomerDetails(prev => ({ ...prev, shippingAddress: value }))}
-                                    placeholder="Dirección de Envío Completa"
+                                    placeholder={t('checkout.shipping_address_ph')}
                                 />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <input type="text" name="city" placeholder="Ciudad" value={customerDetails.city} onChange={handleInputChange} className={inputFormStyle} required />
-                                <input type="text" name="postalCode" placeholder="Código Postal" value={customerDetails.postalCode} onChange={handleInputChange} className={inputFormStyle} required />
+                                <input type="text" name="city" placeholder={t('checkout.city_ph')} value={customerDetails.city} onChange={handleInputChange} className={inputFormStyle} required />
+                                <input type="text" name="postalCode" placeholder={t('checkout.postal_code_ph')} value={customerDetails.postalCode} onChange={handleInputChange} className={inputFormStyle} required />
                             </div>
                         </div>
 
                         <div>
-                            <h3 className="text-lg font-medium text-neutral-700 dark:text-neutral-200 mb-3">Método de Pago</h3>
+                            <h3 className="text-lg font-medium text-neutral-700 dark:text-neutral-200 mb-3">{t('checkout.payment_method')}</h3>
                             <PaymentMethodSelector 
                                 selectedMethod={selectedPaymentMethod}
                                 onSelectMethod={setSelectedPaymentMethod}
@@ -255,25 +259,25 @@ export const CheckoutPage: React.FC = () => {
                             {selectedPaymentMethod === 'Tarjeta' && (
                                 <div className="mt-4 space-y-3 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md">
                                      <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-300 flex items-center">
-                                        <CreditCardIcon className="mr-2" /> Detalles de la Tarjeta
+                                        <CreditCardIcon className="mr-2" /> {t('checkout.card_details')}
                                     </h4>
-                                    <input type="text" name="number" placeholder="Número de Tarjeta" value={cardDetails.number} onChange={handleCardInputChange} className={inputFormStyle} required />
+                                    <input type="text" name="number" placeholder={t('checkout.card_number_ph')} value={cardDetails.number} onChange={handleCardInputChange} className={inputFormStyle} required />
                                     <div className="grid grid-cols-2 gap-3">
-                                        <input type="text" name="expiry" placeholder="MM/AA (Expiración)" value={cardDetails.expiry} onChange={handleCardInputChange} className={inputFormStyle} required />
+                                        <input type="text" name="expiry" placeholder={t('checkout.card_expiry_ph')} value={cardDetails.expiry} onChange={handleCardInputChange} className={inputFormStyle} required />
                                         <input type="text" name="cvc" placeholder="CVC" value={cardDetails.cvc} onChange={handleCardInputChange} className={inputFormStyle} required />
                                     </div>
                                 </div>
                             )}
                              {selectedPaymentMethod === 'ATH Móvil' && (
                                 <div className="mt-4 space-y-3 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md">
-                                     <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Confirmación ATH Móvil</h4>
-                                    <input type="text" name="athConfirmation" placeholder="Número de Confirmación de Pago" value={athConfirmationNumber} onChange={(e) => setAthConfirmationNumber(e.target.value)} className={inputFormStyle} required />
-                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">Realiza el pago a: <span className="font-semibold">/PazziTienda</span> e ingresa el número de confirmación.</p>
+                                     <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-300">{t('checkout.ath_confirm_title')}</h4>
+                                    <input type="text" name="athConfirmation" placeholder={t('checkout.ath_confirm_ph')} value={athConfirmationNumber} onChange={(e) => setAthConfirmationNumber(e.target.value)} className={inputFormStyle} required />
+                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('checkout.ath_pay_to')} <span className="font-semibold">/PazziTienda</span> {t('checkout.ath_then')}</p>
                                 </div>
                             )}
                             {selectedPaymentMethod === 'PayPal' && (
                                 <div className="mt-4 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md text-center">
-                                    <p className="text-sm text-neutral-600 dark:text-neutral-300">Serás redirigido a PayPal para completar tu pago.</p>
+                                    <p className="text-sm text-neutral-600 dark:text-neutral-300">{t('checkout.paypal_redirect')}</p>
                                     {/* Actual PayPal button would go here */}
                                 </div>
                             )}
@@ -287,7 +291,7 @@ export const CheckoutPage: React.FC = () => {
                             style={{backgroundColor: storePrimaryColor}}
                             disabled={isLoading}
                         >
-                            {isLoading ? 'Procesando Pedido...' : `Pagar $${cartTotal.toFixed(2)}`}
+                            {isLoading ? t('checkout.processing') : t('checkout.pay', { amount: `$${cartTotal.toFixed(2)}` })}
                         </button>
                     </form>
                 </section>

@@ -39,7 +39,7 @@ export const EcommerceOrdersPage: React.FC = () => {
     
     const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
         updateContextOrderStatus(orderId, newStatus);
-        toast.success(`Estado actualizado a "${newStatus}".`);
+        toast.success(t('ecomx.orders.status_updated', { status: newStatus }));
     };
 
     const columns: TableColumn<Order>[] = [
@@ -71,13 +71,13 @@ export const EcommerceOrdersPage: React.FC = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label="Buscar pedidos"
+                        aria-label={t('ecomx.orders.search_aria')}
                     />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as Order['status'] | 'Todos')}
                         className={`${INPUT_SM_CLASSES} flex-shrink-0`}
-                        aria-label="Filtrar por estado de pedido"
+                        aria-label={t('ecommerce.orders.filter_status')}
                     >
                         {orderStatusOptions.map(status => (
                             <option key={status} value={status}>{status}</option>
@@ -91,10 +91,10 @@ export const EcommerceOrdersPage: React.FC = () => {
                 columns={columns}
                 actions={(order) => (
                     <div className="flex space-x-2">
-                        <button onClick={() => handleOpenDetailModal(order)} className="text-primary hover:text-secondary p-1" aria-label={`Ver detalles de pedido ${order.id.substring(0,8)}`}>
+                        <button onClick={() => handleOpenDetailModal(order)} className="text-primary hover:text-secondary p-1" aria-label={t('ecomx.orders.view_details_aria', { id: order.id.substring(0,8) })}>
                             <EyeIcon />
                         </button>
-                        <button onClick={() => handleOpenStatusModal(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Actualizar estado de pedido ${order.id.substring(0,8)}`}>
+                        <button onClick={() => handleOpenStatusModal(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('ecomx.orders.update_status_aria', { id: order.id.substring(0,8) })}>
                             <Cog6ToothIcon />
                         </button>
                     </div>

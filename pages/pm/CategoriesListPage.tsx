@@ -55,7 +55,7 @@ export const CategoriesListPage: React.FC = () => {
             }
         } catch (error) {
             console.error("Error al cargar categorías:", error);
-            toast.error('Error al cargar las categorías.');
+            toast.error(t('pmx.category.load_error'));
         } finally {
             setLoadingData(false);
         }
@@ -95,14 +95,14 @@ export const CategoriesListPage: React.FC = () => {
                 });
                 if (response.ok) {
                     setCategories(prev => prev.filter(c => c.id !== itemToDeleteId));
-                    toast.success('Categoría eliminada');
+                    toast.success(t('pmx.category.deleted_ok'));
                 } else {
                     const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || 'Error al eliminar la categoría.');
+                    toast.error(errData.error || t('pmx.category.delete_error'));
                 }
             } catch (error) {
                 console.error('Error deleting category:', error);
-                toast.error('Error de conexión al intentar eliminar.');
+                toast.error(t('pmx.common.conn_delete_error'));
             } finally {
                 setItemToDeleteId(null);
                 setShowDeleteConfirmModal(false);
@@ -133,15 +133,15 @@ export const CategoriesListPage: React.FC = () => {
         },
         { header: t('category.field.name'), accessor: 'name' },
         {
-            header: 'Departamento',
+            header: t('pmx.common.department'),
             accessor: (category) => (
                 category.department?.name
                     ? <span className="text-sm text-neutral-700 dark:text-neutral-200">{category.department.name}</span>
-                    : <span className="text-xs text-neutral-400">Sin departamento</span>
+                    : <span className="text-xs text-neutral-400">{t('pmx.category.no_department')}</span>
             ),
         },
         {
-            header: 'Productos',
+            header: t('pmx.common.products'),
             accessor: (category) => (
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
                     {category._count?.products ?? 0}
@@ -161,13 +161,13 @@ export const CategoriesListPage: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <input
                         type="text"
-                        placeholder="Buscar categoría…"
+                        placeholder={t('pmx.category.search_ph')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label="Buscar categoría"
+                        aria-label={t('pmx.category.search_aria')}
                     />
-                    <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex-shrink-0`}>Importar</button>
+                    <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex-shrink-0`}>{t('pmx.common.import')}</button>
                     <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                         <PlusIcon /> {t('category.list.create')}
                     </button>
@@ -177,7 +177,7 @@ export const CategoriesListPage: React.FC = () => {
             {loadingData && (
                 <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">Cargando categorías...</span>
+                    <span className="ml-3 text-neutral-600 dark:text-neutral-400">{t('pmx.category.loading')}</span>
                 </div>
             )}
 
@@ -186,7 +186,7 @@ export const CategoriesListPage: React.FC = () => {
                 columns={columns}
                 actions={(category) => (
                     <>
-                        <button onClick={() => setScanTarget(category)} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 p-1" aria-label="Escanear producto para asignar categoría" title="Escanear y asignar categoría">
+                        <button onClick={() => setScanTarget(category)} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 p-1" aria-label={t('pmx.category.scan_aria')} title={t('pmx.category.scan_title')}>
                             <BarcodeScanIcon className="w-5 h-5" />
                         </button>
                         <button onClick={() => openModalForEdit(category)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')} title={t('common.edit')}>
@@ -203,7 +203,7 @@ export const CategoriesListPage: React.FC = () => {
                 <ImportModal
                     isOpen={showImportModal}
                     onClose={() => setShowImportModal(false)}
-                    title="Importar categorías (Excel/CSV o WordPress)"
+                    title={t('pmx.category.import_title')}
                     fields={CATEGORY_IMPORT_FIELDS}
                     onImport={(rows) => api.post<ImportResult>('/categories/import', { items: rows })}
                     onDone={fetchCategories}
@@ -220,9 +220,9 @@ export const CategoriesListPage: React.FC = () => {
                 isOpen={showDeleteConfirmModal}
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
-                title="¿Confirmar eliminación?"
-                message="Esta acción no se puede deshacer. ¿Deseas continuar?"
-                confirmButtonText="Sí, eliminar"
+                title={t('pmx.common.confirm_delete_title')}
+                message={t('pmx.common.cannot_undo')}
+                confirmButtonText={t('pmx.common.yes_delete')}
             />
         </div>
     );

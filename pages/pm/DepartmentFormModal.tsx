@@ -35,7 +35,7 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
     const handleSubmit = async (e: React.FormEvent) => { // Make it async
         e.preventDefault();
         if (formData.name.trim() === '') {
-            toast.error("El nombre del departamento es obligatorio");
+            toast.error(t('pmx.department.name_required'));
             return;
         }
 
@@ -65,13 +65,13 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                 } else {
                     setDepartments(prev => [...prev, result]);
                 }
-                toast.success(department ? 'Departamento actualizado' : 'Departamento creado');
+                toast.success(department ? t('pmx.department.updated_ok') : t('pmx.department.created_ok'));
                 onClose();
             } else {
-                toast.error(result.error || "Error al guardar el departamento.");
+                toast.error(result.error || t('pmx.department.save_error'));
             }
         } catch (error) {
-            toast.error("Error de conexión con el servidor.");
+            toast.error(t('pmx.common.conn_error'));
         } finally {
             setIsSubmitting(false); // Reset submitting state
         }
@@ -94,7 +94,7 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                 </div>
                 <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
                     <input type="checkbox" checked={formData.reducedTax} onChange={e => setFormData(prev => ({ ...prev, reducedTax: e.target.checked }))} className="h-4 w-4" />
-                    Tasa de IVU reducida (sus productos usan la tasa reducida)
+                    {t('pmx.common.reduced_tax_label')}
                 </label>
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
@@ -105,7 +105,7 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
-                                Guardando...
+                                {t('common.saving')}
                             </span>
                         ) : t('common.save')}
                     </button>

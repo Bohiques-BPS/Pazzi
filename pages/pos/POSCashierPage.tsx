@@ -101,11 +101,13 @@ const LiveClock = () => {
     );
 };
 
-const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: string; shortcut?: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, shortcut, onClick, disabled = false }) => (
+const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: string; shortcut?: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, shortcut, onClick, disabled = false }) => {
+    const { t } = useTranslation();
+    return (
     <button
         onClick={onClick}
         disabled={disabled}
-        title={shortcut ? `Atajo: ${shortcut}` : undefined}
+        title={shortcut ? t('posx.cashier.shortcut', { key: shortcut }) : undefined}
         className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center py-1.5 sm:py-2 px-1 sm:px-3 rounded-md text-white text-[10px] sm:text-sm font-semibold transition-colors ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
         style={{ minHeight: '40px' }}
     >
@@ -113,7 +115,8 @@ const ActionButton: React.FC<{ icon: React.ReactNode; text: string; color: strin
         <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{text}</span>
         {shortcut && <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 border border-white/60 rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold leading-none">{shortcut}</span>}
     </button>
-);
+    );
+};
 
 // Icono según el tipo de método de pago configurado.
 const METHOD_ICON: Record<string, React.ReactNode> = {
@@ -121,11 +124,13 @@ const METHOD_ICON: Record<string, React.ReactNode> = {
     credit: <UserKeyIcon />, check: <DocumentTextIcon />, invoice: <ClipboardDocumentListIcon />, custom: <BanknotesIcon />,
 };
 
-const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: string; shortcut?: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, shortcut, onClick, disabled = false }) => (
+const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: string; shortcut?: string; onClick?: () => void; disabled?: boolean; }> = ({ icon, text, color, shortcut, onClick, disabled = false }) => {
+    const { t } = useTranslation();
+    return (
      <button
         onClick={onClick}
         disabled={disabled}
-        title={shortcut ? `Atajo: ${shortcut}` : undefined}
+        title={shortcut ? t('posx.cashier.shortcut', { key: shortcut }) : undefined}
         style={{ backgroundColor: color }}
         className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center p-2 sm:p-4 rounded-md text-white font-semibold transition-colors text-xs sm:text-xl ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-90'}`}
     >
@@ -133,7 +138,8 @@ const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: stri
         <span>{text}</span>
         {shortcut && <span className="absolute right-1.5 sm:right-2.5 top-1/2 -translate-y-1/2 border border-white/70 rounded-md px-1 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold leading-none">{shortcut}</span>}
     </button>
-);
+    );
+};
 
 // Inline Modal for simple authentication prompts
 const POSActionAuthModal: React.FC<{
@@ -161,7 +167,7 @@ const POSActionAuthModal: React.FC<{
         setError('');
         const success = await onConfirm(password);
         if (!success) {
-            setError('Contraseña incorrecta.');
+            setError(t('posx.cashier.wrong_password'));
             setIsChecking(false);
         }
     };
@@ -171,7 +177,7 @@ const POSActionAuthModal: React.FC<{
             <form onSubmit={(e) => { e.preventDefault(); handleConfirm(); }} className="space-y-4">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">{message}</p>
                 <div>
-                    <label className="block text-sm font-medium">Contraseña</label>
+                    <label className="block text-sm font-medium">{t('posx.cashier.password')}</label>
                     <PasswordInput
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -184,7 +190,7 @@ const POSActionAuthModal: React.FC<{
                 <div className="flex justify-end space-x-2">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_SECONDARY_SM_CLASSES} disabled={isChecking}>
-                        {isChecking ? 'Verificando...' : t('common.confirm')}
+                        {isChecking ? t('posx.cashier.verifying') : t('common.confirm')}
                     </button>
                 </div>
             </form>
@@ -369,7 +375,7 @@ export const POSCashierPage: React.FC = () => {
     const handleShiftOpened = (session: CajaSession) => {
         setCurrentSession(session);
         setActiveModal(null);
-        toast.success(`Turno abierto con $${session.openingFloat.toFixed(2)}`);
+        toast.success(t('posx.cashier.shift_opened', { amount: session.openingFloat.toFixed(2) }));
     };
 
     const handleSwitchUser = async (employee: User, pass: string): Promise<boolean> => {
@@ -385,7 +391,7 @@ export const POSCashierPage: React.FC = () => {
 
     // Cambio por PIN aún no soportado por el BE; el modal solo muestra PIN si el empleado tiene uno.
     const handleSwitchUserWithPin = async (_userId: string, _pin: string): Promise<boolean> => {
-        toast.error('El cambio por PIN no está disponible; usa la contraseña.');
+        toast.error(t('posx.cashier.pin_switch_unavailable'));
         return false;
     };
 
@@ -679,11 +685,11 @@ export const POSCashierPage: React.FC = () => {
         const product = exact || (results.length === 1 ? results[0] : null);
         if (product) {
             addProductToCart(product);
-            toast.success(`${product.name} agregado`);
+            toast.success(t('posx.cashier.product_added', { name: product.name }));
         } else if (results.length > 1) {
-            toast.error(`El código "${code}" coincide con varios productos. Búscalo por nombre.`);
+            toast.error(t('posx.cashier.code_multiple_matches', { code }));
         } else {
-            toast.error(`No se encontró un producto con el código "${code}".`);
+            toast.error(t('posx.cashier.code_not_found', { code }));
         }
     }, [searchProductsRemote]);
 
@@ -757,11 +763,11 @@ export const POSCashierPage: React.FC = () => {
     const handleOpenPaymentModal = (method: PaymentMethod) => {
         setPosError(null);
         if (cart.length === 0) {
-            setPosError("Debe agregar productos al carrito antes de procesar el pago.");
+            setPosError(t('posx.cashier.err_empty_cart_payment'));
             return;
         }
         if (!selectedClient) {
-            setPosError("Debe seleccionar un cliente para la venta antes de procesar el pago.");
+            setPosError(t('posx.cashier.err_no_client_payment'));
             return;
         }
         setInitialPaymentMethod(method);
@@ -770,7 +776,7 @@ export const POSCashierPage: React.FC = () => {
 
     const handleFinalizeSale = async (payments: { method: string; amount: number; reference?: string }[], changeDue?: number) => {
          if (cart.length === 0 || !currentUser || !selectedCajaId || !selectedBranchId) {
-            toast.error('No se puede completar la venta. Carrito vacío o falta información de empleado/caja/sucursal.');
+            toast.error(t('posx.cashier.err_cannot_complete_sale'));
             return;
         }
 
@@ -822,7 +828,7 @@ export const POSCashierPage: React.FC = () => {
         // Abrir la gaveta si está habilitada y la venta involucra efectivo (o hay vuelto).
         const involvesCash = payments.some(p => /efectivo|cash/i.test(p.method)) || (changeDue || 0) > 0;
         if (isCashDrawerEnabled() && involvesCash) {
-            openCashDrawer().catch(err => toast.error(`Gaveta: ${err?.message || 'no se pudo abrir (¿QZ Tray activo?)'}`));
+            openCashDrawer().catch(err => toast.error(t('posx.cashier.drawer_error', { msg: err?.message || t('posx.cashier.drawer_open_failed') })));
         }
 
         // Mostrar la factura con el folio secuencial del negocio (Factura #N).
@@ -836,8 +842,8 @@ export const POSCashierPage: React.FC = () => {
     // Apertura manual de la gaveta ("Sin venta"): útil para dar cambio.
     const handleOpenDrawer = () => {
         openCashDrawer()
-            .then(() => toast.success('Gaveta abierta.'))
-            .catch(err => toast.error(`Gaveta: ${err?.message || 'no se pudo abrir (¿QZ Tray activo?)'}`));
+            .then(() => toast.success(t('posx.cashier.drawer_opened')))
+            .catch(err => toast.error(t('posx.cashier.drawer_error', { msg: err?.message || t('posx.cashier.drawer_open_failed') })));
     };
 
     const handleRecallCart = (cartId: string) => {
@@ -891,7 +897,7 @@ export const POSCashierPage: React.FC = () => {
                 const client = clients.find(c => c.id === pendingEstimateData!.clientId);
                 if (client) setSelectedClient(client);
             }
-            toast.success(`Estimado cargado en el carrito (${pendingEstimateData.items.length} items)`);
+            toast.success(t('posx.cashier.estimate_loaded', { count: pendingEstimateData.items.length }));
         }
         setPendingEstimateData(null);
         setShowEstimateReplaceConfirm(false);
@@ -922,7 +928,7 @@ export const POSCashierPage: React.FC = () => {
                 const client = clients.find(c => c.id === parsed.clientId);
                 if (client) setSelectedClient(client);
             }
-            toast.success(`Estimado cargado en el carrito (${items.length} items)`);
+            toast.success(t('posx.cashier.estimate_loaded', { count: items.length }));
         } catch {
             sessionStorage.removeItem('pazzi_estimate_to_convert');
         }
@@ -931,7 +937,7 @@ export const POSCashierPage: React.FC = () => {
 
     const handleCreateEstimateFromCart = () => {
         if (!currentUser || !selectedClient || cart.length === 0 || !selectedBranchId) {
-            toast.error('Faltan datos para crear el estimado (cliente, productos, empleado o sucursal).');
+            toast.error(t('posx.cashier.err_estimate_missing_data'));
             return;
         }
 
@@ -948,7 +954,7 @@ export const POSCashierPage: React.FC = () => {
         
         addEstimate(newEstimateData);
         
-        toast.success(`Estimado creado para ${selectedClient.name}.`);
+        toast.success(t('posx.cashier.estimate_created', { name: selectedClient.name }));
         clearCart();
         setActiveModal(null);
     };
@@ -1010,7 +1016,7 @@ export const POSCashierPage: React.FC = () => {
                 reason,
                 refundMethod: 'Efectivo',
             });
-            toast.success(result.message || `Devolución por $${result.refundAmount.toFixed(2)} procesada`);
+            toast.success(result.message || t('posx.cashier.return_processed', { amount: result.refundAmount.toFixed(2) }));
             // Resultado del reembolso automático por AgilPay, si aplicó.
             if (result.agilpayRefund) {
                 if (result.agilpayRefund.ok) toast.success(`AgilPay: ${result.agilpayRefund.message}`);
@@ -1018,7 +1024,7 @@ export const POSCashierPage: React.FC = () => {
             }
             setActiveModal(null);
         } catch (err: any) {
-            toast.error(err?.message || 'Error al procesar la devolución');
+            toast.error(err?.message || t('posx.cashier.err_return_processing'));
         }
     };
 
@@ -1038,15 +1044,15 @@ export const POSCashierPage: React.FC = () => {
         { text: t('pos.estimate'), icon: <ClipboardDocumentListIcon />, color: 'bg-[#00897B]', onClick: () => selectedClient && setActiveModal('clientEstimates'), disabled: !selectedClient },
         { text: t('pos.layaway'), icon: <ArchiveBoxIcon />, color: 'bg-[#00ACC1]', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || !selectedClient },
         // "Gaveta" (Sin venta) solo si está configurada la gaveta por QZ Tray en este dispositivo.
-        ...(isCashDrawerEnabled() ? [{ text: 'Gaveta', icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
-        { text: 'Cuadre', icon: <DocumentTextIcon />, color: 'bg-[#00695C]', shortcut: 'F7', onClick: () => setActiveModal('dailyClose') },
+        ...(isCashDrawerEnabled() ? [{ text: t('posx.cashier.drawer'), icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
+        { text: t('posx.cashier.cash_up'), icon: <DocumentTextIcon />, color: 'bg-[#00695C]', shortcut: 'F7', onClick: () => setActiveModal('dailyClose') },
         { text: t('pos.reprint'), icon: <PrinterIcon />, color: 'bg-[#546E7A]', onClick: () => setActiveModal('reprint') },
         { text: t('pos.user'), icon: <UserKeyIcon />, color: 'bg-[#3949AB]', onClick: () => setActiveModal('userSwitch') },
     ];
     
     // UI Render
     if (!isPosAuthenticated) {
-      return <POSActionAuthModal isOpen={true} onClose={() => navigate('/')} onConfirm={handleInitialAuth} title="Acceso a Caja" message="Por favor ingrese su contraseña para acceder al punto de venta." />;
+      return <POSActionAuthModal isOpen={true} onClose={() => navigate('/')} onConfirm={handleInitialAuth} title={t('posx.cashier.register_access')} message={t('posx.cashier.register_access_msg')} />;
     }
     
     if (!shiftState?.active) {
@@ -1057,17 +1063,16 @@ export const POSCashierPage: React.FC = () => {
                     <>
                     <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-neutral-900 gap-4 p-6 text-center">
                         <ExclamationTriangleIcon className="w-14 h-14 text-amber-500" />
-                        <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">Aún no tienes una caja registradora</h2>
+                        <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.cashier.no_register_title')}</h2>
                         <p className="text-neutral-500 dark:text-neutral-400 text-sm max-w-md">
-                            Para empezar a vender necesitas al menos una caja. Créala aquí mismo y sigue con tu venta —
-                            no perderás este flujo.
+                            {t('posx.cashier.no_register_body')}
                         </p>
                         <div className="flex flex-wrap justify-center gap-3 mt-2">
                             <button onClick={() => setShowCreateCaja(true)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center gap-1`}>
-                                <KeyIcon className="w-4 h-4" /> Crear caja ahora
+                                <KeyIcon className="w-4 h-4" /> {t('posx.cashier.create_register_now')}
                             </button>
                             <button onClick={() => navigate('/')} className={BUTTON_SECONDARY_SM_CLASSES}>
-                                Volver al inicio
+                                {t('posx.cashier.back_home')}
                             </button>
                         </div>
                     </div>
@@ -1090,7 +1095,7 @@ export const POSCashierPage: React.FC = () => {
             return (
                 <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-neutral-900">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3 flex-shrink-0"></div>
-                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">Cargando punto de venta...</p>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('posx.cashier.loading_pos')}</p>
                 </div>
             );
         }
@@ -1100,7 +1105,7 @@ export const POSCashierPage: React.FC = () => {
             return (
                 <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-neutral-900">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3 flex-shrink-0"></div>
-                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">Cargando caja...</p>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">{t('posx.cashier.loading_register')}</p>
                 </div>
             );
         }
@@ -1122,8 +1127,8 @@ export const POSCashierPage: React.FC = () => {
                     <div className="max-w-[120px] sm:max-w-none">
                         <h1 className="text-sm sm:text-lg font-bold text-white leading-tight truncate">{t('pos.title')} ({currentCajaName})</h1>
                         <p className="text-[10px] sm:text-sm text-white flex items-center opacity-90 truncate">
-                            Sucursal Central 
-                            {isCurrentCajaExternal && <span className="ml-1 px-1 py-0.5 bg-black/20 rounded text-[8px] font-bold border border-white/30">EXTERNA</span>}
+                            {t('posx.cashier.central_branch')}
+                            {isCurrentCajaExternal && <span className="ml-1 px-1 py-0.5 bg-black/20 rounded text-[8px] font-bold border border-white/30">{t('posx.cashier.external_badge')}</span>}
                         </p>
                     </div>
                 </div>
@@ -1136,17 +1141,17 @@ export const POSCashierPage: React.FC = () => {
                     {/* Ponche de empleado: a la izquierda del bloque del usuario, junto al divisor. */}
                     <button
                         onClick={() => setActiveModal('punch')}
-                        title="Ponche de empleado (F9)"
+                        title={t('posx.cashier.employee_punch_f9')}
                         className="bg-[#455A64] hover:bg-[#37474F] text-white font-bold py-1 px-1.5 sm:py-2 sm:px-4 rounded-md flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-sm shadow-sm transition-all active:scale-95"
                     >
                         <UserKeyIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                        <span className="hidden sm:inline">Ponche</span>
+                        <span className="hidden sm:inline">{t('posx.cashier.punch')}</span>
                         <span className="border border-white/60 rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold leading-none">F9</span>
                     </button>
 
                     <div className="flex items-center space-x-2 sm:space-x-3 border-l border-white/20 pl-2 sm:pl-6">
                         <div className="text-right hidden lg:block">
-                            <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold leading-none mb-1">Cajero</p>
+                            <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold leading-none mb-1">{t('posx.cashier.cashier')}</p>
                             <p className="text-sm font-bold text-white leading-tight">{currentUser?.name}</p>
                         </div>
                         <div className="relative">
@@ -1169,11 +1174,11 @@ export const POSCashierPage: React.FC = () => {
                     {/* Salir / Cerrar turno: a la derecha del Modo Emergencia. */}
                     <button
                         onClick={currentUser?.role === UserRole.MANAGER ? () => navigate('/') : () => setActiveModal('endShift')}
-                        title={currentUser?.role === UserRole.MANAGER ? 'Salir' : 'Cerrar turno'}
+                        title={currentUser?.role === UserRole.MANAGER ? t('posx.cashier.exit') : t('posx.cashier.close_shift')}
                         className="bg-[#B71C1C] hover:bg-red-800 text-white font-bold py-1 px-1.5 sm:py-2 sm:px-4 rounded-md flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-sm shadow-sm transition-all active:scale-95"
                     >
                         <ExitIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                        <span className="hidden sm:inline">{currentUser?.role === UserRole.MANAGER ? 'Salir' : t('pos.close_shift')}</span>
+                        <span className="hidden sm:inline">{currentUser?.role === UserRole.MANAGER ? t('posx.cashier.exit') : t('pos.close_shift')}</span>
                     </button>
                 </div>
             </header>
@@ -1200,25 +1205,25 @@ export const POSCashierPage: React.FC = () => {
                                         {selectedClient.companyName && <p className="text-base text-neutral-500">{selectedClient.companyName}</p>}
                                         {(settings.loyaltyPointsPerDollar ?? 0) > 0 && (
                                             <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
-                                                ⭐ {selectedClient.loyaltyPoints ?? 0} puntos{selectedClient.loyaltyLevel ? ` · ${selectedClient.loyaltyLevel}` : ''}
+                                                ⭐ {selectedClient.loyaltyPoints ?? 0} {t('posx.cashier.points')}{selectedClient.loyaltyLevel ? ` · ${selectedClient.loyaltyLevel}` : ''}
                                             </p>
                                         )}
                                     </div>
                                     <div className="flex space-x-2 flex-shrink-0">
-                                        <button onClick={() => setActiveModal('clientSearch')} title="Atajo: U" className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900">Cambiar <span className="border border-blue-400/60 rounded px-1 text-[8px] font-bold leading-none">U</span></button>
-                                        <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-[10px] sm:text-xs py-1 px-2 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900">Quitar</button>
+                                        <button onClick={() => setActiveModal('clientSearch')} title={t('posx.cashier.shortcut', { key: 'U' })} className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900">{t('posx.cashier.change')} <span className="border border-blue-400/60 rounded px-1 text-[8px] font-bold leading-none">U</span></button>
+                                        <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-[10px] sm:text-xs py-1 px-2 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900">{t('posx.cashier.remove')}</button>
                                     </div>
                                 </div>
                                 <div className="mt-2">
                                     <label className="flex items-center text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">
-                                        <BriefcaseIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" /> Asociar a Proyecto:
+                                        <BriefcaseIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" /> {t('posx.cashier.associate_project')}
                                     </label>
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                         <select value={selectedProjectId || ''} onChange={(e) => setSelectedProjectId(e.target.value || null)} className="flex-grow text-sm sm:text-base px-3 py-1.5 sm:py-2 border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 rounded-md shadow-sm focus:ring-primary focus:border-primary">
-                                            <option value="">Venta General (Sin Proyecto)</option>
+                                            <option value="">{t('posx.cashier.general_sale_no_project')}</option>
                                             {clientProjects.map(proj => (<option key={proj.id} value={proj.id}>{proj.name}</option>))}
                                         </select>
-                                        <button type="button" onClick={() => setActiveModal('createProject')} className="flex items-center justify-center flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-base py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-green-400 dark:focus:ring-offset-neutral-800" title="Crear un nuevo proyecto para este cliente">
+                                        <button type="button" onClick={() => setActiveModal('createProject')} className="flex items-center justify-center flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-base py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-green-400 dark:focus:ring-offset-neutral-800" title={t('posx.cashier.new_project_title')}>
                                             <PlusIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5"/> {t('pos.new_project')}
                                         </button>
                                     </div>
@@ -1235,15 +1240,15 @@ export const POSCashierPage: React.FC = () => {
                                     onRemoteSearch={searchProductsRemote}
                                     disabled={!isShiftActive}
                                     autoFocus
-                                    placeholder="Buscar por nombre, código de barras o SKU…"
+                                    placeholder={t('posx.cashier.product_search_placeholder')}
                                 />
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowScanCamera(true)}
                                 disabled={!isShiftActive}
-                                title="Escanear con la cámara"
-                                aria-label="Escanear con la cámara"
+                                title={t('posx.cashier.scan_with_camera')}
+                                aria-label={t('posx.cashier.scan_with_camera')}
                                 className="flex-shrink-0 h-12 w-11 flex items-center justify-center rounded-md border border-neutral-300 dark:border-neutral-600 text-neutral-500 dark:text-neutral-400 hover:text-primary hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 <CameraIcon className="w-5 h-5" />
@@ -1261,7 +1266,7 @@ export const POSCashierPage: React.FC = () => {
                                             className="flex w-full sm:col-span-6 items-center gap-3 cursor-pointer"
                                             onClick={() => setEditingLineId(item.id)}
                                             role="button"
-                                            title="Modificar línea (cantidad, descuento, comentario)"
+                                            title={t('posx.cashier.edit_line')}
                                         >
                                             <div className="flex-shrink-0">
                                                 <img
@@ -1272,7 +1277,7 @@ export const POSCashierPage: React.FC = () => {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-semibold leading-tight text-sm sm:text-base truncate">{item.name}</p>
-                                                <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 truncate">Ref: {item.skus?.[0] || 'N/A'}</p>
+                                                <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 truncate">{t('posx.cashier.ref')}: {item.skus?.[0] || 'N/A'}</p>
                                                 {item.note && <p className="text-[10px] sm:text-xs text-primary italic truncate">📝 {item.note}</p>}
                                                 
                                                 <div className="flex items-center flex-wrap gap-1.5 mt-0.5">
@@ -1302,7 +1307,7 @@ export const POSCashierPage: React.FC = () => {
                                                     value={item.quantity} 
                                                     onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 0)} 
                                                     className="w-16 sm:w-20 text-center text-base sm:text-xl font-semibold bg-gray-100 dark:bg-neutral-900 rounded-lg border border-gray-300 dark:border-neutral-600 p-1 sm:p-2 focus:ring-primary focus:border-primary"
-                                                    aria-label={`Cantidad para ${item.name}`}
+                                                    aria-label={t('posx.cashier.quantity_for', { name: item.name })}
                                                 />
                                             </div>
                                             <div className="text-right font-semibold text-base sm:text-lg min-w-[80px]">
@@ -1314,14 +1319,14 @@ export const POSCashierPage: React.FC = () => {
                                                 <button 
                                                     onClick={() => handleOpenDiscountModal(item.id)} 
                                                     className="p-1.5 sm:p-2 rounded-full text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors" 
-                                                    title="Aplicar/Editar descuento"
+                                                    title={t('posx.cashier.apply_edit_discount')}
                                                 >
                                                     <TagIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                                                 </button>
                                                 <button 
                                                     onClick={() => handleRequestItemDelete(item)} 
                                                     className="p-1.5 sm:p-2 rounded-full text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" 
-                                                    title="Eliminar producto"
+                                                    title={t('posx.cashier.remove_product')}
                                                 >
                                                     <TrashIconMini className="w-5 h-5 sm:w-6 sm:h-6" />
                                                 </button>
@@ -1343,11 +1348,11 @@ export const POSCashierPage: React.FC = () => {
                                 <TagIcon className="w-4 h-4 mr-2" />
                                 {generalDiscount ? (
                                     <span className="font-semibold">
-                                        Descuento General Activo: {generalDiscount.type === 'percentage' ? `${generalDiscount.value}%` : `$${generalDiscount.value}`}
-                                        <span className="ml-2 text-xs opacity-75">(Click para editar)</span>
+                                        {t('posx.cashier.general_discount_active')}: {generalDiscount.type === 'percentage' ? `${generalDiscount.value}%` : `$${generalDiscount.value}`}
+                                        <span className="ml-2 text-xs opacity-75">{t('posx.cashier.click_to_edit')}</span>
                                     </span>
                                 ) : (
-                                    'Aplicar Descuento General'
+                                    t('posx.cashier.apply_general_discount')
                                 )}
                             </button>
                             <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
@@ -1358,7 +1363,7 @@ export const POSCashierPage: React.FC = () => {
                         
                         {globalDiscountAmount > 0 && (
                             <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg text-red-600 dark:text-red-400">
-                                <span>Descuento Global:</span>
+                                <span>{t('posx.cashier.global_discount')}:</span>
                                 <span className="font-medium w-24 sm:w-32">-${globalDiscountAmount.toFixed(2)}</span>
                             </div>
                         )}
@@ -1367,19 +1372,19 @@ export const POSCashierPage: React.FC = () => {
                             <>
                                 {taxState > 0 && (
                                     <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
-                                        <span className="text-neutral-500">IVU Estatal:</span>
+                                        <span className="text-neutral-500">{t('posx.cashier.sut_state')}:</span>
                                         <span className="font-medium w-24 sm:w-32">${taxState.toFixed(2)}</span>
                                     </div>
                                 )}
                                 {taxMunicipal > 0 && (
                                     <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
-                                        <span className="text-neutral-500">IVU Municipal:</span>
+                                        <span className="text-neutral-500">{t('posx.cashier.sut_municipal')}:</span>
                                         <span className="font-medium w-24 sm:w-32">${taxMunicipal.toFixed(2)}</span>
                                     </div>
                                 )}
                                 {taxReduced > 0 && (
                                     <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
-                                        <span className="text-neutral-500">IVU Reducido:</span>
+                                        <span className="text-neutral-500">{t('posx.cashier.sut_reduced')}:</span>
                                         <span className="font-medium w-24 sm:w-32">${taxReduced.toFixed(2)}</span>
                                     </div>
                                 )}
@@ -1423,7 +1428,7 @@ export const POSCashierPage: React.FC = () => {
                 isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
                 onHoldCart={(alias) => {
                     if (cart.length > 0) {
-                        const name = alias?.trim() || `Venta para ${selectedClient?.name || 'Contado'}`;
+                        const name = alias?.trim() || t('posx.cashier.sale_for', { name: selectedClient?.name || t('posx.cashier.walk_in') });
                         holdCurrentCart(cart, name, selectedClient?.id);
                         clearCart();
                         return true;
@@ -1453,23 +1458,23 @@ export const POSCashierPage: React.FC = () => {
             <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
 
             {/* Venta rechazada por el backend (stock/turno/etc.): aviso claro y persistente. */}
-            <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title="No se pudo completar la venta" size="md">
+            <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title={t('posx.cashier.sale_failed_title')} size="md">
                 <div className="space-y-4">
                     <div className="flex items-start gap-3">
                         <ExclamationTriangleIcon className="w-9 h-9 text-red-500 flex-shrink-0" />
                         <div>
                             <p className="text-base font-medium text-neutral-800 dark:text-neutral-100">{saleError?.message}</p>
                             {saleError?.code === 'INSUFFICIENT_STOCK' && (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Ajusta el stock del producto en <strong>Inventario</strong>, o quítalo del carrito.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.insufficient_stock_hint_1')}<strong>{t('posx.cashier.inventory')}</strong>{t('posx.cashier.insufficient_stock_hint_2')}</p>
                             )}
                             {saleError?.code === 'CAJA_NOT_OPEN' && (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Abre el <strong>turno de la caja</strong> antes de vender.</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.caja_not_open_hint_1')}<strong>{t('posx.cashier.shift_of_register')}</strong>{t('posx.cashier.caja_not_open_hint_2')}</p>
                             )}
                         </div>
                     </div>
-                    <p className="text-xs text-neutral-400">El carrito se mantiene para que corrijas y reintentes.</p>
+                    <p className="text-xs text-neutral-400">{t('posx.cashier.cart_kept_retry')}</p>
                     <div className="flex justify-end">
-                        <button onClick={() => setSaleError(null)} className={BUTTON_PRIMARY_SM_CLASSES}>Entendido</button>
+                        <button onClick={() => setSaleError(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.cashier.understood')}</button>
                     </div>
                 </div>
             </Modal>
@@ -1510,9 +1515,9 @@ export const POSCashierPage: React.FC = () => {
             <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />
 
             {/* Selector de variación (productos con variaciones) */}
-            <Modal isOpen={!!variationProduct} onClose={() => setVariationProduct(null)} title={`Elige una variación — ${variationProduct?.name || ''}`} size="md">
+            <Modal isOpen={!!variationProduct} onClose={() => setVariationProduct(null)} title={t('posx.cashier.choose_variation_title', { name: variationProduct?.name || '' })} size="md">
                 <div className="space-y-3">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Elige el producto base o una variación para agregar al carrito:</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('posx.cashier.choose_base_or_variation')}</p>
 
                     {/* Producto base (sin variación) */}
                     <button
@@ -1521,7 +1526,7 @@ export const POSCashierPage: React.FC = () => {
                     >
                         <span className="font-semibold text-neutral-800 dark:text-neutral-100">
                             {variationProduct?.name}
-                            <span className="text-xs font-normal text-neutral-500 ml-1">(producto base)</span>
+                            <span className="text-xs font-normal text-neutral-500 ml-1">{t('posx.cashier.base_product')}</span>
                         </span>
                         <span className="font-semibold text-primary">${(Number(variationProduct?.unitPrice) || 0).toFixed(2)}</span>
                     </button>
@@ -1529,7 +1534,7 @@ export const POSCashierPage: React.FC = () => {
                     {(variationProduct?.variations?.length ?? 0) > 0 && (
                         <div className="flex items-center gap-2 text-xs text-neutral-400">
                             <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-                            variaciones
+                            {t('posx.cashier.variations')}
                             <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
                         </div>
                     )}
@@ -1552,10 +1557,10 @@ export const POSCashierPage: React.FC = () => {
             </Modal>
             {showScanCamera && (
                 <Suspense fallback={null}>
-                    <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title="Escanear producto" />
+                    <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title={t('posx.cashier.scan_product')} />
                 </Suspense>
             )}
-            <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => setActiveModal(null)} onConfirm={handleConfirmItemDelete} title="Confirmar Eliminación" message="Ingrese su contraseña para eliminar el artículo del carrito." />
+            <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => setActiveModal(null)} onConfirm={handleConfirmItemDelete} title={t('posx.cashier.confirm_delete')} message={t('posx.cashier.confirm_delete_msg')} />
             {selectedCajaId && (
                 <EndShiftModal
                     isOpen={activeModal === 'endShift'}
@@ -1584,17 +1589,17 @@ export const POSCashierPage: React.FC = () => {
                 isOpen={showCartReplaceConfirm}
                 onClose={() => { setPendingCartItems(null); setShowCartReplaceConfirm(false); }}
                 onConfirm={confirmCartReplace}
-                title="Reemplazar carrito"
-                message="Cargar los estimados reemplazará los artículos en el carrito actual. ¿Desea continuar?"
-                confirmButtonText="Sí, reemplazar"
+                title={t('posx.cashier.replace_cart_title')}
+                message={t('posx.cashier.replace_cart_estimates_msg')}
+                confirmButtonText={t('posx.cashier.yes_replace')}
             />
             <ConfirmationModal
                 isOpen={showEstimateReplaceConfirm}
                 onClose={() => { setPendingEstimateData(null); setShowEstimateReplaceConfirm(false); }}
                 onConfirm={confirmEstimateReplace}
-                title="Reemplazar carrito"
-                message="Tienes artículos en el carrito. ¿Reemplazarlos con los del estimado?"
-                confirmButtonText="Sí, reemplazar"
+                title={t('posx.cashier.replace_cart_title')}
+                message={t('posx.cashier.replace_cart_estimate_items_msg')}
+                confirmButtonText={t('posx.cashier.yes_replace')}
             />
         </div>
     );

@@ -63,9 +63,9 @@ export const EmployeesListPage: React.FC = () => {
         try {
             await employeesService.delete(itemToDeleteId);
             setEmployees(prev => prev.filter(e => e.id !== itemToDeleteId));
-            toast.success('Empleado eliminado');
+            toast.success(t('pm2x.employee.deleted'));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo eliminar el empleado');
+            toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.delete_error'));
         } finally {
             setItemToDeleteId(null);
             setShowDeleteConfirmModal(false);
@@ -77,14 +77,14 @@ export const EmployeesListPage: React.FC = () => {
         try {
             const res = await authService.resendInvitation(emp.id);
             toast.success(res.emailSent
-                ? `Invitación enviada por correo. Expira el ${new Date(res.expiresAt).toLocaleString()}`
-                : 'Enlace de activación generado (el correo no pudo enviarse). Cópialo y compártelo.');
+                ? t('pm2x.employee.invite_sent', { date: new Date(res.expiresAt).toLocaleString() })
+                : t('pm2x.employee.link_generated'));
             if (res.activationLink) {
                 setActivationInfo({ name: `${emp.name} ${emp.lastName}`, link: res.activationLink, emailSent: res.emailSent });
             }
             loadEmployees(); // refresca el estado de acceso (Sin acceso → Pendiente activación)
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al enviar la invitación');
+            toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.invite_error'));
         } finally {
             setResending(null);
         }
@@ -93,50 +93,50 @@ export const EmployeesListPage: React.FC = () => {
     const handleAssignNumbers = async () => {
         try {
             const res = await employeesService.assignNumbers();
-            toast.success(res.assigned > 0 ? `Se asignaron ${res.assigned} número(s).` : 'Todos los empleados ya tienen número.');
+            toast.success(res.assigned > 0 ? t('pm2x.employee.numbers_assigned', { n: res.assigned }) : t('pm2x.employee.all_have_numbers'));
             loadEmployees();
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudieron asignar los números.');
+            toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.numbers_error'));
         }
     };
 
     const copyActivationLink = async () => {
         if (!activationInfo) return;
-        try { await navigator.clipboard.writeText(activationInfo.link); toast.success('Enlace copiado'); }
-        catch { toast.error('No se pudo copiar; selecciónalo y cópialo manualmente.'); }
+        try { await navigator.clipboard.writeText(activationInfo.link); toast.success(t('pm2x.employee.link_copied')); }
+        catch { toast.error(t('pm2x.employee.copy_error')); }
     };
 
     const confirmResetPassword = async () => {
         if (!resetForEmail) return;
         try {
             await authService.forgotPassword(resetForEmail);
-            toast.success(`Se envió un enlace de reset de contraseña a ${resetForEmail}`);
+            toast.success(t('pm2x.employee.reset_sent', { email: resetForEmail }));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al enviar reset');
+            toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.reset_error'));
         } finally {
             setResetForEmail(null);
         }
     };
 
     const statusBadge = (status?: UserStatus) => {
-        if (!status) return <span className="text-xs text-neutral-400">Sin acceso</span>;
+        if (!status) return <span className="text-xs text-neutral-400">{t('pm2x.employee.no_access')}</span>;
         const styles: Record<UserStatus, string> = {
             ACTIVE: 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100',
             INVITED: 'bg-amber-100 text-amber-700 dark:bg-amber-700 dark:text-amber-100',
             DISABLED: 'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100',
         };
-        const labels: Record<UserStatus, string> = { ACTIVE: 'Activa', INVITED: 'Pendiente activación', DISABLED: 'Deshabilitada' };
+        const labels: Record<UserStatus, string> = { ACTIVE: t('pm2x.employee.status.active'), INVITED: t('pm2x.employee.status.invited'), DISABLED: t('pm2x.employee.status.disabled') };
         return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${styles[status]}`}>{labels[status]}</span>;
     };
 
     const columns: TableColumn<Employee>[] = [
-        { header: 'N°', accessor: (emp) => (emp.employeeNumber ?? '—') as any },
+        { header: t('pm2x.employee.col.number'), accessor: (emp) => (emp.employeeNumber ?? '—') as any },
         { header: t('employee.field.name') || 'Nombre', accessor: 'name' },
         { header: t('employee.field.lastname') || 'Apellido', accessor: 'lastName' },
         { header: t('employee.field.email') || 'Email', accessor: 'email', noWrap: false },
         { header: t('employee.field.role') || 'Puesto', accessor: 'role' },
         {
-            header: 'Acceso',
+            header: t('pm2x.employee.col.access'),
             accessor: (emp) => statusBadge((emp as any).user?.status),
         },
     ];
@@ -147,8 +147,8 @@ export const EmployeesListPage: React.FC = () => {
                 <h1 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">{t('employee.list.title') || 'Empleados'}</h1>
                 <div className="flex items-center gap-2">
                     <PermissionGate require="employees.manage">
-                        <button onClick={handleAssignNumbers} className={BUTTON_SECONDARY_SM_CLASSES} title="Asignar número a los empleados que no tengan">
-                            Asignar números
+                        <button onClick={handleAssignNumbers} className={BUTTON_SECONDARY_SM_CLASSES} title={t('pm2x.employee.assign_numbers_title')}>
+                            {t('pm2x.employee.assign_numbers')}
                         </button>
                         <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
                             <PlusIcon /> {t('employee.list.create') || 'Crear empleado'}
@@ -161,11 +161,11 @@ export const EmployeesListPage: React.FC = () => {
 
             {!loadingData && employees.length === 0 && (
                 <EmptyState
-                    title="Sin empleados"
-                    description="Aún no hay empleados. Crea el primero para empezar."
+                    title={t('pm2x.employee.empty_title')}
+                    description={t('pm2x.employee.empty_desc')}
                     cta={
                         <PermissionGate require="employees.manage">
-                            <button onClick={() => openModalForCreate()} className={BUTTON_PRIMARY_SM_CLASSES}>+ Crear primer empleado</button>
+                            <button onClick={() => openModalForCreate()} className={BUTTON_PRIMARY_SM_CLASSES}>{t('pm2x.employee.create_first')}</button>
                         </PermissionGate>
                     }
                 />
@@ -187,7 +187,7 @@ export const EmployeesListPage: React.FC = () => {
                                         <button
                                             onClick={() => handleResendInvitation(emp)}
                                             className="text-amber-600 dark:text-amber-400 p-1 hover:text-amber-800 disabled:opacity-40"
-                                            title={noAccess ? 'Dar acceso y enviar invitación por correo' : 'Reenviar invitación'}
+                                            title={noAccess ? t('pm2x.employee.give_access_title') : t('pm2x.employee.resend_title')}
                                             disabled={resending === emp.id}
                                         >
                                             <PaperAirplaneIcon className="w-4 h-4" />
@@ -199,7 +199,7 @@ export const EmployeesListPage: React.FC = () => {
                                         <button
                                             onClick={() => setResetForEmail(emp.email)}
                                             className="text-purple-600 dark:text-purple-400 p-1 hover:text-purple-800"
-                                            title="Enviar reset de contraseña"
+                                            title={t('pm2x.employee.reset_title')}
                                         >
                                             <KeyIcon className="w-4 h-4" />
                                         </button>
@@ -236,17 +236,17 @@ export const EmployeesListPage: React.FC = () => {
                 isOpen={!!resetForEmail}
                 onClose={() => setResetForEmail(null)}
                 onConfirm={confirmResetPassword}
-                title="Enviar reset de contraseña"
-                message={`Se enviará un enlace de recuperación al correo ${resetForEmail}. ¿Continuar?`}
-                confirmButtonText="Sí, enviar"
+                title={t('pm2x.employee.reset_title')}
+                message={t('pm2x.employee.reset_confirm_msg', { email: resetForEmail ?? '' })}
+                confirmButtonText={t('pm2x.employee.yes_send')}
             />
 
-            <Modal isOpen={!!activationInfo} onClose={() => setActivationInfo(null)} title="Enlace de activación" size="md">
+            <Modal isOpen={!!activationInfo} onClose={() => setActivationInfo(null)} title={t('pm2x.employee.activation_title')} size="md">
                 <div className="space-y-4">
                     <p className="text-sm text-neutral-600 dark:text-neutral-300">
                         {activationInfo?.emailSent
-                            ? <>Se envió el correo de activación a <strong>{activationInfo?.name}</strong>. Si no llega, comparte este enlace directamente:</>
-                            : <>Comparte este enlace con <strong>{activationInfo?.name}</strong> para que active su cuenta y cree su contraseña:</>}
+                            ? <>{t('pm2x.employee.activation_sent_pre')}<strong>{activationInfo?.name}</strong>{t('pm2x.employee.activation_sent_post')}</>
+                            : <>{t('pm2x.employee.activation_share_pre')}<strong>{activationInfo?.name}</strong>{t('pm2x.employee.activation_share_post')}</>}
                     </p>
                     <div className="flex gap-2">
                         <input
@@ -255,9 +255,9 @@ export const EmployeesListPage: React.FC = () => {
                             onFocus={(e) => e.currentTarget.select()}
                             className="w-full text-xs px-2 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700"
                         />
-                        <button onClick={copyActivationLink} className={`${BUTTON_PRIMARY_SM_CLASSES} whitespace-nowrap`}>Copiar</button>
+                        <button onClick={copyActivationLink} className={`${BUTTON_PRIMARY_SM_CLASSES} whitespace-nowrap`}>{t('pm2x.common.copy')}</button>
                     </div>
-                    <p className="text-xs text-neutral-400">El enlace caduca; si expira, usa "Reenviar invitación" para generar uno nuevo.</p>
+                    <p className="text-xs text-neutral-400">{t('pm2x.employee.link_expires')}</p>
                 </div>
             </Modal>
         </div>

@@ -6,6 +6,7 @@ import { rolesService, type Role } from '../../services/roles';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import type { PermissionCategory } from '../../types';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface RoleFormModalProps {
     isOpen: boolean;
@@ -15,6 +16,7 @@ interface RoleFormModalProps {
 }
 
 export const RoleFormModal: React.FC<RoleFormModalProps> = ({ isOpen, onClose, roleToEdit }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [permissions, setPermissions] = useState<Record<string, boolean>>({});
     const [catalog, setCatalog] = useState<PermissionCategory[]>([]);
@@ -39,16 +41,16 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({ isOpen, onClose, r
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name.trim()) { toast.error('El nombre del rol es requerido.'); return; }
+        if (!name.trim()) { toast.error(t('pm2x.role.name_required')); return; }
         setSaving(true);
         try {
             const saved = roleToEdit
                 ? await rolesService.update(roleToEdit.id, { name: name.trim(), permissions })
                 : await rolesService.create({ name: name.trim(), permissions });
-            toast.success(roleToEdit ? 'Rol actualizado. Los empleados con este rol se actualizan al instante.' : 'Rol creado.');
+            toast.success(roleToEdit ? t('pm2x.role.updated') : t('pm2x.role.created'));
             onClose(saved);
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al guardar el rol.');
+            toast.error(err instanceof ApiError ? err.message : t('pm2x.role.save_error'));
         } finally {
             setSaving(false);
         }
@@ -57,16 +59,16 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({ isOpen, onClose, r
     const activeCount = Object.values(permissions).filter(Boolean).length;
 
     return (
-        <Modal isOpen={isOpen} onClose={() => onClose()} title={roleToEdit ? `Editar rol: ${roleToEdit.name}` : 'Nuevo rol'} size="3xl">
+        <Modal isOpen={isOpen} onClose={() => onClose()} title={roleToEdit ? t('pm2x.role.edit_title', { name: roleToEdit.name }) : t('pm2x.role.new_title')} size="3xl">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium mb-1">Nombre del rol</label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputFormStyle} placeholder="Ej: Caja, Vendedor, Supervisor…" autoFocus required />
+                    <label className="block text-sm font-medium mb-1">{t('pm2x.role.name_label')}</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputFormStyle} placeholder={t('pm2x.role.name_placeholder')} autoFocus required />
                 </div>
 
                 <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">Permisos del rol</p>
-                    <span className="text-xs text-neutral-500">{activeCount} activo(s)</span>
+                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('pm2x.role.permissions_label')}</p>
+                    <span className="text-xs text-neutral-500">{t('pm2x.role.active_count', { n: activeCount })}</span>
                 </div>
 
                 <div className="max-h-[55vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-3 pr-1">
@@ -77,7 +79,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({ isOpen, onClose, r
                                 <div className="flex items-center justify-between mb-2">
                                     <legend className="text-sm font-semibold">{category.label}</legend>
                                     <button type="button" onClick={() => toggleCategory(category, !allOn)} className="text-xs text-primary hover:underline">
-                                        {allOn ? 'Quitar todos' : 'Todos'}
+                                        {allOn ? t('pm2x.role.remove_all') : t('pm2x.role.all')}
                                     </button>
                                 </div>
                                 <div className="space-y-1.5">
@@ -99,8 +101,8 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({ isOpen, onClose, r
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t dark:border-neutral-700">
-                    <button type="button" onClick={() => onClose()} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                    <button type="submit" disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? 'Guardando…' : 'Guardar rol'}</button>
+                    <button type="button" onClick={() => onClose()} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                    <button type="submit" disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('common.saving') : t('pm2x.role.save')}</button>
                 </div>
             </form>
         </Modal>

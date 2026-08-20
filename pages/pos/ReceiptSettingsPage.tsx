@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { buildReceiptHTML, getReceiptAction, setReceiptAction, type ReceiptSale, type ReceiptAction } from '../../components/pos/ReceiptModal';
@@ -9,27 +9,28 @@ import { getReceiptPrinterConfig, setReceiptPrinterConfig, printTestReceipt, typ
 import { getWebUsbConfig, setWebUsbConfig, isWebUsbSupported, requestWebUsbPrinter, printWebUsbTest, type WebUsbPrinterConfig } from '../../services/webusbPrinter';
 import { toast } from '../../hooks/useToast';
 
+// label/placeholder guardan CLAVES i18n; se resuelven con t() al renderizar.
 const TEXT_FIELDS: { key: keyof ReceiptConfig; label: string; placeholder?: string; textarea?: boolean }[] = [
-    { key: 'businessName', label: 'Nombre del negocio', placeholder: 'Ferretería La Económica' },
-    { key: 'rnc', label: 'RNC / Registro del comercio', placeholder: 'RNC-000-00000-0' },
-    { key: 'address', label: 'Dirección', placeholder: 'Calle 1 #23, San Juan, PR 00901' },
-    { key: 'phone', label: 'Teléfono', placeholder: '(787) 000-0000' },
-    { key: 'email', label: 'Email', placeholder: 'ventas@negocio.com' },
-    { key: 'headerNote', label: 'Nota superior', placeholder: 'Texto opcional arriba de la factura', textarea: true },
-    { key: 'footerNote', label: 'Pie / Términos legales', placeholder: 'Gracias por su compra. No hay devoluciones sin recibo…', textarea: true },
+    { key: 'businessName', label: 'posx.receipt.field.businessName', placeholder: 'posx.receipt.field.businessName.ph' },
+    { key: 'rnc', label: 'posx.receipt.field.rnc', placeholder: 'posx.receipt.field.rnc.ph' },
+    { key: 'address', label: 'posx.receipt.field.address', placeholder: 'posx.receipt.field.address.ph' },
+    { key: 'phone', label: 'posx.receipt.field.phone', placeholder: 'posx.receipt.field.phone.ph' },
+    { key: 'email', label: 'posx.receipt.field.email', placeholder: 'posx.receipt.field.email.ph' },
+    { key: 'headerNote', label: 'posx.receipt.field.headerNote', placeholder: 'posx.receipt.field.headerNote.ph', textarea: true },
+    { key: 'footerNote', label: 'posx.receipt.field.footerNote', placeholder: 'posx.receipt.field.footerNote.ph', textarea: true },
 ];
 
 const TOGGLES: { key: keyof ReceiptConfig; label: string }[] = [
-    { key: 'showLogo', label: 'Mostrar logo' },
-    { key: 'showRnc', label: 'Mostrar RNC/registro' },
-    { key: 'showAddress', label: 'Mostrar dirección' },
-    { key: 'showPhone', label: 'Mostrar teléfono' },
-    { key: 'showEmail', label: 'Mostrar email' },
-    { key: 'showClient', label: 'Mostrar cliente' },
-    { key: 'showCashier', label: 'Mostrar cajero' },
-    { key: 'showTaxBreakdown', label: 'Mostrar desglose de IVU' },
-    { key: 'showFooter', label: 'Mostrar pie/términos' },
-    { key: 'autoPrint', label: 'Imprimir automáticamente al finalizar' },
+    { key: 'showLogo', label: 'posx.receipt.toggle.showLogo' },
+    { key: 'showRnc', label: 'posx.receipt.toggle.showRnc' },
+    { key: 'showAddress', label: 'posx.receipt.toggle.showAddress' },
+    { key: 'showPhone', label: 'posx.receipt.toggle.showPhone' },
+    { key: 'showEmail', label: 'posx.receipt.toggle.showEmail' },
+    { key: 'showClient', label: 'posx.receipt.toggle.showClient' },
+    { key: 'showCashier', label: 'posx.receipt.toggle.showCashier' },
+    { key: 'showTaxBreakdown', label: 'posx.receipt.toggle.showTaxBreakdown' },
+    { key: 'showFooter', label: 'posx.receipt.toggle.showFooter' },
+    { key: 'autoPrint', label: 'posx.receipt.toggle.autoPrint' },
 ];
 
 const SAMPLE: ReceiptSale = {
@@ -47,30 +48,31 @@ const SAMPLE: ReceiptSale = {
 };
 
 export const ReceiptSettingsPage: React.FC = () => {
+    const { t } = useTranslation();
     const { settings, updateSettings } = useGlobalSettings();
     const [cfg, setCfg] = useState<ReceiptConfig>({ ...DEFAULT_RECEIPT_CONFIG, ...settings.receiptConfig });
     const [saving, setSaving] = useState(false);
     // Preferencia POR DISPOSITIVO de qué hacer al finalizar (preguntar / imprimir / descargar).
     const [receiptAction, setReceiptActionState] = useState<ReceiptAction>(getReceiptAction());
-    const changeReceiptAction = (v: ReceiptAction) => { setReceiptAction(v); setReceiptActionState(v); toast.success('Preferencia actualizada para esta caja.'); };
+    const changeReceiptAction = (v: ReceiptAction) => { setReceiptAction(v); setReceiptActionState(v); toast.success(t('posx.receipt.toast.prefUpdated')); };
     // Gaveta de efectivo (QZ Tray) — configuración POR DISPOSITIVO.
     const [drawer, setDrawer] = useState<DrawerConfig>(getDrawerConfig());
     const [printers, setPrinters] = useState<string[]>([]);
     const updateDrawer = (patch: Partial<DrawerConfig>) => { const next = { ...drawer, ...patch }; setDrawer(next); setDrawerConfig(next); };
-    const detectPrinters = () => listPrinters().then(setPrinters).catch(err => toast.error(`QZ Tray: ${err?.message || 'no disponible (¿instalado y activo?)'}`));
-    const testDrawer = () => openCashDrawer().then(() => toast.success('Gaveta abierta.')).catch(err => toast.error(`Gaveta: ${err?.message || 'no se pudo abrir'}`));
+    const detectPrinters = () => listPrinters().then(setPrinters).catch(err => toast.error(`QZ Tray: ${err?.message || t('posx.receipt.toast.qzUnavailable')}`));
+    const testDrawer = () => openCashDrawer().then(() => toast.success(t('posx.receipt.toast.drawerOpened'))).catch(err => toast.error(`${t('posx.receipt.drawer.short')}: ${err?.message || t('posx.receipt.toast.drawerFailed')}`));
     // Impresora de códigos de barras (etiquetas) — POR DISPOSITIVO.
     const [label, setLabel] = useState<LabelConfig>(getLabelConfig());
     const updateLabel = (patch: Partial<LabelConfig>) => { const next = { ...label, ...patch }; setLabel(next); setLabelConfig(next); };
-    const testLabel = () => printBarcodeLabel({ name: 'PRODUCTO DE PRUEBA', unitPrice: 9.99, barcode13Digits: '0123456789012' })
-        .then(() => toast.success('Etiqueta enviada.')).catch(err => toast.error(`Etiqueta: ${err?.message || 'no se pudo imprimir'}`));
+    const testLabel = () => printBarcodeLabel({ name: t('posx.receipt.testProductName'), unitPrice: 9.99, barcode13Digits: '0123456789012' })
+        .then(() => toast.success(t('posx.receipt.toast.labelSent'))).catch(err => toast.error(`${t('posx.receipt.label.short')}: ${err?.message || t('posx.receipt.toast.printFailed')}`));
     // Impresora de recibos (QZ Tray, ESC/POS) — POR DISPOSITIVO.
     const [receiptPrinter, setReceiptPrinter] = useState<ReceiptPrinterConfig>(getReceiptPrinterConfig());
     const updateReceiptPrinter = (patch: Partial<ReceiptPrinterConfig>) => { const next = { ...receiptPrinter, ...patch }; setReceiptPrinter(next); setReceiptPrinterConfig(next); };
     const testRecibo = () => printTestReceipt(cfg, 'recibo')
-        .then(() => toast.success('Recibo de prueba enviado.')).catch(err => toast.error(`Recibo: ${err?.message || 'no se pudo imprimir'}`));
+        .then(() => toast.success(t('posx.receipt.toast.testReceiptSent'))).catch(err => toast.error(`${t('posx.receipt.receipt.short')}: ${err?.message || t('posx.receipt.toast.printFailed')}`));
     const testFactura = () => printTestReceipt(cfg, 'factura', buildReceiptHTML(SAMPLE, { ...cfg, paperSize: 'letter' }))
-        .then(() => toast.success('Factura de prueba enviada.')).catch(err => toast.error(`Factura: ${err?.message || 'no se pudo imprimir'}`));
+        .then(() => toast.success(t('posx.receipt.toast.testInvoiceSent'))).catch(err => toast.error(`${t('posx.receipt.invoice.short')}: ${err?.message || t('posx.receipt.toast.printFailed')}`));
     // Impresora de recibos por WebUSB (sin QZ Tray) — POR DISPOSITIVO.
     const [webusb, setWebusb] = useState<WebUsbPrinterConfig>(getWebUsbConfig());
     const webUsbOk = isWebUsbSupported();
@@ -82,10 +84,10 @@ export const ReceiptSettingsPage: React.FC = () => {
         updateWebusb({ enabled: m === 'webusb' });
     };
     const selectUsbPrinter = () => requestWebUsbPrinter()
-        .then(c => { setWebusb(c); toast.success(`Impresora USB seleccionada: ${c.productName}`); })
-        .catch(err => toast.error(err?.message || 'No se pudo seleccionar la impresora USB.'));
+        .then(c => { setWebusb(c); toast.success(t('posx.receipt.toast.usbSelected', { name: c.productName || '' })); })
+        .catch(err => toast.error(err?.message || t('posx.receipt.toast.usbSelectFailed')));
     const testUsb = () => printWebUsbTest(cfg)
-        .then(() => toast.success('Recibo de prueba enviado (USB).')).catch(err => toast.error(`USB: ${err?.message || 'no se pudo imprimir'}`));
+        .then(() => toast.success(t('posx.receipt.toast.testReceiptSentUsb'))).catch(err => toast.error(`USB: ${err?.message || t('posx.receipt.toast.printFailed')}`));
 
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
@@ -93,7 +95,7 @@ export const ReceiptSettingsPage: React.FC = () => {
     const previewHtml = useMemo(() => buildReceiptHTML(SAMPLE, cfg), [cfg]);
 
     const handleLogo = (file: File) => {
-        if (file.size > 400 * 1024) { toast.error('El logo debe pesar menos de 400 KB.'); return; }
+        if (file.size > 400 * 1024) { toast.error(t('posx.receipt.toast.logoTooBig')); return; }
         const reader = new FileReader();
         reader.onload = () => set('logoUrl', String(reader.result));
         reader.readAsDataURL(file);
@@ -102,71 +104,71 @@ export const ReceiptSettingsPage: React.FC = () => {
     const handleSave = () => {
         setSaving(true);
         updateSettings({ receiptConfig: cfg });
-        setTimeout(() => { setSaving(false); toast.success('Configuración de factura guardada.'); }, 300);
+        setTimeout(() => { setSaving(false); toast.success(t('posx.receipt.toast.saved')); }, 300);
     };
 
     return (
         <div>
             <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Configuración de la Factura</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.receipt.title')}</h1>
                 <button onClick={handleSave} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                    {saving ? 'Guardando…' : 'Guardar'}
+                    {saving ? t('posx.receipt.saving') : t('posx.receipt.save')}
                 </button>
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">Personaliza lo que aparece en la factura que se genera al finalizar cada venta. Los cambios se guardan en la base de datos para todo el negocio.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.receipt.subtitle')}</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Formulario */}
                 <div className="space-y-4">
                     <section className="space-y-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-primary">Datos del negocio</h3>
+                        <h3 className="font-semibold text-primary">{t('posx.receipt.section.business')}</h3>
                         {TEXT_FIELDS.map(f => (
                             <div key={f.key}>
-                                <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">{f.label}</label>
+                                <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t(f.label)}</label>
                                 {f.textarea ? (
-                                    <textarea value={(cfg[f.key] as string) || ''} onChange={e => set(f.key, e.target.value as any)} placeholder={f.placeholder} rows={2} className={`${INPUT_SM_CLASSES} w-full`} />
+                                    <textarea value={(cfg[f.key] as string) || ''} onChange={e => set(f.key, e.target.value as any)} placeholder={f.placeholder ? t(f.placeholder) : undefined} rows={2} className={`${INPUT_SM_CLASSES} w-full`} />
                                 ) : (
-                                    <input type="text" value={(cfg[f.key] as string) || ''} onChange={e => set(f.key, e.target.value as any)} placeholder={f.placeholder} className={`${INPUT_SM_CLASSES} w-full`} />
+                                    <input type="text" value={(cfg[f.key] as string) || ''} onChange={e => set(f.key, e.target.value as any)} placeholder={f.placeholder ? t(f.placeholder) : undefined} className={`${INPUT_SM_CLASSES} w-full`} />
                                 )}
                             </div>
                         ))}
                         <div>
-                            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">Logo</label>
+                            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.receipt.logo')}</label>
                             <div className="flex items-center gap-3">
-                                {cfg.logoUrl ? <img src={cfg.logoUrl} alt="logo" className="w-16 h-16 object-contain border rounded bg-white" /> : <div className="w-16 h-16 border rounded flex items-center justify-center text-xs text-neutral-400">Sin logo</div>}
+                                {cfg.logoUrl ? <img src={cfg.logoUrl} alt="logo" className="w-16 h-16 object-contain border rounded bg-white" /> : <div className="w-16 h-16 border rounded flex items-center justify-center text-xs text-neutral-400">{t('posx.receipt.noLogo')}</div>}
                                 <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleLogo(e.target.files[0])} className="text-sm" />
-                                {cfg.logoUrl && <button onClick={() => set('logoUrl', '')} className="text-red-500 text-xs hover:underline">Quitar</button>}
+                                {cfg.logoUrl && <button onClick={() => set('logoUrl', '')} className="text-red-500 text-xs hover:underline">{t('posx.receipt.remove')}</button>}
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">Tamaño de papel</label>
+                            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.receipt.paperSize')}</label>
                             <select value={cfg.paperSize} onChange={e => set('paperSize', e.target.value as ReceiptConfig['paperSize'])} className={INPUT_SM_CLASSES}>
-                                <option value="80mm">Térmico 80mm (recibo)</option>
-                                <option value="letter">Carta (documento)</option>
+                                <option value="80mm">{t('posx.receipt.paper.thermal')}</option>
+                                <option value="letter">{t('posx.receipt.paper.letter')}</option>
                             </select>
                         </div>
                     </section>
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-primary mb-1">Al finalizar la venta</h3>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">Qué hacer con la factura al cobrar. Aplica solo a <strong>esta caja/dispositivo</strong>. También puedes fijarlo desde el propio recibo con “No volver a preguntar”.</p>
+                        <h3 className="font-semibold text-primary mb-1">{t('posx.receipt.finalize.title')}</h3>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">{t('posx.receipt.finalize.desc1')} <strong>{t('posx.receipt.finalize.deviceScope')}</strong>. {t('posx.receipt.finalize.desc2')}</p>
                         <select value={receiptAction} onChange={e => changeReceiptAction(e.target.value as ReceiptAction)} className={`${INPUT_SM_CLASSES} w-full`}>
-                            <option value="ask">Preguntar (mostrar el recibo con Imprimir / Descargar)</option>
-                            <option value="print">Imprimir siempre automáticamente</option>
-                            <option value="download">Descargar PDF siempre automáticamente</option>
+                            <option value="ask">{t('posx.receipt.finalize.ask')}</option>
+                            <option value="print">{t('posx.receipt.finalize.print')}</option>
+                            <option value="download">{t('posx.receipt.finalize.download')}</option>
                         </select>
                     </section>
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-primary mb-1">Impresora de recibos</h3>
-                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Modo de impresión (por dispositivo)</p>
+                        <h3 className="font-semibold text-primary mb-1">{t('posx.receipt.printer.title')}</h3>
+                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">{t('posx.receipt.printer.mode')}</p>
                         <div className="grid grid-cols-3 gap-2 mb-1">
                             <button
                                 type="button"
                                 onClick={() => setPrintMode('browser')}
                                 className={`py-2 px-2 rounded-md border text-sm font-medium transition-colors ${printMode === 'browser' ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
                             >
-                                Navegador
+                                {t('posx.receipt.printer.browser')}
                             </button>
                             <button
                                 type="button"
@@ -179,7 +181,7 @@ export const ReceiptSettingsPage: React.FC = () => {
                                 type="button"
                                 onClick={() => setPrintMode('webusb')}
                                 disabled={!webUsbOk}
-                                title={webUsbOk ? '' : 'Tu navegador no soporta WebUSB (usa Chrome o Edge de escritorio)'}
+                                title={webUsbOk ? '' : t('posx.receipt.printer.webusbUnsupported')}
                                 className={`py-2 px-2 rounded-md border text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${printMode === 'webusb' ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
                             >
                                 WebUSB
@@ -187,156 +189,156 @@ export const ReceiptSettingsPage: React.FC = () => {
                         </div>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
                             {printMode === 'qz'
-                                ? 'Directo a una impresora fija, sin diálogo y con corte automático (sin espacio blanco). Requiere QZ Tray instalado en esta PC.'
+                                ? t('posx.receipt.printer.desc.qz')
                                 : printMode === 'webusb'
-                                ? 'Directo a una impresora térmica USB desde el navegador, SIN instalar QZ Tray. Solo Chrome/Edge de escritorio y solo para el recibo térmico. En Windows la impresora debe usar el driver WinUSB (Zadig).'
-                                : 'Usa el diálogo / driver del sistema — NO requiere instalar nada. Elige tu impresora en el diálogo o ponla como predeterminada en Windows. El espacio en blanco se ajusta en el driver de la impresora.'}
+                                ? t('posx.receipt.printer.desc.webusb')
+                                : t('posx.receipt.printer.desc.browser')}
                         </p>
                         {printMode === 'webusb' && (
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <button type="button" onClick={selectUsbPrinter} className={BUTTON_SECONDARY_SM_CLASSES}>Seleccionar impresora USB…</button>
-                                    <span className="text-xs text-neutral-500">{webusb.productName ? `Elegida: ${webusb.productName}` : 'Ninguna seleccionada'}</span>
+                                    <button type="button" onClick={selectUsbPrinter} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.usb.select')}</button>
+                                    <span className="text-xs text-neutral-500">{webusb.productName ? t('posx.receipt.usb.chosen', { name: webusb.productName }) : t('posx.receipt.usb.none')}</span>
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Ancho del recibo térmico</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.thermalWidth')}</label>
                                     <select value={webusb.width} onChange={e => updateWebusb({ width: Number(e.target.value) })} className={`${INPUT_SM_CLASSES} w-full`}>
-                                        <option value={48}>80 mm (48 columnas)</option>
-                                        <option value={32}>58 mm (32 columnas)</option>
+                                        <option value={48}>{t('posx.receipt.width.80mm')}</option>
+                                        <option value={32}>{t('posx.receipt.width.58mm')}</option>
                                     </select>
                                 </div>
-                                <button type="button" onClick={testUsb} disabled={webusb.vendorId == null} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>Probar Recibo (USB)</button>
-                                <p className="text-xs text-neutral-400">La factura carta seguirá usando el navegador (WebUSB es solo para el recibo térmico).</p>
+                                <button type="button" onClick={testUsb} disabled={webusb.vendorId == null} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{t('posx.receipt.usb.testReceipt')}</button>
+                                <p className="text-xs text-neutral-400">{t('posx.receipt.usb.note')}</p>
                             </div>
                         )}
                         {printMode === 'qz' && (
                             <div className="space-y-3">
                                 <div className="flex justify-end">
-                                    <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>Detectar impresoras</button>
+                                    <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detectPrinters')}</button>
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Impresora del <strong>Recibo</strong> (térmico 80/58mm)</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.qz.receiptPrinter.pre')} <strong>{t('posx.receipt.receipt.word')}</strong> {t('posx.receipt.qz.receiptPrinter.post')}</label>
                                     <select value={receiptPrinter.reciboPrinter} onChange={e => updateReceiptPrinter({ reciboPrinter: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
-                                        <option value="">(Impresora predeterminada)</option>
+                                        <option value="">{t('posx.receipt.defaultPrinter')}</option>
                                         {printers.map(p => <option key={p} value={p}>{p}</option>)}
                                     </select>
-                                    <input type="text" value={receiptPrinter.reciboPrinter} onChange={e => updateReceiptPrinter({ reciboPrinter: e.target.value })} placeholder="o nombre exacto (ej. EPSON TM-T88V Receipt)" className={`${INPUT_SM_CLASSES} w-full mt-1`} />
+                                    <input type="text" value={receiptPrinter.reciboPrinter} onChange={e => updateReceiptPrinter({ reciboPrinter: e.target.value })} placeholder={t('posx.receipt.qz.receiptPrinter.ph')} className={`${INPUT_SM_CLASSES} w-full mt-1`} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Impresora de la <strong>Factura</strong> (carta / A4)</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.qz.invoicePrinter.pre')} <strong>{t('posx.receipt.invoice.word')}</strong> {t('posx.receipt.qz.invoicePrinter.post')}</label>
                                     <select value={receiptPrinter.facturaPrinter} onChange={e => updateReceiptPrinter({ facturaPrinter: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
-                                        <option value="">(Misma del recibo / predeterminada)</option>
+                                        <option value="">{t('posx.receipt.qz.invoiceSameAsReceipt')}</option>
                                         {printers.map(p => <option key={p} value={p}>{p}</option>)}
                                     </select>
-                                    <input type="text" value={receiptPrinter.facturaPrinter} onChange={e => updateReceiptPrinter({ facturaPrinter: e.target.value })} placeholder="o nombre exacto (ej. HP LaserJet)" className={`${INPUT_SM_CLASSES} w-full mt-1`} />
+                                    <input type="text" value={receiptPrinter.facturaPrinter} onChange={e => updateReceiptPrinter({ facturaPrinter: e.target.value })} placeholder={t('posx.receipt.qz.invoicePrinter.ph')} className={`${INPUT_SM_CLASSES} w-full mt-1`} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Ancho del recibo térmico</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.thermalWidth')}</label>
                                     <select value={receiptPrinter.width} onChange={e => updateReceiptPrinter({ width: Number(e.target.value) })} className={`${INPUT_SM_CLASSES} w-full`}>
-                                        <option value={48}>80 mm (48 columnas)</option>
-                                        <option value={32}>58 mm (32 columnas)</option>
+                                        <option value={48}>{t('posx.receipt.width.80mm')}</option>
+                                        <option value={32}>{t('posx.receipt.width.58mm')}</option>
                                     </select>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button type="button" onClick={testRecibo} className={BUTTON_PRIMARY_SM_CLASSES}>Probar Recibo</button>
-                                    <button type="button" onClick={testFactura} className={BUTTON_SECONDARY_SM_CLASSES}>Probar Factura</button>
+                                    <button type="button" onClick={testRecibo} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.receipt.qz.testReceipt')}</button>
+                                    <button type="button" onClick={testFactura} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.qz.testInvoice')}</button>
                                 </div>
                             </div>
                         )}
                     </section>
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-primary mb-1">Gaveta de efectivo</h3>
+                        <h3 className="font-semibold text-primary mb-1">{t('posx.receipt.drawer.title')}</h3>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-                            Abre la gaveta al cobrar en efectivo. Requiere <strong>QZ Tray</strong> instalado en <strong>esta PC</strong>
-                            {' '}(descárgalo en qz.io/download). Funciona con la gaveta conectada a la impresora (RJ11) o por USB. Config por dispositivo.
+                            {t('posx.receipt.drawer.desc1')} <strong>QZ Tray</strong> {t('posx.receipt.drawer.desc2')} <strong>{t('posx.receipt.drawer.thisPc')}</strong>
+                            {' '}{t('posx.receipt.drawer.desc3')}
                         </p>
                         <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200 mb-2">
                             <input type="checkbox" checked={drawer.enabled} onChange={e => updateDrawer({ enabled: e.target.checked })} className="h-4 w-4" />
-                            Abrir la gaveta automáticamente en ventas de efectivo
+                            {t('posx.receipt.drawer.autoOpen')}
                         </label>
                         {drawer.enabled && (
                             <div className="space-y-2">
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Impresora / dispositivo (en QZ Tray)</label>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.drawer.deviceLabel')}</label>
                                     <div className="flex gap-2">
                                         <select value={drawer.printerName} onChange={e => updateDrawer({ printerName: e.target.value })} className={`${INPUT_SM_CLASSES} flex-1`}>
-                                            <option value="">(Impresora predeterminada)</option>
+                                            <option value="">{t('posx.receipt.defaultPrinter')}</option>
                                             {printers.map(p => <option key={p} value={p}>{p}</option>)}
                                         </select>
-                                        <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>Detectar</button>
+                                        <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detect')}</button>
                                     </div>
-                                    <input type="text" value={drawer.printerName} onChange={e => updateDrawer({ printerName: e.target.value })} placeholder="o escribe el nombre exacto del dispositivo" className={`${INPUT_SM_CLASSES} w-full mt-1`} />
+                                    <input type="text" value={drawer.printerName} onChange={e => updateDrawer({ printerName: e.target.value })} placeholder={t('posx.receipt.drawer.devicePh')} className={`${INPUT_SM_CLASSES} w-full mt-1`} />
                                 </div>
                                 <details>
-                                    <summary className="text-xs text-neutral-500 cursor-pointer">Avanzado: comando de apertura</summary>
-                                    <label className="block text-xs text-neutral-500 mt-1 mb-1">Comando ESC/POS (hex) — por defecto <code>1B700019FA</code></label>
+                                    <summary className="text-xs text-neutral-500 cursor-pointer">{t('posx.receipt.drawer.advanced')}</summary>
+                                    <label className="block text-xs text-neutral-500 mt-1 mb-1">{t('posx.receipt.drawer.escposLabel')} <code>1B700019FA</code></label>
                                     <input type="text" value={drawer.kickHex} onChange={e => updateDrawer({ kickHex: e.target.value.replace(/[^0-9a-fA-F]/g, '') })} placeholder="1B700019FA" className={`${INPUT_SM_CLASSES} w-full`} />
                                 </details>
-                                <button type="button" onClick={testDrawer} className={BUTTON_PRIMARY_SM_CLASSES}>Probar (abrir gaveta)</button>
+                                <button type="button" onClick={testDrawer} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.receipt.drawer.test')}</button>
                             </div>
                         )}
                     </section>
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-primary mb-1">Impresora de códigos de barras</h3>
+                        <h3 className="font-semibold text-primary mb-1">{t('posx.receipt.label.title')}</h3>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-                            Impresora <strong>dedicada</strong> a etiquetas para imprimir los códigos de barras de los productos.
-                            Con <strong>QZ Tray</strong> se envía directo a la impresora elegida; sin él, usa el diálogo del navegador. Config por dispositivo.
+                            {t('posx.receipt.label.desc1')} <strong>{t('posx.receipt.label.dedicated')}</strong> {t('posx.receipt.label.desc2')}
+                            {t('posx.receipt.label.desc3')} <strong>QZ Tray</strong> {t('posx.receipt.label.desc4')}
                         </p>
                         <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200 mb-2">
                             <input type="checkbox" checked={label.enabled} onChange={e => updateLabel({ enabled: e.target.checked })} className="h-4 w-4" />
-                            Usar impresora dedicada (QZ Tray) para los códigos de barras
+                            {t('posx.receipt.label.useDedicated')}
                         </label>
                         {label.enabled && (
                             <div className="mb-2">
-                                <label className="block text-xs text-neutral-500 mb-1">Impresora de etiquetas (en QZ Tray)</label>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.label.printerLabel')}</label>
                                 <div className="flex gap-2">
                                     <select value={label.printerName} onChange={e => updateLabel({ printerName: e.target.value })} className={`${INPUT_SM_CLASSES} flex-1`}>
-                                        <option value="">(Predeterminada)</option>
+                                        <option value="">{t('posx.receipt.defaultShort')}</option>
                                         {printers.map(p => <option key={p} value={p}>{p}</option>)}
                                     </select>
-                                    <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>Detectar</button>
+                                    <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detect')}</button>
                                 </div>
                             </div>
                         )}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             <div>
-                                <label className="block text-xs text-neutral-500 mb-1">Ancho (mm)</label>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.label.widthMm')}</label>
                                 <input type="number" value={label.widthMm} onChange={e => updateLabel({ widthMm: Number(e.target.value) || 0 })} className={`${INPUT_SM_CLASSES} w-full`} />
                             </div>
                             <div>
-                                <label className="block text-xs text-neutral-500 mb-1">Alto (mm)</label>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.label.heightMm')}</label>
                                 <input type="number" value={label.heightMm} onChange={e => updateLabel({ heightMm: Number(e.target.value) || 0 })} className={`${INPUT_SM_CLASSES} w-full`} />
                             </div>
                             <div>
-                                <label className="block text-xs text-neutral-500 mb-1">Código a imprimir</label>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.label.codeToPrint')}</label>
                                 <select value={label.field} onChange={e => updateLabel({ field: e.target.value as LabelConfig['field'] })} className={`${INPUT_SM_CLASSES} w-full`}>
-                                    <option value="barcode13Digits">Código de barras (13 díg.)</option>
+                                    <option value="barcode13Digits">{t('posx.receipt.label.barcode13')}</option>
                                     <option value="sku">SKU</option>
-                                    <option value="barcode2">Código de barras 2</option>
-                                    <option value="id">ID interno</option>
+                                    <option value="barcode2">{t('posx.receipt.label.barcode2')}</option>
+                                    <option value="id">{t('posx.receipt.label.internalId')}</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs text-neutral-500 mb-1">Copias por defecto</label>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.label.defaultCopies')}</label>
                                 <input type="number" min={1} value={label.copies} onChange={e => updateLabel({ copies: Math.max(1, Number(e.target.value) || 1) })} className={`${INPUT_SM_CLASSES} w-full`} />
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 mt-2">
-                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={label.showName} onChange={e => updateLabel({ showName: e.target.checked })} className="h-4 w-4" />Nombre</label>
-                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={label.showPrice} onChange={e => updateLabel({ showPrice: e.target.checked })} className="h-4 w-4" />Precio</label>
-                            <button type="button" onClick={testLabel} className={`${BUTTON_PRIMARY_SM_CLASSES} ml-auto`}>Imprimir etiqueta de prueba</button>
+                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={label.showName} onChange={e => updateLabel({ showName: e.target.checked })} className="h-4 w-4" />{t('posx.receipt.label.name')}</label>
+                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={label.showPrice} onChange={e => updateLabel({ showPrice: e.target.checked })} className="h-4 w-4" />{t('posx.receipt.label.price')}</label>
+                            <button type="button" onClick={testLabel} className={`${BUTTON_PRIMARY_SM_CLASSES} ml-auto`}>{t('posx.receipt.label.testPrint')}</button>
                         </div>
                     </section>
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-primary mb-2">Qué mostrar</h3>
+                        <h3 className="font-semibold text-primary mb-2">{t('posx.receipt.section.whatToShow')}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {TOGGLES.map(tg => (
                                 <label key={tg.key} className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
                                     <input type="checkbox" checked={!!cfg[tg.key]} onChange={e => set(tg.key, e.target.checked as any)} className="h-4 w-4" />
-                                    {tg.label}
+                                    {t(tg.label)}
                                 </label>
                             ))}
                         </div>
@@ -345,7 +347,7 @@ export const ReceiptSettingsPage: React.FC = () => {
 
                 {/* Vista previa */}
                 <div>
-                    <h3 className="font-semibold text-neutral-600 dark:text-neutral-300 mb-2">Vista previa</h3>
+                    <h3 className="font-semibold text-neutral-600 dark:text-neutral-300 mb-2">{t('posx.receipt.preview')}</h3>
                     <div className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 flex justify-center overflow-x-auto">
                         <div className="bg-white shadow" dangerouslySetInnerHTML={{ __html: previewHtml }} />
                     </div>
@@ -354,7 +356,7 @@ export const ReceiptSettingsPage: React.FC = () => {
 
             <div className="flex justify-end mt-4">
                 <button onClick={handleSave} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                    {saving ? 'Guardando…' : 'Guardar'}
+                    {saving ? t('posx.receipt.saving') : t('posx.receipt.save')}
                 </button>
             </div>
         </div>

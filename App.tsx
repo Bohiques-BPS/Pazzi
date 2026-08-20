@@ -17,6 +17,7 @@ import { useApiErrorToasts } from './hooks/useApiErrorToasts';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { BusinessOnboardingModal } from './components/onboarding/BusinessOnboardingModal';
 
 
 // Layout Components
@@ -359,6 +360,7 @@ const AppContent: React.FC = () => {
   return (
     <ErrorBoundary>
       <KeyboardShortcutsModal isOpen={shortcutsModalOpen} onClose={() => setShortcutsModalOpen(false)} />
+      <BusinessOnboardingModal />
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
