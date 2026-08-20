@@ -399,14 +399,23 @@ export const POSCashierPage: React.FC = () => {
         // Skip while DataContext hasn't loaded yet (both arrays still empty on mount)
         if (!branches.length && !cajas.length) return;
 
+        // 1) Camino normal: primera sucursal activa + una caja activa suya.
         const firstActiveBranch = branches.find(b => b.isActive);
-        if (firstActiveBranch) {
-            setSelectedBranchId(firstActiveBranch.id);
-            const firstCajaForBranch = cajas.find(c => c.branchId === firstActiveBranch.id && c.isActive);
-            if (firstCajaForBranch) {
-                setSelectedCajaId(firstCajaForBranch.id);
-            }
+        let branchId = firstActiveBranch?.id;
+        let caja = branchId ? cajas.find(c => c.branchId === branchId && c.isActive) : undefined;
+
+        // 2) Fallback robusto: si la lista de sucursales NO incluye la sucursal de la caja
+        //    (p.ej. la sucursal quedó con otro dueño/null por el aislamiento multi-tenant),
+        //    tomamos la primera caja activa disponible y derivamos su branchId de la propia caja.
+        //    Evita el falso "aún no tienes una caja" cuando en realidad sí existe una.
+        if (!caja) {
+            caja = cajas.find(c => c.isActive) || cajas[0];
+            if (caja) branchId = caja.branchId;
         }
+
+        if (branchId) setSelectedBranchId(branchId);
+        if (caja) setSelectedCajaId(caja.id);
+
         // Mark as initialized: data was loaded; if selectedCajaId is still '' after this,
         // it means there is genuinely no active caja configured for this store.
         setCajaInitialized(true);
