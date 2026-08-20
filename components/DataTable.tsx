@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 export type SortDirection = 'asc' | 'desc';
 export interface SortState { key: string; direction: SortDirection; }
@@ -81,6 +82,7 @@ export const DataTable = <T extends {id: string}>({
   sortState,
   onSortChange,
 }: TableProps<T>): React.ReactNode => {
+  const { t } = useTranslation();
   const controlled = typeof onSortChange === 'function';
   const [internalSort, setInternalSort] = useState<SortState | null>(defaultSort);
   const activeSort = controlled ? (sortState ?? null) : internalSort;
@@ -156,7 +158,7 @@ export const DataTable = <T extends {id: string}>({
                       type="button"
                       onClick={() => handleSort(key!)}
                       className="group inline-flex items-center uppercase tracking-wider font-medium hover:text-primary focus:outline-none"
-                      aria-label={`Ordenar por ${typeof col.header === 'string' ? col.header : key}`}
+                      aria-label={t('cmp.datatable.sort_by', { column: typeof col.header === 'string' ? col.header : key })}
                     >
                       <React.Fragment>{col.header}</React.Fragment>
                       <SortIndicator direction={direction} />
@@ -167,7 +169,7 @@ export const DataTable = <T extends {id: string}>({
                 </th>
               );
             })}
-            {actions && <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">Acciones</th>}
+            {actions && <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('common.actions')}</th>}
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -200,7 +202,7 @@ export const DataTable = <T extends {id: string}>({
           ))}
         </tbody>
       </table>
-       {sortedData.length === 0 && <p className="p-4 text-center text-neutral-500 dark:text-neutral-400">No hay datos disponibles.</p>}
+       {sortedData.length === 0 && <p className="p-4 text-center text-neutral-500 dark:text-neutral-400">{t('cmp.datatable.no_data')}</p>}
     </div>
   );
 };

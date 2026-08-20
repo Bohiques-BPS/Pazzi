@@ -4,6 +4,7 @@ import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES 
 import { authService } from '../../services/auth';
 import { PasswordInput } from '../ui/PasswordInput';
 import { ApiError } from '../../services/api';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface DiscountAuthModalProps {
     isOpen: boolean;
@@ -13,6 +14,7 @@ interface DiscountAuthModalProps {
 }
 
 export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, onClose, onApply, currentDiscount }) => {
+    const { t } = useTranslation();
     const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
     const [discountValue, setDiscountValue] = useState('');
     const [supervisorPin, setSupervisorPin] = useState('');
@@ -37,15 +39,15 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
         setError('');
         const value = parseFloat(discountValue);
         if (isNaN(value) || value <= 0) {
-            setError('Ingrese un valor de descuento válido.');
+            setError(t('cmpx.discount.err_value'));
             return;
         }
         if (discountType === 'percentage' && value > 100) {
-            setError('El descuento porcentual no puede exceder 100%.');
+            setError(t('cmpx.discount.err_max_percent'));
             return;
         }
         if (!supervisorPin) {
-            setError('Ingrese el PIN del supervisor.');
+            setError(t('cmpx.discount.err_pin'));
             return;
         }
 
@@ -56,9 +58,9 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
             onClose();
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
-                setError('PIN de supervisor incorrecto.');
+                setError(t('cmpx.common.err_pin_incorrect'));
             } else {
-                setError(err instanceof ApiError ? err.message : 'Error al verificar PIN');
+                setError(err instanceof ApiError ? err.message : t('cmpx.common.err_pin_verify'));
             }
         } finally {
             setAuthorizing(false);
@@ -66,30 +68,30 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={currentDiscount ? 'Editar descuento' : 'Aplicar descuento con autorización'} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={currentDiscount ? t('cmpx.discount.title_edit') : t('cmpx.discount.title_new')} size="md">
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium">Tipo de descuento</label>
+                    <label className="block text-sm font-medium">{t('cmpx.discount.type_label')}</label>
                     <select value={discountType} onChange={e => setDiscountType(e.target.value as any)} className={inputFormStyle}>
-                        <option value="percentage">Porcentaje (%)</option>
-                        <option value="fixed">Monto fijo ($)</option>
+                        <option value="percentage">{t('cmpx.discount.type_percentage')}</option>
+                        <option value="fixed">{t('cmpx.discount.type_fixed')}</option>
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium">Valor del descuento</label>
+                    <label className="block text-sm font-medium">{t('cmpx.discount.value_label')}</label>
                     <input
                         type="number"
                         value={discountValue}
                         onChange={e => setDiscountValue(e.target.value)}
                         className={inputFormStyle}
-                        placeholder={discountType === 'percentage' ? 'Ej: 10 para 10%' : 'Ej: 5.00'}
+                        placeholder={discountType === 'percentage' ? t('cmpx.discount.value_ph_percent') : t('cmpx.discount.value_ph_fixed')}
                         step="0.01"
                         min="0"
                         autoFocus
                     />
                 </div>
                 <div className="border-t pt-4 dark:border-neutral-700">
-                    <label className="block text-sm font-medium">PIN de supervisor</label>
+                    <label className="block text-sm font-medium">{t('cmpx.common.supervisor_pin')}</label>
                     <PasswordInput
                         value={supervisorPin}
                         onChange={e => setSupervisorPin(e.target.value)}
@@ -100,14 +102,14 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
                         maxLength={6}
                     />
                     <p className="text-xs text-neutral-500 mt-1">
-                        Cualquier administrador del sistema puede autorizar con su PIN de 4 dígitos.
+                        {t('cmpx.discount.pin_hint')}
                     </p>
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <div className="flex justify-end space-x-2 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={authorizing}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={authorizing}>{t('common.cancel')}</button>
                     <button type="button" onClick={handleApply} className={BUTTON_PRIMARY_SM_CLASSES} disabled={authorizing}>
-                        {authorizing ? 'Autorizando...' : (currentDiscount ? 'Actualizar descuento' : 'Aplicar descuento')}
+                        {authorizing ? t('cmpx.common.authorizing') : (currentDiscount ? t('cmpx.discount.submit_edit') : t('cmpx.discount.submit_new'))}
                     </button>
                 </div>
             </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal } from './Modal';
+import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 /**
  * Modal con la lista de atajos de teclado disponibles, agrupados por contexto.
@@ -16,50 +17,6 @@ interface ShortcutGroup {
   items: ShortcutSpec[];
 }
 
-const GROUPS: ShortcutGroup[] = [
-  {
-    title: 'Globales',
-    items: [
-      { keys: ['Shift', '?'], description: 'Mostrar esta ayuda de atajos' },
-      { keys: ['Ctrl', 'K'], description: 'Búsqueda global' },
-      { keys: ['Alt', '1'], description: 'Ir a Dashboard' },
-      { keys: ['Alt', '2'], description: 'Ir a Productos' },
-      { keys: ['Alt', '3'], description: 'Ir a Clientes' },
-      { keys: ['Alt', '4'], description: 'Ir a POS' },
-      { keys: ['Alt', '5'], description: 'Ir a Proyectos' },
-      { keys: ['Esc'], description: 'Cerrar modal abierto' },
-    ],
-  },
-  {
-    title: 'Formularios',
-    items: [
-      { keys: ['Ctrl', 'S'], description: 'Guardar' },
-      { keys: ['Esc'], description: 'Cancelar / Cerrar' },
-    ],
-  },
-  {
-    title: 'POS (Caja)',
-    items: [
-      { keys: ['F2'], description: 'Cobrar' },
-      { keys: ['F3'], description: 'Poner carrito en espera' },
-      { keys: ['F4'], description: 'Buscar cliente' },
-      { keys: ['F5'], description: 'Aplicar descuento' },
-      { keys: ['F8'], description: 'Cancelar venta' },
-      { keys: ['F9'], description: 'Abrir/cerrar caja' },
-      { keys: ['Ctrl', 'R'], description: 'Devolución' },
-      { keys: ['Ctrl', 'L'], description: 'Apartado (layaway)' },
-    ],
-  },
-  {
-    title: 'Tablas y listas',
-    items: [
-      { keys: ['Ctrl', 'N'], description: 'Nuevo registro (contextual)' },
-      { keys: ['Ctrl', 'F'], description: 'Buscar en la tabla' },
-      { keys: ['/'], description: 'Foco en el buscador' },
-    ],
-  },
-];
-
 interface KeyProps {
   k: string;
 }
@@ -75,34 +32,82 @@ interface KeyboardShortcutsModalProps {
   onClose: () => void;
 }
 
-export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => (
-  <Modal isOpen={isOpen} onClose={onClose} title="Atajos de teclado" size="2xl">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[65vh] overflow-y-auto">
-      {GROUPS.map(group => (
-        <div key={group.title} className="space-y-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300 border-b border-neutral-200 dark:border-neutral-700 pb-1">
-            {group.title}
-          </h4>
-          <ul className="space-y-1.5">
-            {group.items.map((s, i) => (
-              <li key={i} className="flex items-center justify-between gap-3 text-sm text-neutral-700 dark:text-neutral-300">
-                <span>{s.description}</span>
-                <span className="flex items-center gap-1 flex-shrink-0">
-                  {s.keys.map((k, j) => (
-                    <React.Fragment key={j}>
-                      <KeyChip k={k} />
-                      {j < s.keys.length - 1 && <span className="text-neutral-400 text-xs">+</span>}
-                    </React.Fragment>
-                  ))}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-4">
-      Tip: en macOS, sustituye <KeyChip k="Ctrl" /> por <KeyChip k="⌘" />.
-    </p>
-  </Modal>
-);
+export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation();
+
+  const GROUPS: ShortcutGroup[] = [
+    {
+      title: t('cmp.shortcuts.group.global'),
+      items: [
+        { keys: ['Shift', '?'], description: t('cmp.shortcuts.show_help') },
+        { keys: ['Ctrl', 'K'], description: t('cmp.shortcuts.global_search') },
+        { keys: ['Alt', '1'], description: t('cmp.shortcuts.goto_dashboard') },
+        { keys: ['Alt', '2'], description: t('cmp.shortcuts.goto_products') },
+        { keys: ['Alt', '3'], description: t('cmp.shortcuts.goto_clients') },
+        { keys: ['Alt', '4'], description: t('cmp.shortcuts.goto_pos') },
+        { keys: ['Alt', '5'], description: t('cmp.shortcuts.goto_projects') },
+        { keys: ['Esc'], description: t('cmp.shortcuts.close_modal') },
+      ],
+    },
+    {
+      title: t('cmp.shortcuts.group.forms'),
+      items: [
+        { keys: ['Ctrl', 'S'], description: t('common.save') },
+        { keys: ['Esc'], description: t('cmp.shortcuts.cancel_close') },
+      ],
+    },
+    {
+      title: t('cmp.shortcuts.group.pos'),
+      items: [
+        { keys: ['F2'], description: t('cmp.shortcuts.pos_charge') },
+        { keys: ['F3'], description: t('cmp.shortcuts.pos_hold') },
+        { keys: ['F4'], description: t('cmp.shortcuts.pos_find_client') },
+        { keys: ['F5'], description: t('cmp.shortcuts.pos_discount') },
+        { keys: ['F8'], description: t('cmp.shortcuts.pos_cancel_sale') },
+        { keys: ['F9'], description: t('cmp.shortcuts.pos_open_close') },
+        { keys: ['Ctrl', 'R'], description: t('cmp.shortcuts.pos_return') },
+        { keys: ['Ctrl', 'L'], description: t('cmp.shortcuts.pos_layaway') },
+      ],
+    },
+    {
+      title: t('cmp.shortcuts.group.tables'),
+      items: [
+        { keys: ['Ctrl', 'N'], description: t('cmp.shortcuts.table_new') },
+        { keys: ['Ctrl', 'F'], description: t('cmp.shortcuts.table_search') },
+        { keys: ['/'], description: t('cmp.shortcuts.table_focus_search') },
+      ],
+    },
+  ];
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={t('cmp.shortcuts.title')} size="2xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[65vh] overflow-y-auto">
+        {GROUPS.map(group => (
+          <div key={group.title} className="space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300 border-b border-neutral-200 dark:border-neutral-700 pb-1">
+              {group.title}
+            </h4>
+            <ul className="space-y-1.5">
+              {group.items.map((s, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 text-sm text-neutral-700 dark:text-neutral-300">
+                  <span>{s.description}</span>
+                  <span className="flex items-center gap-1 flex-shrink-0">
+                    {s.keys.map((k, j) => (
+                      <React.Fragment key={j}>
+                        <KeyChip k={k} />
+                        {j < s.keys.length - 1 && <span className="text-neutral-400 text-xs">+</span>}
+                      </React.Fragment>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-4">
+        {t('cmp.shortcuts.tip_before')} <KeyChip k="Ctrl" /> {t('cmp.shortcuts.tip_by')} <KeyChip k="⌘" />.
+      </p>
+    </Modal>
+  );
+};

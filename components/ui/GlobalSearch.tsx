@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface SearchResult {
   id: string;
@@ -15,6 +16,7 @@ export const GlobalSearch: React.FC<{ isOpen: boolean; onClose: () => void }> = 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { products, clients, projects, employees, suppliers } = useData();
 
   const results = useMemo((): SearchResult[] => {
@@ -24,7 +26,7 @@ export const GlobalSearch: React.FC<{ isOpen: boolean; onClose: () => void }> = 
     const all: SearchResult[] = [
       ...clients.map(c => ({ id: c.id, label: `${c.name} ${c.lastName}`, description: c.email || '', path: '/pm/clients', type: 'client' as const })),
       ...products.map(p => ({ id: p.id, label: p.name, description: `$${p.unitPrice?.toFixed(2) || '0.00'}`, path: '/pm/products', type: 'product' as const })),
-      ...projects.map(p => ({ id: p.id, label: p.name || 'Sin nombre', description: p.status || '', path: '/pm/projects', type: 'project' as const })),
+      ...projects.map(p => ({ id: p.id, label: p.name || t('cmpx.common.no_name'), description: p.status || '', path: '/pm/projects', type: 'project' as const })),
       ...employees.map(e => ({ id: e.id, label: `${e.name} ${e.lastName}`, description: e.email || '', path: '/pm/employees', type: 'employee' as const })),
       ...suppliers.map(s => ({ id: s.id, label: s.name, description: s.email || '', path: '/ecommerce/suppliers', type: 'supplier' as const })),
     ];
@@ -86,7 +88,7 @@ export const GlobalSearch: React.FC<{ isOpen: boolean; onClose: () => void }> = 
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Buscar clientes, productos, proyectos..."
+            placeholder={t('cmpx.search.placeholder')}
             className="flex-1 py-4 bg-transparent border-none outline-none text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 text-lg"
           />
           <kbd className="hidden sm:inline-flex items-center px-2 py-1 text-xs text-neutral-400 bg-neutral-100 dark:bg-neutral-700 rounded">ESC</kbd>
@@ -102,7 +104,7 @@ export const GlobalSearch: React.FC<{ isOpen: boolean; onClose: () => void }> = 
                 onMouseEnter={() => setSelectedIndex(i)}
               >
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mr-3 uppercase ${typeColors[r.type]}`}>
-                  {r.type}
+                  {t(`cmpx.search.type.${r.type}`)}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{r.label}</div>
@@ -115,7 +117,7 @@ export const GlobalSearch: React.FC<{ isOpen: boolean; onClose: () => void }> = 
 
         {query && results.length === 0 && (
           <div className="px-4 py-8 text-center text-neutral-400 text-sm">
-            No se encontraron resultados para "{query}"
+            {t('cmpx.search.no_results', { query })}
           </div>
         )}
       </div>

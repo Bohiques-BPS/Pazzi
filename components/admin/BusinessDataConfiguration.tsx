@@ -1,91 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { Modal } from '../Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
 import { UserRole, type ReceiptConfig } from '../../types';
 import { API_URL } from '../../services/api';
-import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { toast } from '../../hooks/useToast';
 import { CameraIcon, TrashIconMini } from '../icons';
 import { PhoneInput } from '../ui/PhoneInput';
 
 /**
- * Modal de bienvenida (una sola vez, para el MANAGER): invita a completar los datos de la empresa
- * (nombre, descripción, logo, teléfono y correo — estos dos opcionales). Se guarda en
- * `GlobalSettings.receiptConfig`, que alimenta la factura, el recibo y los correos.
- * Se marca `onboardedAt` al guardar o posponer para no volver a mostrarlo.
+ * Editor de "Datos del Negocio" (Administración): nombre, descripción, logo, teléfono y correo.
+ * Es la versión SIEMPRE disponible de lo que pide el modal de bienvenida (BusinessOnboardingModal).
+ * Guarda en `GlobalSettings.receiptConfig`, que alimenta facturas, recibos y correos.
+ * Solo visible para el MANAGER (dueño de la tienda).
  */
-export const BusinessOnboardingModal: React.FC = () => {
+export const BusinessDataConfiguration: React.FC = () => {
     const { currentUser } = useAuth();
     const { settings, updateSettings } = useGlobalSettings();
     const { t } = useTranslation();
-
-    const [ready, setReady] = useState(false);
-    const [open, setOpen] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [uploading, setUploading] = useState(false);
 
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
-    const isManager = currentUser?.role === UserRole.MANAGER;
-    const localKey = `pazzi_onboarded_${currentUser?.id || 'anon'}`;
-
-    // Espera ~1.5s a que carguen los settings del servidor antes de decidir (evita parpadeo).
+    // Hidratar desde los settings al cargar / cuando cambien.
     useEffect(() => {
-        if (!isManager) { setReady(false); return; }
-        try { if (localStorage.getItem(localKey)) return; } catch { /* sin storage */ }
-        const t = setTimeout(() => setReady(true), 1500);
-        return () => clearTimeout(t);
-    }, [isManager, localKey]);
-
-    // Decide si mostrar: MANAGER, settings ya cargados, y aún sin onboarding ni nombre de empresa.
-    useEffect(() => {
-        if (!ready || !isManager) return;
         const rc = settings.receiptConfig || ({} as ReceiptConfig);
-        const alreadyOnboarded = !!rc.onboardedAt;
-        const hasName = !!(rc.businessName && rc.businessName.trim());
-        if (alreadyOnboarded || hasName) return;
         setName(rc.businessName || '');
         setDescription(rc.businessDescription || '');
         setLogoUrl(rc.logoUrl || '');
         setPhone(rc.phone || '');
         setEmail(rc.email || '');
-        setOpen(true);
-    }, [ready, isManager, settings.receiptConfig]);
+    }, [settings.receiptConfig]);
 
-    const markOnboardedLocal = () => { try { localStorage.setItem(localKey, new Date().toISOString()); } catch { /* sin storage */ } };
-
-    const persist = async (extra: Partial<ReceiptConfig>) => {
-        await updateSettings({ receiptConfig: { ...settings.receiptConfig, ...extra, onboardedAt: new Date().toISOString() } });
-        markOnboardedLocal();
-        setOpen(false);
-    };
-
-    const handleLater = async () => {
-        setSaving(true);
-        try { await persist({}); } catch { setOpen(false); } finally { setSaving(false); }
-    };
+    if (currentUser?.role !== UserRole.MANAGER) return null;
 
     const handleSave = async () => {
-        if (!name.trim()) { toast.error(t('cmp.onb.err_name_required')); return; }
-        if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { toast.error(t('cmp.onb.err_email_invalid')); return; }
+        if (!name.trim()) { toast.error(t('admin.business.err_name')); return; }
+        if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { toast.error(t('admin.business.err_email')); return; }
         setSaving(true);
         try {
-            await persist({
-                businessName: name.trim(),
-                businessDescription: description.trim(),
-                logoUrl: logoUrl || settings.receiptConfig?.logoUrl || '',
-                phone: phone.trim(),
-                email: email.trim(),
-                showLogo: !!logoUrl || !!settings.receiptConfig?.logoUrl,
+            await updateSettings({
+                receiptConfig: {
+                    ...settings.receiptConfig,
+                    businessName: name.trim(),
+                    businessDescription: description.trim(),
+                    logoUrl: logoUrl || '',
+                    phone: phone.trim(),
+                    email: email.trim(),
+                    showLogo: !!logoUrl,
+                },
             });
-            toast.success(t('cmp.onb.saved_ok'));
+            toast.success(t('admin.business.saved'));
         } catch {
-            toast.error(t('cmp.onb.save_error'));
+            toast.error(t('admin.business.save_error'));
         } finally { setSaving(false); }
     };
 
@@ -109,15 +81,12 @@ export const BusinessOnboardingModal: React.FC = () => {
         ? (logoUrl.startsWith('http') || logoUrl.startsWith('data:') ? logoUrl : `${API_URL.replace('/api', '')}${logoUrl.startsWith('/') ? '' : '/'}${logoUrl}`)
         : '';
 
-    if (!open) return null;
-
     return (
-        <Modal isOpen={open} onClose={handleLater} title={t('cmp.onb.title')} size="lg">
-            <div className="space-y-4">
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    {t('cmp.onb.desc_before')} <strong>{t('cmp.onb.invoices')}</strong>, <strong>{t('cmp.onb.receipts')}</strong> {t('cmp.onb.and')} <strong>{t('cmp.onb.emails')}</strong> {t('cmp.onb.desc_after')}
-                </p>
+        <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold text-primary mb-1">{t('admin.business.title')}</h2>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('admin.business.subtitle')}</p>
 
+            <div className="space-y-4 max-w-2xl">
                 {/* Logo */}
                 <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('cmp.onb.logo')}</label>
@@ -133,16 +102,14 @@ export const BusinessOnboardingModal: React.FC = () => {
                                 <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleLogoFile(e.target.files[0])} />
                             </label>
                         )}
-                        <div className="text-xs text-neutral-500">
-                            {uploading ? t('cmp.onb.uploading') : t('cmp.onb.logo_hint')}
-                        </div>
+                        <div className="text-xs text-neutral-500">{uploading ? t('cmp.onb.uploading') : t('cmp.onb.logo_hint')}</div>
                     </div>
                 </div>
 
                 {/* Nombre */}
                 <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('cmp.onb.business_name')} <span className="text-red-500">*</span></label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('cmp.onb.business_name_placeholder')} className={`${inputFormStyle} w-full`} autoFocus />
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('cmp.onb.business_name_placeholder')} className={`${inputFormStyle} w-full`} />
                 </div>
 
                 {/* Descripción */}
@@ -151,25 +118,24 @@ export const BusinessOnboardingModal: React.FC = () => {
                     <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder={t('cmp.onb.description_placeholder')} className={`${inputFormStyle} w-full resize-none`} />
                 </div>
 
-                {/* Teléfono + Correo (opcionales) */}
+                {/* Teléfono + Correo */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('common.phone')} <span className="text-neutral-400 text-xs">{t('cmp.onb.optional')}</span></label>
-                        <PhoneInput value={phone} onChange={setPhone} placeholder="(787) 000-0000" className="w-full" />
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('common.phone')}</label>
+                        <PhoneInput value={phone} onChange={setPhone} className="w-full" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('cmp.onb.email')} <span className="text-neutral-400 text-xs">{t('cmp.onb.optional')}</span></label>
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('cmp.onb.email')}</label>
                         <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ventas@empresa.com" className={`${inputFormStyle} w-full`} />
                     </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                    <button type="button" onClick={handleLater} disabled={saving} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{t('cmp.onb.later')}</button>
+                <div className="pt-2">
                     <button type="button" onClick={handleSave} disabled={saving || uploading} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                        {saving ? t('cmp.onb.saving') : t('cmp.onb.save')}
+                        {saving ? t('admin.business.saving') : t('admin.business.save')}
                     </button>
                 </div>
             </div>
-        </Modal>
+        </div>
     );
 };

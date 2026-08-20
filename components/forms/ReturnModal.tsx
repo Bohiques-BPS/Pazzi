@@ -9,6 +9,7 @@ import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { PasswordInput } from '../ui/PasswordInput';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
 
@@ -25,6 +26,7 @@ interface ReturnModalProps {
 }
 
 export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onProcessReturn }) => {
+    const { t } = useTranslation();
     const { sales, getClientById, clients } = useData();
     const [saleIdInput, setSaleIdInput] = useState('');
     const [foundSale, setFoundSale] = useState<Sale | null>(null);
@@ -54,7 +56,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
     
         const searchTerm = saleIdInput.trim();
         if (!searchTerm) {
-            setError('Por favor, ingrese un ID de venta o nombre de cliente.');
+            setError(t('cmpx.return.err_search_empty'));
             return;
         }
     
@@ -63,11 +65,11 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
     
         if (saleById) {
             if (saleById.isReturn) {
-                setError('No se puede realizar una devolución de otra devolución.');
+                setError(t('cmpx.return.err_return_of_return'));
                 return;
             }
             if (saleById.paymentStatus === 'Devolución Completa') {
-                setError('Esta venta ya ha sido devuelta en su totalidad.');
+                setError(t('cmpx.return.err_already_returned'));
                 return;
             }
             setFoundSale(saleById);
@@ -87,14 +89,14 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
             ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
             if (clientSales.length === 0) {
-                setError('No se encontraron ventas para este cliente.');
+                setError(t('cmpx.return.err_no_client_sales'));
             } else if (clientSales.length === 1) {
                 setFoundSale(clientSales[0]);
             } else {
                 setFoundSales(clientSales);
             }
         } else {
-            setError('No se encontró ninguna venta con ese ID o cliente con ese nombre.');
+            setError(t('cmpx.return.err_not_found'));
         }
     };
     
@@ -220,7 +222,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
 
     const handleSubmit = async () => {
         if (!foundSale || itemsToReturnDetails.size === 0 || !adminPassword) {
-            setError('Complete todos los campos: encuentre una venta, seleccione artículos e ingrese el PIN de supervisor.');
+            setError(t('cmpx.return.err_incomplete'));
             return;
         }
 
@@ -232,9 +234,9 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
         } catch (err) {
             setAuthorizing(false);
             if (err instanceof ApiError && err.status === 401) {
-                setError('PIN de supervisor incorrecto. Devolución no autorizada.');
+                setError(t('cmpx.return.err_pin_incorrect'));
             } else {
-                setError(err instanceof ApiError ? err.message : 'Error al verificar PIN');
+                setError(err instanceof ApiError ? err.message : t('cmpx.common.err_pin_verify'));
             }
             return;
         }
@@ -258,22 +260,22 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
     const client = foundSale ? getClientById(foundSale.clientId || '') : null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Procesar Devolución" size="3xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.return.title')} size="3xl">
             <div className="space-y-4">
                 <div className="flex items-end gap-2">
                     <div className="flex-grow">
-                        <label className="text-sm font-medium">ID de Venta o Nombre de Cliente</label>
-                        <input type="text" value={saleIdInput} onChange={e => setSaleIdInput(e.target.value)} placeholder="ID de venta, últimos 6 dígitos, o nombre de cliente" className={inputFormStyle} />
+                        <label className="text-sm font-medium">{t('cmpx.return.search_label')}</label>
+                        <input type="text" value={saleIdInput} onChange={e => setSaleIdInput(e.target.value)} placeholder={t('cmpx.return.search_ph')} className={inputFormStyle} />
                     </div>
                     <button onClick={handleFindSale} className={BUTTON_SECONDARY_SM_CLASSES}>
-                        <MagnifyingGlassIcon className="w-4 h-4 mr-1.5"/> Buscar
+                        <MagnifyingGlassIcon className="w-4 h-4 mr-1.5"/> {t('common.search')}
                     </button>
                 </div>
                 {error && <p className="text-sm text-center text-red-500">{error}</p>}
                 
                 {foundSales.length > 0 && (
                     <div className="mt-4 border-t pt-4 dark:border-neutral-600">
-                        <h3 className="font-semibold mb-2">Se encontraron {foundSales.length} ventas. Seleccione una para continuar:</h3>
+                        <h3 className="font-semibold mb-2">{t('cmpx.return.found_multiple', { count: foundSales.length })}</h3>
                         <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                             {foundSales.map(sale => {
                                 const saleClient = getClientById(sale.clientId || '');
@@ -283,7 +285,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                                         onClick={() => handleSelectSale(sale)}
                                         className="w-full text-left p-3 bg-neutral-100 dark:bg-neutral-700/50 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
                                     >
-                                        <p className="font-medium text-sm">Venta #{sale.id.slice(-6).toUpperCase()}</p>
+                                        <p className="font-medium text-sm">{t('cmpx.return.sale_num_prefix')}{sale.id.slice(-6).toUpperCase()}</p>
                                         <p className="text-xs text-neutral-500 dark:text-neutral-400">
                                             {new Date(sale.date).toLocaleString()} - ${sale.totalAmount.toFixed(2)}
                                             {saleClient && ` - ${saleClient.name} ${saleClient.lastName}`}
@@ -298,16 +300,16 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                 {foundSale && (
                     <div className="space-y-4 pt-4 border-t dark:border-neutral-600">
                         <div className="p-2 bg-neutral-100 dark:bg-neutral-700/50 rounded-md text-sm">
-                            <p><strong>Venta encontrada:</strong> {foundSale.id}</p>
-                            <p><strong>Fecha:</strong> {new Date(foundSale.date).toLocaleString()}</p>
-                            <p><strong>Cliente:</strong> {client ? `${client.name} ${client.lastName}` : 'Cliente Contado'}</p>
-                            <p><strong>Total Original:</strong> ${foundSale.totalAmount.toFixed(2)}</p>
+                            <p><strong>{t('cmpx.return.sale_found')}</strong> {foundSale.id}</p>
+                            <p><strong>{t('cmpx.return.date_label')}</strong> {new Date(foundSale.date).toLocaleString()}</p>
+                            <p><strong>{t('cmpx.return.client_label')}</strong> {client ? `${client.name} ${client.lastName}` : t('cmpx.return.walkin_client')}</p>
+                            <p><strong>{t('cmpx.return.original_total')}</strong> ${foundSale.totalAmount.toFixed(2)}</p>
                         </div>
                         
                         <div>
                             <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-semibold">Seleccione los artículos a devolver:</h3>
-                                <button onClick={handleSelectAll} className={BUTTON_SECONDARY_SM_CLASSES}>Seleccionar Todo</button>
+                                <h3 className="font-semibold">{t('cmpx.return.select_items')}</h3>
+                                <button onClick={handleSelectAll} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.return.select_all')}</button>
                             </div>
                             <div className="max-h-60 overflow-y-auto space-y-2 border dark:border-neutral-600 p-2 rounded-md">
                                 {foundSale.items.map(item => {
@@ -327,22 +329,22 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                                                 />
                                                 <div className="flex-grow">
                                                     <p className="font-medium text-sm">{item.name}</p>
-                                                    <p className="text-xs text-neutral-500">Comprado: {item.quantity} @ ${item.unitPrice.toFixed(2)} c/u</p>
+                                                    <p className="text-xs text-neutral-500">{t('cmpx.return.purchased', { qty: item.quantity, price: item.unitPrice.toFixed(2) })}</p>
                                                 </div>
                                             </div>
                                             {isSelected && details && (
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 pl-8 items-end">
                                                     <div>
-                                                        <label className="block text-xs font-medium">Cantidad</label>
+                                                        <label className="block text-xs font-medium">{t('cmpx.common.quantity')}</label>
                                                         <input type="number" value={details.quantity} onChange={e => handleQuantityChange(item.id, e.target.value)} max={item.quantity} min="1" className={`${inputFormStyle} !text-sm`} />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-medium">Monto a Devolver</label>
+                                                        <label className="block text-xs font-medium">{t('cmpx.return.refund_amount')}</label>
                                                         <input type="number" value={amountValue} onChange={e => handleAmountChange(item.id, e.target.value)} step="0.01" min="0" className={`${inputFormStyle} !text-sm`} />
                                                     </div>
                                                     <label className="flex items-center text-xs self-center pt-5">
                                                         <input type="checkbox" checked={details.returnToStock} onChange={e => handleReturnToStockChange(item.id, e.target.checked)} className="form-checkbox h-4 w-4 text-primary rounded" />
-                                                        <span className="ml-2">Devolver al inventario</span>
+                                                        <span className="ml-2">{t('cmpx.return.return_to_stock')}</span>
                                                     </label>
                                                 </div>
                                             )}
@@ -353,16 +355,16 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                         </div>
 
                         <div className="text-right text-xl font-bold text-red-600 dark:text-red-400">
-                            Total a Reembolsar: ${totalRefundAmount.toFixed(2)}
+                            {t('cmpx.return.total_refund', { amount: totalRefundAmount.toFixed(2) })}
                         </div>
 
                         <div>
-                            <label className="text-sm font-medium">Razón de la Devolución (Opcional)</label>
+                            <label className="text-sm font-medium">{t('cmpx.return.reason_label')}</label>
                             <RichTextEditor value={reason} onChange={setReason} />
                         </div>
 
                         <div>
-                            <label className="text-sm font-medium">PIN de supervisor para autorizar</label>
+                            <label className="text-sm font-medium">{t('cmpx.return.pin_label')}</label>
                             <PasswordInput
                                 value={adminPassword}
                                 onChange={e => setAdminPassword(e.target.value)}
@@ -374,14 +376,14 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                                 required
                             />
                             <p className="text-xs text-neutral-500 mt-1">
-                                Cualquier administrador del sistema puede autorizar con su PIN.
+                                {t('cmpx.return.pin_hint')}
                             </p>
                         </div>
 
                         <div className="flex justify-end space-x-2 pt-4 border-t dark:border-neutral-600">
-                            <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={authorizing}>Cancelar</button>
+                            <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={authorizing}>{t('common.cancel')}</button>
                             <button onClick={handleSubmit} className={BUTTON_PRIMARY_SM_CLASSES} disabled={authorizing}>
-                                {authorizing ? 'Autorizando...' : 'Procesar devolución'}
+                                {authorizing ? t('cmpx.common.authorizing') : t('cmpx.return.submit')}
                             </button>
                         </div>
                     </div>

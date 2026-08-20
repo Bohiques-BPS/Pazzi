@@ -42,7 +42,7 @@ export const InventoryHistoryModal: React.FC<InventoryHistoryModalProps> = ({ is
         { header: t('inventory.history.col_stock_after'), accessor: 'stockAfter', className: "text-center font-medium" },
         { header: t('inventory.history.col_ref'), accessor: (log) => log.referenceId?.slice(-6).toUpperCase() || 'N/A' },
         { header: t('inventory.history.col_notes'), accessor: 'notes', className: 'text-xs max-w-xs truncate' },
-        { header: t('inventory.history.col_employee'), accessor: (log) => getEmployeeById(log.employeeId)?.name || 'Sistema' },
+        { header: t('inventory.history.col_employee'), accessor: (log) => getEmployeeById(log.employeeId)?.name || t('cmpx.common.system') },
     ];
 
     if (!isOpen || !product) return null;

@@ -4,7 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
 import { authInputStyle, authButtonPrimary, authLinkStyle } from '../../constants';
 import { PasswordInput } from '../../components/ui/PasswordInput';
-import { EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini, PhoneIcon, BriefcaseIcon } from '../../components/icons';
+import { PhoneInput } from '../../components/ui/PhoneInput';
+import { EnvelopeIcon, LockClosedIcon, UserIcon as UserIconMini, BriefcaseIcon } from '../../components/icons';
 import logo from '../../assets/logo.png';
 import banner from '../../assets/img/banner.png';
 
@@ -124,10 +125,7 @@ export const RegisterPage: React.FC = () => {
             {isClient && (
               <div>
                 <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-0.5">Teléfono <span className="text-neutral-400 font-normal">(opcional)</span></label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><PhoneIcon className="h-4 w-4 text-neutral-400" /></div>
-                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className={`${authInputStyle} pl-9 !py-2`} placeholder="(787) 000-0000" />
-                </div>
+                <PhoneInput value={phone} onChange={setPhone} placeholder="(787) 000-0000" className="w-full" />
               </div>
             )}
 

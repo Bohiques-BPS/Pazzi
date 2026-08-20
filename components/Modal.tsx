@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { XMarkIcon, ExclamationTriangleIcon } from './icons'; // Adjusted path
 import { BUTTON_SECONDARY_SM_CLASSES } from '../constants'; // Adjusted path
+import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export interface ModalProps {
   disableEscClose?: boolean;
 }
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl', disableEscClose }) => {
+  const { t } = useTranslation();
   useEffect(() => {
     if (!isOpen || disableEscClose) return;
     const handler = (e: KeyboardEvent) => {
@@ -45,7 +47,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
       <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}>
         <div className="flex justify-between items-center p-5 border-b border-neutral-200 dark:border-neutral-700">
           <h3 id="modal-title" className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">{title}</h3>
-          <button onClick={onClose} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" aria-label="Cerrar modal">
+          <button onClick={onClose} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" aria-label={t('cmp.modal.close')}>
             <XMarkIcon className="w-7 h-7" />
           </button>
         </div>
@@ -72,9 +74,10 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     onConfirm,
     title,
     message,
-    confirmButtonText = "Confirmar",
-    cancelButtonText = "Cancelar"
+    confirmButtonText,
+    cancelButtonText
 }) => {
+    const { t } = useTranslation();
     // Enter → botón principal (confirmar). Escape → cancelar (lo maneja el Modal base).
     const confirmingRef = useRef(false);
     useEffect(() => {
@@ -108,13 +111,13 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                         onClick={onClose}
                         className={BUTTON_SECONDARY_SM_CLASSES}
                     >
-                        {cancelButtonText}
+                        {cancelButtonText ?? t('common.cancel')}
                     </button>
                     <button
                         onClick={() => { onConfirm(); onClose(); }}
                         className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-md text-base shadow-sm transition-colors duration-150"
                     >
-                        {confirmButtonText}
+                        {confirmButtonText ?? t('common.confirm')}
                     </button>
                 </div>
             </div>

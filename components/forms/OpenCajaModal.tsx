@@ -5,6 +5,7 @@ import { cajasService, type CajaSession, type CajaWithSession } from '../../serv
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface OpenCajaModalProps {
     isOpen: boolean;
@@ -15,6 +16,7 @@ interface OpenCajaModalProps {
 }
 
 export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, caja, onOpened }) => {
+    const { t } = useTranslation();
     const [openingFloat, setOpeningFloat] = useState<string>('0');
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -35,7 +37,7 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
         setError(null);
         const amount = parseFloat(openingFloat);
         if (isNaN(amount) || amount < 0) {
-            setError('El fondo inicial debe ser un número mayor o igual a 0');
+            setError(t('cmpx.opencaja.err_float'));
             return;
         }
         setSubmitting(true);
@@ -44,7 +46,7 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                 openingFloat: amount,
                 openingNotes: notes.trim() || undefined,
             });
-            toast.success(`Caja '${caja.name}' abierta con $${amount.toFixed(2)} iniciales.`);
+            toast.success(t('cmpx.opencaja.opened', { name: caja.name, amount: amount.toFixed(2) }));
             onOpened?.(session);
             onClose();
         } catch (err) {
@@ -52,7 +54,7 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                 setError(err.message);
                 if (err.status !== 409) toast.error(err.message);
             } else {
-                setError('Error de conexión con el servidor');
+                setError(t('cmpx.common.conn_error'));
             }
         } finally {
             setSubmitting(false);
@@ -60,7 +62,7 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Abrir turno — ${caja.name}`} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.opencaja.title', { name: caja.name })} size="md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -70,7 +72,7 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                 )}
 
                 <div>
-                    <label className="block text-sm font-medium">Fondo inicial en efectivo</label>
+                    <label className="block text-sm font-medium">{t('cmpx.opencaja.opening_float')}</label>
                     <div className="relative mt-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
                         <input
@@ -85,25 +87,25 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                         />
                     </div>
                     <p className="text-xs text-neutral-500 mt-1">
-                        Monto en efectivo con el que se inicia el turno. Será el punto de referencia para el conteo al cierre.
+                        {t('cmpx.opencaja.opening_float_hint')}
                     </p>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Notas (opcional)</label>
+                    <label className="block text-sm font-medium">{t('cmpx.common.notes_optional')}</label>
                     <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows={3}
                         className={inputFormStyle}
-                        placeholder="Observaciones del turno..."
+                        placeholder={t('cmpx.opencaja.notes_ph')}
                     />
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-2">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                        {submitting ? 'Abriendo...' : 'Abrir turno'}
+                        {submitting ? t('cmpx.opencaja.submitting') : t('cmpx.opencaja.submit')}
                     </button>
                 </div>
             </form>

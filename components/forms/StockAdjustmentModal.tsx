@@ -56,19 +56,19 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
         setError(null);
 
         if (!product || !branchId) {
-            setError('Faltan datos de producto o sucursal.');
+            setError(t('cmpx.stockadj.err_missing'));
             return;
         }
         if (parsedAdjustment === 0) {
-            setError('Ingrese un valor de ajuste diferente de 0.');
+            setError(t('cmpx.stockadj.err_zero'));
             return;
         }
         if (newCalculatedStock < 0) {
-            setError(`El stock resultante sería ${newCalculatedStock} (no puede ser negativo).`);
+            setError(t('cmpx.stockadj.err_negative', { stock: newCalculatedStock }));
             return;
         }
         if (isLargeNegative && !notes.trim()) {
-            setError('Para ajustes negativos de 10 o más unidades, debe indicar una razón.');
+            setError(t('cmpx.stockadj.err_reason_required'));
             return;
         }
 
@@ -92,13 +92,17 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
             }));
 
             toast.success(
-                `Stock ajustado: ${result.stockBefore} → ${result.stockAfter} (${result.quantityChange >= 0 ? '+' : ''}${result.quantityChange})`
+                t('cmpx.stockadj.adjusted', {
+                    before: result.stockBefore,
+                    after: result.stockAfter,
+                    change: `${result.quantityChange >= 0 ? '+' : ''}${result.quantityChange}`,
+                })
             );
             onAdjusted?.(result);
             onClose();
         } catch (err) {
             if (err instanceof ApiError) setError(err.message);
-            else setError('Error de conexión con el servidor');
+            else setError(t('cmpx.common.conn_error'));
         } finally {
             setSubmitting(false);
         }
@@ -118,33 +122,33 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
                 <div className="text-sm space-y-1 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-md">
                     <div className="flex justify-between">
-                        <span className="text-neutral-600 dark:text-neutral-300">Producto:</span>
+                        <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.stockadj.product')}</span>
                         <span className="font-medium">{product.name}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-neutral-600 dark:text-neutral-300">Sucursal:</span>
+                        <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.stockadj.branch')}</span>
                         <span className="font-medium">{branchName}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-neutral-600 dark:text-neutral-300">Stock actual:</span>
+                        <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.stockadj.current_stock')}</span>
                         <span className="font-bold">{currentStockAtBranch}</span>
                     </div>
                     {totalStockAcrossAllBranches !== currentStockAtBranch && (
                         <div className="flex justify-between text-xs text-neutral-500">
-                            <span>Stock total (todas las sucursales):</span>
+                            <span>{t('cmpx.stockadj.total_stock')}</span>
                             <span>{totalStockAcrossAllBranches}</span>
                         </div>
                     )}
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Ajuste (positivo para agregar, negativo para restar)</label>
+                    <label className="block text-sm font-medium">{t('cmpx.stockadj.adjustment_label')}</label>
                     <input
                         type="text"
                         value={adjustment}
                         onChange={(e) => setAdjustment(e.target.value)}
                         className={`${inputFormStyle} w-full mt-1`}
-                        placeholder="Ej: 10 o -5"
+                        placeholder={t('cmpx.stockadj.adjustment_ph')}
                         required
                         autoFocus
                     />
@@ -155,19 +159,19 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                         ? 'bg-red-50 border border-red-200 text-red-700'
                         : 'bg-neutral-100 dark:bg-neutral-700'
                 }`}>
-                    Nuevo stock: <span className="font-bold text-lg">{newCalculatedStock}</span>
+                    {t('cmpx.stockadj.new_stock')} <span className="font-bold text-lg">{newCalculatedStock}</span>
                 </div>
 
                 <div>
                     <label className="block text-sm font-medium">
-                        Razón {isLargeNegative ? <span className="text-red-500">*</span> : '(opcional)'}
+                        {t('cmpx.common.reason')} {isLargeNegative ? <span className="text-red-500">*</span> : t('cmpx.common.optional_paren')}
                     </label>
                     <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows={2}
                         className={`${inputFormStyle} w-full mt-1`}
-                        placeholder="Conteo físico, pérdida, daño, etc."
+                        placeholder={t('cmpx.stockadj.reason_ph')}
                     />
                 </div>
 
@@ -176,7 +180,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                         {t('common.cancel') || 'Cancelar'}
                     </button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                        {submitting ? 'Guardando...' : 'Guardar ajuste'}
+                        {submitting ? t('common.saving') : t('cmpx.stockadj.submit')}
                     </button>
                 </div>
             </form>

@@ -3,6 +3,7 @@ import { Modal } from '../Modal';
 import { User } from '../../types';
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { UserCircleIcon, KeyIcon, ArrowUturnLeftIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface UserSwitchModalProps {
     isOpen: boolean;
@@ -13,6 +14,7 @@ interface UserSwitchModalProps {
 }
 
 export const UserSwitchModal: React.FC<UserSwitchModalProps> = ({ isOpen, onClose, employees, onSwitchUser, onSwitchUserWithPin }) => {
+    const { t } = useTranslation();
     const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
     const [password, setPassword] = useState('');
     const [pin, setPin] = useState('');
@@ -50,14 +52,14 @@ export const UserSwitchModal: React.FC<UserSwitchModalProps> = ({ isOpen, onClos
             if (!pin) return;
             success = await onSwitchUserWithPin(selectedEmployee.id, pin);
             if (!success) {
-                setError('PIN incorrecto. Intente de nuevo.');
+                setError(t('cmpx.userswitch.pin_wrong'));
                 setPin('');
             }
         } else {
             if (!password) return;
             success = await onSwitchUser(selectedEmployee, password);
             if (!success) {
-                setError('Contraseña incorrecta. Intente de nuevo.');
+                setError(t('cmpx.userswitch.password_wrong'));
                 setPassword('');
             }
         }
@@ -75,11 +77,11 @@ export const UserSwitchModal: React.FC<UserSwitchModalProps> = ({ isOpen, onClos
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={selectedEmployee ? `Ingresar como ${selectedEmployee.name}` : "Cambiar de Usuario"} size="2xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={selectedEmployee ? t('cmpx.userswitch.login_as', { name: selectedEmployee.name }) : t('cmpx.userswitch.title')} size="2xl">
             {!selectedEmployee ? (
                 // User Selection View
                 <div>
-                    <h3 className="text-center text-2xl font-medium text-neutral-700 dark:text-neutral-200 mb-8">Seleccione un usuario para iniciar sesión</h3>
+                    <h3 className="text-center text-2xl font-medium text-neutral-700 dark:text-neutral-200 mb-8">{t('cmpx.userswitch.select_user')}</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 max-h-[60vh] overflow-y-auto p-4">
                         {employees.map(emp => (
                             <button 
@@ -115,14 +117,14 @@ export const UserSwitchModal: React.FC<UserSwitchModalProps> = ({ isOpen, onClos
                                     onClick={() => setLoginMethod('pin')}
                                     className={`flex-1 py-2 text-center font-medium ${loginMethod === 'pin' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
                                 >
-                                    Ingresar con PIN
+                                    {t('cmpx.userswitch.with_pin')}
                                 </button>
                             )}
                             <button
                                 onClick={() => setLoginMethod('password')}
                                 className={`flex-1 py-2 text-center font-medium ${loginMethod === 'password' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
                             >
-                                Ingresar con Contraseña
+                                {t('cmpx.userswitch.with_password')}
                             </button>
                         </div>
                     </div>
@@ -138,7 +140,7 @@ export const UserSwitchModal: React.FC<UserSwitchModalProps> = ({ isOpen, onClos
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className={inputFormStyle + " pl-10 !text-lg"}
-                                    placeholder="Contraseña"
+                                    placeholder={t('auth.password')}
                                     autoFocus
                                 />
                             ) : (
@@ -157,14 +159,14 @@ export const UserSwitchModal: React.FC<UserSwitchModalProps> = ({ isOpen, onClos
                         </div>
                         {error && <p className="text-sm text-center text-red-500">{error}</p>}
                         
-                        <button type="submit" className={BUTTON_PRIMARY_CLASSES + " w-full !text-lg"}>Ingresar</button>
+                        <button type="submit" className={BUTTON_PRIMARY_CLASSES + " w-full !text-lg"}>{t('cmpx.userswitch.enter')}</button>
                          <button 
                             type="button" 
                             onClick={handleBack} 
                             className={`${BUTTON_SECONDARY_SM_CLASSES} w-full flex items-center justify-center !text-base`}
                         >
                             <ArrowUturnLeftIcon className="w-4 h-4 mr-1.5" />
-                            Volver a la lista
+                            {t('cmpx.userswitch.back_to_list')}
                         </button>
                     </form>
                 </div>

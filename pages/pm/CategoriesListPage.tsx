@@ -221,7 +221,12 @@ export const CategoriesListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('pmx.common.confirm_delete_title')}
-                message={t('pmx.common.cannot_undo')}
+                message={(() => {
+                    const name = categories.find(c => c.id === itemToDeleteId)?.name || '';
+                    return name
+                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.category'), name })
+                        : t('confirm.delete.named', { item: t('confirm.delete.n.category') });
+                })()}
                 confirmButtonText={t('pmx.common.yes_delete')}
             />
         </div>

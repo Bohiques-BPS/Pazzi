@@ -5,6 +5,7 @@ import { supplierOrdersService, type SupplierOrderRecord } from '../../services/
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface SupplierPaymentModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
     order,
     onPaid,
 }) => {
+    const { t } = useTranslation();
     const [amount, setAmount] = useState('');
     const [note, setNote] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -41,11 +43,11 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
         e.preventDefault();
         setError(null);
         if (parsedAmount <= 0) {
-            setError('Ingrese un monto válido mayor a 0.');
+            setError(t('cmpx.common.err_amount_gt0'));
             return;
         }
         if (parsedAmount > pending + 0.01) {
-            setError(`El monto excede el saldo pendiente ($${pending.toFixed(2)}).`);
+            setError(t('cmpx.supplierpay.err_exceeds', { amount: pending.toFixed(2) }));
             return;
         }
         setSubmitting(true);
@@ -54,18 +56,18 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
                 amount: parsedAmount,
                 note: note.trim() || undefined,
             });
-            toast.success(`Pago de $${parsedAmount.toFixed(2)} registrado. Estado: ${res.payment.paymentStatus}.`);
+            toast.success(t('cmpx.supplierpay.recorded', { amount: parsedAmount.toFixed(2), status: res.payment.paymentStatus }));
             onPaid?.(res.order);
             onClose();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error al registrar el pago');
+            setError(err instanceof ApiError ? err.message : t('cmpx.common.err_payment_save'));
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Registrar pago — Orden ${order.id.slice(0, 8).toUpperCase()}`} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.supplierpay.title', { id: order.id.slice(0, 8).toUpperCase() })} size="md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -76,21 +78,21 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
 
                 <div className="text-sm space-y-1 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-md">
                     <div className="flex justify-between">
-                        <span className="text-neutral-600 dark:text-neutral-300">Total orden:</span>
+                        <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.supplierpay.total_order')}</span>
                         <span>${order.totalCost.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-neutral-600 dark:text-neutral-300">Pagado a la fecha:</span>
+                        <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.supplierpay.paid_to_date')}</span>
                         <span>${order.amountPaid.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-semibold border-t pt-1 mt-1 border-neutral-300 dark:border-neutral-600">
-                        <span>Saldo pendiente:</span>
+                        <span>{t('cmpx.supplierpay.pending_balance')}</span>
                         <span className="text-primary">${pending.toFixed(2)}</span>
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Monto a pagar</label>
+                    <label className="block text-sm font-medium">{t('cmpx.supplierpay.amount')}</label>
                     <div className="relative mt-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
                         <input
@@ -109,22 +111,22 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Nota / referencia (opcional)</label>
+                    <label className="block text-sm font-medium">{t('cmpx.supplierpay.note_label')}</label>
                     <textarea
                         value={note}
                         onChange={e => setNote(e.target.value)}
                         rows={2}
                         className={inputFormStyle}
-                        placeholder="Número de cheque, método de pago, etc."
+                        placeholder={t('cmpx.supplierpay.note_ph')}
                     />
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-2">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>
-                        Cancelar
+                        {t('common.cancel')}
                     </button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting || pending <= 0}>
-                        {submitting ? 'Registrando...' : 'Registrar pago'}
+                        {submitting ? t('cmpx.common.registering') : t('cmpx.supplierpay.submit')}
                     </button>
                 </div>
             </form>

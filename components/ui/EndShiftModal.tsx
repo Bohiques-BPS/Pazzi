@@ -6,6 +6,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
 import { LoadingSkeleton } from './LoadingSkeleton';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface EndShiftModalProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
     differenceThreshold = 5,
     onClosed,
 }) => {
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<CajaSession | null>(null);
     const [totals, setTotals] = useState<SessionTotals | null>(null);
@@ -46,7 +48,7 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
             .then(({ session, totals }) => {
                 if (cancelled) return;
                 if (!session) {
-                    setError('Esta caja no tiene un turno abierto.');
+                    setError(t('cmpx.endshift.no_open_session'));
                 } else {
                     setSession(session);
                     setTotals(totals);
@@ -54,7 +56,7 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
             })
             .catch(err => {
                 if (cancelled) return;
-                setError(err instanceof ApiError ? err.message : 'Error al cargar el turno');
+                setError(err instanceof ApiError ? err.message : t('cmpx.endshift.load_error'));
             })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
@@ -73,11 +75,11 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
         e.preventDefault();
         if (!session || !totals) return;
         if (countedCash === '' || isNaN(counted) || counted < 0) {
-            setError('Ingrese el efectivo contado (un número ≥ 0).');
+            setError(t('cmpx.endshift.counted_required'));
             return;
         }
         if (isHighDifference && !confirmHighDiff) {
-            setError(`Hay una diferencia de $${Math.abs(difference).toFixed(2)}. Marque la confirmación para cerrar de todos modos.`);
+            setError(t('cmpx.endshift.diff_confirm_required', { amount: Math.abs(difference).toFixed(2) }));
             return;
         }
         setSubmitting(true);
@@ -90,20 +92,20 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
             });
             toast.success(
                 difference === 0
-                    ? 'Turno cerrado sin diferencia ✓'
-                    : `Turno cerrado con diferencia de $${Math.abs(difference).toFixed(2)}`
+                    ? t('cmpx.endshift.closed_no_diff')
+                    : t('cmpx.endshift.closed_with_diff', { amount: Math.abs(difference).toFixed(2) })
             );
             onClosed?.(result.session, result.totals);
             onClose();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error al cerrar el turno');
+            setError(err instanceof ApiError ? err.message : t('cmpx.endshift.close_error'));
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Cierre de turno${cajaName ? ` — ${cajaName}` : ''}`} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={`${t('cmpx.endshift.title')}${cajaName ? ` — ${cajaName}` : ''}`} size="md">
             {loading && <LoadingSkeleton variant="form" rows={5} />}
 
             {!loading && error && !session && (
@@ -116,29 +118,29 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
             {!loading && session && totals && (
                 <form onSubmit={handleSubmit} className="space-y-3">
                     <div className="text-sm space-y-1 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-md">
-                        <h4 className="text-xs uppercase tracking-wide font-semibold text-neutral-600 dark:text-neutral-300 mb-1">Resumen del turno</h4>
-                        <Row label="Ventas totales" value={totals.totalSales} />
-                        <Row label="En efectivo" value={totals.cashSales} sub />
-                        <Row label="En tarjeta" value={totals.cardSales} sub />
-                        <Row label="Otros métodos" value={totals.otherSales} sub />
-                        {totals.cashRefunds > 0 && <Row label="Devoluciones en efectivo" value={totals.cashRefunds} sub />}
+                        <h4 className="text-xs uppercase tracking-wide font-semibold text-neutral-600 dark:text-neutral-300 mb-1">{t('cmpx.endshift.shift_summary')}</h4>
+                        <Row label={t('cmpx.endshift.total_sales')} value={totals.totalSales} />
+                        <Row label={t('cmpx.endshift.in_cash')} value={totals.cashSales} sub />
+                        <Row label={t('cmpx.endshift.in_card')} value={totals.cardSales} sub />
+                        <Row label={t('cmpx.endshift.other_methods')} value={totals.otherSales} sub />
+                        {totals.cashRefunds > 0 && <Row label={t('cmpx.endshift.cash_refunds')} value={totals.cashRefunds} sub />}
                     </div>
 
                     <div className="text-sm space-y-1 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-md">
-                        <h4 className="text-xs uppercase tracking-wide font-semibold text-neutral-600 dark:text-neutral-300 mb-1">Efectivo</h4>
-                        <Row label="Fondo inicial" value={totals.openingFloat} />
-                        <Row label="Ventas en efectivo" value={totals.cashSales} prefix="+" />
-                        {totals.cashIn > 0 && <Row label="Depósitos / cash-in" value={totals.cashIn} prefix="+" />}
-                        <Row label="Retiros (payouts)" value={totals.payouts} prefix="-" />
-                        {totals.cashRefunds > 0 && <Row label="Devoluciones" value={totals.cashRefunds} prefix="-" />}
+                        <h4 className="text-xs uppercase tracking-wide font-semibold text-neutral-600 dark:text-neutral-300 mb-1">{t('cmpx.endshift.cash')}</h4>
+                        <Row label={t('cmpx.endshift.opening_float')} value={totals.openingFloat} />
+                        <Row label={t('cmpx.endshift.cash_sales')} value={totals.cashSales} prefix="+" />
+                        {totals.cashIn > 0 && <Row label={t('cmpx.endshift.cash_in')} value={totals.cashIn} prefix="+" />}
+                        <Row label={t('cmpx.endshift.payouts')} value={totals.payouts} prefix="-" />
+                        {totals.cashRefunds > 0 && <Row label={t('cmpx.endshift.refunds')} value={totals.cashRefunds} prefix="-" />}
                         <div className="flex justify-between font-semibold border-t pt-1 mt-1 border-neutral-300 dark:border-neutral-600">
-                            <span>Efectivo esperado:</span>
+                            <span>{t('cmpx.endshift.expected_cash')}</span>
                             <span className="text-lg text-primary">${totals.expectedCash.toFixed(2)}</span>
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium">Efectivo contado físicamente</label>
+                        <label className="block text-sm font-medium">{t('cmpx.endshift.counted_cash')}</label>
                         <div className="relative mt-1">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
                             <input
@@ -164,25 +166,27 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
                                   : 'bg-red-50 border border-red-200 text-red-700'
                         }`}>
                             <div className="flex justify-between font-semibold">
-                                <span>Diferencia:</span>
+                                <span>{t('cmpx.endshift.difference')}</span>
                                 <span>{difference >= 0 ? '+' : '-'}${Math.abs(difference).toFixed(2)}</span>
                             </div>
                             {difference !== 0 && (
                                 <p className="text-xs mt-1">
-                                    {difference > 0 ? 'Sobra' : 'Falta'} ${Math.abs(difference).toFixed(2)} respecto al esperado.
+                                    {difference > 0
+                                        ? t('cmpx.endshift.diff_over', { amount: Math.abs(difference).toFixed(2) })
+                                        : t('cmpx.endshift.diff_short', { amount: Math.abs(difference).toFixed(2) })}
                                 </p>
                             )}
                         </div>
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium">Notas de cierre (opcional)</label>
+                        <label className="block text-sm font-medium">{t('cmpx.endshift.closing_notes')}</label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={2}
                             className={inputFormStyle}
-                            placeholder="Explica diferencias o incidencias..."
+                            placeholder={t('cmpx.endshift.closing_notes_ph')}
                         />
                     </div>
 
@@ -195,7 +199,7 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
                                 className="mt-0.5"
                             />
                             <span className="text-red-700 dark:text-red-300">
-                                Confirmo que verifiqué el conteo y autorizo el cierre con una diferencia de
+                                {t('cmpx.endshift.confirm_diff_text')}
                                 <strong> ${Math.abs(difference).toFixed(2)}</strong>.
                             </span>
                         </label>
@@ -208,9 +212,9 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
                     )}
 
                     <div className="flex justify-end space-x-2 pt-2">
-                        <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Continuar turno</button>
+                        <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.endshift.continue_shift')}</button>
                         <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                            {submitting ? 'Cerrando...' : 'Cerrar turno'}
+                            {submitting ? t('cmpx.endshift.closing') : t('cmpx.endshift.close_shift')}
                         </button>
                     </div>
                 </form>

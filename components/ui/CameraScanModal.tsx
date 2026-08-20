@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from '../Modal';
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface CameraScanModalProps {
     isOpen: boolean;
@@ -15,7 +16,9 @@ interface CameraScanModalProps {
  * Prefiere la cámara trasera (facingMode: environment). Requiere HTTPS o localhost.
  * Reutilizable en cualquier flujo que necesite capturar un código con el teléfono.
  */
-export const CameraScanModal: React.FC<CameraScanModalProps> = ({ isOpen, onClose, onDetected, title = 'Escanear con la cámara' }) => {
+export const CameraScanModal: React.FC<CameraScanModalProps> = ({ isOpen, onClose, onDetected, title }) => {
+    const { t } = useTranslation();
+    const resolvedTitle = title ?? t('cmpx.camera.title');
     const videoRef = useRef<HTMLVideoElement>(null);
     const controlsRef = useRef<IScannerControls | null>(null);
     // Ref al callback para no reiniciar la cámara si el padre pasa una función nueva por render.
@@ -54,13 +57,13 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({ isOpen, onClos
                 console.error('Error iniciando la cámara:', e);
                 setStarting(false);
                 if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError') {
-                    setError('Permiso de cámara denegado. Habilítalo en el navegador e inténtalo de nuevo.');
+                    setError(t('cmpx.camera.err_denied'));
                 } else if (e?.name === 'NotFoundError' || e?.name === 'OverconstrainedError') {
-                    setError('No se encontró una cámara disponible en el dispositivo.');
+                    setError(t('cmpx.camera.err_not_found'));
                 } else if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                    setError('La cámara requiere una conexión segura (HTTPS).');
+                    setError(t('cmpx.camera.err_https'));
                 } else {
-                    setError('No se pudo iniciar la cámara. Usa el ingreso manual del código.');
+                    setError(t('cmpx.camera.err_generic'));
                 }
             }
         };
@@ -74,7 +77,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({ isOpen, onClos
     }, [isOpen]);
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={title} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={resolvedTitle} size="md">
             <div className="space-y-3">
                 {error ? (
                     <div className="rounded-md bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-4 py-3 text-sm">
@@ -95,13 +98,13 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({ isOpen, onClos
                         </div>
                         {starting && (
                             <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
-                                Iniciando cámara…
+                                {t('cmpx.camera.starting')}
                             </div>
                         )}
                     </div>
                 )}
                 <p className="text-xs text-center text-neutral-500 dark:text-neutral-400">
-                    Apunta la cámara al código de barras o QR del producto.
+                    {t('cmpx.camera.hint')}
                 </p>
             </div>
         </Modal>

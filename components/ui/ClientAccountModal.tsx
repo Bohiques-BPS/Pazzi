@@ -6,6 +6,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { EmptyState } from './EmptyState';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -34,6 +35,7 @@ const overdueStyle = (days: number) => {
 };
 
 export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client }) => {
+    const { t } = useTranslation();
     const [data, setData] = useState<ClientSummary | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -54,27 +56,27 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
     if (!isOpen || !client) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Estado de cuenta — ${client.name} ${client.lastName || ''}`} size="4xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={`${t('cmpx.account.title')} — ${client.name} ${client.lastName || ''}`} size="4xl">
             {loading && <LoadingSkeleton variant="form" rows={6} />}
 
             {!loading && data && (
                 <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <SummaryCard label="Total facturado" value={`$${data.summary.totalRevenue.toFixed(2)}`} />
-                        <SummaryCard label="Total pagado" value={`$${data.summary.totalPaid.toFixed(2)}`} tone="positive" />
+                        <SummaryCard label={t('cmpx.account.total_invoiced')} value={`$${data.summary.totalRevenue.toFixed(2)}`} />
+                        <SummaryCard label={t('cmpx.account.total_paid')} value={`$${data.summary.totalPaid.toFixed(2)}`} tone="positive" />
                         <SummaryCard
-                            label="Balance pendiente"
+                            label={t('cmpx.account.pending_balance')}
                             value={`$${data.summary.totalBalance.toFixed(2)}`}
                             tone={data.summary.totalBalance > 0 ? 'negative' : 'positive'}
                         />
-                        <SummaryCard label="Ventas" value={data.summary.totalSalesCount.toString()} />
+                        <SummaryCard label={t('cmpx.account.sales')} value={data.summary.totalSalesCount.toString()} />
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <SummaryCard label="Cotizaciones" value={data.summary.totalEstimates.toString()} />
-                        <SummaryCard label="Apartados" value={data.summary.totalLayaways.toString()} />
-                        <SummaryCard label="Proyectos" value={data.summary.totalProjects.toString()} />
+                        <SummaryCard label={t('cmpx.account.estimates')} value={data.summary.totalEstimates.toString()} />
+                        <SummaryCard label={t('cmpx.account.layaways')} value={data.summary.totalLayaways.toString()} />
+                        <SummaryCard label={t('cmpx.account.projects')} value={data.summary.totalProjects.toString()} />
                         <SummaryCard
-                            label="C×C pendientes"
+                            label={t('cmpx.account.ar_pending')}
                             value={`${data.summary.accountsReceivableCount} ($${data.summary.accountsReceivableTotal.toFixed(2)})`}
                             tone={data.summary.accountsReceivableCount > 0 ? 'negative' : 'default'}
                         />
@@ -82,22 +84,22 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
 
                     <section>
                         <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
-                            Cuentas por cobrar ({data.accountsReceivable.length})
+                            {t('cmpx.account.accounts_receivable', { count: data.accountsReceivable.length })}
                         </h3>
                         {data.accountsReceivable.length === 0 ? (
-                            <p className="text-sm text-neutral-500 py-2">Sin saldos pendientes.</p>
+                            <p className="text-sm text-neutral-500 py-2">{t('cmpx.account.no_pending_balances')}</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm">
                                     <thead className="bg-neutral-100 dark:bg-neutral-700/50">
                                         <tr>
-                                            <th className="text-left p-2">Venta</th>
-                                            <th className="text-left p-2">Fecha</th>
-                                            <th className="text-right p-2">Total</th>
-                                            <th className="text-right p-2">Pagado</th>
-                                            <th className="text-right p-2">Saldo</th>
-                                            <th className="text-left p-2">Vence</th>
-                                            <th className="text-center p-2">Días vencido</th>
+                                            <th className="text-left p-2">{t('cmpx.account.col_sale')}</th>
+                                            <th className="text-left p-2">{t('common.date')}</th>
+                                            <th className="text-right p-2">{t('common.total')}</th>
+                                            <th className="text-right p-2">{t('cmpx.account.col_paid')}</th>
+                                            <th className="text-right p-2">{t('cmpx.account.col_balance')}</th>
+                                            <th className="text-left p-2">{t('cmpx.account.col_due')}</th>
+                                            <th className="text-center p-2">{t('cmpx.account.col_days_overdue')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -123,7 +125,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                     {data.topProducts.length > 0 && (
                         <section>
                             <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
-                                Productos más comprados
+                                {t('cmpx.account.top_products')}
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                 {data.topProducts.map(p => (
@@ -139,7 +141,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                     {data.projects.length > 0 && (
                         <section>
                             <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
-                                Proyectos ({data.projects.length})
+                                {t('cmpx.account.projects_count', { count: data.projects.length })}
                             </h3>
                             <ul className="space-y-1 text-sm">
                                 {data.projects.map(p => (
@@ -154,10 +156,10 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
 
                     <section>
                         <h3 className="text-md font-semibold text-primary border-b dark:border-neutral-600 mb-2">
-                            Ventas recientes (últimos {data.summary.periodDays} días, {data.recentSales.length})
+                            {t('cmpx.account.recent_sales', { days: data.summary.periodDays, count: data.recentSales.length })}
                         </h3>
                         {data.recentSales.length === 0 ? (
-                            <p className="text-sm text-neutral-500 py-2">Sin ventas en el período.</p>
+                            <p className="text-sm text-neutral-500 py-2">{t('cmpx.account.no_sales_period')}</p>
                         ) : (
                             <div className="space-y-1 text-sm">
                                 {data.recentSales.map(s => (
@@ -174,7 +176,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                         <ul className="mt-2 pl-4 text-xs text-neutral-500 space-y-0.5">
                                             {s.items.map(it => (
                                                 <li key={it.id}>
-                                                    {it.product?.name || 'Producto'} × {it.quantity} — ${it.unitPrice.toFixed(2)}
+                                                    {it.product?.name || t('cmpx.common.product')} × {it.quantity} — ${it.unitPrice.toFixed(2)}
                                                 </li>
                                             ))}
                                         </ul>
@@ -187,7 +189,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
             )}
 
             {!loading && !data && (
-                <EmptyState title="Sin datos del cliente" description="No se pudo cargar el resumen del cliente." />
+                <EmptyState title={t('cmpx.account.no_data_title')} description={t('cmpx.account.no_data_desc')} />
             )}
         </Modal>
     );

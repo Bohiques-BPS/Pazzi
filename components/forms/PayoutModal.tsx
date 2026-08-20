@@ -6,6 +6,7 @@ import { cajasService, type CashMovement } from '../../services/cajas';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface PayoutModalProps {
     isOpen: boolean;
@@ -23,6 +24,7 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
     currentCashInDrawer,
     onRecorded,
 }) => {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [amount, setAmount] = useState('');
     const [reason, setReason] = useState('');
@@ -45,15 +47,15 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
         setError(null);
         const payoutAmount = parseFloat(amount);
         if (isNaN(payoutAmount) || payoutAmount <= 0) {
-            setError('Ingrese un monto válido mayor a 0.');
+            setError(t('cmpx.common.err_amount_gt0'));
             return;
         }
         if (payoutAmount > currentCashInDrawer) {
-            setError(`El retiro no puede exceder el efectivo en caja ($${currentCashInDrawer.toFixed(2)}).`);
+            setError(t('cmpx.payout.err_exceeds', { amount: currentCashInDrawer.toFixed(2) }));
             return;
         }
         if (!reason.trim()) {
-            setError('Escriba la razón del retiro.');
+            setError(t('cmpx.payout.err_reason'));
             return;
         }
 
@@ -67,26 +69,26 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
                 invoiceNumber: invoiceNumber.trim() || undefined,
                 authorizedByUserId: currentUser?.role === 'MANAGER' ? currentUser.id : undefined,
             });
-            toast.success(`Retiro de $${payoutAmount.toFixed(2)} registrado.`);
+            toast.success(t('cmpx.payout.recorded', { amount: payoutAmount.toFixed(2) }));
             onRecorded?.(movement);
             onClose();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error al registrar el retiro');
+            setError(err instanceof ApiError ? err.message : t('cmpx.payout.err_save'));
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Retiro de efectivo (Payout)" size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.payout.title')} size="lg">
             <div className="space-y-4">
                 <div className="text-sm p-3 rounded-md bg-neutral-50 dark:bg-neutral-700/50 flex justify-between">
-                    <span className="text-neutral-600 dark:text-neutral-300">Efectivo disponible en caja:</span>
+                    <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.payout.cash_available')}</span>
                     <span className="font-semibold">${currentCashInDrawer.toFixed(2)}</span>
                 </div>
 
                 <div>
-                    <label htmlFor="payoutAmount" className="block text-sm font-medium">Monto a retirar</label>
+                    <label htmlFor="payoutAmount" className="block text-sm font-medium">{t('cmpx.payout.amount')}</label>
                     <div className="relative mt-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
                         <input
@@ -105,20 +107,20 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
                 </div>
 
                 <div>
-                    <label htmlFor="payoutReason" className="block text-sm font-medium">Razón del retiro</label>
+                    <label htmlFor="payoutReason" className="block text-sm font-medium">{t('cmpx.payout.reason')}</label>
                     <textarea
                         id="payoutReason"
                         value={reason}
                         onChange={e => setReason(e.target.value)}
                         rows={3}
                         className={inputFormStyle}
-                        placeholder="Ej. Compra de suministros en ferretería..."
+                        placeholder={t('cmpx.payout.reason_ph')}
                     />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="receiptCount" className="block text-sm font-medium">Cantidad de recibos</label>
+                        <label htmlFor="receiptCount" className="block text-sm font-medium">{t('cmpx.payout.receipt_count')}</label>
                         <input
                             type="number"
                             id="receiptCount"
@@ -130,7 +132,7 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
                         />
                     </div>
                     <div>
-                        <label htmlFor="invoiceNumber" className="block text-sm font-medium">Número de factura (opcional)</label>
+                        <label htmlFor="invoiceNumber" className="block text-sm font-medium">{t('cmpx.payout.invoice_number')}</label>
                         <input
                             type="text"
                             id="invoiceNumber"
@@ -142,8 +144,8 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
                 </div>
 
                 <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Registrado por: <strong>{currentUser?.name} {currentUser?.lastName}</strong>
-                    {currentUser?.role === 'MANAGER' && ' (autoautorizado)'}
+                    {t('cmpx.payout.recorded_by')} <strong>{currentUser?.name} {currentUser?.lastName}</strong>
+                    {currentUser?.role === 'MANAGER' && ` ${t('cmpx.payout.self_authorized')}`}
                 </div>
 
                 {error && (
@@ -154,9 +156,9 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
                 )}
 
                 <div className="flex justify-end space-x-2 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="button" onClick={handleConfirm} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                        {submitting ? 'Registrando...' : 'Registrar retiro'}
+                        {submitting ? t('cmpx.common.registering') : t('cmpx.payout.submit')}
                     </button>
                 </div>
             </div>

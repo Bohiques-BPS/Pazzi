@@ -2,6 +2,7 @@
 import React from 'react';
 import { AlertsConfiguration } from '../../components/admin/AlertsConfiguration';
 import { ModulesConfiguration } from '../../components/admin/ModulesConfiguration';
+import { BusinessDataConfiguration } from '../../components/admin/BusinessDataConfiguration';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -16,6 +17,8 @@ export const AdminDashboardPage: React.FC = () => {
                     {t('adminx.dashboard.subtitle')}
                 </p>
             </div>
+
+            <BusinessDataConfiguration />
 
             <ModulesConfiguration />
 

@@ -6,6 +6,7 @@ import { supplierOrdersService, type SupplierOrderRecord } from '../../services/
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ReceiveSupplierOrderModalProps {
     isOpen: boolean;
@@ -20,6 +21,7 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
     order,
     onReceived,
 }) => {
+    const { t } = useTranslation();
     const { branches, products } = useData();
     const activeBranches = useMemo(() => branches.filter(b => b.isActive), [branches]);
 
@@ -53,7 +55,7 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
 
     const handleConfirm = async () => {
         if (!branchId) {
-            setError('Seleccione una sucursal destino.');
+            setError(t('cmpx.receiveorder.err_branch'));
             return;
         }
         setSubmitting(true);
@@ -67,14 +69,14 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
             onReceived?.(res.order);
             onClose();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error al recibir la orden');
+            setError(err instanceof ApiError ? err.message : t('cmpx.receiveorder.err_receive'));
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Recibir orden ${order.id.slice(0, 8).toUpperCase()}`} size="2xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.receiveorder.title', { id: order.id.slice(0, 8).toUpperCase() })} size="2xl">
             <div className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -85,23 +87,23 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
 
                 <div className="p-3 rounded-md bg-neutral-50 dark:bg-neutral-700/50 text-sm">
                     <div className="flex justify-between">
-                        <span className="text-neutral-600 dark:text-neutral-300">Proveedor:</span>
+                        <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.receiveorder.supplier')}</span>
                         <span className="font-medium">{order.supplier?.name || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-neutral-600 dark:text-neutral-300">Fecha orden:</span>
+                        <span className="text-neutral-600 dark:text-neutral-300">{t('cmpx.receiveorder.order_date')}</span>
                         <span>{new Date(order.orderDate).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between font-semibold">
-                        <span>Costo total:</span>
+                        <span>{t('cmpx.receiveorder.total_cost')}</span>
                         <span>${order.totalCost.toFixed(2)}</span>
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Sucursal destino</label>
+                    <label className="block text-sm font-medium">{t('cmpx.receiveorder.dest_branch')}</label>
                     <select value={branchId} onChange={e => setBranchId(e.target.value)} className={inputFormStyle} required>
-                        <option value="">Seleccionar...</option>
+                        <option value="">{t('cmpx.common.select_ph')}</option>
                         {activeBranches.map(b => (
                             <option key={b.id} value={b.id}>{b.name}</option>
                         ))}
@@ -109,16 +111,16 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
                 </div>
 
                 <div>
-                    <h4 className="text-sm font-semibold mb-2">Productos a recibir ({order.items.length})</h4>
+                    <h4 className="text-sm font-semibold mb-2">{t('cmpx.receiveorder.products_to_receive', { count: order.items.length })}</h4>
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-600 rounded">
                             <thead className="bg-neutral-100 dark:bg-neutral-700">
                                 <tr>
-                                    <th className="text-left p-2">Producto</th>
-                                    <th className="text-right p-2">Cantidad</th>
-                                    <th className="text-right p-2">Costo unit.</th>
-                                    <th className="text-right p-2">Stock actual</th>
-                                    <th className="text-right p-2">Stock después</th>
+                                    <th className="text-left p-2">{t('cmpx.receiveorder.th_product')}</th>
+                                    <th className="text-right p-2">{t('cmpx.receiveorder.th_quantity')}</th>
+                                    <th className="text-right p-2">{t('cmpx.receiveorder.th_unit_cost')}</th>
+                                    <th className="text-right p-2">{t('cmpx.receiveorder.th_current_stock')}</th>
+                                    <th className="text-right p-2">{t('cmpx.receiveorder.th_stock_after')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -137,26 +139,26 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Notas de recepción (opcional)</label>
+                    <label className="block text-sm font-medium">{t('cmpx.receiveorder.notes_label')}</label>
                     <textarea
                         value={notes}
                         onChange={e => setNotes(e.target.value)}
                         rows={2}
                         className={inputFormStyle}
-                        placeholder="Observaciones sobre la recepción..."
+                        placeholder={t('cmpx.receiveorder.notes_ph')}
                     />
                 </div>
 
                 <div className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 text-xs text-amber-800 dark:text-amber-300">
-                    Al confirmar, se incrementará el stock en la sucursal seleccionada y se creará un registro en la bitácora de inventario por cada producto.
+                    {t('cmpx.receiveorder.confirm_warning')}
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-2 border-t dark:border-neutral-700">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>
-                        Cancelar
+                        {t('common.cancel')}
                     </button>
                     <button type="button" onClick={handleConfirm} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting || !branchId}>
-                        {submitting ? 'Recibiendo...' : 'Recibir y actualizar stock'}
+                        {submitting ? t('cmpx.receiveorder.submitting') : t('cmpx.receiveorder.submit')}
                     </button>
                 </div>
             </div>

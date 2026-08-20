@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { paymentsService } from '../../services/payments';
 import { ApiError } from '../../services/api';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export interface AgilPayCardData {
     card: string;
@@ -45,6 +46,7 @@ const expiryOk = (exp: string) => {
 const inputCls = 'w-full text-base px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700';
 
 export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, customerName, customerEmail, onSuccess, chargeFn }) => {
+    const { t } = useTranslation();
     const [card, setCard] = useState('');
     const [expiry, setExpiry] = useState('');
     const [cvv, setCvv] = useState('');
@@ -65,9 +67,9 @@ export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, c
     const charge = async () => {
         setError(null);
         const cardDigits = card.replace(/\s/g, '');
-        if (!luhnOk(cardDigits)) return setError('Número de tarjeta inválido.');
-        if (!expiryOk(expiry)) return setError('Fecha de expiración inválida.');
-        if (cvv.replace(/\D/g, '').length < 3) return setError('CVV inválido.');
+        if (!luhnOk(cardDigits)) return setError(t('cmpx.agilpay.err_card'));
+        if (!expiryOk(expiry)) return setError(t('cmpx.agilpay.err_expiry'));
+        if (cvv.replace(/\D/g, '').length < 3) return setError(t('cmpx.agilpay.err_cvv'));
         const [mm, yy] = expiry.split('/');
         setCharging(true);
         try {
@@ -84,9 +86,9 @@ export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, c
                 });
             // Guardamos el IDTransaction (lo requiere el reembolso por AgilPay).
             if (res.success) onSuccess((res as any).transactionId || res.reference || 'AGIL');
-            else setError('La transacción fue rechazada.');
+            else setError(t('cmpx.agilpay.err_declined'));
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error al cobrar con AgilPay.');
+            setError(err instanceof ApiError ? err.message : t('cmpx.agilpay.err_charge'));
         } finally {
             setCharging(false);
         }
@@ -94,16 +96,16 @@ export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, c
 
     return (
         <div className="pt-2 space-y-2 border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
-            <div className="text-sm font-medium text-neutral-700 dark:text-neutral-200">Cobrar con tarjeta (AgilPay) · ${amount.toFixed(2)}</div>
-            <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder="Número de tarjeta" className={inputCls} autoComplete="off" />
+            <div className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('cmpx.agilpay.title', { amount: amount.toFixed(2) })}</div>
+            <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder={t('cmpx.agilpay.card_ph')} className={inputCls} autoComplete="off" />
             <div className="grid grid-cols-3 gap-2">
-                <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder="MM/AA" className={inputCls} autoComplete="off" />
+                <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder={t('cmpx.agilpay.expiry_ph')} className={inputCls} autoComplete="off" />
                 <input type="text" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={inputCls} autoComplete="off" />
                 <input type="text" inputMode="numeric" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))} placeholder="Zip" className={inputCls} autoComplete="off" />
             </div>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <button type="button" onClick={charge} disabled={charging} className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2 rounded-md">
-                {charging ? 'Procesando…' : `Cobrar $${amount.toFixed(2)}`}
+                {charging ? t('cmpx.agilpay.processing') : t('cmpx.agilpay.charge', { amount: amount.toFixed(2) })}
             </button>
         </div>
     );

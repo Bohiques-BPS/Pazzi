@@ -547,7 +547,7 @@ export const EstimatesListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('posx.estimates.confirm_delete_title')}
-                message={t('posx.estimates.confirm_delete_message')}
+                message={t('confirm.delete.named_item', { item: t('confirm.delete.def.estimate'), name: `#${(itemToDeleteId || '').slice(-6).toUpperCase()}` })}
                 confirmButtonText={t('posx.estimates.confirm_delete_btn')}
                 cancelButtonText={t('confirm.cancel.btn')}
             />

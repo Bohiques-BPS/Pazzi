@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../../services/api';
@@ -124,7 +125,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                 </div>
                 <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.suppliers.form.phone')}</label>
-                    <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} className={inputFormStyle} />
+                    <PhoneInput name="phone" id="phone" value={formData.phone || ''} onChange={(val) => handleChange({ target: { name: 'phone', value: val, type: 'tel' } } as any)} className="w-full" />
                 </div>
                 <div>
                     <label htmlFor="address" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.suppliers.form.address')}</label>

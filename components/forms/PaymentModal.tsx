@@ -7,6 +7,7 @@ import { invoicesService, type Invoice, type PublicInvoice } from '../../service
 import { parseAmount, round2, computeBalance, evaluatePayment, coversBalance } from './paymentMath';
 import { getPrintFormat, setPrintFormat, type PrintFormat } from '../../services/receiptPrinter';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`;
 
@@ -50,6 +51,7 @@ interface PaymentModalProps {
 const CASH_DENOMINATIONS = [100, 50, 20, 10, 5, 1];
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, totalAmount, subtotalAmount, taxAmount, athItems, customerName, customerEmail, initialMethod, methods, onFinalizeSale }) => {
+    const { t } = useTranslation();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [selectedMethod, setSelectedMethod] = useState<string>(initialMethod);
     const [amountInput, setAmountInput] = useState('');
@@ -86,7 +88,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const isAth = selectedConfig?.type === 'ath_movil';
     const needsRef = !!selectedConfig?.requiresReference && !isAth;
     const showRefField = needsRef || isAth;
-    const refLabel = selectedConfig?.referenceLabel || 'Referencia';
+    const refLabel = selectedConfig?.referenceLabel || t('cmpx.payment.reference_default');
 
     // Vuelto en vivo mientras se escribe el monto de efectivo (antes de "Agregar Pago").
     const previewChange = isCash ? Math.max(0, (parseAmount(amountInput) || 0) - balance) : 0;
@@ -176,9 +178,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const handleAddPayment = () => {
         const res = evaluatePayment({ amountInput, balance, isCash, needsRef, hasReference: !!referenceInput.trim() });
         if (!res.ok) {
-            if (res.error === 'invalid') toast.error('Monto inválido. Verifique el valor ingresado.');
-            else if (res.error === 'exceeds') toast.error('El monto no puede superar el saldo pendiente para este método.');
-            else toast.error(`Ingresa: ${refLabel}.`);
+            if (res.error === 'invalid') toast.error(t('cmpx.payment.err_invalid'));
+            else if (res.error === 'exceeds') toast.error(t('cmpx.payment.err_exceeds'));
+            else toast.error(t('cmpx.payment.err_ref', { label: refLabel }));
             return;
         }
         setPayments(prev => [...prev, {
@@ -198,13 +200,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         if (remaining > 0) {
             setPayments(prev => [...prev, { method: selectedMethod, amount: remaining, reference: ref }]);
         }
-        toast.success('Pago recibido.');
+        toast.success(t('cmpx.payment.payment_received'));
     };
 
     // Genera un link/QR de pago ATH Móvil para el saldo actual (factura pública con monto exacto).
     const generateAthQr = async () => {
         const amount = parseFloat(balance.toFixed(2));
-        if (amount <= 0) { toast.error('No hay saldo por cobrar.'); return; }
+        if (amount <= 0) { toast.error(t('cmpx.payment.no_balance')); return; }
         setAthGenerating(true);
         setAthPaidMsg(null);
         athHandledRef.current = false;
@@ -220,7 +222,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             setAthInvoice(inv);
             setAthQr(url);
         } catch {
-            toast.error('No se pudo generar el link de pago.');
+            toast.error(t('cmpx.payment.err_gen_link'));
         } finally {
             setAthGenerating(false);
         }
@@ -228,8 +230,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
 
     const copyAthLink = async () => {
         if (!athInvoice) return;
-        try { await navigator.clipboard.writeText(publicLink(athInvoice.publicToken)); toast.success('Link copiado'); }
-        catch { toast.error('No se pudo copiar'); }
+        try { await navigator.clipboard.writeText(publicLink(athInvoice.publicToken)); toast.success(t('cmpx.payment.link_copied')); }
+        catch { toast.error(t('cmpx.payment.err_copy')); }
     };
 
     const handleRemovePayment = (index: number) => {
@@ -275,7 +277,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     // F12: finaliza solo cuando ya no queda saldo (cobro completado).
     finalizeIfPaidRef.current = () => {
         if (isFullyPaid) handleFinalize();
-        else toast.error('Aún falta saldo por pagar.');
+        else toast.error(t('cmpx.payment.err_balance_left'));
     };
     // Pago ATH detectado por el sondeo → registra el abono automáticamente (una sola vez).
     athDetectRef.current = (pub) => {
@@ -285,23 +287,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         athHandledRef.current = true;
         const ref = pub.paidReference || pub.payments?.[pub.payments.length - 1]?.reference || 'ATH Móvil';
         setPayments(prev => [...prev, { method: selectedMethod, amount: paid, reference: ref || undefined }]);
-        setAthPaidMsg('✅ Pago ATH Móvil recibido y registrado.');
-        toast.success('Pago ATH Móvil recibido.');
+        setAthPaidMsg(t('cmpx.payment.ath_received_msg'));
+        toast.success(t('cmpx.payment.ath_received_toast'));
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Procesar Venta" size="3xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.payment.title')} size="3xl">
             <div className="space-y-5">
                 {/* 1) Selección de método — arriba, 100% ancho */}
                 <div>
-                    <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-2">Seleccione Método y Monto:</h3>
+                    <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200 mb-2">{t('cmpx.payment.select_method_amount')}</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                         {methods.map((m, i) => (
                             <button
                                 key={m.name}
                                 type="button"
                                 onClick={() => { setSelectedMethod(m.name); focusAmount(); }}
-                                title={`Atajo: F${i + 1}`}
+                                title={t('cmpx.payment.shortcut', { n: i + 1 })}
                                 className={`relative p-4 border rounded-lg text-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-neutral-800 ${
                                     selectedMethod === m.name
                                         ? 'border-teal-500 ring-2 ring-teal-300 dark:ring-teal-600 bg-teal-50 dark:bg-teal-900/50'
@@ -319,7 +321,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                 <div className="space-y-4">
                     <div className="space-y-1">
                         <label htmlFor="paymentAmount" className="text-base font-medium">
-                            Monto para {selectedMethod}
+                            {t('cmpx.payment.amount_for', { method: selectedMethod })}
                         </label>
                         <div className="flex items-center gap-2">
                             <input
@@ -339,7 +341,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                 className="px-5 py-2.5 whitespace-nowrap bg-neutral-200 dark:bg-neutral-600 rounded-md text-base font-semibold hover:bg-neutral-300 dark:hover:bg-neutral-500 disabled:opacity-50"
                                 disabled={isFullyPaid}
                             >
-                                Agregar Pago
+                                {t('cmpx.payment.add_payment')}
                             </button>
                         </div>
 
@@ -356,7 +358,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                     onSuccess={handleGatewaySuccess}
                                     onFail={(m) => toast.error(m)}
                                 />
-                                <p className="text-xs text-neutral-400">O ingresa el número de confirmación manualmente abajo.</p>
+                                <p className="text-xs text-neutral-400">{t('cmpx.payment.confirm_manual')}</p>
                             </div>
                         )}
 
@@ -370,23 +372,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                         disabled={athGenerating || balance <= 0}
                                         className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-md"
                                     >
-                                        {athGenerating ? 'Generando…' : `Generar QR / link de pago · $${Math.max(0, balance).toFixed(2)}`}
+                                        {athGenerating ? t('cmpx.payment.generating') : t('cmpx.payment.generate_qr', { amount: Math.max(0, balance).toFixed(2) })}
                                     </button>
                                 ) : athPaidMsg ? (
                                     <p className="text-center text-sm font-semibold text-green-700 dark:text-green-300 py-3">{athPaidMsg}</p>
                                 ) : (
                                     <div className="text-center space-y-2">
-                                        <p className="text-xs text-neutral-500">El cliente escanea el QR o abre el link y paga. El cobro se registra <b>automáticamente</b> al confirmarse.</p>
-                                        {athQr && <img src={athQr} alt="QR de pago" className="mx-auto rounded-md border border-neutral-200 dark:border-neutral-700" />}
+                                        <p className="text-xs text-neutral-500">{t('cmpx.payment.qr_instr_pre')} <b>{t('cmpx.payment.qr_instr_auto')}</b> {t('cmpx.payment.qr_instr_post')}</p>
+                                        {athQr && <img src={athQr} alt={t('cmpx.payment.qr_alt')} className="mx-auto rounded-md border border-neutral-200 dark:border-neutral-700" />}
                                         <p className="flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400">
-                                            <span className="inline-block h-2 w-2 rounded-full bg-indigo-500 animate-pulse" /> Esperando el pago del cliente…
+                                            <span className="inline-block h-2 w-2 rounded-full bg-indigo-500 animate-pulse" /> {t('cmpx.payment.waiting')}
                                         </p>
                                         <div className="flex gap-2">
                                             <input readOnly value={publicLink(athInvoice.publicToken)} onFocus={e => e.currentTarget.select()} className="w-full text-xs px-2 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700" />
-                                            <button type="button" onClick={copyAthLink} className="px-3 py-1.5 text-xs font-semibold bg-neutral-200 dark:bg-neutral-600 rounded-md hover:bg-neutral-300 dark:hover:bg-neutral-500">Copiar</button>
+                                            <button type="button" onClick={copyAthLink} className="px-3 py-1.5 text-xs font-semibold bg-neutral-200 dark:bg-neutral-600 rounded-md hover:bg-neutral-300 dark:hover:bg-neutral-500">{t('cmpx.payment.copy')}</button>
                                         </div>
-                                        <a href={publicLink(athInvoice.publicToken)} target="_blank" rel="noreferrer" className="inline-block text-xs text-teal-600 dark:text-teal-400 hover:underline">Abrir vista del cliente ↗</a>
-                                        <p className="text-[11px] text-neutral-400">¿No confirma solo? Puedes escribir el Nº de confirmación abajo.</p>
+                                        <a href={publicLink(athInvoice.publicToken)} target="_blank" rel="noreferrer" className="inline-block text-xs text-teal-600 dark:text-teal-400 hover:underline">{t('cmpx.payment.open_client_view')}</a>
+                                        <p className="text-[11px] text-neutral-400">{t('cmpx.payment.no_auto_confirm')}</p>
                                     </div>
                                 )}
                             </div>
@@ -406,7 +408,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                         {/* Métodos con referencia (cheque obligatorio; ATH Móvil opcional, etc.) */}
                         {showRefField && (
                             <div className="pt-2">
-                                <label htmlFor="paymentReference" className="block text-sm font-medium mb-1">{refLabel}{!needsRef ? ' (opcional)' : ''}</label>
+                                <label htmlFor="paymentReference" className="block text-sm font-medium mb-1">{refLabel}{!needsRef ? ` ${t('cmpx.common.optional_paren')}` : ''}</label>
                                 <input
                                     id="paymentReference"
                                     type="text"
@@ -428,7 +430,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                         onClick={() => setAmountInput(balance > 0 ? balance.toFixed(2) : '0.00')}
                                         className="px-4 py-2 text-base font-semibold rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/40"
                                     >
-                                        Exacto
+                                        {t('cmpx.payment.exact')}
                                     </button>
                                     {CASH_DENOMINATIONS.map(amt => (
                                         <button
@@ -445,12 +447,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                         onClick={() => setAmountInput('0.00')}
                                         className="px-4 py-2 text-base font-semibold rounded-md border border-red-300 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
                                     >
-                                        Limpiar
+                                        {t('cmpx.payment.clear')}
                                     </button>
                                 </div>
                                 {previewChange > 0.001 && (
                                     <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                                        Vuelto: ${previewChange.toFixed(2)}
+                                        {t('cmpx.payment.change_live', { amount: previewChange.toFixed(2) })}
                                     </p>
                                 )}
                             </div>
@@ -460,22 +462,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                     {/* 3) Monto pendiente (saldo) — debajo del contenido del método */}
                     {changeDue > 0.001 ? (
                         <div className="bg-green-50 dark:bg-green-900/30 text-center p-5 rounded-lg">
-                            <p className="text-base font-medium text-green-700 dark:text-green-300">Cambio a devolver</p>
+                            <p className="text-base font-medium text-green-700 dark:text-green-300">{t('cmpx.payment.change_due')}</p>
                             <p className="text-5xl sm:text-6xl font-bold text-green-600 dark:text-green-400">${changeDue.toFixed(2)}</p>
                         </div>
                     ) : (
                         <div className="bg-red-50 dark:bg-red-900/30 text-center p-5 rounded-lg">
-                            <p className="text-base font-medium text-red-700 dark:text-red-300">Saldo Pendiente</p>
+                            <p className="text-base font-medium text-red-700 dark:text-red-300">{t('cmpx.payment.pending_balance')}</p>
                             <p className="text-5xl sm:text-6xl font-bold text-red-600 dark:text-red-400">${Math.max(0, balance).toFixed(2)}</p>
                         </div>
                     )}
 
                     {/* Pagos aplicados + total */}
                     <div>
-                        <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Pagos Aplicados:</h3>
+                        <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">{t('cmpx.payment.applied_payments')}</h3>
                         <div className="mt-2 space-y-2 text-base max-h-48 overflow-y-auto pr-2">
                            {payments.length === 0 ? (
-                                <p className="text-neutral-500 dark:text-neutral-400">Ningún pago aplicado.</p>
+                                <p className="text-neutral-500 dark:text-neutral-400">{t('cmpx.payment.no_payments')}</p>
                            ) : (
                                 payments.map((p, i) => (
                                     <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 px-3 py-2.5 rounded">
@@ -489,7 +491,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                     </div>
                     <div className="border-t dark:border-neutral-600 pt-3">
                         <div className="flex justify-between items-center text-2xl font-bold">
-                            <span>Total Pagado:</span>
+                            <span>{t('cmpx.payment.total_paid')}</span>
                             <span>${totalPaid.toFixed(2)}</span>
                         </div>
                     </div>
@@ -499,19 +501,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
             <div className="flex justify-between items-center gap-3 flex-wrap mt-6 pt-4 border-t dark:border-neutral-600">
                 {/* Qué imprimir al finalizar (como el POS clásico) */}
                 <div className="flex items-center gap-4 text-base">
-                    <span className="font-medium text-neutral-600 dark:text-neutral-300">Imprimir:</span>
+                    <span className="font-medium text-neutral-600 dark:text-neutral-300">{t('cmpx.payment.print_label')}</span>
                     <label className="flex items-center gap-1.5 cursor-pointer">
                         <input type="radio" name="printFormat" checked={printFormat === 'recibo'} onChange={() => changeFormat('recibo')} className="h-4 w-4" />
-                        Recibo
+                        {t('cmpx.payment.receipt')}
                     </label>
                     <label className="flex items-center gap-1.5 cursor-pointer">
                         <input type="radio" name="printFormat" checked={printFormat === 'factura'} onChange={() => changeFormat('factura')} className="h-4 w-4" />
-                        Factura
+                        {t('cmpx.payment.invoice')}
                     </label>
                 </div>
                 <div className="flex items-stretch space-x-3">
                     <button type="button" onClick={onClose} className={`${BUTTON_SECONDARY_CLASSES} !text-lg !px-8`}>
-                        Cancelar
+                        {t('common.cancel')}
                     </button>
                     <button
                         type="button"
@@ -519,7 +521,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                         className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
                         disabled={balance > 0.001}
                     >
-                        Finalizar Venta <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
+                        {t('cmpx.payment.finalize')} <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
                     </button>
                 </div>
             </div>

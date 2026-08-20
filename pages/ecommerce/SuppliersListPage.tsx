@@ -144,7 +144,12 @@ export const SuppliersListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('ecomx.confirm.delete_title')}
-                message={t('ecomx.confirm.delete_message')}
+                message={(() => {
+                    const name = suppliers.find(s => s.id === itemToDeleteId)?.name || '';
+                    return name
+                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.supplier'), name })
+                        : t('confirm.delete.named', { item: t('confirm.delete.n.supplier') });
+                })()}
                 confirmButtonText={t('ecomx.confirm.delete_yes')}
             />
         </div>

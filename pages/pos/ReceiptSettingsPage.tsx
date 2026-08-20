@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 import { buildReceiptHTML, getReceiptAction, setReceiptAction, type ReceiptSale, type ReceiptAction } from '../../components/pos/ReceiptModal';
 import { getDrawerConfig, setDrawerConfig, listPrinters, openCashDrawer, type DrawerConfig } from '../../services/cashDrawer';
 import { getLabelConfig, setLabelConfig, printBarcodeLabel, type LabelConfig } from '../../services/labelPrinter';
@@ -127,6 +128,8 @@ export const ReceiptSettingsPage: React.FC = () => {
                                 <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t(f.label)}</label>
                                 {f.textarea ? (
                                     <textarea value={(cfg[f.key] as string) || ''} onChange={e => set(f.key, e.target.value as any)} placeholder={f.placeholder ? t(f.placeholder) : undefined} rows={2} className={`${INPUT_SM_CLASSES} w-full`} />
+                                ) : f.key === 'phone' ? (
+                                    <PhoneInput value={(cfg[f.key] as string) || ''} onChange={val => set(f.key, val as any)} placeholder={f.placeholder ? t(f.placeholder) : undefined} className="w-full" />
                                 ) : (
                                     <input type="text" value={(cfg[f.key] as string) || ''} onChange={e => set(f.key, e.target.value as any)} placeholder={f.placeholder ? t(f.placeholder) : undefined} className={`${INPUT_SM_CLASSES} w-full`} />
                                 )}

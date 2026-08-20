@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, CLIENT_PRICE_LEVEL_OPTIONS } from '../../constants';
 import { TrashIconMini, PlusIcon, ExclamationTriangleIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 import { POSProjectFormModal } from '../pos/POSProjectFormModal';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
@@ -258,8 +259,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 <div><label className="block text-sm font-medium">{t('client.field.zip')}</label><input type="text" name="zip" value={formData.zip} onChange={handleChange} className={inputFormStyle} /></div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-                 <div><label className="block text-sm font-medium">{t('common.phone')}</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputFormStyle} /></div>
-                 <div><label className="block text-sm font-medium">{t('common.phone')} 2</label><input type="tel" name="phone2" value={formData.phone2} onChange={handleChange} className={inputFormStyle} /></div>
+                 <div><label className="block text-sm font-medium">{t('common.phone')}</label><PhoneInput name="phone" value={formData.phone || ''} onChange={(val) => handleChange({ target: { name: 'phone', value: val, type: 'tel' } } as any)} className="w-full" /></div>
+                 <div><label className="block text-sm font-medium">{t('common.phone')} 2</label><PhoneInput name="phone2" value={formData.phone2 || ''} onChange={(val) => handleChange({ target: { name: 'phone2', value: val, type: 'tel' } } as any)} className="w-full" /></div>
             </div>
             <div><label className="block text-sm font-medium">{t('client.field.fax')}</label><input type="tel" name="fax" value={formData.fax} onChange={handleChange} className={inputFormStyle} /></div>
             <div><label className="block text-sm font-medium">{t('common.email')}</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} /></div>
@@ -355,7 +356,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 <RichTextEditor value={formData.shippingAddress || ''} onChange={(value) => setFormData(prev => ({...prev, shippingAddress: value}))} />
             </div>
             <div><label className="block text-sm font-medium">{t('client.shipping.contact_name')}</label><input type="text" name="shippingContactName" value={formData.shippingContactName} onChange={handleChange} className={inputFormStyle}/></div>
-            <div><label className="block text-sm font-medium">{t('client.shipping.contact_phone')}</label><input type="tel" name="shippingContactPhone" value={formData.shippingContactPhone} onChange={handleChange} className={inputFormStyle}/></div>
+            <div><label className="block text-sm font-medium">{t('client.shipping.contact_phone')}</label><PhoneInput name="shippingContactPhone" value={formData.shippingContactPhone || ''} onChange={(val) => handleChange({ target: { name: 'shippingContactPhone', value: val, type: 'tel' } } as any)} className="w-full"/></div>
             <div><label className="block text-sm font-medium">{t('client.shipping.carrier')}</label><input type="text" name="preferredCarrier" value={formData.preferredCarrier} onChange={handleChange} className={inputFormStyle}/></div>
         </div>
     );

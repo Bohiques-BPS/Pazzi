@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../constants';
+import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 export interface TourStep {
     id: string;
@@ -29,6 +30,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
     onNext,
     onPrev,
 }) => {
+    const { t } = useTranslation();
     const popoverRef = useRef<HTMLDivElement>(null);
     const currentStep = steps[currentStepIndex];
 
@@ -150,25 +152,25 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
                 </div>
                 <div className="flex justify-between items-center p-3 border-t border-neutral-200 dark:border-neutral-700">
                     <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                        Paso {currentStepIndex + 1} de {steps.length}
+                        {t('cmp.tour.step_of', { current: currentStepIndex + 1, total: steps.length })}
                     </div>
                     <div className="space-x-2">
                         {currentStepIndex > 0 ? (
                             <button onClick={onPrev} className={BUTTON_SECONDARY_SM_CLASSES}>
-                                Anterior
+                                {t('common.previous')}
                             </button>
                         ) : (
                             <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>
-                                Saltar Tour
+                                {t('cmp.tour.skip')}
                             </button>
                         )}
                         {currentStepIndex < steps.length - 1 ? (
                             <button onClick={onNext} className={`${BUTTON_PRIMARY_SM_CLASSES}`}>
-                                Siguiente
+                                {t('common.next')}
                             </button>
                         ) : (
                             <button onClick={onClose} className={`${BUTTON_PRIMARY_SM_CLASSES}`}>
-                                Finalizar
+                                {t('cmp.tour.finish')}
                             </button>
                         )}
                     </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { EyeIcon, EyeSlashIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 type PasswordInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>;
 
@@ -10,6 +11,7 @@ type PasswordInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'typ
  * posicionado absolute en el div padre, sigue funcionando correctamente.
  */
 export const PasswordInput: React.FC<PasswordInputProps> = ({ className = '', ...props }) => {
+    const { t } = useTranslation();
     const [show, setShow] = useState(false);
 
     return (
@@ -24,7 +26,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({ className = '', ..
                 tabIndex={-1}
                 onClick={() => setShow(v => !v)}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 focus:outline-none"
-                aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                aria-label={show ? t('cmpx.password.hide') : t('cmpx.password.show')}
             >
                 {show
                     ? <EyeSlashIcon className="w-5 h-5" />

@@ -7,12 +7,14 @@ import { PlusIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { tasksService } from '../../services/tasks';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ProjectTaskBoardProps {
     projectId: string;
 }
 
 export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId }) => {
+    const { t } = useTranslation();
     const { tasks, setTasks, addTask, updateTask, taskComments, getAllEmployees } = useData();
     const [draggedTask, setDraggedTask] = useState<Task | null>(null);
     const [isCreatingInStatus, setIsCreatingInStatus] = useState<TaskStatus | null>(null);
@@ -91,7 +93,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
 
         // Persist status + new order to backend
         tasksService.update(draggedTask.id, { status: targetStatus, order: newOrder }).catch(() => {
-            toast.error('No se pudo sincronizar el estado de la tarea.');
+            toast.error(t('cmpx.task.sync_error'));
         });
 
         setDraggedTask(null);
@@ -109,7 +111,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 assignedEmployeeIds: saved.assignedEmployeeIds || [],
             } as unknown as Task]);
         } catch {
-            toast.error('Error al crear la tarea.');
+            toast.error(t('cmpx.task.create_error'));
         }
         setNewTaskTitle('');
         setIsCreatingInStatus(null);
@@ -160,7 +162,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                 <textarea
                                     value={newTaskTitle}
                                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                                    placeholder="Escriba un título para esta tarea..."
+                                    placeholder={t('cmpx.task.title_ph')}
                                     className="w-full p-2 text-sm border-neutral-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-neutral-600 dark:border-neutral-500"
                                     rows={3}
                                     autoFocus
@@ -168,12 +170,12 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status as TaskStatus); } }}
                                 />
                                 <div className="mt-2">
-                                    <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>Añadir Tarea</button>
+                                    <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
                                 </div>
                             </div>
                         ) : (
                             <button onClick={() => setIsCreatingInStatus(status as TaskStatus)} className="mt-2 w-full text-left p-2 rounded-lg text-base text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center transition-colors">
-                                <PlusIcon className="w-4 h-4 mr-1" /> Añadir una tarea
+                                <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
                             </button>
                         )}
                     </div>

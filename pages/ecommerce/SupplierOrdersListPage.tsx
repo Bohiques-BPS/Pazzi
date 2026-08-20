@@ -377,7 +377,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('ecomx.confirm.delete_title')}
-                message={t('ecomx.confirm.delete_message')}
+                message={t('confirm.delete.named_item', { item: t('confirm.delete.def.supplier_order'), name: `#${(itemToDeleteId || '').slice(-6).toUpperCase()}` })}
                 confirmButtonText={t('ecomx.confirm.delete_yes')}
             />
             <SupplierOrderFormModal 

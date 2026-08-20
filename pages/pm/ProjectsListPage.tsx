@@ -197,7 +197,12 @@ export const ProjectsListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('pm2x.project.confirm_delete_title')}
-                message={t('pm2x.project.confirm_delete_msg')}
+                message={(() => {
+                    const name = projects.find(p => p.id === itemToDeleteId)?.name || '';
+                    return name
+                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.project'), name })
+                        : t('confirm.delete.named', { item: t('confirm.delete.n.project') });
+                })()}
                 confirmButtonText={t('pm2x.common.yes_delete')}
             />
         </div>

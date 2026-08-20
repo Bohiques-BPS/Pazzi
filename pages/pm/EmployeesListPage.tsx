@@ -26,6 +26,8 @@ export const EmployeesListPage: React.FC = () => {
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
     const [resending, setResending] = useState<string | null>(null);
     const [resetForEmail, setResetForEmail] = useState<string | null>(null);
+    // Empleado con la invitación pendiente de confirmar (abre modal de confirmación de correo).
+    const [resendFor, setResendFor] = useState<{ emp: Employee; noAccess: boolean } | null>(null);
     // Respaldo copiable del enlace de activación (por si el correo no está configurado o falló).
     const [activationInfo, setActivationInfo] = useState<{ name: string; link: string; emailSent?: boolean } | null>(null);
 
@@ -185,7 +187,7 @@ export const EmployeesListPage: React.FC = () => {
                                 {(isInvited || noAccess) && (
                                     <PermissionGate require="employees.manage">
                                         <button
-                                            onClick={() => handleResendInvitation(emp)}
+                                            onClick={() => setResendFor({ emp, noAccess })}
                                             className="text-amber-600 dark:text-amber-400 p-1 hover:text-amber-800 disabled:opacity-40"
                                             title={noAccess ? t('pm2x.employee.give_access_title') : t('pm2x.employee.resend_title')}
                                             disabled={resending === emp.id}
@@ -228,7 +230,13 @@ export const EmployeesListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('confirm.delete.title') || 'Confirmar eliminación'}
-                message={t('confirm.delete.message') || '¿Estás seguro de eliminar este empleado? Si tiene acceso al sistema, su cuenta también será eliminada.'}
+                message={(() => {
+                    const e = employees.find(x => x.id === itemToDeleteId);
+                    const name = e ? `${e.name} ${e.lastName}`.trim() : '';
+                    return name
+                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.employee'), name })
+                        : t('confirm.delete.employee_msg');
+                })()}
                 confirmButtonText={t('confirm.delete.btn') || 'Sí, eliminar'}
             />
 
@@ -239,6 +247,31 @@ export const EmployeesListPage: React.FC = () => {
                 title={t('pm2x.employee.reset_title')}
                 message={t('pm2x.employee.reset_confirm_msg', { email: resetForEmail ?? '' })}
                 confirmButtonText={t('pm2x.employee.yes_send')}
+            />
+
+            <ConfirmationModal
+                isOpen={!!resendFor}
+                onClose={() => setResendFor(null)}
+                onConfirm={() => { if (resendFor) handleResendInvitation(resendFor.emp); }}
+                title={resendFor?.noAccess ? t('pm2x.employee.give_access_title') : t('pm2x.employee.resend_title')}
+                confirmButtonText={t('pm2x.employee.yes_send')}
+                message={
+                    <div className="space-y-3">
+                        <p>{t('pm2x.employee.resend_confirm_msg')}</p>
+                        <div className="text-left">
+                            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{t('employee.field.email') || 'Email'}</label>
+                            <input
+                                type="email"
+                                readOnly
+                                value={resendFor?.emp.email || ''}
+                                onFocus={(e) => e.currentTarget.select()}
+                                aria-label={t('employee.field.email') || 'Email'}
+                                className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 font-medium cursor-default focus:outline-none"
+                            />
+                            <p className="text-xs text-neutral-400 mt-1">{t('pm2x.employee.resend_confirm_hint')}</p>
+                        </div>
+                    </div>
+                }
             />
 
             <Modal isOpen={!!activationInfo} onClose={() => setActivationInfo(null)} title={t('pm2x.employee.activation_title')} size="md">

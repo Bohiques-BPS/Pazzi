@@ -16,6 +16,8 @@ import { PlusIcon } from '../../components/icons';
 import { rolesService, type Role } from '../../services/roles';
 import { RoleFormModal } from './RoleFormModal';
 import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
+import { PhoneInput } from '../../components/ui/PhoneInput';
+import { SensitiveInput } from '../../components/ui/SensitiveInput';
 
 interface EmployeeFormModalProps {
     isOpen: boolean;
@@ -437,7 +439,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium">{t('employee.field.phone') || 'Teléfono'}</label>
-                                <input type="tel" name="phone" value={formData.phone || ''} onChange={handleChange} placeholder="## #### ####" className={inputFormStyle} />
+                                <PhoneInput name="phone" value={formData.phone || ''} onChange={(val) => handleChange({ target: { name: 'phone', value: val, type: 'tel' } } as any)} className="w-full" />
                             </div>
                         </div>
                         <div>
@@ -653,7 +655,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                             </div>
                             <div className="mt-2">
                                 <label className="block text-sm font-medium">{t('pm2x.employee.emergency_phone')}</label>
-                                <input type="tel" name="emergencyContactPhone" value={formData.emergencyContactPhone || ''} onChange={handleChange} className={inputFormStyle} />
+                                <PhoneInput name="emergencyContactPhone" value={formData.emergencyContactPhone || ''} onChange={(val) => handleChange({ target: { name: 'emergencyContactPhone', value: val, type: 'tel' } } as any)} className="w-full" />
                             </div>
                         </div>
                         <div className="pt-4 border-t dark:border-neutral-700">
@@ -665,7 +667,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">{t('pm2x.employee.account_number')}</label>
-                                    <input type="text" name="bankAccountNumber" value={formData.bankAccountNumber || ''} onChange={handleChange} className={inputFormStyle} />
+                                    <SensitiveInput name="bankAccountNumber" value={formData.bankAccountNumber || ''} onChange={handleChange} className={inputFormStyle} />
                                 </div>
                             </div>
                         </div>
@@ -673,7 +675,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                             <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.employee.social_info')}</h4>
                             <div className="mt-2">
                                 <label className="block text-sm font-medium">{t('pm2x.employee.ssn')}</label>
-                                <input type="text" name="socialSecurityNumber" value={formData.socialSecurityNumber || ''} onChange={handleChange} className={inputFormStyle} />
+                                <SensitiveInput name="socialSecurityNumber" value={formData.socialSecurityNumber || ''} onChange={handleChange} className={inputFormStyle} />
                             </div>
                         </div>
                     </div>

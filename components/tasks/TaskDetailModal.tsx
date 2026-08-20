@@ -9,6 +9,7 @@ import { RichTextEditor } from '../ui/RichTextEditor';
 import { tasksService, type TaskCommentRecord, type ChecklistItem } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -18,15 +19,16 @@ interface TaskDetailModalProps {
     onDelete?: (taskId: string) => void;
 }
 
-const PRIORITY_OPTIONS: { value: Task['priority']; label: string; cls: string }[] = [
-    { value: null,     label: '— Sin prioridad', cls: '' },
-    { value: 'low',    label: '🔵 Baja',          cls: 'text-blue-600' },
-    { value: 'medium', label: '🟡 Media',          cls: 'text-yellow-600' },
-    { value: 'high',   label: '🟠 Alta',           cls: 'text-orange-600' },
-    { value: 'urgent', label: '🔴 Urgente',        cls: 'text-red-600' },
+const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string }[] = [
+    { value: null,     labelKey: 'cmpx.task.prio.none',   cls: '' },
+    { value: 'low',    labelKey: 'cmpx.task.prio.low',    cls: 'text-blue-600' },
+    { value: 'medium', labelKey: 'cmpx.task.prio.medium', cls: 'text-yellow-600' },
+    { value: 'high',   labelKey: 'cmpx.task.prio.high',   cls: 'text-orange-600' },
+    { value: 'urgent', labelKey: 'cmpx.task.prio.urgent', cls: 'text-red-600' },
 ];
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete }) => {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const { getAllEmployees } = useData();
     const [title, setTitle] = useState(task.title);
@@ -53,7 +55,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
 
     const handleSave = async () => {
         if (!title.trim()) {
-            setError('El título es requerido.');
+            setError(t('cmpx.task.title_required'));
             return;
         }
         setSubmitting(true);
@@ -67,10 +69,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 priority: priority || null,
             });
             onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null } as any);
-            toast.success('Tarea actualizada');
+            toast.success(t('cmpx.task.updated_ok'));
             onClose();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error al guardar la tarea');
+            setError(err instanceof ApiError ? err.message : t('cmpx.task.save_error'));
         } finally {
             setSubmitting(false);
         }
@@ -91,10 +93,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         try {
             await tasksService.update(task.id, { archived: true });
             onArchive(task.id);
-            toast.success('Tarea archivada');
+            toast.success(t('cmpx.task.archived_ok'));
             onClose();
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al archivar la tarea');
+            toast.error(err instanceof ApiError ? err.message : t('cmpx.task.archive_error'));
         }
     };
 
@@ -103,10 +105,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         try {
             await tasksService.delete(task.id);
             if (onDelete) onDelete(task.id);
-            toast.success('Tarea eliminada');
+            toast.success(t('cmpx.task.deleted_ok'));
             onClose();
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al eliminar la tarea');
+            toast.error(err instanceof ApiError ? err.message : t('cmpx.task.delete_error'));
         }
     };
 
@@ -119,7 +121,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             setComments(prev => [...prev, comment]);
             setNewComment('');
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'Error al enviar comentario');
+            toast.error(err instanceof ApiError ? err.message : t('cmpx.task.comment_error'));
         } finally {
             setSendingComment(false);
         }
@@ -133,7 +135,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             const item = await tasksService.addChecklistItem(task.id, text);
             setChecklists(prev => [...prev, item]);
             setNewCheckItem('');
-        } catch { toast.error('Error al añadir ítem'); }
+        } catch { toast.error(t('cmpx.task.check_add_error')); }
         finally { setAddingCheck(false); }
     };
 
@@ -147,7 +149,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const handleDeleteCheckItem = async (itemId: string) => {
         setChecklists(prev => prev.filter(c => c.id !== itemId));
         try { await tasksService.deleteChecklistItem(task.id, itemId); }
-        catch { toast.error('Error al eliminar ítem'); }
+        catch { toast.error(t('cmpx.task.check_delete_error')); }
     };
 
     const checkProgress = checklists.length > 0
@@ -161,7 +163,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
 
     return (
         <>
-        <Modal isOpen={true} onClose={onClose} title="Detalles de la tarea" size="2xl">
+        <Modal isOpen={true} onClose={onClose} title={t('cmpx.task.details_title')} size="2xl">
             <div className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -171,7 +173,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 )}
 
                 <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Título</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.title_label')}</label>
                     <input
                         type="text"
                         value={title}
@@ -183,19 +185,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 {/* Priority + Due date in a row */}
                 <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Prioridad</label>
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.priority_label')}</label>
                         <select
                             value={priority ?? ''}
                             onChange={e => setPriority((e.target.value || null) as Task['priority'])}
                             className={inputFormStyle}
                         >
                             {PRIORITY_OPTIONS.map(opt => (
-                                <option key={opt.value ?? 'none'} value={opt.value ?? ''}>{opt.label}</option>
+                                <option key={opt.value ?? 'none'} value={opt.value ?? ''}>{t(opt.labelKey)}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fecha límite</label>
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.due_date')}</label>
                         <input
                             type="date"
                             value={dueDate}
@@ -206,16 +208,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Descripción</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.description_label')}</label>
                     <RichTextEditor
                         value={description}
                         onChange={setDescription}
-                        placeholder="Añada una descripción más detallada..."
+                        placeholder={t('cmpx.task.description_ph')}
                     />
                 </div>
 
                 <fieldset className="border dark:border-neutral-600 p-3 rounded">
-                    <legend className="text-base font-medium px-1 text-neutral-700 dark:text-neutral-300">Asignar colaboradores</legend>
+                    <legend className="text-base font-medium px-1 text-neutral-700 dark:text-neutral-300">{t('cmpx.task.assign_collaborators')}</legend>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto mt-2">
                         {allEmployees.map(emp => (
                             <label key={emp.id} className="flex items-center space-x-2 p-1.5 bg-neutral-100 dark:bg-neutral-700 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-600">
@@ -235,7 +237,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 <div className="border-t dark:border-neutral-700 pt-4">
                     <div className="flex items-center justify-between mb-2">
                         <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-                            ☑️ Lista de verificación
+                            ☑️ {t('cmpx.task.checklist')}
                             {checklists.length > 0 && (
                                 <span className="ml-2 text-xs font-normal text-neutral-500">
                                     {checklists.filter(c => c.checked).length}/{checklists.length}
@@ -267,7 +269,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                             type="button"
                                             onClick={() => handleDeleteCheckItem(item.id)}
                                             className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 transition-opacity p-0.5"
-                                            aria-label="Eliminar ítem"
+                                            aria-label={t('cmpx.task.check_delete_aria')}
                                         >
                                             ✕
                                         </button>
@@ -282,7 +284,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             value={newCheckItem}
                             onChange={e => setNewCheckItem(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCheckItem(); } }}
-                            placeholder="Añadir un ítem..."
+                            placeholder={t('cmpx.task.check_add_ph')}
                             className={inputFormStyle + ' flex-1 !py-1.5 text-sm'}
                             disabled={addingCheck}
                         />
@@ -292,23 +294,23 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             disabled={addingCheck || !newCheckItem.trim()}
                             className={BUTTON_SECONDARY_SM_CLASSES}
                         >
-                            Añadir
+                            {t('common.add')}
                         </button>
                     </div>
                 </div>
 
                 <div className="border-t dark:border-neutral-700 pt-4">
-                    <h4 className="text-base font-semibold mb-2">Comentarios ({sortedComments.length})</h4>
+                    <h4 className="text-base font-semibold mb-2">{t('cmpx.task.comments', { count: sortedComments.length })}</h4>
                     <div className="space-y-3 max-h-48 overflow-y-auto pr-2 bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded-md">
                         {sortedComments.length > 0 ? sortedComments.map(comment => (
                             <div key={comment.id} className="text-base">
                                 <div className="flex justify-between items-baseline">
-                                    <span className="font-semibold text-primary/80 dark:text-accent/80">{comment.senderName || 'Usuario'}</span>
+                                    <span className="font-semibold text-primary/80 dark:text-accent/80">{comment.senderName || t('cmpx.common.user')}</span>
                                     <span className="text-xs text-neutral-400">{new Date(comment.timestamp).toLocaleString()}</span>
                                 </div>
                                 <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{comment.text}</p>
                             </div>
-                        )) : <p className="text-sm text-center text-neutral-500">No hay comentarios.</p>}
+                        )) : <p className="text-sm text-center text-neutral-500">{t('cmpx.task.no_comments')}</p>}
                     </div>
                     <div className="flex items-center space-x-2 mt-3">
                         <input
@@ -316,7 +318,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             value={newComment}
                             onChange={e => setNewComment(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddComment(); } }}
-                            placeholder="Añadir un comentario..."
+                            placeholder={t('cmpx.task.comment_ph')}
                             className={inputFormStyle + " flex-grow"}
                             disabled={sendingComment}
                         />
@@ -329,18 +331,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 <div className="flex justify-between items-center pt-4 border-t dark:border-neutral-700">
                     <div className="flex gap-2">
                         <button onClick={handleArchive} className={`${BUTTON_SECONDARY_SM_CLASSES} text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center`}>
-                            <ArchiveBoxIcon className="w-4 h-4 mr-1" /> Archivar
+                            <ArchiveBoxIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.archive')}
                         </button>
                         {onDelete && (
                             <button onClick={() => setShowDeleteConfirm(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center`}>
-                                <DeleteIcon className="w-4 h-4 mr-1" /> Eliminar
+                                <DeleteIcon className="w-4 h-4 mr-1" /> {t('common.delete')}
                             </button>
                         )}
                     </div>
                     <div className="space-x-2">
-                        <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>Cancelar</button>
+                        <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
                         <button onClick={handleSave} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                            {submitting ? 'Guardando...' : 'Guardar cambios'}
+                            {submitting ? t('common.saving') : t('cmpx.task.save_changes')}
                         </button>
                     </div>
                 </div>
@@ -350,17 +352,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             isOpen={showArchiveConfirm}
             onClose={() => setShowArchiveConfirm(false)}
             onConfirm={confirmArchive}
-            title="Archivar tarea"
-            message="La tarea no aparecerá en el tablero pero su historial se conserva."
-            confirmButtonText="Archivar"
+            title={t('cmpx.task.archive_confirm_title')}
+            message={t('cmpx.task.archive_confirm_msg')}
+            confirmButtonText={t('cmpx.task.archive')}
         />
         <ConfirmationModal
             isOpen={showDeleteConfirm}
             onClose={() => setShowDeleteConfirm(false)}
             onConfirm={confirmDelete}
-            title="¿Eliminar tarea?"
-            message="Esta acción es permanente y eliminará también los comentarios. ¿Deseas continuar?"
-            confirmButtonText="Sí, eliminar"
+            title={t('cmpx.task.delete_confirm_title')}
+            message={t('cmpx.task.delete_confirm_msg')}
+            confirmButtonText={t('pmx.common.yes_delete')}
         />
         </>
     );

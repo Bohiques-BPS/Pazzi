@@ -102,9 +102,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
   const renderClientProjectNavLinks = () => (
     <>
-        <Link to="/project-client/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> Dashboard</Link>
-        <Link to="/project-client/calendar" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><CalendarDaysIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> Calendario</Link>
-        <Link to="/project-client/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><ChatBubbleLeftRightIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> Mis Chats</Link>
+        <Link to="/project-client/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> {t('cmp.navbar.dashboard')}</Link>
+        <Link to="/project-client/calendar" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><CalendarDaysIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> {t('cmp.navbar.calendar')}</Link>
+        <Link to="/project-client/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><ChatBubbleLeftRightIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> {t('cmp.navbar.my_chats')}</Link>
     </>
   );
 
@@ -157,7 +157,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     id="navbar-module-selector-button-desktop"
                     onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
                     className="hidden md:flex items-center justify-center p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md border border-neutral-300 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    aria-label="Seleccionar módulo"
+                    aria-label={t('cmp.navbar.select_module')}
                     aria-haspopup="true"
                     aria-expanded={moduleDropdownOpen}
                     aria-controls="module-menu"
@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                 <button 
                     onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)} 
                     className="p-1.5 sm:p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    aria-label="Notificaciones"
+                    aria-label={t('cmp.navbar.notifications')}
                     aria-haspopup="true"
                     aria-expanded={notificationDropdownOpen}
                     aria-controls="notification-menu"
@@ -232,13 +232,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                 {notificationDropdownOpen && (
                     <div id="notification-menu" className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-neutral-700 rounded-md shadow-xl py-1 z-30 border border-neutral-200 dark:border-neutral-600 max-h-[70vh] flex flex-col">
                         <div className="flex justify-between items-center px-4 py-2 border-b dark:border-neutral-600">
-                            <h3 className="text-base font-semibold text-neutral-700 dark:text-neutral-200">Notificaciones</h3>
+                            <h3 className="text-base font-semibold text-neutral-700 dark:text-neutral-200">{t('cmp.navbar.notifications')}</h3>
                             {unreadCount > 0 && (
-                                <button 
+                                <button
                                     onClick={() => {markAllNotificationsAsRead(); }}
                                     className="text-sm text-primary hover:underline"
                                 >
-                                    Marcar todas como leídas
+                                    {t('cmp.navbar.mark_all_read')}
                                 </button>
                             )}
                         </div>
@@ -263,12 +263,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                     </div>
                                 </div>
                             )}) : (
-                                <p className="text-center text-base text-neutral-500 dark:text-neutral-400 py-6">No hay notificaciones nuevas.</p>
+                                <p className="text-center text-base text-neutral-500 dark:text-neutral-400 py-6">{t('cmp.navbar.no_notifications')}</p>
                             )}
                         </div>
                          {notifications.length > 0 && (
                              <div className="px-4 py-2 border-t dark:border-neutral-600 text-center">
-                                <span className="text-sm text-neutral-400 dark:text-neutral-500">Mostrando últimas {latestNotifications.length}</span>
+                                <span className="text-sm text-neutral-400 dark:text-neutral-500">{t('cmp.navbar.showing_latest', { count: latestNotifications.length })}</span>
                             </div>
                          )}
                     </div>

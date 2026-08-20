@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   if (subModulesToDisplay.length === 0 && currentUser?.role !== UserRole.CLIENT_PROJECT) {
       return (
         <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-64 space-y-1 py-7 px-2 fixed inset-y-0 left-0 top-[65px] transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
-            <p className="px-2 py-2 text-lg text-neutral-500 dark:text-neutral-400">No hay opciones disponibles.</p>
+            <p className="px-2 py-2 text-lg text-neutral-500 dark:text-neutral-400">{t('cmp.sidebar.no_options')}</p>
         </aside>
       );
   }

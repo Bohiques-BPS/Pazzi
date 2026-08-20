@@ -9,6 +9,7 @@ import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
 import { SelectWithCreate } from '../ui/SelectWithCreate';
 import { BranchFormModal } from './BranchFormModal';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface CajaFormModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ interface CajaFormModalProps {
 }
 
 export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, cajaToEdit }) => {
+    const { t } = useTranslation();
     const { setCajas, cajas: allCajas, branches } = useData();
     const activeBranches = branches.filter(b => b.isActive);
 
@@ -64,11 +66,11 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         setError(null);
 
         if (formData.name.trim() === '') {
-            setError('El nombre de la caja es obligatorio.');
+            setError(t('cmpx.cajaform.err_name'));
             return;
         }
         if (!formData.branchId) {
-            setError('Seleccione una sucursal para la caja.');
+            setError(t('cmpx.cajaform.err_branch'));
             return;
         }
         const isDuplicateName = allCajas.some(
@@ -77,7 +79,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                  && (!cajaToEdit || c.id !== cajaToEdit.id)
         );
         if (isDuplicateName) {
-            setError('Ya existe una caja con ese nombre en esta sucursal.');
+            setError(t('cmpx.cajaform.err_duplicate'));
             return;
         }
 
@@ -103,11 +105,11 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                 ? prev.map(c => c.id === cajaToEdit.id ? normalized : c)
                 : [...prev, normalized]);
 
-            toast.success(cajaToEdit ? 'Caja actualizada' : 'Caja creada');
+            toast.success(cajaToEdit ? t('cmpx.cajaform.updated') : t('cmpx.cajaform.created'));
             onClose();
         } catch (err) {
             if (err instanceof ApiError) setError(err.message);
-            else setError('Error de conexión con el servidor');
+            else setError(t('cmpx.common.conn_error'));
         } finally {
             setSubmitting(false);
         }
@@ -115,7 +117,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
 
     return (
         <>
-        <Modal isOpen={isOpen} onClose={onClose} title={cajaToEdit ? 'Editar caja (terminal)' : 'Crear caja (terminal)'} size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title={cajaToEdit ? t('cmpx.cajaform.title_edit') : t('cmpx.cajaform.title_new')} size="lg">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -125,53 +127,53 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                 )}
 
                 <div>
-                    <label htmlFor="cajaName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Nombre de la caja</label>
+                    <label htmlFor="cajaName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.cajaform.name_label')}</label>
                     <input type="text" name="name" id="cajaName" value={formData.name} onChange={handleChange} className={inputFormStyle} required autoFocus />
                 </div>
                 <SelectWithCreate
                     id="branchId"
                     name="branchId"
-                    label="Sucursal asignada"
+                    label={t('cmpx.cajaform.branch_label')}
                     value={formData.branchId}
                     onChange={(v) => setFormData(prev => ({ ...prev, branchId: v }))}
                     options={activeBranches.map(b => ({ value: b.id, label: b.name }))}
                     onCreateClick={() => setShowCreateBranch(true)}
                     required
-                    placeholder="Seleccionar sucursal"
-                    emptyHint="No hay sucursales activas. Usa + para crear una sin perder este formulario."
-                    createTitle="Crear nueva sucursal"
+                    placeholder={t('cmpx.cajaform.branch_ph')}
+                    emptyHint={t('cmpx.cajaform.branch_empty_hint')}
+                    createTitle={t('cmpx.cajaform.create_branch_title')}
                 />
 
                 <div className="flex flex-wrap items-center gap-6 pt-2">
                     <label htmlFor="isActive" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
                         <input type="checkbox" name="isActive" id="isActive" checked={formData.isActive} onChange={handleChange} className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded mr-2" />
-                        Caja activa
+                        {t('cmpx.cajaform.active')}
                     </label>
                     <label htmlFor="applyIVU" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">
                         <input type="checkbox" name="applyIVU" id="applyIVU" checked={formData.applyIVU} onChange={handleChange} className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 dark:border-neutral-600 rounded mr-2" />
-                        Aplicar IVU por defecto
+                        {t('cmpx.cajaform.apply_ivu')}
                     </label>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    "Aplicar IVU por defecto" indica si las ventas en esta caja incluyen IVU automáticamente. Puede ajustarse por producto.
+                    {t('cmpx.cajaform.apply_ivu_hint')}
                 </p>
 
                 <div className="pt-2 border-t dark:border-neutral-700">
                     <label htmlFor="isExternal" className="flex items-start text-sm font-medium text-neutral-700 dark:text-neutral-300 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-100 dark:border-amber-800 cursor-pointer">
                         <input type="checkbox" name="isExternal" id="isExternal" checked={formData.isExternal} onChange={handleChange} className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-neutral-300 dark:border-neutral-600 rounded mr-2 mt-0.5" />
                         <div>
-                            <span className="block font-bold text-amber-700 dark:text-amber-400">Caja externa / fuera del sistema</span>
+                            <span className="block font-bold text-amber-700 dark:text-amber-400">{t('cmpx.cajaform.external')}</span>
                             <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-normal mt-1">
-                                Las ventas se guardarán pero <strong>NO</strong> se incluirán en los reportes financieros estándar por defecto. Útil para ventas paralelas o de prueba.
+                                {t('cmpx.cajaform.external_hint_pre')} <strong>{t('cmpx.cajaform.external_no')}</strong> {t('cmpx.cajaform.external_hint_post')}
                             </span>
                         </div>
                     </label>
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting || (activeBranches.length === 0 && !cajaToEdit?.branchId)}>
-                        {submitting ? 'Guardando...' : 'Guardar caja'}
+                        {submitting ? t('common.saving') : t('cmpx.cajaform.submit')}
                     </button>
                 </div>
             </form>
@@ -183,7 +185,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                 onClose={(createdBranch) => {
                     if (createdBranch) {
                         setFormData(prev => ({ ...prev, branchId: createdBranch.id }));
-                        toast.success(`Sucursal "${createdBranch.name}" creada y seleccionada.`);
+                        toast.success(t('cmpx.cajaform.branch_created', { name: createdBranch.name }));
                     }
                     setShowCreateBranch(false);
                 }}

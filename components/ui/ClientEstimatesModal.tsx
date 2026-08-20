@@ -7,6 +7,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 
 interface ClientEstimatesModalProps {
@@ -19,6 +20,7 @@ interface ClientEstimatesModalProps {
 }
 
 export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOpen, onClose, client, onLoadItems, isCartEmpty, onCreateFromCart }) => {
+    const { t } = useTranslation();
     const { estimates, getProductById } = useData();
     const { getDefaultSettings } = useECommerceSettings();
     const [selectedEstimateIds, setSelectedEstimateIds] = useState<string[]>([]);
@@ -48,7 +50,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     const handleLoadToCart = () => {
         const selected = clientEstimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0) {
-            toast.error('Por favor seleccione al menos un estimado.');
+            toast.error(t('cmpx.estimates.select_one'));
             return;
         }
 
@@ -70,7 +72,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     const handleGeneratePDF = () => {
         const selected = clientEstimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0 || !client) {
-            toast.error('Seleccione al menos un estimado y asegúrese de que haya un cliente asignado.');
+            toast.error(t('cmpx.estimates.select_one_client'));
             return;
         }
     
@@ -197,12 +199,12 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     if (!client) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Estimados para ${client.name}`} size="2xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.estimates.title', { name: client.name })} size="2xl">
             <div className="space-y-6">
-                
+
                 <div>
-                    <h3 className="text-lg font-semibold mb-2">Cargar Estimado Existente</h3>
-                    <p className="text-base text-neutral-500 dark:text-neutral-400 mb-3">Seleccione uno o más estimados para combinar y cargar en el carrito de venta.</p>
+                    <h3 className="text-lg font-semibold mb-2">{t('cmpx.estimates.load_existing')}</h3>
+                    <p className="text-base text-neutral-500 dark:text-neutral-400 mb-3">{t('cmpx.estimates.load_existing_hint')}</p>
                     {clientEstimates.length > 0 ? (
                         <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                             {clientEstimates.map(est => (
@@ -215,42 +217,42 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
                                     />
                                     <div className="ml-4 flex-grow">
                                         <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
-                                            Estimado #{est.id.slice(-6)} - <span className="font-normal">{new Date(est.date).toLocaleDateString()}</span> - ${est.totalAmount.toFixed(2)}
+                                            {t('cmpx.estimates.estimate_hash')}{est.id.slice(-6)} - <span className="font-normal">{new Date(est.date).toLocaleDateString()}</span> - ${est.totalAmount.toFixed(2)}
                                         </p>
-                                        <p className="text-sm text-neutral-500 dark:text-neutral-400">{est.items.length} artículo(s) - Estado: {est.status}</p>
-                                        {est.notes && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 italic line-clamp-1">Notas: {est.notes}</p>}
+                                        <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('cmpx.estimates.items_status', { count: est.items.length, status: est.status })}</p>
+                                        {est.notes && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 italic line-clamp-1">{t('cmpx.estimates.notes_label')} {est.notes}</p>}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                         <p className="text-center text-base py-8">Este cliente no tiene estimados pendientes.</p>
+                         <p className="text-center text-base py-8">{t('cmpx.estimates.none_pending')}</p>
                     )}
                 </div>
 
                 <div className="border-t pt-6 dark:border-neutral-700">
-                    <h3 className="text-lg font-semibold mb-2">Crear a partir del Carrito</h3>
-                    <p className="text-sm text-neutral-500 mb-3">Use los productos actualmente en el carrito para generar un nuevo estimado para este cliente.</p>
+                    <h3 className="text-lg font-semibold mb-2">{t('cmpx.estimates.create_from_cart')}</h3>
+                    <p className="text-sm text-neutral-500 mb-3">{t('cmpx.estimates.create_from_cart_hint')}</p>
                     <button
                         type="button"
                         onClick={onCreateFromCart}
                         disabled={isCartEmpty}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} w-full text-base py-2.5 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                        Crear Estimado con Venta Actual
+                        {t('cmpx.estimates.create_with_current')}
                     </button>
-                    {isCartEmpty && <p className="text-sm text-center text-red-500 mt-2">El carrito está vacío.</p>}
+                    {isCartEmpty && <p className="text-sm text-center text-red-500 mt-2">{t('cmpx.estimates.cart_empty')}</p>}
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-6 border-t dark:border-neutral-700">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button
                         type="button"
                         onClick={handleGeneratePDF}
                         className={BUTTON_SECONDARY_SM_CLASSES}
                         disabled={selectedEstimateIds.length === 0}
                     >
-                        Generar PDF
+                        {t('cmpx.estimates.generate_pdf')}
                     </button>
                     <button
                         type="button"
@@ -258,7 +260,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
                         className={BUTTON_PRIMARY_SM_CLASSES}
                         disabled={selectedEstimateIds.length === 0}
                     >
-                        Cargar {selectedEstimateIds.length > 0 ? selectedEstimateIds.length : ''} Seleccionado(s) al Carrito
+                        {t('cmpx.estimates.load_to_cart', { count: selectedEstimateIds.length > 0 ? selectedEstimateIds.length : '' })}
                     </button>
                 </div>
             </div>

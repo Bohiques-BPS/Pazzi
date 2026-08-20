@@ -166,7 +166,12 @@ export const DepartmentsListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('pmx.common.confirm_delete_title')}
-                message={t('pmx.common.cannot_undo')}
+                message={(() => {
+                    const name = departments.find(d => d.id === itemToDeleteId)?.name || '';
+                    return name
+                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.department'), name })
+                        : t('confirm.delete.named', { item: t('confirm.delete.n.department') });
+                })()}
                 confirmButtonText={t('pmx.common.yes_delete')}
             />
         </div>

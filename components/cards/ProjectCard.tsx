@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Project, ProjectStatus, Employee, Client } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { EllipsisVerticalIcon, CalendarDaysIcon, UserGroupIcon, ChatBubbleLeftRightIcon, DocumentArrowDownIcon } from '../icons'; // Adjusted path, Added DocumentArrowDownIcon
 
 interface ProjectCardProps {
@@ -25,6 +26,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     showManagementActions = true 
 }) => {
   const [actionsOpen, setActionsOpen] = useState(false);
+  const { t } = useTranslation();
   const { getClientById } = useData();
   const client = getClientById(project.clientId);
 
@@ -54,15 +56,15 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     </button>
                     {actionsOpen && (
                         <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-10 border border-neutral-200 dark:border-neutral-600">
-                            <button onClick={() => { onViewProject(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Editar Detalles</button>
-                            <button onClick={() => { onViewQuotation(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Cotización</button>
+                            <button onClick={() => { onViewProject(project, 'details'); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmp.projectcard.edit_details')}</button>
+                            <button onClick={() => { onViewQuotation(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmp.projectcard.view_quotation')}</button>
                              {project.status === ProjectStatus.COMPLETED && !project.invoiceGenerated && (
-                                <button onClick={() => { onGenerateInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Generar Factura</button>
+                                <button onClick={() => { onGenerateInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmp.projectcard.generate_invoice')}</button>
                             )}
                             {project.invoiceGenerated && (
-                                <button onClick={() => { onViewInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">Ver Factura</button>
+                                <button onClick={() => { onViewInvoice(project); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmp.projectcard.view_invoice')}</button>
                             )}
-                            <button onClick={() => { onRequestDelete(project.id); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">Eliminar</button>
+                            <button onClick={() => { onRequestDelete(project.id); setActionsOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">{t('common.delete')}</button>
                         </div>
                     )}
                 </div>
@@ -77,21 +79,21 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
       <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center text-sm text-neutral-500 dark:text-neutral-400 mb-2">
             <UserGroupIcon className="w-4 h-4 mr-2" />
-            <span>Cliente: {client ? `${client.name} ${client.lastName}` : 'N/A'}</span>
+            <span>{t('cmp.projectcard.client')} {client ? `${client.name} ${client.lastName}` : 'N/A'}</span>
         </div>
         <div className="text-sm text-neutral-500 dark:text-neutral-400">
-            <p className="flex items-center"><CalendarDaysIcon className="w-4 h-4 mr-2" /> Visita: {project.visitDate ? new Date(project.visitDate + 'T00:00:00').toLocaleDateString() : 'N/P'}</p>
+            <p className="flex items-center"><CalendarDaysIcon className="w-4 h-4 mr-2" /> {t('cmp.projectcard.visit')} {project.visitDate ? new Date(project.visitDate + 'T00:00:00').toLocaleDateString() : 'N/P'}</p>
         </div>
          <div className="mt-4 flex space-x-2">
             <button onClick={() => onViewProject(project, 'chat')} className="flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
-                <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" /> Chat
+                <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" /> {t('cmp.projectcard.chat')}
             </button>
              <button onClick={() => onViewProject(project, 'tasks')} className="flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
-                <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" /> Tareas
+                <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1.5" /> {t('cmp.projectcard.tasks')}
             </button>
              {project.invoiceGenerated && (
                  <button onClick={() => onViewInvoice(project)} className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-700/50 dark:hover:bg-blue-700/80 dark:text-blue-200 font-semibold text-xs py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 flex items-center justify-center">
-                    <DocumentArrowDownIcon className="w-4 h-4 mr-1.5" /> Ver Factura
+                    <DocumentArrowDownIcon className="w-4 h-4 mr-1.5" /> {t('cmp.projectcard.view_invoice')}
                 </button>
             )}
         </div>

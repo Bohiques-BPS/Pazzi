@@ -4,6 +4,7 @@ import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export interface ImportFieldDef {
     /** Clave destino del campo (la que espera el backend tras el mapeo del padre). */
@@ -93,6 +94,7 @@ function coerce(value: any, type?: string): any {
 }
 
 export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title, fields, onImport, onDone }) => {
+    const { t } = useTranslation();
     const [step, setStep] = useState<Step>('upload');
     const [fileName, setFileName] = useState('');
     const [headers, setHeaders] = useState<string[]>([]);
@@ -122,7 +124,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             const wb = XLSX.read(buf, { type: 'array' });
             const sheet = wb.Sheets[wb.SheetNames[0]];
             const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
-            if (json.length === 0) { setError('El archivo no tiene filas de datos.'); return; }
+            if (json.length === 0) { setError(t('cmpx.import.no_rows')); return; }
             const hdrs = Object.keys(json[0]);
             setHeaders(hdrs);
             setRows(json);
@@ -133,7 +135,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             setMapping(auto);
             setStep('map');
         } catch (err: any) {
-            setError('No se pudo leer el archivo. Asegúrate de que sea .xlsx o .csv válido.');
+            setError(t('cmpx.import.read_error'));
         } finally {
             setParsing(false);
         }
@@ -161,7 +163,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
 
     const handleImport = async () => {
         if (missingRequired.length > 0) {
-            setError(`Falta mapear campos obligatorios: ${missingRequired.map(f => f.label).join(', ')}`);
+            setError(t('cmpx.import.missing_required', { fields: missingRequired.map(f => f.label).join(', ') }));
             return;
         }
         setImporting(true); setError(null);
@@ -185,13 +187,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             setStep('result');
             if (agg.created > 0 || (agg.updated ?? 0) > 0) {
                 const parts = [];
-                if (agg.created > 0) parts.push(`${agg.created} creado(s)`);
-                if ((agg.updated ?? 0) > 0) parts.push(`${agg.updated} actualizado(s)`);
+                if (agg.created > 0) parts.push(t('cmpx.import.created_n', { count: agg.created }));
+                if ((agg.updated ?? 0) > 0) parts.push(t('cmpx.import.updated_n', { count: agg.updated }));
                 toast.success(parts.join(', ') + '.');
                 onDone?.();
             }
         } catch (err: any) {
-            setError(err?.message || 'Error al importar.');
+            setError(err?.message || t('cmpx.import.import_error'));
         } finally {
             setImporting(false);
             setProgress(null);
@@ -204,11 +206,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                 <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="animate-spin rounded-full h-14 w-14 border-4 border-white/30 border-t-white mb-4"></div>
                     <p className="text-white font-semibold text-lg">
-                        {parsing ? 'Leyendo archivo…' : 'Importando datos…'}
+                        {parsing ? t('cmpx.import.reading') : t('cmpx.import.importing')}
                     </p>
                     {importing && progress && (
                         <>
-                            <p className="text-white/80 text-sm mt-1">Procesando {progress.done.toLocaleString()} de {progress.total.toLocaleString()} fila(s). No cierres esta ventana.</p>
+                            <p className="text-white/80 text-sm mt-1">{t('cmpx.import.processing', { done: progress.done.toLocaleString(), total: progress.total.toLocaleString() })}</p>
                             <div className="w-64 h-2 bg-white/20 rounded-full mt-3 overflow-hidden">
                                 <div className="h-full bg-white transition-all" style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
                             </div>
@@ -225,8 +227,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             {step === 'upload' && (
                 <div className="text-center py-8">
                     <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
-                        Sube un archivo <strong>.xlsx</strong> o <strong>.csv</strong>. Detectaremos las columnas
-                        automáticamente y podrás revisarlas antes de importar.
+                        {t('cmpx.import.upload_help')}
                     </p>
                     <input
                         ref={fileInputRef}
@@ -236,7 +237,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                     />
                     <button type="button" onClick={() => fileInputRef.current?.click()} className={BUTTON_PRIMARY_SM_CLASSES}>
-                        Seleccionar archivo
+                        {t('cmpx.import.select_file')}
                     </button>
                 </div>
             )}
@@ -244,17 +245,17 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
             {step === 'map' && (
                 <div className="space-y-4">
                     <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                        Archivo <strong>{fileName}</strong> — {rows.length} fila(s).{' '}
-                        <strong>{fields.filter(f => mapping[f.key]).length}</strong> de {fields.length} campos mapeados.
-                        Confirma o corrige el mapeo (desplázate para ver todos):
+                        {t('cmpx.import.file_word')} <strong>{fileName}</strong> — {t('cmpx.import.rows_n', { count: rows.length })}.{' '}
+                        <strong>{fields.filter(f => mapping[f.key]).length}</strong> {t('cmpx.import.fields_mapped', { total: fields.length })}{' '}
+                        {t('cmpx.import.confirm_mapping')}
                     </p>
                     <div className="max-h-[62vh] overflow-y-auto border rounded-md dark:border-neutral-700">
                         <table className="min-w-full text-sm">
                             <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
                                 <tr>
-                                    <th className="text-left p-2">Campo destino</th>
-                                    <th className="text-left p-2">Columna del archivo</th>
-                                    <th className="text-left p-2">Ejemplo</th>
+                                    <th className="text-left p-2">{t('cmpx.import.col_target')}</th>
+                                    <th className="text-left p-2">{t('cmpx.import.col_file')}</th>
+                                    <th className="text-left p-2">{t('cmpx.import.col_example')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -272,7 +273,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                                                     onChange={(e) => setMapping(m => ({ ...m, [f.key]: e.target.value }))}
                                                     className={`${inputFormStyle} mt-0 py-1 text-sm ${f.required && !src ? 'border-red-400' : ''}`}
                                                 >
-                                                    <option value="">— Ignorar —</option>
+                                                    <option value="">{t('cmpx.import.ignore')}</option>
                                                     {headers.map(h => <option key={h} value={h}>{h}</option>)}
                                                 </select>
                                             </td>
@@ -284,9 +285,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                         </table>
                     </div>
                     <div className="flex justify-between pt-2">
-                        <button type="button" onClick={() => setStep('upload')} className={BUTTON_SECONDARY_SM_CLASSES}>Atrás</button>
+                        <button type="button" onClick={() => setStep('upload')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.import.back')}</button>
                         <button type="button" onClick={handleImport} disabled={importing} className={BUTTON_PRIMARY_SM_CLASSES}>
-                            {importing ? 'Importando...' : `Importar ${rows.length} fila(s)`}
+                            {importing ? t('cmpx.import.importing_short') : t('cmpx.import.import_n', { count: rows.length })}
                         </button>
                     </div>
                 </div>
@@ -296,18 +297,18 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                 <div className="space-y-4">
                     <div className="p-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 text-green-700 dark:text-green-300">
                         <p className="font-semibold">
-                            {result.created} creado(s)
-                            {(result.updated ?? 0) > 0 && ` · ${result.updated} actualizado(s)`}.
+                            {t('cmpx.import.created_n', { count: result.created })}
+                            {(result.updated ?? 0) > 0 && ` · ${t('cmpx.import.updated_n', { count: result.updated ?? 0 })}`}.
                         </p>
                         {result.failedCount > 0 && (
-                            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">{result.failedCount} fila(s) con errores (ver abajo).</p>
+                            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">{t('cmpx.import.failed_n', { count: result.failedCount })}</p>
                         )}
                     </div>
                     {result.failed.length > 0 && (
                         <div className="max-h-56 overflow-y-auto border rounded-md dark:border-neutral-700">
                             <table className="min-w-full text-sm">
                                 <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
-                                    <tr><th className="text-left p-2 w-16">Fila</th><th className="text-left p-2">Error</th></tr>
+                                    <tr><th className="text-left p-2 w-16">{t('cmpx.import.col_row')}</th><th className="text-left p-2">{t('common.error')}</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
                                     {result.failed.map(f => (
@@ -318,7 +319,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                         </div>
                     )}
                     <div className="flex justify-end pt-2">
-                        <button type="button" onClick={handleClose} className={BUTTON_PRIMARY_SM_CLASSES}>Listo</button>
+                        <button type="button" onClick={handleClose} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.import.done')}</button>
                     </div>
                 </div>
             )}

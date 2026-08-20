@@ -7,6 +7,7 @@ import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
 import { EmptyState } from '../ui/EmptyState';
 import type { ReceiptSale } from './ReceiptModal';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
@@ -47,6 +48,7 @@ interface ReprintModalProps {
 }
 
 export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, employeeId, onSelectReceipt }) => {
+    const { t } = useTranslation();
     const [tab, setTab] = useState<TabKey>('facturas');
     const [rows, setRows] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -89,14 +91,14 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
     const listable = tab === 'facturas' || tab === 'devoluciones';
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Reimprimir" size="2xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.reprint.title')} size="2xl">
             {/* Última transacción — re-impresión rápida */}
             <div className="flex items-center justify-between gap-3 border border-neutral-200 dark:border-neutral-700 rounded-md p-3 mb-3 bg-neutral-50 dark:bg-neutral-800/50">
                 <div className="min-w-0">
-                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Última Transacción</p>
+                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">{t('cmpx.reprint.last_tx')}</p>
                     {lastTx
                         ? <p className="text-base font-bold text-neutral-800 dark:text-neutral-100 truncate">#{lastTx.saleNumber ?? '—'} · {money(lastTx.totalAmount)}</p>
-                        : <p className="text-sm text-neutral-400">Sin transacciones recientes</p>}
+                        : <p className="text-sm text-neutral-400">{t('cmpx.reprint.no_recent')}</p>}
                 </div>
                 <button
                     type="button"
@@ -104,7 +106,7 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
                     disabled={!lastTx}
                     className="flex-shrink-0 bg-yellow-400 hover:bg-yellow-500 disabled:opacity-40 text-neutral-800 font-bold py-2 px-4 rounded-md text-sm"
                 >
-                    🖨️ Re-imprimir
+                    🖨️ {t('cmpx.reprint.reprint_btn')}
                 </button>
             </div>
 
@@ -117,7 +119,7 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
                         onClick={() => setTab(tb.key)}
                         className={`py-2 px-2 rounded-md border text-sm font-medium transition-colors ${tab === tb.key ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
                     >
-                        {tb.label}
+                        {t(`cmpx.reprint.tab_${tb.key}`)}
                     </button>
                 ))}
             </div>
@@ -128,14 +130,14 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
                         type="text"
                         value={q}
                         onChange={e => setQ(e.target.value)}
-                        placeholder="Buscar por # o cliente…"
+                        placeholder={t('cmpx.reprint.search_ph')}
                         className={`${INPUT_SM_CLASSES} w-full mb-3`}
                         autoFocus
                     />
                     {loading ? (
                         <LoadingSkeleton variant="list" rows={5} />
                     ) : filtered.length === 0 ? (
-                        <EmptyState title="Sin resultados" description={tab === 'devoluciones' ? 'No hay devoluciones tuyas.' : 'No hay facturas tuyas.'} />
+                        <EmptyState title={t('cmpx.reprint.no_results')} description={tab === 'devoluciones' ? t('cmpx.reprint.no_returns') : t('cmpx.reprint.no_invoices')} />
                     ) : (
                         <div className="max-h-[45vh] overflow-y-auto border rounded-md divide-y divide-neutral-100 dark:divide-neutral-700 dark:border-neutral-700">
                             {filtered.map(s => (
@@ -150,7 +152,7 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
                                             <span className="ml-2 text-xs font-normal text-neutral-400">{new Date(s.date).toLocaleString()}</span>
                                         </p>
                                         <p className="text-xs text-neutral-500 truncate">
-                                            {s.client ? `${s.client.name} ${s.client.lastName || ''}`.trim() : 'Público General'} · {s.paymentMethod}
+                                            {s.client ? `${s.client.name} ${s.client.lastName || ''}`.trim() : t('cmpx.reprint.walkin')} · {s.paymentMethod}
                                         </p>
                                     </div>
                                     <div className="text-right flex-shrink-0 ml-3">

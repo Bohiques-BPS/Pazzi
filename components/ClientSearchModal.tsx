@@ -4,6 +4,7 @@ import { Modal } from './Modal';
 import { MagnifyingGlassIcon, UserPlusIcon } from './icons';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
 import { clientsService } from '../services/clients';
+import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 interface ClientSearchModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
     onClientSelect,
     onOpenCreateClient
 }) => {
+    const { t } = useTranslation();
     const [searchTerm, setSearchTerm] = useState('');
     const [onlyBalance, setOnlyBalance] = useState(false);
     const [onlyLayaway, setOnlyLayaway] = useState(false);
@@ -64,7 +66,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Buscar / Seleccionar Cliente" size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmp.clientsearch.title')} size="lg">
             <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                     <div className="relative flex-grow">
@@ -73,7 +75,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                         </span>
                         <input
                             type="text"
-                            placeholder="Buscar por nombre, email, teléfono"
+                            placeholder={t('cmp.clientsearch.search_placeholder')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className={inputFormStyle + " pl-10 !text-lg"}
@@ -85,7 +87,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                         onClick={onOpenCreateClient}
                         className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0 flex items-center`}
                     >
-                        <UserPlusIcon className="mr-1.5" /> Crear Nuevo
+                        <UserPlusIcon className="mr-1.5" /> {t('cmp.clientsearch.create_new')}
                     </button>
                 </div>
 
@@ -93,11 +95,11 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                 <div className="flex items-center gap-5 text-sm text-neutral-600 dark:text-neutral-300">
                     <label className="flex items-center gap-1.5 cursor-pointer">
                         <input type="checkbox" checked={onlyBalance} onChange={e => setOnlyBalance(e.target.checked)} className="h-4 w-4" />
-                        Con balance
+                        {t('cmp.clientsearch.with_balance')}
                     </label>
                     <label className="flex items-center gap-1.5 cursor-pointer">
                         <input type="checkbox" checked={onlyLayaway} onChange={e => setOnlyLayaway(e.target.checked)} className="h-4 w-4" />
-                        Con layaway
+                        {t('cmp.clientsearch.with_layaway')}
                     </label>
                 </div>
 
@@ -122,8 +124,8 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                                             </p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                            {bal > 0.001 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 whitespace-nowrap">Balance {money(bal)}</span>}
-                                            {lay > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 whitespace-nowrap">{lay} layaway</span>}
+                                            {bal > 0.001 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 whitespace-nowrap">{t('cmp.clientsearch.balance', { amount: money(bal) })}</span>}
+                                            {lay > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 whitespace-nowrap">{t('cmp.clientsearch.layaway_count', { count: lay })}</span>}
                                         </div>
                                     </div>
                                 </li>
@@ -132,7 +134,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                     </ul>
                 ) : (
                     <p className="text-lg text-center text-neutral-500 dark:text-neutral-400 py-8">
-                        {onlyBalance || onlyLayaway ? 'Ningún cliente con ese filtro.' : searchTerm ? 'No se encontraron clientes.' : 'Comience a escribir para buscar...'}
+                        {onlyBalance || onlyLayaway ? t('cmp.clientsearch.empty_filter') : searchTerm ? t('cmp.clientsearch.empty_search') : t('cmp.clientsearch.empty_start')}
                     </p>
                 )}
             </div>

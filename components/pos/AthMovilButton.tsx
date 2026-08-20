@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface AthMovilButtonProps {
     publicToken: string;
@@ -25,6 +26,7 @@ interface AthMovilButtonProps {
 export const AthMovilButton: React.FC<AthMovilButtonProps> = ({
     publicToken, environment, total, subtotal, tax, items, onSuccess, onFail,
 }) => {
+    const { t } = useTranslation();
     // Refs para que los callbacks globales siempre llamen la versión vigente.
     const onSuccessRef = useRef(onSuccess); onSuccessRef.current = onSuccess;
     const onFailRef = useRef(onFail); onFailRef.current = onFail;
@@ -53,16 +55,16 @@ export const AthMovilButton: React.FC<AthMovilButtonProps> = ({
         const extractRef = (r: any) => String(r?.referenceNumber || r?.ecommerceId || r?.reference || 'ATH-OK');
         (window as any).authorizationATH = (auth: any) => onSuccessRef.current(extractRef(auth));
         (window as any).responseSuccessATH = (resp: any) => onSuccessRef.current(extractRef(resp));
-        (window as any).responseFailATH = (r: any) => onFailRef.current?.(r?.message || 'Pago ATH Móvil fallido.');
-        (window as any).responseCancelATH = () => onFailRef.current?.('Pago ATH Móvil cancelado.');
-        (window as any).responseExpiredATH = () => onFailRef.current?.('Pago ATH Móvil expirado.');
+        (window as any).responseFailATH = (r: any) => onFailRef.current?.(r?.message || t('cmpx.athmovil.failed'));
+        (window as any).responseCancelATH = () => onFailRef.current?.(t('cmpx.athmovil.cancelled'));
+        (window as any).responseExpiredATH = () => onFailRef.current?.(t('cmpx.athmovil.expired'));
 
         if (!scriptLoaded.current) {
             scriptLoaded.current = true;
             const s = document.createElement('script');
             s.src = 'https://www.athmovil.com/api/js/v3/athmovilV3.js';
             s.async = true;
-            s.onerror = () => onFailRef.current?.('No se pudo cargar el SDK de ATH Móvil.');
+            s.onerror = () => onFailRef.current?.(t('cmpx.athmovil.sdk_load_error'));
             document.body.appendChild(s);
         }
     }, [publicToken, environment, total, subtotal, tax, items]);

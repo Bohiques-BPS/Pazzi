@@ -1,6 +1,7 @@
 import React from 'react';
 import { Task, Employee } from '../../types';
 import { ChatBubbleLeftRightIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ChecklistSummary { total: number; done: number; }
 
@@ -12,13 +13,14 @@ interface TaskCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const PRIORITY_CONFIG = {
-    urgent: { label: 'Urgente', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-    high:   { label: 'Alta',    cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
-    medium: { label: 'Media',   cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' },
-    low:    { label: 'Baja',    cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+    urgent: { labelKey: 'cmpx.priority.urgent', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+    high:   { labelKey: 'cmpx.priority.high',   cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+    medium: { labelKey: 'cmpx.priority.medium', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' },
+    low:    { labelKey: 'cmpx.priority.low',    cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
 };
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assignedEmployees, checklistSummary, ...props }) => {
+    const { t } = useTranslation();
     const priorityCfg = task.priority ? PRIORITY_CONFIG[task.priority] : null;
 
     const dueDateStr = task.dueDate ? task.dueDate.split('T')[0] : null;
@@ -37,7 +39,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
             {/* Priority badge */}
             {priorityCfg && (
                 <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mb-1.5 ${priorityCfg.cls}`}>
-                    {priorityCfg.label}
+                    {t(priorityCfg.labelKey)}
                 </span>
             )}
 

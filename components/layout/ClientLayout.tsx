@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext'; 
+import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { AppModule } from '../../types';
 // FIX: Corrected import path for icons from `../../components/icons` to `../icons` to match sibling components in the same directory.
 import { 
@@ -22,6 +23,7 @@ interface LayoutProps {
 
 export const ClientLayout: React.FC<LayoutProps> = ({ children }) => {
     const { currentUser, logout } = useAuth();
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -32,13 +34,13 @@ export const ClientLayout: React.FC<LayoutProps> = ({ children }) => {
     };
 
     const navLinks = [
-        { name: "Dashboard", path: "/client-dashboard", icon: <DashboardIcon /> },
-        { name: "Mis Proyectos", path: "/client-dashboard", subPathMatch: "/client/chat", icon: <ProjectsIcon /> }, // Combines projects & chat for now
-        { name: "Mi Tienda Online", path: `/store/${currentUser?.id}`, icon: <StoreIcon />, isExternalLike: true }, // Link to their public store
-        { name: "Gestión E-commerce", icon: <ProductsIcon />, subLinks: [ // Using Briefcase as main e-com icon
-            { name: "Config. Tienda", path: "/client/ecommerce/settings", icon: <SettingsIcon /> },
-            { name: "Mis Productos", path: "/client/ecommerce/products", icon: <ProductsIcon /> },
-            { name: "Mis Pedidos", path: "/client/ecommerce/orders", icon: <OrdersIcon /> },
+        { name: t('cmp.clientlayout.dashboard'), path: "/client-dashboard", icon: <DashboardIcon /> },
+        { name: t('cmp.clientlayout.my_projects'), path: "/client-dashboard", subPathMatch: "/client/chat", icon: <ProjectsIcon /> }, // Combines projects & chat for now
+        { name: t('cmp.clientlayout.my_online_store'), path: `/store/${currentUser?.id}`, icon: <StoreIcon />, isExternalLike: true }, // Link to their public store
+        { name: t('cmp.clientlayout.ecommerce_management'), icon: <ProductsIcon />, subLinks: [ // Using Briefcase as main e-com icon
+            { name: t('cmp.clientlayout.store_config'), path: "/client/ecommerce/settings", icon: <SettingsIcon /> },
+            { name: t('cmp.clientlayout.my_products'), path: "/client/ecommerce/products", icon: <ProductsIcon /> },
+            { name: t('cmp.clientlayout.my_orders'), path: "/client/ecommerce/orders", icon: <OrdersIcon /> },
         ]}
     ];
 
@@ -53,9 +55,9 @@ export const ClientLayout: React.FC<LayoutProps> = ({ children }) => {
                         <img src={logoWhite} alt="Pazzi Logo" className="h-8" />
                     </Link>
                     <div className="flex items-center space-x-4">
-                        <span className="hidden sm:inline">{currentUser?.name || currentUser?.email} (Cliente)</span>
+                        <span className="hidden sm:inline">{currentUser?.name || currentUser?.email} {t('cmp.clientlayout.client_role')}</span>
                         <button onClick={handleLogout} className="bg-accent hover:bg-amber-600 text-white font-semibold py-1.5 px-3 rounded-md text-base transition duration-150">
-                            Cerrar Sesión
+                            {t('nav.logout')}
                         </button>
                     </div>
                 </div>

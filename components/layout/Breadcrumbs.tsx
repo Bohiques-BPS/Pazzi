@@ -1,41 +1,43 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-
-const routeLabels: Record<string, string> = {
-  '': 'Inicio',
-  'pm': 'Proyectos',
-  'pos': 'POS',
-  'ecommerce': 'E-commerce',
-  'admin': 'Administración',
-  'projects': 'Proyectos',
-  'clients': 'Clientes',
-  'products': 'Productos',
-  'categories': 'Categorías',
-  'departments': 'Departamentos',
-  'employees': 'Empleados',
-  'suppliers': 'Proveedores',
-  'branches': 'Sucursales',
-  'cajas': 'Cajas',
-  'sales-history': 'Historial de Ventas',
-  'reports': 'Reportes',
-  'inventory': 'Inventario',
-  'estimates': 'Estimados',
-  'layaways': 'Apartados',
-  'accounts-receivable': 'CxC',
-  'accounts-payable': 'CxP',
-  'dashboard': 'Dashboard',
-  'settings': 'Configuración',
-  'orders': 'Pedidos',
-  'supplier-orders': 'Órdenes a Proveedores',
-  'checkout': 'Checkout',
-  'chat': 'Chat',
-  'calendar': 'Calendario',
-  'cashier': 'Caja',
-};
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const Breadcrumbs: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const pathnames = location.pathname.split('/').filter(x => x);
+
+  const routeLabels: Record<string, string> = {
+    '': t('cmp.breadcrumb.home'),
+    'pm': t('cmp.breadcrumb.projects'),
+    'pos': t('cmp.breadcrumb.pos'),
+    'ecommerce': t('cmp.breadcrumb.ecommerce'),
+    'admin': t('cmp.breadcrumb.admin'),
+    'projects': t('cmp.breadcrumb.projects'),
+    'clients': t('cmp.breadcrumb.clients'),
+    'products': t('cmp.breadcrumb.products'),
+    'categories': t('cmp.breadcrumb.categories'),
+    'departments': t('cmp.breadcrumb.departments'),
+    'employees': t('cmp.breadcrumb.employees'),
+    'suppliers': t('cmp.breadcrumb.suppliers'),
+    'branches': t('cmp.breadcrumb.branches'),
+    'cajas': t('cmp.breadcrumb.cajas'),
+    'sales-history': t('cmp.breadcrumb.sales_history'),
+    'reports': t('cmp.breadcrumb.reports'),
+    'inventory': t('cmp.breadcrumb.inventory'),
+    'estimates': t('cmp.breadcrumb.estimates'),
+    'layaways': t('cmp.breadcrumb.layaways'),
+    'accounts-receivable': t('cmp.breadcrumb.accounts_receivable'),
+    'accounts-payable': t('cmp.breadcrumb.accounts_payable'),
+    'dashboard': t('cmp.breadcrumb.dashboard'),
+    'settings': t('cmp.breadcrumb.settings'),
+    'orders': t('cmp.breadcrumb.orders'),
+    'supplier-orders': t('cmp.breadcrumb.supplier_orders'),
+    'checkout': t('cmp.breadcrumb.checkout'),
+    'chat': t('cmp.breadcrumb.chat'),
+    'calendar': t('cmp.breadcrumb.calendar'),
+    'cashier': t('cmp.breadcrumb.cashier'),
+  };
 
   if (pathnames.length === 0) return null;
 

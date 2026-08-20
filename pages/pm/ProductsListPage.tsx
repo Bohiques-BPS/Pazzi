@@ -462,7 +462,12 @@ export const ProductsListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('pmx.common.confirm_delete_title')}
-                message={t('pmx.common.cannot_undo')}
+                message={(() => {
+                    const name = globalProducts.find(p => p.id === itemToDeleteId)?.name || '';
+                    return name
+                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.product'), name })
+                        : t('confirm.delete.named', { item: t('confirm.delete.n.product') });
+                })()}
                 confirmButtonText={t('pmx.common.yes_delete')}
             />
             <InventoryHistoryModal

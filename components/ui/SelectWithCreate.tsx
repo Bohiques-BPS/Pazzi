@@ -1,6 +1,7 @@
 import React from 'react';
 import { PlusIcon } from '../icons';
 import { inputFormStyle } from '../../constants';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export interface SelectOption {
     value: string;
@@ -45,9 +46,11 @@ export const SelectWithCreate: React.FC<SelectWithCreateProps> = ({
     disabled,
     placeholder,
     emptyHint,
-    createTitle = 'Crear nuevo',
+    createTitle,
     className,
 }) => {
+    const { t } = useTranslation();
+    const resolvedCreateTitle = createTitle ?? t('cmpx.select.create_new');
     const isEmpty = options.length === 0;
     return (
         <div className={className}>
@@ -68,14 +71,14 @@ export const SelectWithCreate: React.FC<SelectWithCreateProps> = ({
                 >
                     {placeholder !== undefined && <option value="">{placeholder}</option>}
                     {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    {isEmpty && placeholder === undefined && <option value="" disabled>Sin opciones</option>}
+                    {isEmpty && placeholder === undefined && <option value="" disabled>{t('cmpx.select.no_options')}</option>}
                 </select>
                 <button
                     type="button"
                     onClick={onCreateClick}
                     disabled={disabled}
-                    title={createTitle}
-                    aria-label={createTitle}
+                    title={resolvedCreateTitle}
+                    aria-label={resolvedCreateTitle}
                     className="flex-shrink-0 flex items-center justify-center px-3 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-colors disabled:opacity-50"
                 >
                     <PlusIcon className="w-5 h-5" />

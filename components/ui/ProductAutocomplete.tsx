@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Product } from '../../types';
 import { MagnifyingGlassIcon } from '../icons';
 import logo from '../../assets/logo.png';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ProductAutocompleteProps {
     products?: Product[];
@@ -19,12 +20,14 @@ interface ProductAutocompleteProps {
 export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     products = [],
     onProductSelect,
-    placeholder = "Buscar producto...",
+    placeholder,
     disabled = false,
     inputRef,
     onRemoteSearch,
     autoFocus = false,
 }) => {
+    const { t } = useTranslation();
+    const resolvedPlaceholder = placeholder ?? t('cmpx.product_ac.search_ph');
     const [searchTerm, setSearchTerm] = useState('');
     const [suggestions, setSuggestions] = useState<Product[]>([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -179,7 +182,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     value={searchTerm}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
-                    placeholder={placeholder}
+                    placeholder={resolvedPlaceholder}
                     disabled={disabled}
                     autoFocus={autoFocus}
                     className="w-full px-3 py-2 pl-10 text-base border-neutral-400 border bg-white focus:ring-blue-500 focus:border-blue-500 rounded-md shadow-sm text-neutral-900 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 h-12"
@@ -198,7 +201,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 >
                     {loading ? (
                         <li className="p-3 text-sm text-neutral-500 dark:text-neutral-400 text-center">
-                            Buscando…
+                            {t('cmpx.common.searching')}
                         </li>
                     ) : suggestions.length > 0 ? (
                         suggestions.map((product, index) => (
@@ -229,12 +232,12 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         ))
                     ) : (
                         <li className="p-3 text-sm text-neutral-500 dark:text-neutral-400 text-center">
-                            No se encontraron productos.
+                            {t('cmpx.product_ac.none')}
                         </li>
                     )}
                     {capped && suggestions.length > 0 && (
                         <li className="px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400 text-center border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/60">
-                            Mostrando los primeros {suggestions.length}. Afina la búsqueda para ver más.
+                            {t('cmpx.product_ac.capped', { count: suggestions.length })}
                         </li>
                     )}
                 </ul>

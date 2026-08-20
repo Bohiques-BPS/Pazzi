@@ -7,6 +7,7 @@ import { inventoryService } from '../../services/inventory';
 import { api, ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface TransferStockModalProps {
     isOpen: boolean;
@@ -27,6 +28,7 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
     defaultFromBranchId,
     onTransferred,
 }) => {
+    const { t } = useTranslation();
     const { branches: contextBranches, setBranches, setProducts } = useData();
     const [localBranches, setLocalBranches] = useState<Branch[]>([]);
 
@@ -83,11 +85,11 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
         setError(null);
 
         if (!product) return;
-        if (!fromBranchId) { setError('Seleccione sucursal origen.'); return; }
-        if (!toBranchId) { setError('Seleccione sucursal destino.'); return; }
-        if (fromBranchId === toBranchId) { setError('Origen y destino no pueden ser la misma sucursal.'); return; }
-        if (parsedQty <= 0) { setError('La cantidad debe ser mayor a 0.'); return; }
-        if (parsedQty > fromStock) { setError(`Solo hay ${fromStock} disponibles en la sucursal origen.`); return; }
+        if (!fromBranchId) { setError(t('cmpx.transfer.err_from')); return; }
+        if (!toBranchId) { setError(t('cmpx.transfer.err_to')); return; }
+        if (fromBranchId === toBranchId) { setError(t('cmpx.transfer.err_same')); return; }
+        if (parsedQty <= 0) { setError(t('cmpx.transfer.err_qty')); return; }
+        if (parsedQty > fromStock) { setError(t('cmpx.transfer.err_stock', { stock: fromStock })); return; }
 
         setSubmitting(true);
         try {
@@ -114,7 +116,7 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
             onTransferred?.(result);
             onClose();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error en transferencia');
+            setError(err instanceof ApiError ? err.message : t('cmpx.transfer.err_transfer'));
         } finally {
             setSubmitting(false);
         }
@@ -123,19 +125,19 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
     if (!isOpen || !product) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Transferir stock — ${product.name}`} size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.transfer.title', { name: product.name })} size="md">
             {activeBranches.length < 2 ? (
                 <div className="p-4 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700 flex items-start gap-3">
                     <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                     <div>
                         <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                             {localBranches.length === 0
-                                ? 'Cargando sucursales…'
-                                : 'Se necesitan al menos 2 sucursales activas para realizar una transferencia.'}
+                                ? t('cmpx.transfer.loading_branches')
+                                : t('cmpx.transfer.need_two')}
                         </p>
                         {localBranches.length > 0 && localBranches.every(b => !b.isActive) && (
                             <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                                Todas las sucursales están marcadas como inactivas. Actívalas en Admin → Sucursales.
+                                {t('cmpx.transfer.all_inactive')}
                             </p>
                         )}
                     </div>
@@ -151,33 +153,33 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium">Desde sucursal</label>
+                        <label className="block text-sm font-medium">{t('cmpx.transfer.from_branch')}</label>
                         <select value={fromBranchId} onChange={e => setFromBranchId(e.target.value)} className={inputFormStyle} required>
-                            <option value="">Seleccionar...</option>
+                            <option value="">{t('cmpx.common.select_ph')}</option>
                             {activeBranches.map(b => (
                                 <option key={b.id} value={b.id}>{b.name}</option>
                             ))}
                         </select>
                         {fromBranchId && (
-                            <p className="text-xs text-neutral-500 mt-1">Stock disponible: <span className="font-semibold">{fromStock}</span></p>
+                            <p className="text-xs text-neutral-500 mt-1">{t('cmpx.transfer.stock_available')} <span className="font-semibold">{fromStock}</span></p>
                         )}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Hacia sucursal</label>
+                        <label className="block text-sm font-medium">{t('cmpx.transfer.to_branch')}</label>
                         <select value={toBranchId} onChange={e => setToBranchId(e.target.value)} className={inputFormStyle} required>
-                            <option value="">Seleccionar...</option>
+                            <option value="">{t('cmpx.common.select_ph')}</option>
                             {activeBranches.filter(b => b.id !== fromBranchId).map(b => (
                                 <option key={b.id} value={b.id}>{b.name}</option>
                             ))}
                         </select>
                         {toBranchId && (
-                            <p className="text-xs text-neutral-500 mt-1">Stock actual: <span className="font-semibold">{toStock}</span></p>
+                            <p className="text-xs text-neutral-500 mt-1">{t('cmpx.transfer.stock_current')} <span className="font-semibold">{toStock}</span></p>
                         )}
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Cantidad a transferir</label>
+                    <label className="block text-sm font-medium">{t('cmpx.transfer.qty_label')}</label>
                     <input
                         type="number"
                         min="1"
@@ -194,31 +196,31 @@ export const TransferStockModal: React.FC<TransferStockModalProps> = ({
                 {parsedQty > 0 && fromBranchId && toBranchId && (
                     <div className="grid grid-cols-2 gap-3 text-sm p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-md">
                         <div>
-                            <div className="text-xs text-neutral-500">Origen después</div>
+                            <div className="text-xs text-neutral-500">{t('cmpx.transfer.from_after')}</div>
                             <div className="font-bold text-lg">{fromStock - parsedQty}</div>
                         </div>
                         <div>
-                            <div className="text-xs text-neutral-500">Destino después</div>
+                            <div className="text-xs text-neutral-500">{t('cmpx.transfer.to_after')}</div>
                             <div className="font-bold text-lg">{toStock + parsedQty}</div>
                         </div>
                     </div>
                 )}
 
                 <div>
-                    <label className="block text-sm font-medium">Notas (opcional)</label>
+                    <label className="block text-sm font-medium">{t('cmpx.common.notes_optional')}</label>
                     <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows={2}
                         className={inputFormStyle}
-                        placeholder="Motivo de la transferencia..."
+                        placeholder={t('cmpx.transfer.notes_ph')}
                     />
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-2">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>Cancelar</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                        {submitting ? 'Transfiriendo...' : 'Transferir stock'}
+                        {submitting ? t('cmpx.transfer.submitting') : t('cmpx.transfer.submit')}
                     </button>
                 </div>
             </form>

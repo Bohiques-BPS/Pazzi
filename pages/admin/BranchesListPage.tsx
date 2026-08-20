@@ -138,7 +138,12 @@ export const BranchesListPage: React.FC = () => {
                 onClose={() => setShowDeleteConfirmModal(false)}
                 onConfirm={confirmDelete}
                 title={t('adminx.confirm.delete_title')}
-                message={t('adminx.confirm.delete_message')}
+                message={(() => {
+                    const name = branches.find(b => b.id === itemToDeleteId)?.name || '';
+                    return name
+                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.branch'), name })
+                        : t('confirm.delete.named', { item: t('confirm.delete.n.branch') });
+                })()}
                 confirmButtonText={t('adminx.confirm.delete_yes')}
             />
         </div>

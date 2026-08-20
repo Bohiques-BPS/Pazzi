@@ -7,6 +7,7 @@ import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES 
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
+import { PhoneInput } from '../ui/PhoneInput';
 
 interface BranchFormModalProps {
     isOpen: boolean;
@@ -51,13 +52,13 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.name.trim() === '') {
-            toast.error("El nombre de la sucursal es obligatorio");
+            toast.error(t('cmpx.branchform.err_name'));
             return;
         }
 
         const isDuplicateName = allBranches.some(b => b.name.toLowerCase() === formData.name.toLowerCase() && (!branchToEdit || b.id !== branchToEdit.id));
         if (isDuplicateName) {
-            toast.error("Ya existe una sucursal con este nombre");
+            toast.error(t('cmpx.branchform.err_duplicate'));
             return;
         }
 
@@ -86,13 +87,13 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
                 } else {
                     setBranches(prev => [...prev, result]);
                 }
-                toast.success(branchToEdit ? 'Sucursal actualizada' : 'Sucursal creada');
+                toast.success(branchToEdit ? t('cmpx.branchform.updated') : t('cmpx.branchform.created'));
                 onClose(branchToEdit ? undefined : result);
             } else {
-                toast.error(result.error || "Error al guardar la sucursal.");
+                toast.error(result.error || t('cmpx.branchform.err_save'));
             }
         } catch (error) {
-            toast.error("Error de conexión con el servidor.");
+            toast.error(t('cmpx.common.conn_error'));
         } finally {
             setIsSubmitting(false);
         }
@@ -106,12 +107,12 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
                     <input type="text" name="name" id="branchName" value={formData.name} onChange={handleChange} className={inputFormStyle} required />
                 </div>
                 <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('branch.field.address')} (Opcional)</label>
+                    <label htmlFor="address" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('branch.field.address')} {t('cmpx.common.optional_paren')}</label>
                     <textarea name="address" id="address" value={formData.address} onChange={handleChange} rows={2} className={`${inputFormStyle} h-auto min-h-[3rem]`}></textarea>
                 </div>
                 <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('branch.field.phone')} (Opcional)</label>
-                    <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleChange} className={inputFormStyle} />
+                    <label htmlFor="phone" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('branch.field.phone')} {t('cmpx.common.optional_paren')}</label>
+                    <PhoneInput name="phone" id="phone" value={formData.phone || ''} onChange={(val) => handleChange({ target: { name: 'phone', value: val, type: 'tel' } } as any)} className="w-full" />
                 </div>
                 <div className="flex items-center">
                     <input
@@ -134,7 +135,7 @@ export const BranchFormModal: React.FC<BranchFormModalProps> = ({ isOpen, onClos
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
-                                Guardando...
+                                {t('common.saving')}
                             </span>
                         ) : t('common.save')}
                     </button>

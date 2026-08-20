@@ -87,7 +87,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
             const stockBefore = product.stockByBranch.find(sb => sb.branchId === c.branchId)?.quantity ?? 0;
             if (stockBefore + c.adjustment < 0) {
                 const branchName = localBranches.find(b => b.id === c.branchId)?.name || c.branchId;
-                setError(`Stock negativo en ${branchName}: ${stockBefore} + ${c.adjustment} = ${stockBefore + c.adjustment}`);
+                setError(t('cmpx.branchstockadj.err_negative', { branch: branchName, before: stockBefore, adj: c.adjustment, after: stockBefore + c.adjustment }));
                 return;
             }
         }
@@ -123,16 +123,16 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
         setSubmitting(false);
 
         if (failures === 0) {
-            toast.success(`${successes} sucursal(es) actualizada(s)`);
+            toast.success(t('cmpx.branchstockadj.updated', { count: successes }));
             onClose();
         } else if (successes === 0) {
             const firstError = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
-            const msg = firstError?.reason instanceof ApiError ? firstError.reason.message : 'Error al guardar los ajustes';
+            const msg = firstError?.reason instanceof ApiError ? firstError.reason.message : t('cmpx.branchstockadj.err_save');
             setError(msg);
             toast.error(msg);
         } else {
-            toast.warning(`${successes} ajuste(s) guardado(s), ${failures} fallaron`);
-            setError('Algunos ajustes fallaron. Revisa los datos e inténtalo de nuevo para los pendientes.');
+            toast.warning(t('cmpx.branchstockadj.partial', { ok: successes, fail: failures }));
+            setError(t('cmpx.branchstockadj.partial_error'));
         }
     };
 
@@ -142,7 +142,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
         <Modal isOpen={isOpen} onClose={onClose} title={t('inventory.adjust.title', { product: product.name }) || `Ajustar stock por sucursal — ${product.name}`} size="4xl">
             <div className="space-y-4 max-h-[70vh] flex flex-col">
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 flex-shrink-0">
-                    Ingresa el ajuste para cada sucursal (positivo agrega, negativo resta). Las filas en blanco se ignoran.
+                    {t('cmpx.branchstockadj.hint')}
                 </p>
 
                 {error && (
@@ -154,11 +154,11 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
 
                 <div className="flex-grow overflow-y-auto pr-2 space-y-2">
                     <div className="grid grid-cols-12 gap-x-3 p-2 sticky top-0 bg-neutral-100 dark:bg-neutral-900 z-10">
-                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Sucursal</div>
-                        <div className="col-span-3 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Actual</div>
-                        <div className="col-span-4 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Ajuste</div>
-                        <div className="col-span-5 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Nuevo</div>
-                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">Razón</div>
+                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('cmpx.branchstockadj.col_branch')}</div>
+                        <div className="col-span-3 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('cmpx.branchstockadj.col_current')}</div>
+                        <div className="col-span-4 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('cmpx.branchstockadj.col_adjustment')}</div>
+                        <div className="col-span-5 sm:col-span-2 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('cmpx.branchstockadj.col_new')}</div>
+                        <div className="col-span-12 sm:col-span-3 font-semibold text-xs uppercase text-neutral-500 dark:text-neutral-400">{t('cmpx.branchstockadj.col_reason')}</div>
                     </div>
                     <div className="space-y-3">
                         {activeBranches.map(branch => {
@@ -190,7 +190,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
                                             type="text"
                                             value={adjustments[branch.id]?.notes || ''}
                                             onChange={(e) => handleNotesChange(branch.id, e.target.value)}
-                                            placeholder="Razón..."
+                                            placeholder={t('cmpx.branchstockadj.reason_ph')}
                                             className={`${inputFormStyle} !text-xs`}
                                         />
                                     </div>
@@ -205,7 +205,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
                         {t('common.cancel') || 'Cancelar'}
                     </button>
                     <button type="button" onClick={handleSubmit} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                        {submitting ? 'Guardando...' : 'Guardar ajustes'}
+                        {submitting ? t('common.saving') : t('cmpx.branchstockadj.submit')}
                     </button>
                 </div>
             </div>
