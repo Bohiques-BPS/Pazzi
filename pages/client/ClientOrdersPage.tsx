@@ -24,21 +24,15 @@ export const ClientOrdersPage: React.FC = () => {
 
     const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<Order | null>(null);
     const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<Order | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<Order['status'] | 'Todos'>('Todos');
 
     const orderStatusOptions: (Order['status'] | 'Todos')[] = ['Todos', 'Pendiente', 'Enviado', 'Completado', 'Cancelado'];
 
     const filteredOrders = useMemo(() => {
         return clientOrders
-            .filter(order => 
-                (order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                 order.clientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                 order.id.toLowerCase().includes(searchTerm.toLowerCase())) &&
-                (statusFilter === 'Todos' || order.status === statusFilter)
-            )
+            .filter(order => statusFilter === 'Todos' || order.status === statusFilter)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [clientOrders, searchTerm, statusFilter]);
+    }, [clientOrders, statusFilter]);
 
     const handleOpenDetailModal = (order: Order) => setSelectedOrderForDetail(order);
     const handleCloseDetailModal = () => setSelectedOrderForDetail(null);
@@ -83,14 +77,6 @@ export const ClientOrdersPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Pedidos de Mi Tienda</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                    <input
-                        type="text"
-                        placeholder="Buscar por ID, comprador..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label="Buscar pedidos de mi tienda"
-                    />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as Order['status'] | 'Todos')}
@@ -104,7 +90,7 @@ export const ClientOrdersPage: React.FC = () => {
                 </div>
             </div>
             
-            <DataTable<Order> searchable={false} onRowClick={handleOpenDetailModal}
+            <DataTable<Order> onRowClick={handleOpenDetailModal}
                 data={filteredOrders}
                 columns={columns}
                 actions={(order) => (

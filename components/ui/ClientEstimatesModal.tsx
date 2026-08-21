@@ -16,8 +16,8 @@ interface ClientEstimatesModalProps {
     client: Client | null;
     onLoadItems: (items: CartItem[], estimateIds: string[]) => void;
     isCartEmpty: boolean;
-    /** Nombre manual cuando el cliente es Público General (para saber a quién es el estimado). */
-    onCreateFromCart: (manualName?: string) => void;
+    /** Datos manuales cuando el cliente es Público General (para saber a quién es el estimado). */
+    onCreateFromCart: (manualName?: string, manualAddress?: string, manualPhone?: string) => void;
     /** True si el cliente activo es Público General (mostrar/pedir nombre de la persona). */
     isGeneralClient?: boolean;
 }
@@ -29,11 +29,15 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     const { getDefaultSettings } = useECommerceSettings();
     const [selectedEstimateIds, setSelectedEstimateIds] = useState<string[]>([]);
     const [manualName, setManualName] = useState('');
+    const [manualAddress, setManualAddress] = useState('');
+    const [manualPhone, setManualPhone] = useState('');
 
     useEffect(() => {
         if (!isOpen) {
             setSelectedEstimateIds([]);
             setManualName('');
+            setManualAddress('');
+            setManualPhone('');
         }
     }, [isOpen]);
 
@@ -43,7 +47,11 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
             toast.error(t('cmpx.estimates.name_required'));
             return;
         }
-        onCreateFromCart(isGeneralClient ? manualName.trim() : undefined);
+        onCreateFromCart(
+            isGeneralClient ? manualName.trim() : undefined,
+            isGeneralClient ? manualAddress.trim() : undefined,
+            isGeneralClient ? manualPhone.trim() : undefined,
+        );
     };
 
     const clientEstimates = useMemo(() => {
@@ -259,18 +267,48 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
                     <h3 className="text-lg font-semibold mb-2">{t('cmpx.estimates.create_from_cart')}</h3>
                     <p className="text-sm text-neutral-500 mb-3">{t('cmpx.estimates.create_from_cart_hint')}</p>
                     {isGeneralClient && (
-                        <div className="mb-3">
-                            <label htmlFor="estimateManualName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                                {t('cmpx.estimates.manual_name_label')}
-                            </label>
-                            <input
-                                type="text"
-                                id="estimateManualName"
-                                value={manualName}
-                                onChange={e => setManualName(e.target.value)}
-                                placeholder={t('cmpx.estimates.manual_name_ph')}
-                                className="w-full px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:ring-1 focus:ring-primary focus:border-primary"
-                            />
+                        <div className="mb-3 space-y-2">
+                            <div>
+                                <label htmlFor="estimateManualName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                                    {t('cmpx.estimates.manual_name_label')}
+                                </label>
+                                <input
+                                    type="text"
+                                    id="estimateManualName"
+                                    value={manualName}
+                                    onChange={e => setManualName(e.target.value)}
+                                    placeholder={t('cmpx.estimates.manual_name_ph')}
+                                    className="w-full px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:ring-1 focus:ring-primary focus:border-primary"
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                    <label htmlFor="estimateManualPhone" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                                        {t('cmpx.estimates.manual_phone_label')}
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        id="estimateManualPhone"
+                                        value={manualPhone}
+                                        onChange={e => setManualPhone(e.target.value)}
+                                        placeholder={t('cmpx.estimates.manual_phone_ph')}
+                                        className="w-full px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:ring-1 focus:ring-primary focus:border-primary"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="estimateManualAddress" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                                        {t('cmpx.estimates.manual_address_label')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="estimateManualAddress"
+                                        value={manualAddress}
+                                        onChange={e => setManualAddress(e.target.value)}
+                                        placeholder={t('cmpx.estimates.manual_address_ph')}
+                                        className="w-full px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:ring-1 focus:ring-primary focus:border-primary"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     )}
                     <button

@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
+import { barcodeToSvg } from '../../utils/barcode';
 import { isReceiptPrinterEnabled, printReceiptViaQz, getPrintFormat } from '../../services/receiptPrinter';
 import { isWebUsbEnabled, printReceiptViaWebUsb } from '../../services/webusbPrinter';
 
@@ -21,6 +22,8 @@ export interface ReceiptSale {
     changeDue?: number;
     clientName?: string;
     cashierName?: string;
+    /** true cuando es una reimpresión (muestra la etiqueta DUPLICADO/REPRINT/COPY en el diseño clásico). */
+    isReprint?: boolean;
 }
 
 interface ReceiptModalProps {
@@ -33,12 +36,64 @@ interface ReceiptModalProps {
 const esc = (s: any) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] || c));
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
-/** Construye el HTML autocontenido de la factura (para vista previa e impresión). */
-export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
+/** Construye el HTML autocontenido de la factura (para vista previa e impresión).
+ *  `barcodeSvg` es opcional: el SVG del código de barras (Code128), generado async por el llamador. */
+export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeSvg?: string): string {
     const is80 = cfg.paperSize === '80mm';
     const widthCss = is80 ? '72mm' : '210mm';
     const pad = is80 ? '4mm' : '14mm';
     const fs = is80 ? '11px' : '13px';
+
+    // ── Diseño CLÁSICO (estilo térmico ferretería) ──────────────────────────────
+    if ((cfg.design ?? 'modern') === 'classic') {
+        const num = `${cfg.receiptPrefix || ''}${sale.saleNumber}`;
+        const d = new Date(sale.date);
+        const dash = `<div style="border-top:1px solid #000;margin:4px 0;"></div>`;
+        const row = (l: string, r: string, bold = false) =>
+            `<div style="display:flex;justify-content:space-between;${bold ? 'font-weight:700;' : ''}"><span>${esc(l)}</span><span>${esc(r)}</span></div>`;
+        const itemCount = sale.items.reduce((s, it) => s + it.quantity, 0);
+        const taxRows = (sale.taxState || sale.taxMunicipal || sale.taxReduced)
+            ? `${row('+ Estatal', money(sale.taxState || 0))}${row('+ Reducido', money(sale.taxReduced || 0))}${row('+ Municipal', money(sale.taxMunicipal || 0))}`
+            : (cfg.showTaxBreakdown ? row('+ IVU', money(sale.tax)) : '');
+        const reprint = sale.isReprint && cfg.reprintLabel ? `<div style="text-align:center;font-weight:700;">${esc(cfg.reprintLabel)}</div>` : '';
+        const legal = [cfg.returnPolicyText, cfg.thankYouText, cfg.paymentTermsText]
+            .filter(Boolean).map(txt => `<div style="text-align:center;margin-top:6px;">${esc(txt)}</div>`).join('');
+        const barcode = cfg.showBarcode
+            ? `<div style="text-align:center;margin-top:10px;">${barcodeSvg
+                ? `<div style="height:50px;">${barcodeSvg}</div>`
+                : ''}<div style="letter-spacing:2px;">${esc(num)}</div></div>`
+            : '';
+        return `
+            <div style="width:${widthCss};margin:0 auto;padding:${pad};font-family:'Courier New',monospace;font-size:${fs};color:#000;box-sizing:border-box;">
+                <div style="text-align:center;">
+                    ${cfg.showLogo && cfg.logoUrl ? `<img src="${esc(cfg.logoUrl)}" style="max-width:${is80 ? '120px' : '160px'};max-height:70px;object-fit:contain;margin:0 auto 4px;display:block;"/>` : ''}
+                    ${cfg.businessName ? `<div style="font-weight:700;font-size:${is80 ? '15px' : '20px'};letter-spacing:1px;">${esc(cfg.businessName)}</div>` : ''}
+                    ${cfg.showAddress && cfg.address ? `<div>${esc(cfg.address)}</div>` : ''}
+                    ${cfg.showPhone && cfg.phone ? `<div>Tel: ${esc(cfg.phone)}</div>` : ''}
+                    ${cfg.showRnc && cfg.rnc ? `<div>${esc(cfg.rnc)}</div>` : ''}
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:6px;"><span>${esc(d.toLocaleDateString())}</span><span>${esc(d.toLocaleTimeString())}</span></div>
+                <div style="text-align:center;font-weight:700;margin:4px 0;font-size:${is80 ? '13px' : '15px'};">Recibo : ${esc(num)}</div>
+                ${reprint}
+                ${dash}
+                ${sale.items.map(it => `
+                    <div>${esc(it.name)}</div>
+                    <div style="display:flex;justify-content:space-between;"><span style="padding-left:10px;">${it.quantity}@ ${money(it.unitPrice)}</span><span>${money(it.quantity * it.unitPrice)}</span></div>
+                    ${it.note ? `<div style="font-style:italic;padding-left:10px;">* ${esc(it.note)}</div>` : ''}
+                `).join('')}
+                ${dash}
+                ${row(`${itemCount}  Artículos      SUBTOTAL`, money(sale.subtotal), true)}
+                ${sale.discount > 0 ? row('Descuento', `-${money(sale.discount)}`) : ''}
+                ${taxRows}
+                <div style="font-size:${is80 ? '14px' : '16px'};margin-top:2px;">${row('TOTAL', money(sale.total), true)}</div>
+                ${sale.payments.map(p => row(p.method, money(p.amount))).join('')}
+                ${sale.changeDue && sale.changeDue > 0 ? row('Cambio', money(sale.changeDue), true) : ''}
+                ${dash}
+                ${legal}
+                ${reprint}
+                ${barcode}
+            </div>`;
+    }
 
     const line = (label: string, value: string, bold = false) =>
         `<div style="display:flex;justify-content:space-between;${bold ? 'font-weight:700;' : ''}"><span>${esc(label)}</span><span>${esc(value)}</span></div>`;
@@ -230,7 +285,15 @@ export function setReceiptAction(v: ReceiptAction) {
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sale, config }) => {
-    const html = useMemo(() => (sale ? buildReceiptHTML(sale, config) : ''), [sale, config]);
+    const [barcode, setBarcode] = useState('');
+    useEffect(() => {
+        let alive = true;
+        if (sale && (config.design ?? 'modern') === 'classic' && config.showBarcode) {
+            barcodeToSvg(`${config.receiptPrefix || ''}${sale.saleNumber}`).then(svg => { if (alive) setBarcode(svg); });
+        } else setBarcode('');
+        return () => { alive = false; };
+    }, [sale, config]);
+    const html = useMemo(() => (sale ? buildReceiptHTML(sale, config, barcode) : ''), [sale, config, barcode]);
     const [dontAsk, setDontAsk] = useState(false);
     // Evita ejecutar la acción dos veces para el mismo recibo (re-render / StrictMode).
     const handledRef = useRef<string | null>(null);

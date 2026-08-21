@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
+import { barcodeToSvg } from '../../utils/barcode';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { PhoneInput } from '../../components/ui/PhoneInput';
@@ -93,7 +94,18 @@ export const ReceiptSettingsPage: React.FC = () => {
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
 
-    const previewHtml = useMemo(() => buildReceiptHTML(SAMPLE, cfg), [cfg]);
+    const [previewHtml, setPreviewHtml] = useState('');
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            let bc = '';
+            if ((cfg.design ?? 'modern') === 'classic' && cfg.showBarcode) {
+                bc = await barcodeToSvg(`${cfg.receiptPrefix || ''}${SAMPLE.saleNumber}`);
+            }
+            if (alive) setPreviewHtml(buildReceiptHTML(SAMPLE, cfg, bc));
+        })();
+        return () => { alive = false; };
+    }, [cfg]);
 
     const handleLogo = (file: File) => {
         if (file.size > 400 * 1024) { toast.error(t('posx.receipt.toast.logoTooBig')); return; }
@@ -150,6 +162,42 @@ export const ReceiptSettingsPage: React.FC = () => {
                                 <option value="letter">{t('posx.receipt.paper.letter')}</option>
                             </select>
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.receipt.design.label')}</label>
+                            <select value={cfg.design ?? 'modern'} onChange={e => set('design', e.target.value as ReceiptConfig['design'])} className={INPUT_SM_CLASSES}>
+                                <option value="modern">{t('posx.receipt.design.modern')}</option>
+                                <option value="classic">{t('posx.receipt.design.classic')}</option>
+                            </select>
+                        </div>
+                        {(cfg.design ?? 'modern') === 'classic' && (
+                            <div className="space-y-2 border-t border-neutral-200 dark:border-neutral-700 pt-3">
+                                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">{t('posx.receipt.design.classic_opts')}</p>
+                                <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                                    <input type="checkbox" checked={cfg.showBarcode ?? true} onChange={e => set('showBarcode', e.target.checked)} className="h-4 w-4" />
+                                    {t('posx.receipt.design.show_barcode')}
+                                </label>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.design.prefix')}</label>
+                                    <input type="text" value={cfg.receiptPrefix ?? ''} onChange={e => set('receiptPrefix', e.target.value)} placeholder="C" className={`${INPUT_SM_CLASSES} w-full`} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.design.reprint_label')}</label>
+                                    <input type="text" value={cfg.reprintLabel ?? ''} onChange={e => set('reprintLabel', e.target.value)} placeholder="DUPLICADO - REPRINT - COPY" className={`${INPUT_SM_CLASSES} w-full`} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.design.return_policy')}</label>
+                                    <input type="text" value={cfg.returnPolicyText ?? ''} onChange={e => set('returnPolicyText', e.target.value)} placeholder="30 días para cambios y/o devoluciones" className={`${INPUT_SM_CLASSES} w-full`} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.design.thank_you')}</label>
+                                    <input type="text" value={cfg.thankYouText ?? ''} onChange={e => set('thankYouText', e.target.value)} placeholder="*** Gracias por su patrocinio ***" className={`${INPUT_SM_CLASSES} w-full`} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.design.payment_terms')}</label>
+                                    <input type="text" value={cfg.paymentTermsText ?? ''} onChange={e => set('paymentTermsText', e.target.value)} placeholder="*** Término para pago 30 días ***" className={`${INPUT_SM_CLASSES} w-full`} />
+                                </div>
+                            </div>
+                        )}
                     </section>
 
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">

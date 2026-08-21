@@ -21,7 +21,6 @@ export const ProjectsListPage: React.FC = () => {
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>('Todos');
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
 
@@ -67,7 +66,6 @@ export const ProjectsListPage: React.FC = () => {
     const filteredProjects = useMemo(() => {
         return projects
             .filter(project =>
-                (project.name.toLowerCase().includes(searchTerm.toLowerCase())) &&
                 (statusFilter === 'Todos' || project.status === statusFilter)
             )
             .sort((a, b) => {
@@ -75,7 +73,7 @@ export const ProjectsListPage: React.FC = () => {
                 const dateB = b.visitDate || b.workStartDate || '0';
                 return new Date(dateB).getTime() - new Date(dateA).getTime();
             });
-    }, [projects, searchTerm, statusFilter]);
+    }, [projects, statusFilter]);
     
     const tableColumns: TableColumn<Project>[] = useMemo(() => [
         { header: t('project.field.name'), accessor: 'name' },
@@ -124,14 +122,6 @@ export const ProjectsListPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('project.list.title')}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                    <input
-                        type="text"
-                        placeholder={t('common.search') + "..."}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label={t('pm2x.project.search_aria')}
-                    />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'Todos')}
@@ -181,7 +171,7 @@ export const ProjectsListPage: React.FC = () => {
                     )}
                 </>
             ) : (
-                <DataTable<Project> searchable={false} onRowClick={handleViewProject}
+                <DataTable<Project> onRowClick={handleViewProject}
                     data={filteredProjects}
                     columns={tableColumns}
                     actions={(project) => (

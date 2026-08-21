@@ -37,8 +37,7 @@ export const ClientProductsPage: React.FC = () => {
     const [branchForAdjustment, setBranchForAdjustment] = useState<string | null>(null);
 
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('Todos'); 
+    const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('Todos');
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE_CARD_VIEW = 5;
 
@@ -82,12 +81,10 @@ export const ClientProductsPage: React.FC = () => {
 
     const filteredClientProducts = useMemo(() => {
         return clientProducts
-            .filter(p => 
-                (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                 (p.skus && p.skus.some(s => s.toLowerCase().includes(searchTerm.toLowerCase())))) &&
+            .filter(p =>
                 (selectedCategoryFilter === 'Todos' || p.category === selectedCategoryFilter)
             );
-    }, [clientProducts, searchTerm, selectedCategoryFilter]);
+    }, [clientProducts, selectedCategoryFilter]);
 
     const paginatedCardProducts = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE_CARD_VIEW;
@@ -115,14 +112,7 @@ export const ClientProductsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Mis Productos de Tienda</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                    <input 
-                        type="text" 
-                        placeholder="Buscar mis productos..." 
-                        value={searchTerm} 
-                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1);}}
-                        className={`${INPUT_SM_CLASSES} flex-grow`}
-                    />
-                    <select 
+                    <select
                         value={selectedCategoryFilter} 
                         onChange={(e) => { setSelectedCategoryFilter(e.target.value); setCurrentPage(1);}}
                         className={`${INPUT_SM_CLASSES} flex-shrink-0`}
@@ -166,7 +156,7 @@ export const ClientProductsPage: React.FC = () => {
                     )}
                 </>
             ) : (
-                 <DataTable<Product> searchable={false} onRowClick={openModalForEdit}
+                 <DataTable<Product> onRowClick={openModalForEdit}
                     data={filteredClientProducts}
                     columns={tableColumns}
                     actions={(product) => (

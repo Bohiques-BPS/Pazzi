@@ -129,7 +129,6 @@ export const SupplierOrdersListPage: React.FC = () => {
     const [orderForReceive, setOrderForReceive] = useState<SupplierOrderRecord | null>(null);
     const [orderForPayment, setOrderForPayment] = useState<SupplierOrderRecord | null>(null);
 
-    const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<SupplierOrderStatus | 'Todos'>('Todos');
 
     const storeOwnerId = currentUser?.id;
@@ -258,12 +257,10 @@ export const SupplierOrdersListPage: React.FC = () => {
     const filteredOrders = useMemo(() => {
         return supplierOrders
             .filter(order =>
-                (order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                 (order.supplier?.name || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
                 (statusFilter === 'Todos' || order.status === statusFilter)
             )
             .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-    }, [supplierOrders, searchTerm, statusFilter]);
+    }, [supplierOrders, statusFilter]);
 
 
     const columns: TableColumn<SupplierOrder>[] = [
@@ -291,14 +288,6 @@ export const SupplierOrdersListPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('ecommerce.supplier_orders.title')}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                     <input
-                        type="text"
-                        placeholder={t('ecommerce.supplier_orders.search_placeholder')}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label={t('ecomx.supplier_orders.search_aria')}
-                    />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as SupplierOrderStatus | 'Todos')}
@@ -323,7 +312,7 @@ export const SupplierOrdersListPage: React.FC = () => {
             )}
 
             {!loadingData && (
-                <DataTable<SupplierOrder> searchable={false} onRowClick={openModalForEdit}
+                <DataTable<SupplierOrder> onRowClick={openModalForEdit}
                     data={filteredOrders}
                     columns={columns}
                     actions={(order) => {

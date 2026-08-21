@@ -34,13 +34,7 @@ export const CategoriesListPage: React.FC = () => {
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
     const [scanTarget, setScanTarget] = useState<Category | null>(null);
-
-    const filteredCategories = useMemo(
-        () => categories.filter(c => c.name.toLowerCase().includes(searchTerm.trim().toLowerCase())),
-        [categories, searchTerm]
-    );
 
     const fetchCategories = useCallback(async () => {
         setLoadingData(true);
@@ -152,14 +146,6 @@ export const CategoriesListPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('category.list.title')}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                    <input
-                        type="text"
-                        placeholder={t('pmx.category.search_ph')}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label={t('pmx.category.search_aria')}
-                    />
                     <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex-shrink-0`}>{t('pmx.common.import')}</button>
                     <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                         <PlusIcon /> {t('category.list.create')}
@@ -174,8 +160,8 @@ export const CategoriesListPage: React.FC = () => {
                 </div>
             )}
 
-            <DataTable<Category> searchable={false} onRowClick={openModalForEdit}
-                data={filteredCategories}
+            <DataTable<Category> onRowClick={openModalForEdit}
+                data={categories}
                 columns={columns}
                 actions={(category) => (
                     <>

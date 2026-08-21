@@ -43,6 +43,14 @@ export interface ReceiptConfig {
     showFooter: boolean;
     autoPrint: boolean;     // imprimir automáticamente al finalizar
     paperSize: '80mm' | 'letter';
+    // ── Diseño del recibo/factura ──────────────────────────────────────────────
+    design?: 'modern' | 'classic'; // 'modern' = diseño actual; 'classic' = estilo térmico ferretería
+    receiptPrefix?: string;        // prefijo del nº de recibo (ej. "C" → "C373459")
+    showBarcode?: boolean;         // mostrar código de barras (Code128) del nº de recibo al final
+    reprintLabel?: string;         // etiqueta al reimprimir (ej. "DUPLICADO - REPRINT - COPY")
+    returnPolicyText?: string;     // ej. "30 días para cambios y/o devoluciones"
+    thankYouText?: string;         // ej. "*** Gracias por su patrocinio ***"
+    paymentTermsText?: string;     // ej. "*** Término para pago 30 días ***"
 }
 
 export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
@@ -65,6 +73,13 @@ export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
     showFooter: true,
     autoPrint: false,
     paperSize: '80mm',
+    design: 'modern',
+    receiptPrefix: 'C',
+    showBarcode: true,
+    reprintLabel: 'DUPLICADO - REPRINT - COPY',
+    returnPolicyText: '30 días para cambios y/o devoluciones',
+    thankYouText: '*** Gracias por su patrocinio ***',
+    paymentTermsText: '*** Término para pago 30 días ***',
 };
 
 /** Un método de pago configurable que aparece en la caja (estilo pasarelas de WooCommerce). */

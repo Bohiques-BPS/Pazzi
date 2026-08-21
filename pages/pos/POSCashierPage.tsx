@@ -44,6 +44,8 @@ import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ClientFormModal } from '../pm/ClientFormModal';
 import { HeldCartsModal } from '../../components/ui/HeldCartsModal';
 import { ClientEstimatesModal } from '../../components/ui/ClientEstimatesModal';
+import { ClientCreditPaymentModal } from '../../components/ui/ClientCreditPaymentModal';
+import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 import { CreateLayawayModal } from '../../components/forms/CreateLayawayModal';
 import { UserSwitchModal } from '../../components/ui/UserSwitchModal';
 import { POSProjectFormModal } from './POSProjectFormModal';
@@ -223,6 +225,8 @@ export const POSCashierPage: React.FC = () => {
     const [saleError, setSaleError] = useState<{ message: string; code?: string } | null>(null);
     // Intento de venta guardado para reintentar como sobreventa (cuando falla por stock).
     const [pendingSaleRetry, setPendingSaleRetry] = useState<{ payments: { method: string; amount: number; reference?: string }[]; changeDue?: number } | null>(null);
+    // Menú "Opciones" del cliente activo (pagar cuenta, ver estado de cuenta).
+    const [clientMenuOpen, setClientMenuOpen] = useState(false);
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
     // Producto de precio manual esperando que el cajero ingrese el precio.
@@ -272,7 +276,7 @@ export const POSCashierPage: React.FC = () => {
 
     
     // Modal states
-    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | null;
+    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | 'clientCredit' | 'clientAccount' | null;
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     
     const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
@@ -459,12 +463,13 @@ export const POSCashierPage: React.FC = () => {
         return () => window.removeEventListener('keydown', handler);
     }, []);
 
-    // ESC cierra el overlay del cambio (permanece en pantalla hasta que el cajero presione ESC).
+    // El overlay del cambio se auto-cierra a los 5s; ESC o clic lo cierran de inmediato.
     useEffect(() => {
         if (changeOverlay === null) return;
         const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setChangeOverlay(null); } };
         window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
+        const timer = window.setTimeout(() => setChangeOverlay(null), 5000);
+        return () => { window.removeEventListener('keydown', onKey, true); window.clearTimeout(timer); };
     }, [changeOverlay]);
 
     // Auto-foco en la búsqueda de productos: cada vez que se vuelve a la vista principal
@@ -818,7 +823,19 @@ export const POSCashierPage: React.FC = () => {
             items: cart.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice, note: it.note })),
             subtotal, tax, discount: globalDiscountAmount, total,
             ...(settings.taxBreakdownEnabled ? { taxState, taxMunicipal, taxReduced } : {}),
-            payments: payments.map(p => ({ method: p.method, amount: p.amount, reference: p.reference })),
+            // En el RECIBO, la línea de efectivo muestra lo que el cliente ENTREGÓ (aplicado + cambio),
+            // no solo lo aplicado. El cambio se resta abajo. (No afecta el pago real registrado al cuadre.)
+            payments: (() => {
+                let restanteCambio = changeDue || 0;
+                return payments.map(p => {
+                    if (restanteCambio > 0.001 && /efectivo|cash/i.test(p.method)) {
+                        const conEntregado = { method: p.method, amount: p.amount + restanteCambio, reference: p.reference };
+                        restanteCambio = 0;
+                        return conEntregado;
+                    }
+                    return { method: p.method, amount: p.amount, reference: p.reference };
+                });
+            })(),
             changeDue: changeDue || 0,
             clientName: selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined,
             cashierName: currentUser ? `${currentUser.name} ${currentUser.lastName || ''}`.trim() : undefined,
@@ -863,10 +880,8 @@ export const POSCashierPage: React.FC = () => {
         const saleNumber = folio ? String(folio) : `V-${Date.now().toString().slice(-6)}`;
         setLastReceipt({ ...receiptSnapshot, saleNumber });
 
-        // Vuelto grande en pantalla (permanece hasta ESC), como el POS clásico.
-        if (involvesCash && (changeDue || 0) > 0.001) {
-            setChangeOverlay(changeDue || 0);
-        }
+        // (Sin overlay grande de cambio: el cambio ya se ve en el modal de pago "Cambio a Devolver"
+        //  y en el recibo. Antes salía a pantalla completa; el cliente pidió quitarlo.)
 
         clearCart();
     };
@@ -981,18 +996,21 @@ export const POSCashierPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPosAuthenticated, currentSession]);
 
-    const handleCreateEstimateFromCart = (manualName?: string) => {
+    const handleCreateEstimateFromCart = (manualName?: string, manualAddress?: string, manualPhone?: string) => {
         if (!currentUser || !selectedClient || cart.length === 0 || !selectedBranchId) {
             toast.error(t('posx.cashier.err_estimate_missing_data'));
             return;
         }
 
-        // Público General: guardamos el nombre de la persona en las notas (el estimado no tiene
-        // cliente real). Así se ve a quién es el estimado en la lista y el PDF.
+        // Público General: guardamos nombre/teléfono/dirección de la persona en las notas (el estimado
+        // no tiene cliente real). Así se ve a quién es el estimado en la lista y el PDF.
         const trimmedName = (manualName || '').trim();
-        const notes = trimmedName
-            ? `Estimado para: ${trimmedName}. Generado desde Punto de Venta (POS).`
-            : `Generado desde Punto de Venta (POS).`;
+        const parts: string[] = [];
+        if (trimmedName) parts.push(`Estimado para: ${trimmedName}`);
+        if ((manualPhone || '').trim()) parts.push(`Tel: ${manualPhone!.trim()}`);
+        if ((manualAddress || '').trim()) parts.push(`Dirección: ${manualAddress!.trim()}`);
+        parts.push('Generado desde Punto de Venta (POS).');
+        const notes = parts.join('. ');
 
         const newEstimateData: Omit<Estimate, 'id'> = {
             date: new Date().toISOString(),
@@ -1263,6 +1281,37 @@ export const POSCashierPage: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="flex space-x-2 flex-shrink-0">
+                                        {/* Opciones del cliente: pagar cuenta a crédito / ver estado de cuenta.
+                                            Solo para clientes reales (no "Público General"). */}
+                                        {!(selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID) && (
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setClientMenuOpen(o => !o)}
+                                                    className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20"
+                                                >
+                                                    {t('posx.cashier.client_options')} <span className="text-[8px]">▼</span>
+                                                </button>
+                                                {clientMenuOpen && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-10" onClick={() => setClientMenuOpen(false)} />
+                                                        <div className="absolute right-0 mt-1 z-20 w-52 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-md shadow-lg py-1 text-sm">
+                                                            <button
+                                                                onClick={() => { setClientMenuOpen(false); setActiveModal('clientCredit'); }}
+                                                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
+                                                            >
+                                                                💵 {t('posx.cashier.pay_account')}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setClientMenuOpen(false); setActiveModal('clientAccount'); }}
+                                                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
+                                                            >
+                                                                📄 {t('posx.cashier.view_account')}
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
                                         <button onClick={() => setActiveModal('clientSearch')} title={t('posx.cashier.shortcut', { key: 'U' })} className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900">{t('posx.cashier.change')} <span className="border border-blue-400/60 rounded px-1 text-[8px] font-bold leading-none">U</span></button>
                                         <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-[10px] sm:text-xs py-1 px-2 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900">{t('posx.cashier.remove')}</button>
                                     </div>
@@ -1493,6 +1542,16 @@ export const POSCashierPage: React.FC = () => {
                 heldCarts={heldCarts}
             />
             <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} isGeneralClient={!!selectedClient?.isDefault || selectedClient?.id === DEFAULT_CLIENT_ID} />
+            {selectedClient && (
+                <ClientCreditPaymentModal
+                    isOpen={activeModal === 'clientCredit'}
+                    onClose={() => setActiveModal(null)}
+                    clientId={selectedClient.id}
+                    clientName={`${selectedClient.name} ${selectedClient.lastName || ''}`.trim()}
+                    onPaid={() => { setActiveModal(null); }}
+                />
+            )}
+            <ClientAccountModal isOpen={activeModal === 'clientAccount'} onClose={() => setActiveModal(null)} client={selectedClient} />
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
             <PaymentModal

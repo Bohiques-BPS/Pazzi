@@ -216,7 +216,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                         </div>
                                     );
                                 })}
-                                {/* Totales */}
+                                {/* Totales de reconciliación de gaveta (solo métodos contables). */}
                                 <div className="grid grid-cols-12 items-center bg-neutral-50 dark:bg-neutral-800/60 font-semibold">
                                     <div className="col-span-5 px-3 py-2">Total de Valores</div>
                                     <div className="col-span-3 px-3 py-2 text-right tabular-nums">{money(totalExpected)}</div>
@@ -224,6 +224,12 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                     <div className={`col-span-2 px-3 py-2 text-right tabular-nums ${diffColor(Math.round((totalCounted - totalExpected) * 100) / 100)}`}>
                                         {money(Math.abs(totalCounted - totalExpected))}
                                     </div>
+                                </div>
+                                {/* Total de VENTAS del turno: incluye TODOS los métodos (efectivo, tarjeta,
+                                    ATH, cheque Y crédito). El crédito no suma a la gaveta pero sí a las ventas. */}
+                                <div className="grid grid-cols-12 items-center bg-primary/5 dark:bg-primary/10 text-primary dark:text-accent font-semibold border-t border-primary/20">
+                                    <div className="col-span-7 px-3 py-2">Total de ventas del turno <span className="text-[10px] font-normal">(todos los métodos, incl. crédito)</span></div>
+                                    <div className="col-span-5 px-3 py-2 text-right tabular-nums text-lg font-bold">{money(totals.totalSales)}</div>
                                 </div>
                             </div>
 

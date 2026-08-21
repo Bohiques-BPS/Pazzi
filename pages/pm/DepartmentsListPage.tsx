@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Department } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -8,7 +8,7 @@ import { DepartmentFormModal } from './DepartmentFormModal';
 import { ScanAssignModal } from './ScanAssignModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon, BarcodeScanIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../../services/api';
@@ -22,13 +22,7 @@ export const DepartmentsListPage: React.FC = () => {
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
     const [scanTarget, setScanTarget] = useState<Department | null>(null);
-
-    const filteredDepartments = useMemo(
-        () => departments.filter(d => d.name.toLowerCase().includes(searchTerm.trim().toLowerCase())),
-        [departments, searchTerm]
-    );
 
     const fetchDepartments = useCallback(async () => {
         setLoadingData(true);
@@ -109,14 +103,6 @@ export const DepartmentsListPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('department.list.title')}</h1>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                    <input
-                        type="text"
-                        placeholder={t('pmx.department.search_ph')}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`${INPUT_SM_CLASSES} flex-grow`}
-                        aria-label={t('pmx.department.search_aria')}
-                    />
                     <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                         <PlusIcon /> {t('department.list.create')}
                     </button>
@@ -129,8 +115,8 @@ export const DepartmentsListPage: React.FC = () => {
                 </div>
             )}
             {!loadingData && (
-                <DataTable<Department> searchable={false} onRowClick={openModalForEdit}
-                    data={filteredDepartments}
+                <DataTable<Department> onRowClick={openModalForEdit}
+                    data={departments}
                     columns={columns}
                     actions={(department) => (
                         <>

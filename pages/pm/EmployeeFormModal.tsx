@@ -4,7 +4,7 @@ import { Employee, EmployeeFormData, UserStatus, PermissionCategory, EmployeePer
 import { useData } from '../../contexts/DataContext';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EMPLOYEE_ROLES, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
-import { LockClosedIcon, KeyIcon, CameraIcon, TrashIconMini, ExclamationTriangleIcon } from '../../components/icons';
+import { LockClosedIcon, KeyIcon, CameraIcon, TrashIconMini, ExclamationTriangleIcon, EditIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { employeesService, type EmployeeRecord } from '../../services/employees';
@@ -189,6 +189,12 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
     const [empDepartments, setEmpDepartments] = useState<LookupItem[]>([]);
     const [showPositionModal, setShowPositionModal] = useState(false);
     const [showDeptModal, setShowDeptModal] = useState(false);
+    // Edición inline del puesto/departamento seleccionado (renombrar) + confirmación de borrado.
+    const [editPos, setEditPos] = useState(false);
+    const [editPosVal, setEditPosVal] = useState('');
+    const [editDept, setEditDept] = useState(false);
+    const [editDeptVal, setEditDeptVal] = useState('');
+    const [lookupToDelete, setLookupToDelete] = useState<{ kind: 'pos' | 'dept'; id: string; name: string } | null>(null);
     // Rol de permisos (centralizado). Los permisos vienen 100% del rol.
     const [roles, setRoles] = useState<Role[]>([]);
     const [permissionRoleId, setPermissionRoleId] = useState<string>('');
@@ -431,6 +437,46 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
         return Object.values(perms).filter(Boolean).length;
     }, [formData.permissions]);
 
+    // ── Editar/eliminar el puesto/departamento SELECCIONADO (inline, sin abrir el modal de gestión) ──
+    const selectedPos = positions.find(p => p.name === formData.role) || null;
+    const selectedDept = empDepartments.find(d => d.name === formData.department) || null;
+
+    const saveEditPos = async () => {
+        const name = editPosVal.trim();
+        if (!selectedPos || !name) { setEditPos(false); return; }
+        try {
+            const updated = await employeePositionsService.update(selectedPos.id, name);
+            setPositions(prev => prev.map(p => p.id === selectedPos.id ? updated : p).sort((a, b) => a.name.localeCompare(b.name)));
+            setFormData(prev => ({ ...prev, role: updated.name }));
+            setEditPos(false);
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.connection_error')); }
+    };
+    const saveEditDept = async () => {
+        const name = editDeptVal.trim();
+        if (!selectedDept || !name) { setEditDept(false); return; }
+        try {
+            const updated = await employeeDepartmentsService.update(selectedDept.id, name);
+            setEmpDepartments(prev => prev.map(d => d.id === selectedDept.id ? updated : d).sort((a, b) => a.name.localeCompare(b.name)));
+            setFormData(prev => ({ ...prev, department: updated.name }));
+            setEditDept(false);
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.connection_error')); }
+    };
+    const confirmDeleteLookup = async () => {
+        if (!lookupToDelete) return;
+        try {
+            if (lookupToDelete.kind === 'pos') {
+                await employeePositionsService.delete(lookupToDelete.id);
+                setPositions(prev => prev.filter(p => p.id !== lookupToDelete.id));
+                setFormData(prev => prev.role === lookupToDelete.name ? { ...prev, role: '' } : prev);
+            } else {
+                await employeeDepartmentsService.delete(lookupToDelete.id);
+                setEmpDepartments(prev => prev.filter(d => d.id !== lookupToDelete.id));
+                setFormData(prev => prev.department === lookupToDelete.name ? { ...prev, department: '' } : prev);
+            }
+            setLookupToDelete(null);
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.connection_error')); }
+    };
+
     return (
         <>
         <Modal isOpen={isOpen} onClose={onClose} title={employee ? (t('employee.form.edit') || 'Editar empleado') : (t('employee.form.create') || 'Nuevo empleado')} size="2xl">
@@ -538,27 +584,65 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium">{t('pm2x.employee.position')}</label>
-                                <div className="flex gap-2">
-                                    <select name="role" value={formData.role} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
-                                        <option value="">{t('pm2x.common.select_placeholder')}</option>
-                                        {positions.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                    </select>
-                                    <button type="button" onClick={() => setShowPositionModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('pm2x.employee.add_position')}>
-                                        <PlusIcon className="w-4 h-4" />
-                                    </button>
-                                </div>
+                                {editPos ? (
+                                    <div className="flex gap-2">
+                                        <input value={editPosVal} onChange={e => setEditPosVal(e.target.value)} className={inputFormStyle + ' flex-1'} autoFocus
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveEditPos(); } if (e.key === 'Escape') setEditPos(false); }} />
+                                        <button type="button" onClick={saveEditPos} className="px-3 rounded-md bg-primary text-white text-sm font-semibold">{t('common.save')}</button>
+                                        <button type="button" onClick={() => setEditPos(false)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <select name="role" value={formData.role} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
+                                            <option value="">{t('pm2x.common.select_placeholder')}</option>
+                                            {positions.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                        </select>
+                                        {selectedPos && (
+                                            <>
+                                                <button type="button" onClick={() => { setEditPosVal(selectedPos.name); setEditPos(true); }} className={BUTTON_SECONDARY_SM_CLASSES} title={t('common.edit')}>
+                                                    <EditIcon className="w-4 h-4" />
+                                                </button>
+                                                <button type="button" onClick={() => setLookupToDelete({ kind: 'pos', id: selectedPos.id, name: selectedPos.name })} className="px-3 rounded-md border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('common.delete')}>
+                                                    <TrashIconMini className="w-4 h-4" />
+                                                </button>
+                                            </>
+                                        )}
+                                        <button type="button" onClick={() => setShowPositionModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('pm2x.employee.add_position')}>
+                                            <PlusIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">{t('pm2x.employee.department')}</label>
-                                <div className="flex gap-2">
-                                    <select name="department" value={formData.department || ''} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
-                                        <option value="">{t('pm2x.common.select_placeholder')}</option>
-                                        {empDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                                    </select>
-                                    <button type="button" onClick={() => setShowDeptModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('pm2x.employee.add_department')}>
-                                        <PlusIcon className="w-4 h-4" />
-                                    </button>
-                                </div>
+                                {editDept ? (
+                                    <div className="flex gap-2">
+                                        <input value={editDeptVal} onChange={e => setEditDeptVal(e.target.value)} className={inputFormStyle + ' flex-1'} autoFocus
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveEditDept(); } if (e.key === 'Escape') setEditDept(false); }} />
+                                        <button type="button" onClick={saveEditDept} className="px-3 rounded-md bg-primary text-white text-sm font-semibold">{t('common.save')}</button>
+                                        <button type="button" onClick={() => setEditDept(false)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <select name="department" value={formData.department || ''} onChange={handleChange} className={inputFormStyle + ' flex-1'}>
+                                            <option value="">{t('pm2x.common.select_placeholder')}</option>
+                                            {empDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                                        </select>
+                                        {selectedDept && (
+                                            <>
+                                                <button type="button" onClick={() => { setEditDeptVal(selectedDept.name); setEditDept(true); }} className={BUTTON_SECONDARY_SM_CLASSES} title={t('common.edit')}>
+                                                    <EditIcon className="w-4 h-4" />
+                                                </button>
+                                                <button type="button" onClick={() => setLookupToDelete({ kind: 'dept', id: selectedDept.id, name: selectedDept.name })} className="px-3 rounded-md border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('common.delete')}>
+                                                    <TrashIconMini className="w-4 h-4" />
+                                                </button>
+                                            </>
+                                        )}
+                                        <button type="button" onClick={() => setShowDeptModal(true)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('pm2x.employee.add_department')}>
+                                            <PlusIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -791,6 +875,14 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             cancelButtonText={t('pm2x.common.no_thanks')}
             onConfirm={async () => { await handleResendInvitation(); }}
             onClose={() => { setAskResend(false); onClose(); }}
+        />
+        <ConfirmationModal
+            isOpen={!!lookupToDelete}
+            title={t('pmx.common.confirm_delete_title')}
+            message={`${t('common.delete')} «${lookupToDelete?.name || ''}»? ${t('pmx.common.cannot_undo')}`}
+            confirmButtonText={t('adminx.confirm.delete_yes')}
+            onConfirm={confirmDeleteLookup}
+            onClose={() => setLookupToDelete(null)}
         />
         {showRoleModal && (
             <RoleFormModal
