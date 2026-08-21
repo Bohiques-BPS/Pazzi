@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Product, ProductFormData, Category, UserRole } from '../../types'; 
 import { useData } from '../../contexts/DataContext'; 
 import { useAuth } from '../../contexts/AuthContext';
@@ -67,6 +68,20 @@ export const ProductsListPage: React.FC = () => {
     const [showImportModal, setShowImportModal] = useState(false);
     const [showReportsModal, setShowReportsModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [migratingImages, setMigratingImages] = useState(false);
+
+    const handleMigrateImages = async () => {
+        setMigratingImages(true);
+        try {
+            const res = await productsService.migrateImagesToCloudinary();
+            toast.success(t('pmx.product.migrate_done_all', { p: res.migrated, c: res.categoriesMigrated, logo: res.logoMigrated ? '✓' : '—' }));
+            setRefreshKey(k => k + 1); // recargar para ver las imágenes desde Cloudinary
+        } catch (err: any) {
+            toast.error(err?.message || t('pmx.product.migrate_error'));
+        } finally {
+            setMigratingImages(false);
+        }
+    };
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
@@ -196,31 +211,22 @@ export const ProductsListPage: React.FC = () => {
         setShowAdjustmentModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (itemToDeleteId) {
-           
-            try {
-                const response = await fetch(`${API_URL}/products/${itemToDeleteId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                if (response.ok) {
-                    setProducts(prev => prev.filter(p => p.id !== itemToDeleteId));
-                    toast.success(t('pmx.product.deleted_ok'));
-                } else {
-                    const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || t('pmx.product.delete_error'));
-                }
-            } catch (error) {
-                console.error('Error al eliminar producto:', error);
-                toast.error(t('pmx.common.conn_delete_error'));
-            } finally {
-                setItemToDeleteId(null);
-            }
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = products.find(p => p.id === id);
+        setItemToDeleteId(null);
         setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.product'),
+            optimisticRemove: () => setProducts(prev => prev.filter(p => p.id !== id)),
+            restore: () => setProducts(prev => (item && !prev.some(p => p.id === id)) ? [item, ...prev] : prev),
+            apiDelete: async () => {
+                const res = await fetch(`${API_URL}/products/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` } });
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || t('pmx.product.delete_error')); }
+            },
+            errorMessage: t('pmx.product.delete_error'),
+        });
     };
 
     // El backend ya devuelve la página filtrada por búsqueda/categoría → usamos los datos tal cual.
@@ -320,6 +326,14 @@ export const ProductsListPage: React.FC = () => {
                         title={t('pmx.product.import_title')}
                     >
                        📥 {t('pmx.common.import')}
+                    </button>
+                    <button
+                        onClick={handleMigrateImages}
+                        disabled={migratingImages}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0 disabled:opacity-50`}
+                        title={t('pmx.product.migrate_title')}
+                    >
+                       {migratingImages ? '…' : `☁️ ${t('pmx.product.migrate_btn')}`}
                     </button>
                     <button
                         onClick={openModalForCreate}
@@ -425,12 +439,12 @@ export const ProductsListPage: React.FC = () => {
                 </>
             ) : !loadingData && (
                 <>
-                 <DataTable<Product>
+                 <DataTable<Product> searchable={false} onRowClick={openModalForEdit}
                     data={filteredProducts}
                     columns={tableColumns}
                     actions={(product) => (
                         <div className="flex space-x-1">
-                            <button onClick={() => openModalForEdit(product)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('pmx.product.edit_name', { name: product.name })}><EditIcon /></button>
+                            <button onClick={() => openModalForEdit(product)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('pmx.product.edit_name', { name: product.name })}><EditIcon className="w-5 h-5" /></button>
                             <button
                                 onClick={() => printBarcodeLabel(product).then(() => toast.success(t('pmx.product.label_sent_short'))).catch(err => toast.error(err?.message || t('pmx.product.label_print_failed')))}
                                 className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1 text-base leading-none"
@@ -438,7 +452,7 @@ export const ProductsListPage: React.FC = () => {
                                 aria-label={t('pmx.product.print_barcode_of', { name: product.name })}
                             >🏷️</button>
                             <button onClick={() => openHistoryModal(product)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 p-1" aria-label={t('pmx.product.view_movements_of', { name: product.name })}><ListBulletIcon/></button>
-                            <button onClick={() => requestDelete(product.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('pmx.product.delete_name', { name: product.name })}><DeleteIcon /></button>
+                            <button onClick={() => requestDelete(product.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('pmx.product.delete_name', { name: product.name })}><DeleteIcon className="w-5 h-5" /></button>
                         </div>
                     )}
                 />

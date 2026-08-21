@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Department } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
@@ -69,29 +70,22 @@ export const DepartmentsListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
-        if(itemToDeleteId) {
-            try {
-                const response = await fetch(`${API_URL}/departments/${itemToDeleteId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                if (response.ok) {
-                    setDepartments(prev => prev.filter(d => d.id !== itemToDeleteId));
-                    toast.success(t('pmx.department.deleted_ok'));
-                } else {
-                    const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || t('pmx.department.delete_error'));
-                }
-            } catch (error) {
-                toast.error(t('pmx.common.conn_delete_error'));
-            } finally {
-                setItemToDeleteId(null);
-                setShowDeleteConfirmModal(false);
-            }
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = departments.find(d => d.id === id);
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.department'),
+            optimisticRemove: () => setDepartments(prev => prev.filter(d => d.id !== id)),
+            restore: () => setDepartments(prev => (item && !prev.some(d => d.id === id)) ? [item, ...prev] : prev),
+            apiDelete: async () => {
+                const res = await fetch(`${API_URL}/departments/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` } });
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || t('pmx.department.delete_error')); }
+            },
+            errorMessage: t('pmx.department.delete_error'),
+        });
     };
 
     const columns: TableColumn<Department>[] = [
@@ -135,7 +129,7 @@ export const DepartmentsListPage: React.FC = () => {
                 </div>
             )}
             {!loadingData && (
-                <DataTable<Department>
+                <DataTable<Department> searchable={false} onRowClick={openModalForEdit}
                     data={filteredDepartments}
                     columns={columns}
                     actions={(department) => (

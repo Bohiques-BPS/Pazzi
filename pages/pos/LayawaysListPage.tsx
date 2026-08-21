@@ -129,7 +129,7 @@ export const LayawaysListPage: React.FC = () => {
             )}
 
             {!loading && layawayData.length > 0 && (
-                <DataTable<LayawayRow>
+                <DataTable<LayawayRow> onRowClick={setPaymentModalLayaway}
                     data={layawayData}
                     columns={columns}
                     actions={(layaway) => (

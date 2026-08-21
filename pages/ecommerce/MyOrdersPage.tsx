@@ -63,7 +63,7 @@ export const MyOrdersPage: React.FC = () => {
             </div>
 
             {userOrders.length > 0 ? (
-                <DataTable<Order>
+                <DataTable<Order> onRowClick={handleOpenDetailModal}
                     data={userOrders}
                     columns={columns}
                     actions={(order) => (
@@ -72,7 +72,7 @@ export const MyOrdersPage: React.FC = () => {
                             className="text-primary hover:text-secondary p-1"
                             aria-label={t('ecomx.orders.view_details_aria', { id: order.id.substring(0,8) })}
                         >
-                            <EyeIcon />
+                            <EyeIcon className="w-5 h-5" />
                         </button>
                     )}
                 />

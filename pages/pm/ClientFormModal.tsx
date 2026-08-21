@@ -200,23 +200,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 toast.success(t('pmx.client.created_ok'));
                 onClose(newClient);
             }
-        } catch (err) {
-            toast.error(t('pmx.client.save_local_fallback'));
+        } catch (err: any) {
+            // NO fingir éxito local: si el backend rechazó el guardado, el cambio NO existe.
+            // Antes se actualizaba el estado local y se cerraba el modal → parecía que editaba
+            // pero al recargar se perdía. Ahora mostramos el error real y dejamos el modal abierto.
             console.error('Error al guardar cliente:', err);
-            if (client) {
-                const updatedClient: Client = { ...client, ...dataToSave as any };
-                setClients(prev => prev.map(c => c.id === client.id ? updatedClient : c));
-                onClose(updatedClient);
-            } else {
-                const newClient: Client = {
-                    ...initialFormState, 
-                    ...dataToSave as any, 
-                    id: `client-${Date.now()}`,
-                    createdDate: new Date().toISOString().split('T')[0],
-                } as Client;
-                setClients(prev => [...prev, newClient]);
-                onClose(newClient);
-            }
+            toast.error(err?.message || t('pmx.client.save_error') || 'No se pudo guardar el cliente.');
         } finally {
             setIsSubmitting(false);
         }
@@ -226,6 +215,19 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         <div className="space-y-3">
             <div><label className="block text-sm font-medium">{t('common.name')}</label><input type="text" name="name" value={formData.name} onChange={handleChange} className={inputFormStyle} required/></div>
             <div><label className="block text-sm font-medium">{t('client.field.lastname')}</label><input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} required /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label className="block text-sm font-medium">{t('client.field.type')}</label>
+                    <select name="clientType" value={formData.clientType} onChange={handleChange} className={inputFormStyle}>
+                        <option value="Particular">{t('client.type.individual')}</option>
+                        <option value="Empresa">{t('client.type.company')}</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium">{t('client.field.company')}</label>
+                    <input type="text" name="companyName" value={formData.companyName || ''} onChange={handleChange} className={inputFormStyle} placeholder={t('client.field.company_ph')} />
+                </div>
+            </div>
             <div>
                 <div className="flex justify-between items-center mb-1">
                     <label className="block text-sm font-medium">{t('client.field.projects')}</label>

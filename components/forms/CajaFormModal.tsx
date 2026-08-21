@@ -52,6 +52,17 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cajaToEdit, isOpen]);
 
+    // Si las sucursales cargan DESPUÉS de abrir el modal (carga async), autoselecciona la primera
+    // para una caja nueva cuando aún no hay ninguna elegida. Evita el estado "muestra una sucursal
+    // pero al guardar dice que no hay ninguna seleccionada" (el select mostraba la 1ª pero branchId='').
+    useEffect(() => {
+        if (!isOpen || cajaToEdit) return;
+        if (!formData.branchId && activeBranches.length > 0) {
+            setFormData(prev => ({ ...prev, branchId: activeBranches[0].id }));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, cajaToEdit, activeBranches.length, formData.branchId]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         if (type === 'checkbox') {
@@ -135,7 +146,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                     name="branchId"
                     label={t('cmpx.cajaform.branch_label')}
                     value={formData.branchId}
-                    onChange={(v) => setFormData(prev => ({ ...prev, branchId: v }))}
+                    onChange={(v) => { setFormData(prev => ({ ...prev, branchId: v })); if (v) setError(null); }}
                     options={activeBranches.map(b => ({ value: b.id, label: b.name }))}
                     onCreateClick={() => setShowCreateBranch(true)}
                     required

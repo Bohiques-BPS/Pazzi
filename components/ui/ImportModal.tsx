@@ -58,10 +58,17 @@ function guessColumn(field: ImportFieldDef, headers: string[]): string {
         const hit = normHeaders.find(h => h.norm === c);
         if (hit) return hit.raw;
     }
-    // 2) contiene / contenido
+    // 2) contiene / contenido — con guardas para evitar falsos positivos.
+    // El match inverso (el candidato CONTIENE al header) exige header ≥4 caracteres: si no,
+    // headers cortos como "ID" harían match con candidatos que los contienen (p.ej. "vendido"
+    // contiene "id" → mapeaba la columna ID a soldQty y arruinaba los reportes de ventas).
     for (const c of candidates) {
-        const hit = normHeaders.find(h => h.norm.includes(c) || c.includes(h.norm));
-        if (hit && c.length >= 3) return hit.raw;
+        if (c.length < 3) continue;
+        const hit = normHeaders.find(h =>
+            h.norm.includes(c) ||
+            (h.norm.length >= 4 && c.includes(h.norm))
+        );
+        if (hit) return hit.raw;
     }
     return '';
 }

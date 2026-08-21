@@ -104,13 +104,13 @@ export const ClientOrdersPage: React.FC = () => {
                 </div>
             </div>
             
-            <DataTable<Order>
+            <DataTable<Order> searchable={false} onRowClick={handleOpenDetailModal}
                 data={filteredOrders}
                 columns={columns}
                 actions={(order) => (
                     <div className="flex space-x-2">
                         <button onClick={() => handleOpenDetailModal(order)} className="text-primary hover:text-secondary p-1" aria-label={`Ver detalles de pedido ${order.id.substring(0,8)}`}>
-                            <EyeIcon />
+                            <EyeIcon className="w-5 h-5" />
                         </button>
                         <button onClick={() => handleOpenStatusModal(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={`Actualizar estado de pedido ${order.id.substring(0,8)}`}>
                             <Cog6ToothIcon />

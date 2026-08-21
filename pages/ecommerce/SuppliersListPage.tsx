@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { useLocation } from 'react-router-dom';
 import { Supplier } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -71,30 +72,22 @@ export const SuppliersListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (itemToDeleteId) {
-            try {
-                const response = await fetch(`${API_URL}/suppliers/${itemToDeleteId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                if (response.ok) {
-                    setSuppliers(prev => prev.filter(s => s.id !== itemToDeleteId));
-                    toast.success(t('ecomx.suppliers.deleted'));
-                } else {
-                    const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || t('ecomx.suppliers.delete_error'));
-                }
-            } catch (error) {
-                console.error('Error deleting supplier:', error);
-                toast.error(t('ecomx.common.connection_error'));
-            } finally {
-                setItemToDeleteId(null);
-                setShowDeleteConfirmModal(false);
-            }
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = suppliers.find(s => s.id === id);
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.supplier'),
+            optimisticRemove: () => setSuppliers(prev => prev.filter(s => s.id !== id)),
+            restore: () => setSuppliers(prev => (item && !prev.some(s => s.id === id)) ? [item, ...prev] : prev),
+            apiDelete: async () => {
+                const res = await fetch(`${API_URL}/suppliers/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` } });
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || t('ecomx.suppliers.delete_error')); }
+            },
+            errorMessage: t('ecomx.suppliers.delete_error'),
+        });
     };
 
     const columns: TableColumn<Supplier>[] = [
@@ -119,16 +112,16 @@ export const SuppliersListPage: React.FC = () => {
                 </div>
             )}
 
-            <DataTable<Supplier>
+            <DataTable<Supplier> onRowClick={openModalForEdit}
                 data={filteredSuppliers}
                 columns={columns}
                 actions={(supplier) => (
                     <>
                         <button onClick={() => openModalForEdit(supplier)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')}>
-                            <EditIcon />
+                            <EditIcon className="w-5 h-5" />
                         </button>
                         <button onClick={() => requestDelete(supplier.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('common.delete')}>
-                            <DeleteIcon />
+                            <DeleteIcon className="w-5 h-5" />
                         </button>
                     </>
                 )}

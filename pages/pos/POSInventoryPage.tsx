@@ -305,9 +305,10 @@ export const POSInventoryPage: React.FC = () => {
                         <EmptyState title={t('posx.inventory.noProductsTitle')} description={t('posx.inventory.noProductsDesc')} />
                     )}
                     {!stockLoading && filteredStock.length > 0 && (
-                        <DataTable<CurrentStockItem>
+                        <DataTable<CurrentStockItem> searchable={false}
                             data={filteredStock}
                             columns={stockColumns}
+                            onRowClick={(item) => { const p = findProductInStock(item.id); if (p) setProductForAdjust(p); }}
                             actions={(item) => {
                                 const product = findProductInStock(item.id);
                                 return (
@@ -354,7 +355,7 @@ export const POSInventoryPage: React.FC = () => {
                         <EmptyState title={t('posx.inventory.noMovementsTitle')} description={t('posx.inventory.noMovementsDesc')} />
                     )}
                     {!logsLoading && filteredLogs.length > 0 && (
-                        <DataTable<InventoryLog> data={filteredLogs} columns={logColumns} />
+                        <DataTable<InventoryLog> data={filteredLogs} columns={logColumns} searchable={false} />
                     )}
                 </>
             )}

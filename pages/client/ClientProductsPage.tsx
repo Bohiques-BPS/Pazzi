@@ -166,13 +166,13 @@ export const ClientProductsPage: React.FC = () => {
                     )}
                 </>
             ) : (
-                 <DataTable<Product>
+                 <DataTable<Product> searchable={false} onRowClick={openModalForEdit}
                     data={filteredClientProducts}
                     columns={tableColumns}
                     actions={(product) => (
                         <>
-                            <button onClick={() => openModalForEdit(product)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1"><EditIcon /></button>
-                            <button onClick={() => requestDelete(product.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1"><DeleteIcon /></button>
+                            <button onClick={() => openModalForEdit(product)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1"><EditIcon className="w-5 h-5" /></button>
+                            <button onClick={() => requestDelete(product.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1"><DeleteIcon className="w-5 h-5" /></button>
                         </>
                     )}
                 />

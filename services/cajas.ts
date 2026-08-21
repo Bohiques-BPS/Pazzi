@@ -1,7 +1,7 @@
 import { api } from './api';
 
 export type CajaSessionStatus = 'OPEN' | 'CLOSED';
-export type CashMovementType = 'PAYOUT' | 'CASH_DROP' | 'CASH_IN' | 'REFUND';
+export type CashMovementType = 'PAYOUT' | 'CASH_DROP' | 'CASH_IN' | 'REFUND' | 'DRAWER_OPEN';
 
 export interface CajaPayload {
   name: string;
@@ -72,6 +72,7 @@ export interface SessionTotals {
   byMethod: { method: string; amount: number }[];
   salesCount: number;
   returnsCount: number;
+  cashierName?: string | null;
 }
 
 export interface CashMovementPayload {

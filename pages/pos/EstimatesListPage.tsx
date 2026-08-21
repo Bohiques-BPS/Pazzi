@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { useNavigate } from 'react-router-dom';
 import { Estimate, EstimateStatus, Client, Product, CartItem, EstimateFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -67,7 +68,12 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
     ]);
 
     const subtotal = estimate.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-    const iva = estimate.totalAmount - subtotal;
+    // IVU calculado en vivo por ítem (tasa del producto o 11.5% por defecto) para que salga
+    // correcto también en estimados guardados con el total viejo (sin IVU).
+    const iva = estimate.items.reduce((sum, item) => {
+        const rate = getProductById((item as any).productId || (item as any).id)?.ivuRate ?? 0.115;
+        return sum + (item.unitPrice * item.quantity) * (rate || 0);
+    }, 0);
 
     autoTable(doc, {
         head: tableHead,
@@ -93,7 +99,7 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
     y += 7;
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL ESTIMADO:", totalsX, y, { align: 'left' });
-    doc.text(`$${estimate.totalAmount.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+    doc.text(`$${(subtotal + iva).toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
     y += 15;
     
     doc.setFontSize(9);
@@ -111,7 +117,7 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
 
     y += 5;
     
-    const qrText = `Estimado Pazzi\nID: ${estimate.id.slice(-6)}\nCliente: ${client?.name || 'N/A'}\nTotal: $${estimate.totalAmount.toFixed(2)}`;
+    const qrText = `Estimado Pazzi\nID: ${estimate.id.slice(-6)}\nCliente: ${client?.name || 'N/A'}\nTotal: $${(subtotal + iva).toFixed(2)}`;
     let qrCodeDataUrl = '';
     if ((window as any).QRCode) {
         try {
@@ -178,21 +184,19 @@ export const EstimatesListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (!itemToDeleteId) {
-            setShowDeleteConfirmModal(false);
-            return;
-        }
-        try {
-            await estimatesService.delete(itemToDeleteId);
-            setEstimates(prev => prev.filter(e => e.id !== itemToDeleteId));
-            toast.success(t('posx.estimates.deleted'));
-        } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : t('posx.estimates.delete_error'));
-        } finally {
-            setItemToDeleteId(null);
-            setShowDeleteConfirmModal(false);
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = estimates.find(e => e.id === id);
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.estimate'),
+            optimisticRemove: () => setEstimates(prev => prev.filter(e => e.id !== id)),
+            restore: () => setEstimates(prev => (item && !prev.some(e => e.id === id)) ? [item, ...prev] : prev),
+            apiDelete: () => estimatesService.delete(id),
+            errorMessage: t('posx.estimates.delete_error'),
+        });
     };
 
     const navigate = useNavigate();
@@ -459,11 +463,30 @@ export const EstimatesListPage: React.FC = () => {
         doc.save(`Estimado_${client.name.replace(/\s/g, '_')}_${selectedIdsString}.pdf`);
     };
 
+    // Subtotal (sin IVU) y Total (con IVU) calculados en vivo desde los ítems + tasa del producto.
+    // Se calcula en el FE para que salga correcto también en estimados guardados con el total viejo.
+    const estimateTotals = (e: Estimate) => {
+        let subtotal = 0, total = 0;
+        for (const it of (e.items || [])) {
+            let line = (it.unitPrice || 0) * (it.quantity || 0);
+            const dt = (it as any).discount?.type ?? (it as any).discountType;
+            const dv = (it as any).discount?.value ?? (it as any).discountValue;
+            if (dt === 'percentage' && dv) line -= line * (dv / 100);
+            else if (dt === 'fixed' && dv) line -= dv;
+            subtotal += line;
+            const rate = getProductById((it as any).productId || (it as any).id)?.ivuRate ?? 0.115;
+            total += line + line * (rate || 0);
+        }
+        if (subtotal === 0 && e.totalAmount) return { subtotal: e.totalAmount, total: e.totalAmount };
+        return { subtotal, total };
+    };
+
     const columns: TableColumn<Estimate>[] = [
         { header: t('pos.estimates.col.id'), accessor: (e) => e.id.substring(0, 8).toUpperCase() },
         { header: t('pos.estimates.col.date'), accessor: (e) => new Date(e.date).toLocaleDateString() },
         { header: t('pos.estimates.col.client'), accessor: (e) => getClientById(e.clientId)?.name || 'N/A' },
-        { header: t('pos.estimates.col.total'), accessor: (e) => `$${e.totalAmount.toFixed(2)}` },
+        { header: t('pos.estimates.col.subtotal'), accessor: (e) => `$${estimateTotals(e).subtotal.toFixed(2)}`, sortable: false },
+        { header: t('pos.estimates.col.total_ivu'), accessor: (e) => `$${estimateTotals(e).total.toFixed(2)}`, sortable: false },
         { 
             header: t('pos.estimates.col.status'), 
             accessor: (e) => (
@@ -493,7 +516,7 @@ export const EstimatesListPage: React.FC = () => {
                     </button>
                 </div>
             </div>
-            <DataTable<Estimate>
+            <DataTable<Estimate> onRowClick={openModalForEdit}
                 data={sortedEstimates}
                 columns={columns}
                 actions={(estimate) => {
@@ -507,10 +530,10 @@ export const EstimatesListPage: React.FC = () => {
                                     title={isClosed ? t('posx.estimates.already_converted_title') : t('posx.estimates.convert_to_sale')}
                                     disabled={isClosed || estimate.status === EstimateStatus.RECHAZADO || estimate.status === EstimateStatus.EXPIRADO}
                                 >
-                                    <ShoppingCartIcon className="w-4 h-4" />
+                                    <ShoppingCartIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
-                            <button onClick={() => handlePrint(estimate)} className="text-primary hover:text-secondary p-1" title={t('pos.estimates.print_pdf')}><PrinterIcon /></button>
+                            <button onClick={() => handlePrint(estimate)} className="text-primary hover:text-secondary p-1" title={t('pos.estimates.print_pdf')}><PrinterIcon className="w-5 h-5" /></button>
                             <PermissionGate require="estimates.manage">
                                 <button
                                     onClick={() => openModalForEdit(estimate)}
@@ -518,7 +541,7 @@ export const EstimatesListPage: React.FC = () => {
                                     title={t('common.edit')}
                                     disabled={isClosed}
                                 >
-                                    <EditIcon />
+                                    <EditIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                             <PermissionGate require="estimates.manage">
@@ -528,7 +551,7 @@ export const EstimatesListPage: React.FC = () => {
                                     title={t('common.delete')}
                                     disabled={isClosed}
                                 >
-                                    <DeleteIcon />
+                                    <DeleteIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                         </div>

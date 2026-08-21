@@ -42,52 +42,96 @@ const fieldToTabMap: Record<string, string> = {
     salary: 'Acceso y Empleo',
 };
 
-// ── QuickCreateModal — mini-modal para crear puestos o departamentos ──────────
-interface QuickCreateModalProps {
+// ── ManageLookupModal — crear, RENOMBRAR y eliminar puestos o departamentos ──────
+interface ManageLookupModalProps {
     isOpen: boolean;
     title: string;
     placeholder: string;
+    items: LookupItem[];
     onClose: () => void;
     onCreate: (name: string) => Promise<void>;
+    onRename: (id: string, name: string) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
 }
 
-const QuickCreateModal: React.FC<QuickCreateModalProps> = ({ isOpen, title, placeholder, onClose, onCreate }) => {
+const ManageLookupModal: React.FC<ManageLookupModalProps> = ({ isOpen, title, placeholder, items, onClose, onCreate, onRename, onDelete }) => {
     const { t } = useTranslation();
     const [name, setName] = useState('');
     const [saving, setSaving] = useState(false);
+    const [edits, setEdits] = useState<Record<string, string>>({});
+    const [busyId, setBusyId] = useState<string | null>(null);
     if (!isOpen) return null;
-    const handleSubmit = async (e: React.FormEvent) => {
+
+    const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
         setSaving(true);
-        try {
-            await onCreate(name.trim());
-            setName('');
-            onClose();
-        } catch {
-            toast.error(t('pm2x.quickcreate.save_error'));
-        } finally {
-            setSaving(false);
-        }
+        try { await onCreate(name.trim()); setName(''); }
+        catch { toast.error(t('pm2x.quickcreate.save_error')); }
+        finally { setSaving(false); }
     };
+
+    const handleRename = async (id: string, original: string) => {
+        const next = (edits[id] ?? original).trim();
+        if (!next || next === original) return;
+        setBusyId(id);
+        try { await onRename(id, next); setEdits(prev => { const n = { ...prev }; delete n[id]; return n; }); }
+        catch { toast.error(t('pm2x.quickcreate.save_error')); }
+        finally { setBusyId(null); }
+    };
+
+    const handleDelete = async (id: string) => {
+        setBusyId(id);
+        try { await onDelete(id); }
+        catch { toast.error(t('pm2x.quickcreate.delete_error')); }
+        finally { setBusyId(null); }
+    };
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder={placeholder}
-                    className={inputFormStyle}
-                    autoFocus
-                />
-                <div className="flex justify-end space-x-2">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={saving}>{t('common.cancel')}</button>
+        <Modal isOpen={isOpen} onClose={onClose} title={title} size="md">
+            <div className="space-y-4">
+                {/* Lista existente: renombrar / eliminar */}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {items.length === 0 ? (
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('pm2x.quickcreate.empty')}</p>
+                    ) : items.map(it => {
+                        const val = edits[it.id] ?? it.name;
+                        const changed = val.trim() !== it.name && val.trim() !== '';
+                        return (
+                            <div key={it.id} className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={val}
+                                    onChange={e => setEdits(prev => ({ ...prev, [it.id]: e.target.value }))}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleRename(it.id, it.name); }}
+                                    className={`${inputFormStyle} flex-1`}
+                                    disabled={busyId === it.id}
+                                />
+                                {changed && (
+                                    <button type="button" onClick={() => handleRename(it.id, it.name)} disabled={busyId === it.id} className="p-2 text-primary hover:bg-primary/10 rounded-md" title={t('common.save')}>
+                                        <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                    </button>
+                                )}
+                                <button type="button" onClick={() => handleDelete(it.id)} disabled={busyId === it.id} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md" title={t('common.delete')}>
+                                    <TrashIconMini className="w-5 h-5" />
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Crear nuevo */}
+                <form onSubmit={handleCreate} className="flex items-center gap-2 border-t dark:border-neutral-700 pt-3">
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={placeholder} className={`${inputFormStyle} flex-1`} />
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={saving || !name.trim()}>
                         {saving ? t('common.saving') : t('common.create')}
                     </button>
+                </form>
+
+                <div className="flex justify-end">
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.close') || t('common.cancel')}</button>
                 </div>
-            </form>
+            </div>
         </Modal>
     );
 };
@@ -690,26 +734,53 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
             </form>
         </Modal>
 
-        <QuickCreateModal
+        <ManageLookupModal
             isOpen={showPositionModal}
-            title={t('pm2x.employee.new_position')}
+            title={t('pm2x.employee.manage_positions')}
             placeholder={t('pm2x.employee.position_placeholder')}
+            items={positions}
             onClose={() => setShowPositionModal(false)}
             onCreate={async (name) => {
                 const created = await employeePositionsService.create(name);
                 setPositions(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
                 setFormData(prev => ({ ...prev, role: created.name }));
             }}
+            onRename={async (id, name) => {
+                const before = positions.find(p => p.id === id)?.name;
+                const updated = await employeePositionsService.update(id, name);
+                setPositions(prev => prev.map(p => p.id === id ? updated : p).sort((a, b) => a.name.localeCompare(b.name)));
+                // Si el empleado tenía ese puesto (por nombre), reflejar el nuevo nombre en el form.
+                setFormData(prev => prev.role === before ? { ...prev, role: updated.name } : prev);
+            }}
+            onDelete={async (id) => {
+                const removed = positions.find(p => p.id === id)?.name;
+                await employeePositionsService.delete(id);
+                setPositions(prev => prev.filter(p => p.id !== id));
+                setFormData(prev => prev.role === removed ? { ...prev, role: '' } : prev);
+            }}
         />
-        <QuickCreateModal
+        <ManageLookupModal
             isOpen={showDeptModal}
-            title={t('pm2x.employee.new_department')}
+            title={t('pm2x.employee.manage_departments')}
             placeholder={t('pm2x.employee.department_placeholder')}
+            items={empDepartments}
             onClose={() => setShowDeptModal(false)}
             onCreate={async (name) => {
                 const created = await employeeDepartmentsService.create(name);
                 setEmpDepartments(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
                 setFormData(prev => ({ ...prev, department: created.name }));
+            }}
+            onRename={async (id, name) => {
+                const before = empDepartments.find(d => d.id === id)?.name;
+                const updated = await employeeDepartmentsService.update(id, name);
+                setEmpDepartments(prev => prev.map(d => d.id === id ? updated : d).sort((a, b) => a.name.localeCompare(b.name)));
+                setFormData(prev => prev.department === before ? { ...prev, department: updated.name } : prev);
+            }}
+            onDelete={async (id) => {
+                const removed = empDepartments.find(d => d.id === id)?.name;
+                await employeeDepartmentsService.delete(id);
+                setEmpDepartments(prev => prev.filter(d => d.id !== id));
+                setFormData(prev => prev.department === removed ? { ...prev, department: '' } : prev);
             }}
         />
         <ConfirmationModal

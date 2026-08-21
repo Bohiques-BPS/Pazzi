@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Branch, BranchFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
@@ -57,29 +58,22 @@ export const BranchesListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (itemToDeleteId) {
-            try {
-                const response = await fetch(`${API_URL}/branches/${itemToDeleteId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                if (response.ok) {
-                    setBranches(prev => prev.filter(b => b.id !== itemToDeleteId));
-                    toast.success(t('adminx.branches.deleted'));
-                } else {
-                    const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || t('adminx.branches.delete_error'));
-                }
-            } catch (error) {
-                console.error('Error al eliminar sucursal:', error);
-                toast.error(t('adminx.common.delete_connection_error'));
-            }
-            setItemToDeleteId(null);
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = branches.find(b => b.id === id);
+        setItemToDeleteId(null);
         setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.branch'),
+            optimisticRemove: () => setBranches(prev => prev.filter(b => b.id !== id)),
+            restore: () => setBranches(prev => (item && !prev.some(b => b.id === id)) ? [item, ...prev] : prev),
+            apiDelete: async () => {
+                const res = await fetch(`${API_URL}/branches/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` } });
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || t('adminx.branches.delete_error')); }
+            },
+            errorMessage: t('adminx.branches.delete_error'),
+        });
     };
 
     const columns: TableColumn<Branch>[] = [
@@ -114,16 +108,16 @@ export const BranchesListPage: React.FC = () => {
                 </div>
             )}
 
-            <DataTable<Branch>
+            <DataTable<Branch> onRowClick={openModalForEdit}
                 data={branches}
                 columns={columns}
                 actions={(branch) => (
                     <>
                         <button onClick={() => openModalForEdit(branch)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')}>
-                            <EditIcon />
+                            <EditIcon className="w-5 h-5" />
                         </button>
                         <button onClick={() => requestDelete(branch.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('common.delete')}>
-                            <DeleteIcon />
+                            <DeleteIcon className="w-5 h-5" />
                         </button>
                     </>
                 )}

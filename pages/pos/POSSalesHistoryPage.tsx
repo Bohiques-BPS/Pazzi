@@ -285,7 +285,7 @@ export const POSSalesHistoryPage: React.FC = () => {
       <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-6">
           {t('posx.saleshistory.title')}
       </h1>
-      <DataTable<HistoryItem>
+      <DataTable<HistoryItem> onRowClick={handleTypeClick}
         data={combinedHistory}
         columns={columns}
         actions={(item) => (
@@ -296,7 +296,7 @@ export const POSSalesHistoryPage: React.FC = () => {
                 title={t('pos.sales_history.print_receipt')}
                 aria-label={`${t('pos.sales_history.print_receipt')} ${item.id.substring(0,8)}`}
               >
-                <PrinterIcon />
+                <PrinterIcon className="w-5 h-5" />
               </button>
           ) : (
               <span className="text-xs text-neutral-400">N/A</span>

@@ -323,7 +323,7 @@ export const SupplierOrdersListPage: React.FC = () => {
             )}
 
             {!loadingData && (
-                <DataTable<SupplierOrder>
+                <DataTable<SupplierOrder> searchable={false} onRowClick={openModalForEdit}
                     data={filteredOrders}
                     columns={columns}
                     actions={(order) => {
@@ -333,7 +333,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                             <div className="flex space-x-1 items-center">
                                 <PermissionGate require="supplierOrders.manage">
                                     <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title={t('ecomx.supplier_orders.view_edit')}>
-                                        <EditIcon />
+                                        <EditIcon className="w-5 h-5" />
                                     </button>
                                 </PermissionGate>
                                 <PermissionGate require="supplierOrders.receive">
@@ -363,7 +363,7 @@ export const SupplierOrdersListPage: React.FC = () => {
                                 </PermissionGate>
                                 <PermissionGate require="supplierOrders.manage">
                                     <button onClick={() => requestDelete(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" title={t('common.delete')}>
-                                        <DeleteIcon />
+                                        <DeleteIcon className="w-5 h-5" />
                                     </button>
                                 </PermissionGate>
                             </div>

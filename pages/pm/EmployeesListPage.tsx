@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Employee, EmployeeFormData, UserStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
@@ -57,21 +58,19 @@ export const EmployeesListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (!itemToDeleteId) {
-            setShowDeleteConfirmModal(false);
-            return;
-        }
-        try {
-            await employeesService.delete(itemToDeleteId);
-            setEmployees(prev => prev.filter(e => e.id !== itemToDeleteId));
-            toast.success(t('pm2x.employee.deleted'));
-        } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : t('pm2x.employee.delete_error'));
-        } finally {
-            setItemToDeleteId(null);
-            setShowDeleteConfirmModal(false);
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = employees.find(e => e.id === id);
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.employee'),
+            optimisticRemove: () => setEmployees(prev => prev.filter(e => e.id !== id)),
+            restore: () => setEmployees(prev => (item && !prev.some(e => e.id === id)) ? [item, ...prev] : prev),
+            apiDelete: () => employeesService.delete(id),
+            errorMessage: t('pm2x.employee.delete_error'),
+        });
     };
 
     const handleResendInvitation = async (emp: Employee) => {
@@ -174,7 +173,7 @@ export const EmployeesListPage: React.FC = () => {
             )}
 
             {!loadingData && employees.length > 0 && (
-                <DataTable<Employee>
+                <DataTable<Employee> onRowClick={openModalForEdit}
                     data={employees}
                     columns={columns}
                     actions={(emp) => {
@@ -192,7 +191,7 @@ export const EmployeesListPage: React.FC = () => {
                                             title={noAccess ? t('pm2x.employee.give_access_title') : t('pm2x.employee.resend_title')}
                                             disabled={resending === emp.id}
                                         >
-                                            <PaperAirplaneIcon className="w-4 h-4" />
+                                            <PaperAirplaneIcon className="w-5 h-5" />
                                         </button>
                                     </PermissionGate>
                                 )}
@@ -203,18 +202,18 @@ export const EmployeesListPage: React.FC = () => {
                                             className="text-purple-600 dark:text-purple-400 p-1 hover:text-purple-800"
                                             title={t('pm2x.employee.reset_title')}
                                         >
-                                            <KeyIcon className="w-4 h-4" />
+                                            <KeyIcon className="w-5 h-5" />
                                         </button>
                                     </PermissionGate>
                                 )}
                                 <PermissionGate require="employees.manage">
                                     <button onClick={() => openModalForEdit(emp)} className="text-blue-600 dark:text-blue-400 p-1" aria-label={t('common.edit') || 'Editar'}>
-                                        <EditIcon />
+                                        <EditIcon className="w-5 h-5" />
                                     </button>
                                 </PermissionGate>
                                 <PermissionGate require="employees.manage">
                                     <button onClick={() => requestDelete(emp.id)} className="text-red-600 dark:text-red-400 p-1" aria-label={t('common.delete') || 'Eliminar'}>
-                                        <DeleteIcon />
+                                        <DeleteIcon className="w-5 h-5" />
                                     </button>
                                 </PermissionGate>
                             </div>

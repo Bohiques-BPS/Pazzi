@@ -61,6 +61,8 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [confirmReset, setConfirmReset] = useState(false);
+    const [resetting, setResetting] = useState(false);
     // Umbral configurable para "posibles sin uso": productos sin vender en los últimos N días
     // (o que nunca se vendieron). Default 365 = un año sin ventas.
     const [unusedDays, setUnusedDays] = useState(365);
@@ -110,6 +112,24 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
     };
 
     const currentHint = useMemo(() => REPORTS.find(r => r.id === active)?.hint, [active]);
+
+    // Reinicia los contadores heredados (soldQty/receivedQty/...) que una importación llenó con
+    // valores incorrectos (p.ej. el ID de WooCommerce). Corre directo contra la BD de producción.
+    const handleResetCounters = async () => {
+        setConfirmReset(false);
+        setResetting(true);
+        try {
+            const res = await productsService.resetLegacyCounters();
+            toast.success(t('pmx.report.reset_done', { n: res.updated }));
+            // Recargar el reporte actual para reflejar los valores corregidos.
+            const data = await productsService.getReports(active, active === 'unused' ? unusedDays : undefined);
+            setRows(data);
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : t('pmx.report.reset_error'));
+        } finally {
+            setResetting(false);
+        }
+    };
     const exportTitle = useMemo(() => `${t('pmx.report.title')} — ${plainLabel(active)}`, [active, t]);
 
     return (
@@ -148,6 +168,15 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                         title={t('pmx.report.download_excel')}
                     >
                         📊 Excel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setConfirmReset(true)}
+                        disabled={resetting}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-40`}
+                        title={t('pmx.report.reset_hint')}
+                    >
+                        {resetting ? '…' : `♻️ ${t('pmx.report.reset_btn')}`}
                     </button>
                 </div>
             </div>
@@ -237,6 +266,15 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
                 title={t('pmx.report.confirm_delete_title')}
                 message={t('pmx.report.confirm_delete_msg', { n: selected.size })}
                 confirmButtonText={t('pmx.common.yes_delete')}
+            />
+
+            <ConfirmationModal
+                isOpen={confirmReset}
+                onClose={() => setConfirmReset(false)}
+                onConfirm={handleResetCounters}
+                title={t('pmx.report.reset_confirm_title')}
+                message={t('pmx.report.reset_confirm_msg')}
+                confirmButtonText={t('pmx.report.reset_confirm_yes')}
             />
         </Modal>
     );

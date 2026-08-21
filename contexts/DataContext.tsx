@@ -576,19 +576,10 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             });
             return newEstimate;
         } catch (err) {
-            console.error('Error creando estimado via API, usando localStorage:', err);
-            const newEstimate: Estimate = {
-                ...estimateData,
-                id: `est-${Date.now()}`,
-            } as Estimate;
-            setEstimates(prev => [newEstimate, ...prev]);
-            addNotification({
-                title: `Nuevo Estimado #${newEstimate.id.slice(-6)}`,
-                message: `Creado. Total: $${newEstimate.totalAmount.toFixed(2)}`,
-                type: 'generic',
-                link: '/pos/estimates'
-            });
-            return newEstimate;
+            // NO fabricar un estimado local: si el backend falló, el estimado NO existe.
+            // Propagar el error para que el formulario muestre el fallo y no dé un falso "creado".
+            console.error('Error creando estimado via API:', err);
+            throw err;
         }
     }, [addNotification]);
     

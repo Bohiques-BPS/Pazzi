@@ -133,7 +133,9 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     };
 
     const openedAt = session ? new Date(session.openedAt) : null;
-    const cajero = session?.openedByUser ? `${session.openedByUser.name} ${session.openedByUser.lastName || ''}`.trim() : '—';
+    // Cajero: el que realmente hizo las ventas del turno; si no hubo ventas, quien abrió el turno.
+    const cajero = totals?.cashierName
+        || (session?.openedByUser ? `${session.openedByUser.name} ${session.openedByUser.lastName || ''}`.trim() : '—');
 
     const diffColor = (d: number) => d === 0 ? 'text-neutral-500' : d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
 

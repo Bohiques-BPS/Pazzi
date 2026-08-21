@@ -8,6 +8,7 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { buildTimesheet, bucketsFor, formatHours, timeOf, type Grouping } from '../../utils/timesheet';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { DataTable, TableColumn } from '../../components/DataTable';
 
 const GROUP_LABELS: Record<Grouping, string> = { day: 'Día', month: 'Mes', year: 'Año' };
 
@@ -164,30 +165,18 @@ export const AttendancePage: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
-                    <table className="min-w-full text-sm">
-                        <thead className="bg-neutral-50 dark:bg-neutral-900/50 text-neutral-500">
-                            <tr>
-                                <th className="text-left px-4 py-2">{t('posx.attendance.employee')}</th>
-                                <th className="text-left px-4 py-2">{t('posx.attendance.type')}</th>
-                                <th className="text-left px-4 py-2">{t('posx.attendance.datetime')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700">
-                            {rows.map(r => (
-                                <tr key={r.id}>
-                                    <td className="px-4 py-2 font-medium text-neutral-800 dark:text-neutral-100">{r.employeeName}</td>
-                                    <td className="px-4 py-2">
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.type === 'IN' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
-                                            {r.type === 'IN' ? t('posx.attendance.punch_in') : t('posx.attendance.punch_out')}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-2 text-neutral-600 dark:text-neutral-300">{new Date(r.punchedAt).toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable<TimeClockPunch>
+                    data={rows}
+                    columns={[
+                        { header: t('posx.attendance.employee'), accessor: (r) => <span className="font-medium text-neutral-800 dark:text-neutral-100">{r.employeeName}</span>, sortValue: r => r.employeeName, filterValue: r => r.employeeName },
+                        { header: t('posx.attendance.type'), accessor: (r) => (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.type === 'IN' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+                                {r.type === 'IN' ? t('posx.attendance.punch_in') : t('posx.attendance.punch_out')}
+                            </span>
+                        ), sortValue: r => r.type, filterValue: r => r.type === 'IN' ? t('posx.attendance.punch_in') : t('posx.attendance.punch_out') },
+                        { header: t('posx.attendance.datetime'), accessor: (r) => <span className="text-neutral-600 dark:text-neutral-300">{new Date(r.punchedAt).toLocaleString()}</span>, sortValue: r => r.punchedAt },
+                    ] as TableColumn<TimeClockPunch>[]}
+                />
             )}
         </div>
     );

@@ -11,6 +11,9 @@ import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES,
 import { UserCircleIcon, TrashIconMini } from '../../components/icons';
 import { toast } from 'react-hot-toast';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { PhoneInput } from '../../components/ui/PhoneInput';
+import { clientsService } from '../../services/clients';
+import { estimatesService } from '../../services/estimates';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface EstimateFormModalProps {
@@ -21,10 +24,16 @@ interface EstimateFormModalProps {
 
 export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, onClose, estimateToEdit }) => {
     const { t } = useTranslation();
-    const { clients, products, setEstimates, getProductById, branches } = useData();
+    const { clients, products, setEstimates, getProductById, branches, addEstimate, setClients } = useData();
     const { currentUser } = useAuth();
     const [isClientSearchModalOpen, setIsClientSearchModalOpen] = useState(false);
     const [showCreateClient, setShowCreateClient] = useState(false);
+    // Cliente NO registrado (walk-in): nombre + contacto manual. Al guardar se crea un cliente
+    // ligero por API y el estimado queda asociado a él.
+    const [manualName, setManualName] = useState('');
+    const [manualPhone, setManualPhone] = useState('');
+    const [manualEmail, setManualEmail] = useState('');
+    const [saving, setSaving] = useState(false);
     
     const initialFormData: EstimateFormData = {
         clientId: '',
@@ -57,6 +66,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                 setSelectedClient(null);
                 setFormData(initialFormData);
             }
+            setManualName(''); setManualPhone(''); setManualEmail('');
         }
     // Solo al abrir o cambiar de estimado. NO dependemos de `clients` para no reiniciar
     // el formulario (perder progreso) cuando se crea un cliente inline.
@@ -120,12 +130,8 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
     }, [formData.items, getProductById]);
 
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.clientId) {
-            toast.error(t('posx.estimateform.err_client'));
-            return;
-        }
         if (formData.items.length === 0) {
             toast.error(t('posx.estimateform.err_no_products'));
             return;
@@ -134,24 +140,52 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
             toast.error(t('posx.estimateform.err_auth'));
             return;
         }
-
-        const estimateData = {
-            ...formData,
-            totalAmount: grandTotal,
-            date: estimateToEdit ? estimateToEdit.date : new Date().toISOString(),
-            employeeId: currentUser.id,
-            branchId: branches.find(b => b.isActive)?.id || branches[0]?.id || '',
-        };
-
-        if (estimateToEdit) {
-            setEstimates(prev => prev.map(e => e.id === estimateToEdit.id ? { ...e, ...estimateData } : e));
-            toast.success(t('posx.estimateform.updated'));
-        } else {
-            const newEstimate: Estimate = { id: `est-${Date.now()}`, ...estimateData };
-            setEstimates(prev => [...prev, newEstimate]);
-            toast.success(t('posx.estimateform.created'));
+        // Se requiere un cliente registrado O un nombre manual (cliente no registrado).
+        if (!formData.clientId && !manualName.trim()) {
+            toast.error(t('posx.estimateform.err_client'));
+            return;
         }
-        onClose();
+
+        setSaving(true);
+        try {
+            // Resolver el clientId: registrado, o crear un cliente walk-in con el nombre/contacto.
+            let clientId = formData.clientId;
+            if (!clientId) {
+                const created = await clientsService.create({
+                    name: manualName.trim(),
+                    phone: manualPhone.trim() || undefined,
+                    email: manualEmail.trim() || undefined,
+                });
+                clientId = created.id;
+                setClients(prev => [...prev, created as any]);
+            }
+
+            const payload = {
+                clientId,
+                items: formData.items,
+                status: formData.status,
+                notes: formData.notes,
+                expiryDate: formData.expiryDate,
+                totalAmount: grandTotal,
+                date: estimateToEdit ? estimateToEdit.date : new Date().toISOString(),
+                employeeId: currentUser.id,
+                branchId: branches.find(b => b.isActive)?.id || branches[0]?.id || '',
+            };
+
+            if (estimateToEdit) {
+                await estimatesService.update(estimateToEdit.id, payload as any);
+                setEstimates(prev => prev.map(x => x.id === estimateToEdit.id ? ({ ...x, ...payload } as any) : x));
+                toast.success(t('posx.estimateform.updated'));
+            } else {
+                await addEstimate(payload as any); // persiste vía API y actualiza la lista
+                toast.success(t('posx.estimateform.created'));
+            }
+            onClose();
+        } catch (err: any) {
+            toast.error(err?.message || t('posx.estimateform.err_save'));
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -175,7 +209,28 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                                 {selectedClient ? t('common.edit') : t('common.search')}
                              </button>
                         </div>
-                        
+
+                        {/* Cliente NO registrado: nombre + contacto manual (si no se eligió uno registrado). */}
+                        {!selectedClient && (
+                            <div className="p-3 border rounded-md dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 space-y-2">
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('posx.estimateform.walkin_hint')}</p>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">{t('posx.estimateform.walkin_name')} <span className="text-red-500">*</span></label>
+                                    <input type="text" value={manualName} onChange={e => setManualName(e.target.value)} placeholder={t('posx.estimateform.walkin_name_ph')} className={`${inputFormStyle} w-full`} />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">{t('common.phone')}</label>
+                                        <PhoneInput value={manualPhone} onChange={setManualPhone} className="w-full" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">{t('cmp.onb.email')}</label>
+                                        <input type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)} placeholder="cliente@correo.com" className={`${inputFormStyle} w-full`} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div>
                             <label className="text-sm font-medium">{t('pos.estimates.form.add_products')}</label>
                             <ProductAutocomplete products={posRelevantProducts} onProductSelect={handleProductSelect} inputRef={productAutocompleteRef} placeholder={t('pos.search_placeholder')} />

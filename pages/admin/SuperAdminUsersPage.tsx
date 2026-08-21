@@ -9,6 +9,7 @@ import { Modal, ConfirmationModal } from '../../components/Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { DataTable, TableColumn } from '../../components/DataTable';
 
 const STATUS: Record<string, { cls: string; labelKey: string }> = {
     ACTIVE: { cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', labelKey: 'adminx.status.active' },
@@ -83,34 +84,20 @@ export const SuperAdminUsersPage: React.FC = () => {
             {loading ? <LoadingSkeleton variant="table" rows={5} /> : admins.length === 0 ? (
                 <EmptyState title={t('adminx.admins.empty_title')} description={t('adminx.admins.empty_desc')} />
             ) : (
-                <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                        <thead className="bg-neutral-50 dark:bg-neutral-900/50 text-neutral-500">
-                            <tr>
-                                <th className="text-left px-4 py-2">{t('common.name')}</th>
-                                <th className="text-left px-4 py-2">{t('common.email')}</th>
-                                <th className="text-left px-4 py-2">{t('common.status')}</th>
-                                <th className="text-right px-4 py-2">{t('common.actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700">
-                            {admins.map(a => {
-                                const st = STATUS[a.status] || STATUS.ACTIVE;
-                                return (
-                                    <tr key={a.id}>
-                                        <td className="px-4 py-2 font-medium text-neutral-800 dark:text-neutral-100">{a.name} {a.lastName}</td>
-                                        <td className="px-4 py-2 text-neutral-600 dark:text-neutral-300">{a.email}</td>
-                                        <td className="px-4 py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{t(st.labelKey)}</span></td>
-                                        <td className="px-4 py-2 text-right whitespace-nowrap">
-                                            <button onClick={() => openEdit(a)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">{t('common.edit')}</button>
-                                            <button onClick={() => setToDelete(a)} className="text-red-600 dark:text-red-400 hover:underline text-xs" disabled={a.id === currentUser?.id}>{t('common.delete')}</button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable<AdminUser>
+                    data={admins}
+                    columns={[
+                        { header: t('common.name'), accessor: (a) => <span className="font-medium text-neutral-800 dark:text-neutral-100">{a.name} {a.lastName}</span>, sortValue: a => `${a.name} ${a.lastName}`, filterValue: a => `${a.name} ${a.lastName}` },
+                        { header: t('common.email'), accessor: 'email' },
+                        { header: t('common.status'), accessor: (a) => { const st = STATUS[a.status] || STATUS.ACTIVE; return <span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{t(st.labelKey)}</span>; }, sortValue: a => a.status, filterValue: a => t((STATUS[a.status] || STATUS.ACTIVE).labelKey) },
+                    ] as TableColumn<AdminUser>[]}
+                    actions={(a) => (
+                        <>
+                            <button onClick={() => openEdit(a)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">{t('common.edit')}</button>
+                            <button onClick={() => setToDelete(a)} className="text-red-600 dark:text-red-400 hover:underline text-xs" disabled={a.id === currentUser?.id}>{t('common.delete')}</button>
+                        </>
+                    )}
+                />
             )}
 
             <Modal isOpen={!!editing} onClose={() => setEditing(null)} title={t('adminx.admins.edit_title')} size="md">

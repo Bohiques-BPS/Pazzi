@@ -47,6 +47,12 @@ export const productsService = {
   bulkDelete: (ids: string[]) =>
     api.post<{ deleted: number; skippedCount: number; skipped: { id: string; reason: string }[] }>('/products/bulk-delete', { ids }),
 
+  resetLegacyCounters: () =>
+    api.post<{ updated: number }>('/products/reset-legacy-counters', {}),
+
+  migrateImagesToCloudinary: () =>
+    api.post<{ migrated: number; categoriesMigrated: number; logoMigrated: number; failed: number; total: number }>('/products/migrate-images-to-cloudinary', {}),
+
   update: (id: string, data: any) =>
     api.put<any>(`/products/${id}`, data),
 

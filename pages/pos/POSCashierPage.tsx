@@ -59,6 +59,7 @@ import { CajaFormModal } from '../../components/forms/CajaFormModal';
 import logo from '../../assets/logo.png';
 import { authService } from '../../services/auth';
 import { cajasService, type CajaSession } from '../../services/cajas';
+import { DrawerOpenModal } from '../../components/pos/DrawerOpenModal';
 import { posService } from '../../services/pos';
 import { openCashDrawer, isCashDrawerEnabled } from '../../services/cashDrawer';
 import { toast } from '../../hooks/useToast';
@@ -214,6 +215,10 @@ export const POSCashierPage: React.FC = () => {
     const [showScanCamera, setShowScanCamera] = useState(false);
     // Factura generada tras finalizar la venta (muestra el ReceiptModal).
     const [lastReceipt, setLastReceipt] = useState<ReceiptSale | null>(null);
+    // Cambio a devolver tras una venta en efectivo: overlay grande que permanece hasta ESC.
+    const [changeOverlay, setChangeOverlay] = useState<number | null>(null);
+    // Modal de apertura de gaveta "Sin venta" (exige razón + PIN).
+    const [showDrawerOpen, setShowDrawerOpen] = useState(false);
     // Error al registrar la venta (stock insuficiente, turno cerrado, etc.) → modal claro.
     const [saleError, setSaleError] = useState<{ message: string; code?: string } | null>(null);
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
@@ -451,6 +456,14 @@ export const POSCashierPage: React.FC = () => {
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, []);
+
+    // ESC cierra el overlay del cambio (permanece en pantalla hasta que el cajero presione ESC).
+    useEffect(() => {
+        if (changeOverlay === null) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setChangeOverlay(null); } };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [changeOverlay]);
 
     // Auto-foco en la búsqueda de productos: cada vez que se vuelve a la vista principal
     // (se cierra cualquier overlay: modal, recibo, cámara, variación, crear-caja), el cursor
@@ -845,11 +858,30 @@ export const POSCashierPage: React.FC = () => {
         const saleNumber = folio ? String(folio) : `V-${Date.now().toString().slice(-6)}`;
         setLastReceipt({ ...receiptSnapshot, saleNumber });
 
+        // Vuelto grande en pantalla (permanece hasta ESC), como el POS clásico.
+        if (involvesCash && (changeDue || 0) > 0.001) {
+            setChangeOverlay(changeDue || 0);
+        }
+
         clearCart();
     };
 
-    // Apertura manual de la gaveta ("Sin venta"): útil para dar cambio.
+    // Apertura manual de la gaveta ("Sin venta"): exige razón + PIN (se registra en el turno).
     const handleOpenDrawer = () => {
+        setShowDrawerOpen(true);
+    };
+
+    // Confirmación del modal: registra el movimiento DRAWER_OPEN (razón + quién) y abre la gaveta.
+    const handleConfirmDrawerOpen = async (reason: string) => {
+        if (selectedCajaId) {
+            try {
+                await cajasService.recordCashMovement(selectedCajaId, { type: 'DRAWER_OPEN', amount: 0, reason });
+            } catch (err: any) {
+                // Si no se pudo registrar (p.ej. sin turno abierto), avisamos y NO abrimos la gaveta.
+                toast.error(err?.message || t('posx.drawer.err_record'));
+                return;
+            }
+        }
         openCashDrawer()
             .then(() => toast.success(t('posx.cashier.drawer_opened')))
             .catch(err => toast.error(t('posx.cashier.drawer_error', { msg: err?.message || t('posx.cashier.drawer_open_failed') })));
@@ -1465,6 +1497,22 @@ export const POSCashierPage: React.FC = () => {
                 onFinalizeSale={handleFinalizeSale}
             />
             <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
+
+            <DrawerOpenModal isOpen={showDrawerOpen} onClose={() => setShowDrawerOpen(false)} onConfirm={handleConfirmDrawerOpen} />
+
+            {/* Overlay del CAMBIO: número enorme, permanece hasta ESC (como el POS clásico). */}
+            {changeOverlay !== null && (
+                <div
+                    className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/70 cursor-pointer"
+                    onClick={() => setChangeOverlay(null)}
+                    role="dialog"
+                    aria-label={t('posx.cashier.change_overlay_title')}
+                >
+                    <p className="text-3xl sm:text-5xl font-semibold text-white/90 mb-4">{t('posx.cashier.change_overlay_title')}</p>
+                    <p className="text-[24vw] sm:text-[16rem] leading-none font-extrabold text-green-400 tabular-nums drop-shadow-lg">${changeOverlay.toFixed(2)}</p>
+                    <p className="mt-8 text-xl sm:text-2xl text-white/80">{t('posx.cashier.change_overlay_dismiss')}</p>
+                </div>
+            )}
 
             {/* Venta rechazada por el backend (stock/turno/etc.): aviso claro y persistente. */}
             <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title={t('posx.cashier.sale_failed_title')} size="md">

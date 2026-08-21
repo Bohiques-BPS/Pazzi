@@ -30,6 +30,7 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { clientsService } from '../../services/clients';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { PermissionGate } from '../../components/PermissionGate';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -95,21 +96,19 @@ export const ClientsListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (!itemToDeleteId) {
-            setShowDeleteConfirmModal(false);
-            return;
-        }
-        try {
-            await clientsService.delete(itemToDeleteId);
-            setClients(prev => prev.filter(c => c.id !== itemToDeleteId));
-            toast.success(t('pmx.client.deleted_ok'));
-        } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : t('pmx.client.delete_error'));
-        } finally {
-            setItemToDeleteId(null);
-            setShowDeleteConfirmModal(false);
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = clients.find(c => c.id === id);
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.client'),
+            optimisticRemove: () => setClients(prev => prev.filter(c => c.id !== id)),
+            restore: () => setClients(prev => (item && !prev.some(c => c.id === id)) ? [item, ...prev] : prev),
+            apiDelete: () => clientsService.delete(id),
+            errorMessage: t('pmx.client.delete_error'),
+        });
     };
 
     const columns: TableColumn<Client>[] = [
@@ -175,7 +174,7 @@ export const ClientsListPage: React.FC = () => {
             )}
 
             {!isLoading && clients.length > 0 && (
-                <DataTable<Client>
+                <DataTable<Client> onRowClick={openModalForEdit}
                     data={clients}
                     columns={columns}
                     actions={(client) => (

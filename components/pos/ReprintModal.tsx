@@ -19,7 +19,7 @@ function toReceiptSale(sale: any): ReceiptSale {
     return {
         saleNumber: sale.saleNumber != null ? String(sale.saleNumber) : String(sale.id).slice(0, 8),
         date: sale.date,
-        items: (sale.items || []).map((it: any) => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })),
+        items: (sale.items || []).map((it: any) => ({ name: it.name || it.product?.name || 'Ítem', quantity: it.quantity, unitPrice: it.unitPrice })),
         subtotal: sale.subtotal ?? (sale.totalAmount - (sale.taxAmount || 0)),
         tax: sale.taxAmount ?? 0,
         discount: sale.discountAmount ?? 0,
@@ -56,13 +56,15 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
     const [lastTx, setLastTx] = useState<any | null>(null);
 
     // Carga la lista según la pestaña (facturas / devoluciones). Las otras son placeholders.
+    // NO se filtra por employeeId: se muestran TODAS las transacciones de la tienda (el backend
+    // ya las acota por storeOwnerId), para que se reconozcan las ventas pasadas de cualquier cajero.
     useEffect(() => {
-        if (!isOpen || !employeeId) return;
+        if (!isOpen) return;
         setQ('');
         if (tab !== 'facturas' && tab !== 'devoluciones') { setRows([]); return; }
         let cancelled = false;
         setLoading(true);
-        salesService.getAll({ employeeId, isReturn: tab === 'devoluciones' })
+        salesService.getAll({ isReturn: tab === 'devoluciones' })
             .then(data => {
                 if (cancelled) return;
                 const list = Array.isArray(data) ? data.slice(0, 100) : [];

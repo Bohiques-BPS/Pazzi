@@ -1,7 +1,7 @@
 
 import React, { useState, createContext, useContext, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, useParams, Outlet } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, ToastBar, toast as hotToast } from 'react-hot-toast';
 
 import { User, UserRole, Product, Client, Employee, Project, Sale, Order, AppModule, ProductFormData, ClientFormData, EmployeeFormData, ProjectFormData, ProjectStatus, CartItem, ProjectResource, Visit, VisitStatus, VisitFormData, ECommerceSettings, Category, CategoryFormData, Theme, ChatMessage, Caja } from './types';
 import { APP_MODULES_CONFIG, ADMIN_USER_ID, PROJECT_CLIENT_ID, ECOMMERCE_CLIENT_ID, inputFormStyle as sharedInputFormStyle } from './constants'; 
@@ -462,7 +462,27 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <GlobalSettingsProvider>
-        <Toaster position="top-right" reverseOrder={false} />
+        <Toaster position="top-right" reverseOrder={false} toastOptions={{ duration: 4000 }}>
+          {(t) => (
+            <ToastBar toast={t}>
+              {({ icon, message }) => (
+                <div className="flex items-center gap-2 max-w-md">
+                  {icon}
+                  <div className="flex-1">{message}</div>
+                  {t.type !== 'loading' && (
+                    <button
+                      onClick={() => hotToast.dismiss(t.id)}
+                      aria-label="Cerrar"
+                      className="ml-1 shrink-0 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xl leading-none px-1"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )}
+            </ToastBar>
+          )}
+        </Toaster>
         <AppContextProvider>
             <AuthProvider>
             <DataProvider>

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Category, CategoryFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { DataTable, TableColumn } from '../../components/DataTable'; // Adjusted path
@@ -84,30 +85,22 @@ export const CategoriesListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
-        if (itemToDeleteId) {
-            try {
-                const response = await fetch(`${API_URL}/categories/${itemToDeleteId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                if (response.ok) {
-                    setCategories(prev => prev.filter(c => c.id !== itemToDeleteId));
-                    toast.success(t('pmx.category.deleted_ok'));
-                } else {
-                    const errData = await response.json().catch(() => ({}));
-                    toast.error(errData.error || t('pmx.category.delete_error'));
-                }
-            } catch (error) {
-                console.error('Error deleting category:', error);
-                toast.error(t('pmx.common.conn_delete_error'));
-            } finally {
-                setItemToDeleteId(null);
-                setShowDeleteConfirmModal(false);
-            }
-        }
+    const confirmDelete = () => {
+        if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
+        const id = itemToDeleteId;
+        const item = categories.find(c => c.id === id);
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.category'),
+            optimisticRemove: () => setCategories(prev => prev.filter(c => c.id !== id)),
+            restore: () => setCategories(prev => (item && !prev.some(c => c.id === id)) ? [item, ...prev] : prev),
+            apiDelete: async () => {
+                const res = await fetch(`${API_URL}/categories/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` } });
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || t('pmx.category.delete_error')); }
+            },
+            errorMessage: t('pmx.category.delete_error'),
+        });
     };
 
     const columns: TableColumn<Category>[] = useMemo(() => [
@@ -181,7 +174,7 @@ export const CategoriesListPage: React.FC = () => {
                 </div>
             )}
 
-            <DataTable<Category>
+            <DataTable<Category> searchable={false} onRowClick={openModalForEdit}
                 data={filteredCategories}
                 columns={columns}
                 actions={(category) => (

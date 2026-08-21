@@ -340,7 +340,7 @@ export const ProjectReportsPage: React.FC = () => {
                 <h2 className="text-lg sm:text-xl font-semibold">{t(titleKey)}</h2>
             </div>
             {filters}
-            <DataTable data={tableData} columns={columns} />
+            <DataTable data={tableData} columns={columns} searchable={false} />
             <PaginationControls currentPage={currentPage} totalPages={Math.ceil(totalItems / ITEMS_PER_PAGE)} onPageChange={onPageChange} />
         </div>
     );

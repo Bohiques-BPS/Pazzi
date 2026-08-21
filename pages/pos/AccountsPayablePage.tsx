@@ -1,6 +1,7 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useData } from '../../contexts/DataContext';
+import { useSortableRows, usePagination, SortableTh, PaginationFooter } from '../../components/ui/tableTools';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { SupplierOrder, SupplierOrderStatus, Product as ProductType, Supplier } from '../../types';
 import { Modal, ConfirmationModal } from '../../components/Modal';
@@ -243,6 +244,22 @@ export const AccountsPayablePage: React.FC = () => {
         })).sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
     }, [supplierOrders, statusFilter, supplierFilterId, dueFilter]);
 
+    // Orden por columna + paginación (conserva el acordeón de historial de pagos).
+    const getOrderSortValue = useCallback((o: SupplierOrder & { balance: number }, key: string): any => {
+        switch (key) {
+            case 'id': return o.id;
+            case 'supplier': return getSupplierById(o.supplierId)?.name || '';
+            case 'orderDate': return o.orderDate;
+            case 'totalCost': return o.totalCost;
+            case 'amountPaid': return o.amountPaid;
+            case 'balance': return o.balance;
+            case 'paymentStatus': return o.paymentStatus;
+            default: return '';
+        }
+    }, [getSupplierById]);
+    const { sorted: sortedOrders, sort: orderSort, toggle: toggleOrderSort } = useSortableRows(filteredOrders, getOrderSortValue);
+    const ordersPage = usePagination(sortedOrders, 25);
+
     const handleEditOrder = (order: SupplierOrder) => { setOrderToEdit(order); setShowEditOrderModal(true); };
     const handleCancelOrder = (orderId: string) => { setOrderToCancelId(orderId); setShowCancelConfirmModal(true); };
     const confirmCancelOrder = () => { if (orderToCancelId) { updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO); toast.success(t('posx.payable.orderCancelled')); } setOrderToCancelId(null); setShowCancelConfirmModal(false); };
@@ -323,18 +340,18 @@ export const AccountsPayablePage: React.FC = () => {
                     <thead className="bg-neutral-50 dark:bg-neutral-700">
                         <tr>
                             <th scope="col" className="w-12 px-4 py-2"></th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colOrderId')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colSupplier')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colOrderDate')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colTotalCost')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colAmountPaid')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colPendingBalance')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colPaymentStatus')}</th>
+                            <SortableTh label={t('posx.payable.colOrderId')} colKey="id" sort={orderSort} onSort={toggleOrderSort} />
+                            <SortableTh label={t('posx.payable.colSupplier')} colKey="supplier" sort={orderSort} onSort={toggleOrderSort} />
+                            <SortableTh label={t('posx.payable.colOrderDate')} colKey="orderDate" sort={orderSort} onSort={toggleOrderSort} />
+                            <SortableTh label={t('posx.payable.colTotalCost')} colKey="totalCost" sort={orderSort} onSort={toggleOrderSort} />
+                            <SortableTh label={t('posx.payable.colAmountPaid')} colKey="amountPaid" sort={orderSort} onSort={toggleOrderSort} />
+                            <SortableTh label={t('posx.payable.colPendingBalance')} colKey="balance" sort={orderSort} onSort={toggleOrderSort} />
+                            <SortableTh label={t('posx.payable.colPaymentStatus')} colKey="paymentStatus" sort={orderSort} onSort={toggleOrderSort} />
                             <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colActions')}</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
-                        {filteredOrders.length > 0 ? filteredOrders.map(order => {
+                        {ordersPage.paged.length > 0 ? ordersPage.paged.map(order => {
                             const isExpanded = expandedRows.has(order.id);
                             const paymentNotesParsed = (order.paymentNotes || []).map(note => {
                                 try {
@@ -413,6 +430,11 @@ export const AccountsPayablePage: React.FC = () => {
                         )}
                     </tbody>
                 </table>
+                <PaginationFooter
+                    total={ordersPage.total} page={ordersPage.page} pageCount={ordersPage.pageCount}
+                    pageSize={ordersPage.pageSize} from={ordersPage.from} to={ordersPage.to}
+                    onPage={ordersPage.setPage} onPageSize={ordersPage.setPageSize}
+                />
             </div>
             <RecordPaymentModal isOpen={!!paymentModalOrder} onClose={() => setPaymentModalOrder(null)} order={paymentModalOrder} onRecordPayment={recordSupplierOrderPayment}/>
             <SupplierOrderFormModal isOpen={showEditOrderModal} onClose={() => setShowEditOrderModal(false)} orderToEdit={orderToEdit} />

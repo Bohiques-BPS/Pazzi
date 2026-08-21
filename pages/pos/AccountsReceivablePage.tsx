@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useSortableRows, usePagination, SortableTh, PaginationFooter } from '../../components/ui/tableTools';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Sale, Client, SalePayment } from '../../types';
@@ -348,6 +349,23 @@ export const AccountsReceivablePage: React.FC = () => {
         return filteredSales.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [sales, salePayments, statusFilter, clientFilterId, dueFilter]);
 
+    // Orden por columna + paginación (conserva el acordeón de historial de pagos).
+    const getReceivableSortValue = useCallback((sale: (typeof receivableData)[number], key: string): any => {
+        switch (key) {
+            case 'id': return sale.id;
+            case 'date': return sale.date;
+            case 'dueDate': return sale.dueDate || '';
+            case 'client': return getClientById(sale.clientId || '')?.name || '';
+            case 'total': return sale.totalAmount;
+            case 'paid': return sale.totalPaid;
+            case 'balance': return sale.balance;
+            case 'status': return sale.effectiveStatus;
+            default: return '';
+        }
+    }, [getClientById]);
+    const { sorted: sortedReceivables, sort: receivableSort, toggle: toggleReceivableSort } = useSortableRows(receivableData, getReceivableSortValue);
+    const salesPage = usePagination(sortedReceivables, 25);
+
     const [saleForReminder, setSaleForReminder] = useState<(typeof receivableData)[0] | null>(null);
 
     const handleConfirmPayment = (saleId: string, amount: number, method: string, notes: string, attachment?: string) => {
@@ -475,19 +493,19 @@ export const AccountsReceivablePage: React.FC = () => {
                     <thead className="bg-neutral-50 dark:bg-neutral-700">
                         <tr>
                             <th scope="col" className="w-12 px-4 py-2"></th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.id')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.date')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.due_date')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.client')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.total')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.paid')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.balance')}</th>
-                            <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('pos.receivable.col.status')}</th>
+                            <SortableTh label={t('pos.receivable.col.id')} colKey="id" sort={receivableSort} onSort={toggleReceivableSort} />
+                            <SortableTh label={t('pos.receivable.col.date')} colKey="date" sort={receivableSort} onSort={toggleReceivableSort} />
+                            <SortableTh label={t('pos.receivable.col.due_date')} colKey="dueDate" sort={receivableSort} onSort={toggleReceivableSort} />
+                            <SortableTh label={t('pos.receivable.col.client')} colKey="client" sort={receivableSort} onSort={toggleReceivableSort} />
+                            <SortableTh label={t('pos.receivable.col.total')} colKey="total" sort={receivableSort} onSort={toggleReceivableSort} />
+                            <SortableTh label={t('pos.receivable.col.paid')} colKey="paid" sort={receivableSort} onSort={toggleReceivableSort} />
+                            <SortableTh label={t('pos.receivable.col.balance')} colKey="balance" sort={receivableSort} onSort={toggleReceivableSort} />
+                            <SortableTh label={t('pos.receivable.col.status')} colKey="status" sort={receivableSort} onSort={toggleReceivableSort} />
                             <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('common.actions')}</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
-                        {receivableData.length > 0 ? receivableData.map((sale) => {
+                        {salesPage.paged.length > 0 ? salesPage.paged.map((sale) => {
                             const isExpanded = expandedRows.has(sale.id);
                             const paymentsForSale = salePayments.filter(p => p.saleId === sale.id);
                             const vencimiento = () => {
@@ -573,6 +591,11 @@ export const AccountsReceivablePage: React.FC = () => {
                         )}
                     </tbody>
                 </table>
+                <PaginationFooter
+                    total={salesPage.total} page={salesPage.page} pageCount={salesPage.pageCount}
+                    pageSize={salesPage.pageSize} from={salesPage.from} to={salesPage.to}
+                    onPage={salesPage.setPage} onPageSize={salesPage.setPageSize}
+                />
             </div>
 
             <RecordPaymentModal isOpen={!!paymentModalSale} onClose={() => setPaymentModalSale(null)} sale={paymentModalSale} onConfirm={handleConfirmPayment} />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { rolesService, type Role } from '../../services/roles';
 import { RoleFormModal } from './RoleFormModal';
 import { ConfirmationModal } from '../../components/Modal';
@@ -30,17 +31,18 @@ export const RolesListPage: React.FC = () => {
     };
     useEffect(() => { refresh(); }, []);
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!toDelete) return;
-        try {
-            await rolesService.delete(toDelete.id);
-            toast.success(t('pm2x.role.deleted'));
-            setToDelete(null);
-            refresh();
-        } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : t('pm2x.role.delete_error'));
-            setToDelete(null);
-        }
+        const item = toDelete;
+        setToDelete(null);
+        deleteWithUndo({
+            label: t('entity.role'),
+            optimisticRemove: () => setRoles(prev => prev.filter(r => r.id !== item.id)),
+            restore: () => setRoles(prev => (!prev.some(r => r.id === item.id)) ? [item, ...prev] : prev),
+            apiDelete: () => rolesService.delete(item.id),
+            onDeleted: refresh,
+            errorMessage: t('pm2x.role.delete_error'),
+        });
     };
 
     const countPerms = (r: Role) => Object.values(r.permissions || {}).filter(Boolean).length;
@@ -70,7 +72,14 @@ export const RolesListPage: React.FC = () => {
             {!loading && roles.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {roles.map(role => (
-                        <div key={role.id} className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-sm border border-neutral-100 dark:border-neutral-700">
+                        <div
+                            key={role.id}
+                            onClick={() => { setEditing(role); setShowForm(true); }}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { setEditing(role); setShowForm(true); } }}
+                            className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-sm border border-neutral-100 dark:border-neutral-700 cursor-pointer hover:shadow-md hover:border-primary/40 transition-shadow"
+                        >
                             <div className="flex items-start justify-between">
                                 <div>
                                     <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">{role.name}</h3>
@@ -78,9 +87,9 @@ export const RolesListPage: React.FC = () => {
                                         {t('pm2x.role.perms_employees', { p: countPerms(role), e: role._count?.users ?? 0 })}
                                     </p>
                                 </div>
-                                <div className="flex gap-1">
-                                    <button onClick={() => { setEditing(role); setShowForm(true); }} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 p-1" aria-label={t('pm2x.common.edit_name', { name: role.name })}><EditIcon /></button>
-                                    <button onClick={() => setToDelete(role)} className="text-red-600 dark:text-red-400 hover:text-red-800 p-1" aria-label={t('pm2x.common.delete_name', { name: role.name })}><DeleteIcon /></button>
+                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <button onClick={() => { setEditing(role); setShowForm(true); }} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 p-1" aria-label={t('pm2x.common.edit_name', { name: role.name })}><EditIcon className="w-5 h-5" /></button>
+                                    <button onClick={() => setToDelete(role)} className="text-red-600 dark:text-red-400 hover:text-red-800 p-1" aria-label={t('pm2x.common.delete_name', { name: role.name })}><DeleteIcon className="w-5 h-5" /></button>
                                 </div>
                             </div>
                         </div>

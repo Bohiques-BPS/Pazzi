@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { useNavigate } from 'react-router-dom';
 import { Project, ProjectStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -34,18 +35,19 @@ export const ProjectsListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = async () => {
+    const confirmDelete = () => {
         if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
-        try {
-            await projectsService.delete(itemToDeleteId);
-            setProjects(prev => prev.filter(p => p.id !== itemToDeleteId));
-            toast.success(t('pm2x.project.deleted'));
-        } catch (err: any) {
-            toast.error(err?.message || t('pm2x.project.delete_error'));
-        } finally {
-            setItemToDeleteId(null);
-            setShowDeleteConfirmModal(false);
-        }
+        const id = itemToDeleteId;
+        const item = projects.find(p => p.id === id);
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        deleteWithUndo({
+            label: t('entity.project'),
+            optimisticRemove: () => setProjects(prev => prev.filter(p => p.id !== id)),
+            restore: () => setProjects(prev => (item && !prev.some(p => p.id === id)) ? [item, ...prev] : prev),
+            apiDelete: () => projectsService.delete(id),
+            errorMessage: t('pm2x.project.delete_error'),
+        });
     };
 
     const handleGenerateInvoice = (project: Project) => {
@@ -179,13 +181,13 @@ export const ProjectsListPage: React.FC = () => {
                     )}
                 </>
             ) : (
-                <DataTable<Project>
+                <DataTable<Project> searchable={false} onRowClick={handleViewProject}
                     data={filteredProjects}
                     columns={tableColumns}
                     actions={(project) => (
                         <div className="flex space-x-1">
-                            <button onClick={() => handleViewProject(project)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('pm2x.project.view_edit_aria', { name: project.name })}><EditIcon /></button>
-                            <button onClick={() => requestDelete(project.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('pm2x.common.delete_name', { name: project.name })}><DeleteIcon /></button>
+                            <button onClick={() => handleViewProject(project)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('pm2x.project.view_edit_aria', { name: project.name })}><EditIcon className="w-5 h-5" /></button>
+                            <button onClick={() => requestDelete(project.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('pm2x.common.delete_name', { name: project.name })}><DeleteIcon className="w-5 h-5" /></button>
                         </div>
                     )}
                 />

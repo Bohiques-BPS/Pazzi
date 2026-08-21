@@ -164,7 +164,7 @@ export const POSCajasPage: React.FC = () => {
             )}
 
             {!loading && cajas.length > 0 && (
-                <DataTable<CajaWithSession>
+                <DataTable<CajaWithSession> onRowClick={openModalForEdit}
                     data={cajas}
                     columns={columns}
                     actions={(caja) => (
@@ -208,7 +208,7 @@ export const POSCajasPage: React.FC = () => {
                                     className="text-neutral-500 hover:text-neutral-700 p-1"
                                     title={t('posx.cajas.action.history')}
                                 >
-                                    <EyeIcon className="w-4 h-4" />
+                                    <EyeIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                             <PermissionGate require="branches.manage">
@@ -217,7 +217,7 @@ export const POSCajasPage: React.FC = () => {
                                     className="text-blue-600 dark:text-blue-400 hover:text-blue-800 p-1"
                                     aria-label={t('posx.cajas.action.edit', { name: caja.name })}
                                 >
-                                    <EditIcon />
+                                    <EditIcon className="w-5 h-5" />
                                 </button>
                             </PermissionGate>
                         </div>
