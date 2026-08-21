@@ -68,7 +68,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('cmp.clientsearch.title')} size="lg">
             <div className="space-y-4">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-stretch space-x-2">
                     <div className="relative flex-grow">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                             <MagnifyingGlassIcon className="w-5 h-5 text-neutral-400" />
@@ -85,7 +85,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                     <button
                         type="button"
                         onClick={onOpenCreateClient}
-                        className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0 flex items-center`}
+                        className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0 flex items-center justify-center whitespace-nowrap self-stretch`}
                     >
                         <UserPlusIcon className="mr-1.5" /> {t('cmp.clientsearch.create_new')}
                     </button>

@@ -7,7 +7,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { toast } from 'react-hot-toast';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 
 
 interface ClientEstimatesModalProps {
@@ -16,20 +16,35 @@ interface ClientEstimatesModalProps {
     client: Client | null;
     onLoadItems: (items: CartItem[], estimateIds: string[]) => void;
     isCartEmpty: boolean;
-    onCreateFromCart: () => void;
+    /** Nombre manual cuando el cliente es Público General (para saber a quién es el estimado). */
+    onCreateFromCart: (manualName?: string) => void;
+    /** True si el cliente activo es Público General (mostrar/pedir nombre de la persona). */
+    isGeneralClient?: boolean;
 }
 
-export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOpen, onClose, client, onLoadItems, isCartEmpty, onCreateFromCart }) => {
+export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOpen, onClose, client, onLoadItems, isCartEmpty, onCreateFromCart, isGeneralClient }) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
     const { estimates, getProductById } = useData();
     const { getDefaultSettings } = useECommerceSettings();
     const [selectedEstimateIds, setSelectedEstimateIds] = useState<string[]>([]);
+    const [manualName, setManualName] = useState('');
 
     useEffect(() => {
         if (!isOpen) {
             setSelectedEstimateIds([]);
+            setManualName('');
         }
     }, [isOpen]);
+
+    // Al crear desde el carrito: si es Público General, exigir el nombre de la persona del estimado.
+    const handleCreateFromCart = () => {
+        if (isGeneralClient && !manualName.trim()) {
+            toast.error(t('cmpx.estimates.name_required'));
+            return;
+        }
+        onCreateFromCart(isGeneralClient ? manualName.trim() : undefined);
+    };
 
     const clientEstimates = useMemo(() => {
         if (!client) return [];
@@ -94,7 +109,9 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
     
         // Recalculate totals for the combined items
         const subtotal = combinedItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-        const defaultIVURate = 0.16;
+        // Usar la MISMA tasa que el POS (IVU PR 11.5% por defecto), no un 16% hardcodeado, para que
+        // el PDF cuadre con los totales guardados de los estimados combinados.
+        const defaultIVURate = Number(settings.defaultTaxRate) || 0.115;
         const ivu = combinedItems.reduce((taxSum, item) => {
             const product = getProductById(item.id);
             const rate = product?.ivuRate ?? defaultIVURate;
@@ -207,7 +224,11 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
                     <p className="text-base text-neutral-500 dark:text-neutral-400 mb-3">{t('cmpx.estimates.load_existing_hint')}</p>
                     {clientEstimates.length > 0 ? (
                         <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                            {clientEstimates.map(est => (
+                            {clientEstimates.map(est => {
+                                // Desglose: valor de cobro (subtotal) + IVU. El totalAmount guardado ya incluye IVU.
+                                const estSubtotal = est.items.reduce((s, it) => s + (it.unitPrice * it.quantity), 0);
+                                const estIvu = Math.max(0, est.totalAmount - estSubtotal);
+                                return (
                                 <div key={est.id} className="flex items-start p-4 bg-neutral-50 dark:bg-neutral-700/60 rounded-md">
                                     <input
                                         type="checkbox"
@@ -217,13 +238,17 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
                                     />
                                     <div className="ml-4 flex-grow">
                                         <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
-                                            {t('cmpx.estimates.estimate_hash')}{est.id.slice(-6)} - <span className="font-normal">{new Date(est.date).toLocaleDateString()}</span> - ${est.totalAmount.toFixed(2)}
+                                            {t('cmpx.estimates.estimate_hash')}{est.id.slice(-6)} - <span className="font-normal">{new Date(est.date).toLocaleDateString()}</span>
+                                        </p>
+                                        <p className="text-sm text-neutral-700 dark:text-neutral-200">
+                                            ${estSubtotal.toFixed(2)} <span className="text-neutral-500 dark:text-neutral-400">+ ${estIvu.toFixed(2)} {t('cmpx.estimates.ivu_suffix')}</span> <span className="font-semibold">= ${est.totalAmount.toFixed(2)}</span>
                                         </p>
                                         <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('cmpx.estimates.items_status', { count: est.items.length, status: est.status })}</p>
                                         {est.notes && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 italic line-clamp-1">{t('cmpx.estimates.notes_label')} {est.notes}</p>}
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                          <p className="text-center text-base py-8">{t('cmpx.estimates.none_pending')}</p>
@@ -233,9 +258,24 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
                 <div className="border-t pt-6 dark:border-neutral-700">
                     <h3 className="text-lg font-semibold mb-2">{t('cmpx.estimates.create_from_cart')}</h3>
                     <p className="text-sm text-neutral-500 mb-3">{t('cmpx.estimates.create_from_cart_hint')}</p>
+                    {isGeneralClient && (
+                        <div className="mb-3">
+                            <label htmlFor="estimateManualName" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                                {t('cmpx.estimates.manual_name_label')}
+                            </label>
+                            <input
+                                type="text"
+                                id="estimateManualName"
+                                value={manualName}
+                                onChange={e => setManualName(e.target.value)}
+                                placeholder={t('cmpx.estimates.manual_name_ph')}
+                                className="w-full px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:ring-1 focus:ring-primary focus:border-primary"
+                            />
+                        </div>
+                    )}
                     <button
                         type="button"
-                        onClick={onCreateFromCart}
+                        onClick={handleCreateFromCart}
                         disabled={isCartEmpty}
                         className={`${BUTTON_SECONDARY_SM_CLASSES} w-full text-base py-2.5 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >

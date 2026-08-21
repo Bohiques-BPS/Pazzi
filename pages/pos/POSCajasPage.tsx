@@ -236,7 +236,7 @@ export const POSCajasPage: React.FC = () => {
                     isOpen={!!openingCaja}
                     onClose={() => setOpeningCaja(null)}
                     caja={openingCaja}
-                    onOpened={() => refresh()}
+                    onOpened={() => { setOpeningCaja(null); refresh(); }}
                 />
             )}
 

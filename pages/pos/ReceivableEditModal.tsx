@@ -22,7 +22,9 @@ export const ReceivableEditModal: React.FC<ReceivableEditModalProps> = ({ isOpen
 
     useEffect(() => {
         if (saleToEdit && isOpen) {
-            setDueDate(saleToEdit.dueDate || '');
+            // El BE puede devolver la fecha como ISO completo ("...T00:00:00.000Z"); el input date
+            // exige "yyyy-MM-dd". Recortamos para evitar el warning y que el campo muestre la fecha.
+            setDueDate((saleToEdit.dueDate || '').slice(0, 10));
             setNotes(saleToEdit.receivableNotes || '');
         } else if (!isOpen) {
             setDueDate('');

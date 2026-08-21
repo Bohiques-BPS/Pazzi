@@ -8,7 +8,7 @@ export interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full' | 'screen';
   /** Si true, no se cierra al presionar Esc. Útil para modales con datos sin guardar. */
   disableEscClose?: boolean;
 }
@@ -40,11 +40,15 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     '6xl': 'w-[90vw] max-w-[1400px]',
     '7xl': 'w-[95vw] max-w-[1600px]',
     'full': 'w-[95vw] max-w-[1800px] h-[90vh]',
+    // Pantalla completa real: 100vw × 100vh, sin bordes redondeados ni padding externo.
+    'screen': 'w-screen h-screen max-w-none',
   };
 
+  const isScreen = size === 'screen';
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}>
+    <div className={`fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 z-50 flex items-center justify-center ${isScreen ? '' : 'p-4'}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div className={`bg-white dark:bg-neutral-800 shadow-xl w-full ${sizeClasses[size]} ${isScreen ? 'max-h-none rounded-none' : 'max-h-[90vh] rounded-lg'} flex flex-col`}>
         <div className="flex justify-between items-center p-5 border-b border-neutral-200 dark:border-neutral-700">
           <h3 id="modal-title" className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">{title}</h3>
           <button onClick={onClose} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" aria-label={t('cmp.modal.close')}>

@@ -221,6 +221,8 @@ export const POSCashierPage: React.FC = () => {
     const [showDrawerOpen, setShowDrawerOpen] = useState(false);
     // Error al registrar la venta (stock insuficiente, turno cerrado, etc.) → modal claro.
     const [saleError, setSaleError] = useState<{ message: string; code?: string } | null>(null);
+    // Intento de venta guardado para reintentar como sobreventa (cuando falla por stock).
+    const [pendingSaleRetry, setPendingSaleRetry] = useState<{ payments: { method: string; amount: number; reference?: string }[]; changeDue?: number } | null>(null);
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
     // Producto de precio manual esperando que el cajero ingrese el precio.
@@ -796,7 +798,7 @@ export const POSCashierPage: React.FC = () => {
         setActiveModal('payment');
     };
 
-    const handleFinalizeSale = async (payments: { method: string; amount: number; reference?: string }[], changeDue?: number) => {
+    const handleFinalizeSale = async (payments: { method: string; amount: number; reference?: string }[], changeDue?: number, allowOversell = false) => {
          if (cart.length === 0 || !currentUser || !selectedCajaId || !selectedBranchId) {
             toast.error(t('posx.cashier.err_cannot_complete_sale'));
             return;
@@ -840,9 +842,12 @@ export const POSCashierPage: React.FC = () => {
                 cajaId: selectedCajaId,
                 employeeId: currentUser.id,
                 isExternal: isExternalSale,
+                allowOversell,
             } as any, selectedBranchId);
         } catch (err: any) {
             // La venta NO se guardó: mostramos un modal claro y conservamos el carrito para reintentar.
+            // Guardamos el intento (pagos/vuelto) por si el usuario confirma vender sin stock (sobreventa).
+            setPendingSaleRetry({ payments, changeDue });
             setSaleError({ message: err?.message || 'No se pudo registrar la venta.', code: err?.code });
             return;
         }
@@ -976,11 +981,18 @@ export const POSCashierPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPosAuthenticated, currentSession]);
 
-    const handleCreateEstimateFromCart = () => {
+    const handleCreateEstimateFromCart = (manualName?: string) => {
         if (!currentUser || !selectedClient || cart.length === 0 || !selectedBranchId) {
             toast.error(t('posx.cashier.err_estimate_missing_data'));
             return;
         }
+
+        // Público General: guardamos el nombre de la persona en las notas (el estimado no tiene
+        // cliente real). Así se ve a quién es el estimado en la lista y el PDF.
+        const trimmedName = (manualName || '').trim();
+        const notes = trimmedName
+            ? `Estimado para: ${trimmedName}. Generado desde Punto de Venta (POS).`
+            : `Generado desde Punto de Venta (POS).`;
 
         const newEstimateData: Omit<Estimate, 'id'> = {
             date: new Date().toISOString(),
@@ -988,14 +1000,14 @@ export const POSCashierPage: React.FC = () => {
             items: cart,
             totalAmount: total,
             status: EstimateStatus.BORRADOR,
-            notes: `Generado desde Punto de Venta (POS).`,
+            notes,
             employeeId: currentUser.id,
             branchId: selectedBranchId
         };
-        
+
         addEstimate(newEstimateData);
-        
-        toast.success(t('posx.cashier.estimate_created', { name: selectedClient.name }));
+
+        toast.success(t('posx.cashier.estimate_created', { name: trimmedName || selectedClient.name }));
         clearCart();
         setActiveModal(null);
     };
@@ -1480,7 +1492,7 @@ export const POSCashierPage: React.FC = () => {
                 onDeleteHeldCart={deleteHeldCart}
                 heldCarts={heldCarts}
             />
-            <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} />
+            <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} isGeneralClient={!!selectedClient?.isDefault || selectedClient?.id === DEFAULT_CLIENT_ID} />
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
             <PaymentModal
@@ -1522,7 +1534,7 @@ export const POSCashierPage: React.FC = () => {
                         <div>
                             <p className="text-base font-medium text-neutral-800 dark:text-neutral-100">{saleError?.message}</p>
                             {saleError?.code === 'INSUFFICIENT_STOCK' && (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.insufficient_stock_hint_1')}<strong>{t('posx.cashier.inventory')}</strong>{t('posx.cashier.insufficient_stock_hint_2')}</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.oversell_prompt')}</p>
                             )}
                             {saleError?.code === 'CAJA_NOT_OPEN' && (
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.caja_not_open_hint_1')}<strong>{t('posx.cashier.shift_of_register')}</strong>{t('posx.cashier.caja_not_open_hint_2')}</p>
@@ -1530,8 +1542,22 @@ export const POSCashierPage: React.FC = () => {
                         </div>
                     </div>
                     <p className="text-xs text-neutral-400">{t('posx.cashier.cart_kept_retry')}</p>
-                    <div className="flex justify-end">
-                        <button onClick={() => setSaleError(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.cashier.understood')}</button>
+                    <div className="flex justify-end gap-2">
+                        {saleError?.code === 'INSUFFICIENT_STOCK' && pendingSaleRetry && (
+                            <button
+                                onClick={() => {
+                                    const retry = pendingSaleRetry;
+                                    setSaleError(null);
+                                    setPendingSaleRetry(null);
+                                    // Reintenta la MISMA venta permitiendo stock negativo (sobreventa confirmada).
+                                    if (retry) handleFinalizeSale(retry.payments, retry.changeDue, true);
+                                }}
+                                className="px-4 py-2 rounded-md text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                                {t('posx.cashier.sell_anyway')}
+                            </button>
+                        )}
+                        <button onClick={() => { setSaleError(null); setPendingSaleRetry(null); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     </div>
                 </div>
             </Modal>

@@ -47,8 +47,14 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                 openingNotes: notes.trim() || undefined,
             });
             toast.success(t('cmpx.opencaja.opened', { name: caja.name, amount: amount.toFixed(2) }));
-            onOpened?.(session);
-            onClose();
+            // Si el padre maneja el éxito (onOpened), NO llamamos onClose(): en el POS cashier
+            // onClose navega a "/", lo que botaba al usuario al inicio justo después de abrir el turno.
+            // El padre cierra el modal según su propio estado (sesión activa / limpiar openingCaja).
+            if (onOpened) {
+                onOpened(session);
+            } else {
+                onClose();
+            }
         } catch (err) {
             if (err instanceof ApiError) {
                 setError(err.message);

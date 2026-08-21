@@ -86,6 +86,9 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 setFormData({
                     ...initialFormState,
                     ...client,
+                    // Los <input type="date"> exigen "yyyy-MM-dd"; el BE puede devolver ISO completo.
+                    dateOfBirth: (client.dateOfBirth || '').slice(0, 10),
+                    municipalTaxExemptionUntil: (client.municipalTaxExemptionUntil || '').slice(0, 10),
                     projectIds: client.projectIds || [],
                     chargeType: client.chargeType || 'discountOnPrice',
                     chargeValueType: client.chargeValueType || 'percentage',

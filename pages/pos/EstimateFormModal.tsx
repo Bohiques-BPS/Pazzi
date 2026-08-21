@@ -60,7 +60,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                     items: estimateToEdit.items,
                     status: estimateToEdit.status,
                     notes: estimateToEdit.notes || '',
-                    expiryDate: estimateToEdit.expiryDate || '',
+                    expiryDate: (estimateToEdit.expiryDate || '').slice(0, 10), // input date exige yyyy-MM-dd (el BE puede dar ISO)
                 });
             } else {
                 setSelectedClient(null);
