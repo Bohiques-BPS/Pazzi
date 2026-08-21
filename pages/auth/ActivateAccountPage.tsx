@@ -118,7 +118,7 @@ export const ActivateAccountPage: React.FC = () => {
                 <span><strong>{state.info.email}</strong></span>
               </div>
               <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                {t('auth.activate.expires', { date: new Date(state.info.expiresAt).toLocaleString() })}
+                {t('auth.activate.no_expire')}
               </p>
             </div>
 

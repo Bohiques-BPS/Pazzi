@@ -839,19 +839,13 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             setLastCompletedSale(newSale);
             return newSale;
         } catch (err) {
-            console.error('Error creando venta via API, usando localStorage:', err);
-            const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
-                                    (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));
-            const fallbackSale: Sale = {
-                ...saleData,
-                id: `sale-${Date.now()}`,
-                date: new Date().toISOString(),
-                branchId: branchId,
-                paymentStatus: hasCreditPayment ? 'Pendiente de Pago' : 'Pagado',
-            } as Sale;
-            setSalesInternal(prev => [...prev, fallbackSale]);
-            setLastCompletedSale(fallbackSale);
-            return fallbackSale;
+            // NO fabricar una venta local: si el backend rechazó la venta, la venta NO existe.
+            // Antes se creaba una venta "fallback" en memoria y se devolvía como éxito → el POS
+            // mostraba un recibo con número falso y limpiaba el carrito, pero nada se guardaba
+            // (y el cuadre salía en $0). Ahora propagamos el error para que el POS muestre el
+            // modal "La venta no se guardó" con el motivo real y el cajero pueda reintentar.
+            console.error('Error creando venta via API:', err);
+            throw err;
         }
     }, [currentUser, setSalesInternal, setLastCompletedSale]);
 

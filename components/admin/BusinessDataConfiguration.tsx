@@ -30,12 +30,17 @@ export const BusinessDataConfiguration: React.FC = () => {
     // Hidratar desde los settings al cargar / cuando cambien.
     useEffect(() => {
         const rc = settings.receiptConfig || ({} as ReceiptConfig);
-        setName(rc.businessName || '');
+        // El nombre del negocio: usa receiptConfig.businessName; si está vacío, cae al nombre del
+        // dueño (User) — EXACTAMENTE el mismo respaldo que usa el correo de invitación
+        // (getBusinessBranding en el backend). Así el formulario muestra lo mismo que el correo,
+        // y al Guardar queda persistido en receiptConfig para que ambos usen la misma fuente.
+        const ownerName = `${currentUser?.name || ''} ${currentUser?.lastName || ''}`.trim();
+        setName(rc.businessName || ownerName);
         setDescription(rc.businessDescription || '');
         setLogoUrl(rc.logoUrl || '');
         setPhone(rc.phone || '');
         setEmail(rc.email || '');
-    }, [settings.receiptConfig]);
+    }, [settings.receiptConfig, currentUser]);
 
     if (currentUser?.role !== UserRole.MANAGER) return null;
 

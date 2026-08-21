@@ -20,6 +20,9 @@ interface DailyCloseModalProps {
 
 const money = (n: number | null | undefined) => `$${(Number(n) || 0).toFixed(2)}`;
 const isCash = (m: string) => /efectivo|cash/i.test(m);
+// Métodos que NO son dinero físico/electrónico a contar (crédito de cliente, factura pendiente):
+// se muestran en el desglose como informativos, pero no se cuentan ni entran al total contado.
+const isNonCountable = (m: string) => /cr[ée]dito|credit|factura|invoice/i.test(m);
 
 /** Fila del cuadre: método, esperado por el POS, contado por el cajero. */
 interface CuadreRow {
@@ -27,6 +30,7 @@ interface CuadreRow {
     label: string;
     expected: number;
     cash: boolean;
+    countable: boolean;
 }
 
 export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
@@ -73,9 +77,11 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     const rows: CuadreRow[] = useMemo(() => {
         if (!totals) return [];
         const others = totals.byMethod.filter(m => !isCash(m.method));
+        // Contables primero (tarjeta/ATH/cheque), luego los informativos (crédito/factura) al final.
+        const sorted = [...others].sort((a, b) => Number(isNonCountable(a.method)) - Number(isNonCountable(b.method)));
         return [
-            { key: '__cash__', label: 'Efectivo (gaveta)', expected: totals.expectedCash, cash: true },
-            ...others.map(m => ({ key: m.method, label: m.method, expected: m.amount, cash: false })),
+            { key: '__cash__', label: 'Efectivo (gaveta)', expected: totals.expectedCash, cash: true, countable: true },
+            ...sorted.map(m => ({ key: m.method, label: m.method, expected: m.amount, cash: false, countable: !isNonCountable(m.method) })),
         ];
     }, [totals]);
 
@@ -90,8 +96,9 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     const isHighDiff = Math.abs(cashDiff) >= differenceThreshold;
     const cashEntered = (counted['__cash__'] ?? '') !== '';
 
-    const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
-    const totalCounted = rows.reduce((s, r) => s + num(counted[r.key]), 0);
+    // El total contable excluye las filas informativas (crédito/factura): no se cuenta ese dinero.
+    const totalExpected = rows.filter(r => r.countable).reduce((s, r) => s + r.expected, 0);
+    const totalCounted = rows.filter(r => r.countable).reduce((s, r) => s + num(counted[r.key]), 0);
 
     const handleClose = async () => {
         if (!session || !totals) return;
@@ -103,7 +110,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         // Conteo por método para el registro/cuadre.
         const countedByMethod: Record<string, number> = { Efectivo: cashCounted };
         for (const r of rows) {
-            if (r.cash) continue;
+            if (r.cash || !r.countable) continue; // crédito/factura no se cuentan
             countedByMethod[r.label] = num(counted[r.key]);
         }
         setSubmitting(true);
@@ -176,6 +183,17 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                     const c = num(counted[r.key]);
                                     const entered = (counted[r.key] ?? '') !== '';
                                     const d = Math.round((c - r.expected) * 100) / 100;
+                                    // Filas informativas (crédito/factura): muestran el total pero NO se cuentan.
+                                    if (!r.countable) {
+                                        return (
+                                            <div key={r.key} className="grid grid-cols-12 items-center text-neutral-500 dark:text-neutral-400">
+                                                <div className="col-span-5 px-3 py-1.5">{r.label} <span className="text-[10px] uppercase tracking-wide">(informativo)</span></div>
+                                                <div className="col-span-3 px-3 py-1.5 text-right tabular-nums">{money(r.expected)}</div>
+                                                <div className="col-span-2 px-2 py-1 text-right text-neutral-300 dark:text-neutral-600">—</div>
+                                                <div className="col-span-2 px-3 py-1.5 text-right text-neutral-300 dark:text-neutral-600">—</div>
+                                            </div>
+                                        );
+                                    }
                                     return (
                                         <div key={r.key} className="grid grid-cols-12 items-center">
                                             <div className={`col-span-5 px-3 py-1.5 ${r.cash ? 'font-semibold text-primary' : ''}`}>{r.label}</div>

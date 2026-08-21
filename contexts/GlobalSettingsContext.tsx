@@ -667,7 +667,7 @@ export const TRANSLATIONS = {
         'auth.activate.submit': 'Activar y entrar',
         'auth.have_account': '¿Ya tienes cuenta? Inicia sesión',
         'auth.err.invite_missing': 'No se proporcionó un token de invitación.',
-        'auth.err.invite_expired': 'Esta invitación expiró o ya fue utilizada. Solicite una nueva al administrador.',
+        'auth.err.invite_expired': 'Esta cuenta ya fue activada. Inicia sesión con tu contraseña (o usa «Olvidé mi contraseña»).',
         'auth.err.invite_notfound': 'Invitación no encontrada. Verifique el enlace o solicite una nueva.',
         'auth.err.invite_verify': 'No se pudo verificar la invitación. Intente más tarde.',
         'auth.err.pin4': 'El PIN debe ser de 4 dígitos.',
@@ -2825,6 +2825,9 @@ export const TRANSLATIONS = {
         'admin.business.save_error': 'No se pudieron guardar los datos.',
         'admin.business.err_name': 'El nombre del negocio es obligatorio.',
         'admin.business.err_email': 'Ingresa un correo válido.',
+        'auth.activate.no_expire': 'Este enlace no expira: puedes activar tu cuenta cuando quieras.',
+        'cmpx.payment.total_to_charge': 'Total a Cobrar',
+        'cmpx.payment.total_received': 'Total Recibido',
     },
     en: {
         'common.save': 'Save',
@@ -3403,7 +3406,7 @@ export const TRANSLATIONS = {
         'auth.activate.submit': 'Activate and enter',
         'auth.have_account': 'Already have an account? Sign in',
         'auth.err.invite_missing': 'No invitation token was provided.',
-        'auth.err.invite_expired': 'This invitation expired or was already used. Request a new one from the administrator.',
+        'auth.err.invite_expired': 'This account is already activated. Sign in with your password (or use "Forgot password").',
         'auth.err.invite_notfound': 'Invitation not found. Check the link or request a new one.',
         'auth.err.invite_verify': 'The invitation could not be verified. Try again later.',
         'auth.err.pin4': 'The PIN must be 4 digits.',
@@ -5561,6 +5564,9 @@ export const TRANSLATIONS = {
         'admin.business.save_error': 'Could not save the details.',
         'admin.business.err_name': 'Business name is required.',
         'admin.business.err_email': 'Enter a valid email.',
+        'auth.activate.no_expire': 'This link doesn\'t expire — you can activate your account anytime.',
+        'cmpx.payment.total_to_charge': 'Total to Charge',
+        'cmpx.payment.total_received': 'Total Received',
     }
 };
 

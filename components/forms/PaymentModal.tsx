@@ -459,23 +459,35 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                         )}
                     </div>
 
-                    {/* 3) Monto pendiente (saldo) — debajo del contenido del método */}
+                    {/* 3) Totales grandes estilo POS: Total a Cobrar + Total Recibido */}
+                    <div className="grid grid-cols-1 gap-2.5">
+                        <div className="flex items-center justify-between gap-3 bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 rounded-xl px-5 py-3.5">
+                            <span className="text-lg sm:text-xl font-semibold text-primary dark:text-accent">{t('cmpx.payment.total_to_charge')}</span>
+                            <span className="text-4xl sm:text-5xl font-extrabold text-primary dark:text-accent tabular-nums">${totalAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 rounded-xl px-5 py-3.5">
+                            <span className="text-lg sm:text-xl font-semibold text-primary dark:text-accent">{t('cmpx.payment.total_received')}</span>
+                            <span className="text-4xl sm:text-5xl font-extrabold text-primary dark:text-accent tabular-nums">${totalPaid.toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    {/* Cambio / Saldo Pendiente — grande */}
                     {changeDue > 0.001 ? (
-                        <div className="bg-green-50 dark:bg-green-900/30 text-center p-5 rounded-lg">
-                            <p className="text-base font-medium text-green-700 dark:text-green-300">{t('cmpx.payment.change_due')}</p>
-                            <p className="text-5xl sm:text-6xl font-bold text-green-600 dark:text-green-400">${changeDue.toFixed(2)}</p>
+                        <div className="flex items-center justify-between gap-3 bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-800 rounded-xl px-5 py-4">
+                            <span className="text-lg sm:text-xl font-semibold text-green-700 dark:text-green-300">{t('cmpx.payment.change_due')}</span>
+                            <span className="text-4xl sm:text-5xl font-extrabold text-green-600 dark:text-green-400 tabular-nums">${changeDue.toFixed(2)}</span>
                         </div>
                     ) : (
-                        <div className="bg-red-50 dark:bg-red-900/30 text-center p-5 rounded-lg">
-                            <p className="text-base font-medium text-red-700 dark:text-red-300">{t('cmpx.payment.pending_balance')}</p>
-                            <p className="text-5xl sm:text-6xl font-bold text-red-600 dark:text-red-400">${Math.max(0, balance).toFixed(2)}</p>
+                        <div className="flex items-center justify-between gap-3 bg-red-50 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-800 rounded-xl px-5 py-4">
+                            <span className="text-lg sm:text-xl font-semibold text-red-700 dark:text-red-300">{t('cmpx.payment.pending_balance')}</span>
+                            <span className="text-4xl sm:text-5xl font-extrabold text-red-600 dark:text-red-400 tabular-nums">${Math.max(0, balance).toFixed(2)}</span>
                         </div>
                     )}
 
-                    {/* Pagos aplicados + total */}
+                    {/* Pagos aplicados (detalle) */}
                     <div>
-                        <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">{t('cmpx.payment.applied_payments')}</h3>
-                        <div className="mt-2 space-y-2 text-base max-h-48 overflow-y-auto pr-2">
+                        <h3 className="text-base font-semibold text-neutral-600 dark:text-neutral-300">{t('cmpx.payment.applied_payments')}</h3>
+                        <div className="mt-2 space-y-2 text-base max-h-40 overflow-y-auto pr-2">
                            {payments.length === 0 ? (
                                 <p className="text-neutral-500 dark:text-neutral-400">{t('cmpx.payment.no_payments')}</p>
                            ) : (
@@ -487,12 +499,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                     </div>
                                 ))
                            )}
-                        </div>
-                    </div>
-                    <div className="border-t dark:border-neutral-600 pt-3">
-                        <div className="flex justify-between items-center text-2xl font-bold">
-                            <span>{t('cmpx.payment.total_paid')}</span>
-                            <span>${totalPaid.toFixed(2)}</span>
                         </div>
                     </div>
                 </div>
