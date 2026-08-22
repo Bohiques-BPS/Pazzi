@@ -12,6 +12,10 @@ export interface Invoice {
     number?: number | null;
     clientId?: string | null;
     clientName?: string | null;
+    clientEmail?: string | null;
+    createdByUserId?: string | null;
+    cashierName?: string | null;
+    type?: string | null;
     publicToken: string;
     items: InvoiceItemInput[];
     subtotal: number;
@@ -34,6 +38,17 @@ export interface CreateInvoiceInput {
     taxRate?: number;
     description?: string;
     allowedMethods?: string; // "agilpay,ath" (null/omitido = ambos)
+    type?: string | null;    // tipo de factura (etiqueta libre)
+}
+
+export interface UpdateInvoiceInput {
+    clientId?: string | null;
+    email?: string | null;
+    items?: InvoiceItemInput[];
+    taxRate?: number;
+    description?: string | null;
+    allowedMethods?: string | null;
+    type?: string | null;
 }
 
 export interface PublicInvoiceBusiness {
@@ -80,6 +95,7 @@ export const invoicesService = {
     // ── Auth (POS) ──
     list: () => api.get<Invoice[]>('/invoices'),
     create: (data: CreateInvoiceInput) => api.post<Invoice>('/invoices', data),
+    update: (id: string, data: UpdateInvoiceInput) => api.put<Invoice>(`/invoices/${id}`, data),
     markPaid: (id: string, body: { reference?: string; method?: string; amount?: number }) =>
         api.post<Invoice>(`/invoices/${id}/mark-paid`, body),
     send: (id: string, email?: string) =>

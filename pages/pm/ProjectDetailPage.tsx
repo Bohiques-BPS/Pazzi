@@ -4,6 +4,7 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useData } from '../../contexts/DataContext';
 import { Project, ProjectFormData, UserRole, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource, ProjectPriority, CustomProjectResource } from '../../types';
 import { ProjectTaskBoard } from '../../components/tasks/ProjectTaskBoard';
+import { ProjectMeetingsTab } from '../../components/pm/ProjectMeetingsTab';
 import { ArrowUturnLeftIcon, PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon, ChevronDownIcon, EyeIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
@@ -18,7 +19,7 @@ import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
 
 
-type ActiveTab = 'details' | 'chat' | 'tasks';
+type ActiveTab = 'details' | 'chat' | 'tasks' | 'seguimiento';
 
 export const ProjectDetailPage: React.FC = () => {
     const { t } = useTranslation();
@@ -87,6 +88,9 @@ export const ProjectDetailPage: React.FC = () => {
                         <button onClick={() => handleTabChange('tasks')} className={`px-4 py-2 text-base font-medium ${activeTab === 'tasks' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
                             {t('pm2x.project.tab_tasks')}
                         </button>
+                        <button onClick={() => handleTabChange('seguimiento')} className={`px-4 py-2 text-base font-medium ${activeTab === 'seguimiento' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
+                            {t('pm2x.project.tab_seguimiento')}
+                        </button>
                     </>
                 )}
             </div>
@@ -103,6 +107,9 @@ export const ProjectDetailPage: React.FC = () => {
                 )}
                  {!isNewProject && projectData && activeTab === 'tasks' && (
                     <ProjectTaskBoard projectId={projectData.id} />
+                )}
+                 {!isNewProject && projectData && activeTab === 'seguimiento' && (
+                    <ProjectMeetingsTab projectId={projectData.id} />
                 )}
             </div>
         </div>

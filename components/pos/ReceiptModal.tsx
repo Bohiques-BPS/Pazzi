@@ -172,6 +172,43 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
         doc.setFontSize(9); doc.setFont('courier', bold ? 'bold' : 'normal');
         doc.text(l, M, y); doc.text(r, W - M, y, { align: 'right' }); y += 4.5;
     };
+    // ── Diseño CLÁSICO (mismo estilo que el recibo térmico) ──
+    if ((cfg.design ?? 'modern') === 'classic') {
+        const num = `${cfg.receiptPrefix || ''}${sale.saleNumber}`;
+        const d = new Date(sale.date);
+        if (cfg.showLogo && cfg.logoUrl?.startsWith('data:image')) { try { doc.addImage(cfg.logoUrl, 'PNG', W / 2 - 15, y, 30, 15); y += 18; } catch { /* ignore */ } }
+        if (cfg.businessName) center(cfg.businessName, 14, true);
+        if (cfg.showAddress && cfg.address) center(cfg.address, 8);
+        if (cfg.showPhone && cfg.phone) center(`Tel: ${cfg.phone}`, 8);
+        if (cfg.showRnc && cfg.rnc) center(cfg.rnc, 8);
+        y += 2;
+        row(d.toLocaleDateString(), d.toLocaleTimeString());
+        center(`Recibo : ${num}`, 11, true);
+        if (sale.isReprint && cfg.reprintLabel) center(cfg.reprintLabel, 9, true);
+        y += 1; doc.line(M, y, W - M, y); y += 4;
+        sale.items.forEach(it => {
+            doc.setFontSize(9); doc.setFont('courier', 'normal');
+            doc.text(it.name.slice(0, isLetter ? 60 : 22), M, y);
+            doc.text(money(it.quantity * it.unitPrice), W - M, y, { align: 'right' }); y += 4;
+            doc.setTextColor(120); doc.text(`  ${it.quantity}@ ${money(it.unitPrice)}`, M, y); doc.setTextColor(0); y += 4.5;
+        });
+        doc.line(M, y, W - M, y); y += 4;
+        const count = sale.items.reduce((s, i) => s + i.quantity, 0);
+        row(`${count} Articulos  SUBTOTAL`, money(sale.subtotal), true);
+        if (sale.discount > 0) row('Descuento', `-${money(sale.discount)}`);
+        if (sale.taxState || sale.taxMunicipal || sale.taxReduced) {
+            row('+ Estatal', money(sale.taxState || 0)); row('+ Reducido', money(sale.taxReduced || 0)); row('+ Municipal', money(sale.taxMunicipal || 0));
+        } else if (cfg.showTaxBreakdown) row('+ IVU', money(sale.tax));
+        row('TOTAL', money(sale.total), true);
+        sale.payments.forEach(p => row(p.method, money(p.amount)));
+        if (sale.changeDue && sale.changeDue > 0) row('Cambio', money(sale.changeDue), true);
+        y += 3; doc.line(M, y, W - M, y); y += 4;
+        [cfg.returnPolicyText, cfg.thankYouText, cfg.paymentTermsText].forEach(txt => { if (txt) center(txt, 8); });
+        if (cfg.showBarcode) { y += 2; center(num, 12, true); }
+        doc.save(`factura-${num}.pdf`);
+        return;
+    }
+
     if (cfg.showLogo && cfg.logoUrl?.startsWith('data:image')) {
         try { doc.addImage(cfg.logoUrl, 'PNG', W / 2 - 15, y, 30, 15); y += 18; } catch { /* ignore */ }
     }

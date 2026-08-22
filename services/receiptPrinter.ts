@@ -76,9 +76,54 @@ function center(t: string, w: number): string {
 const leftLine = (t: string) => deburr(t) + '\n';
 const rule = (w: number) => '-'.repeat(w) + '\n';
 
+/** Código de barras Code128 nativo ESC/POS (alto 80, HRI debajo). */
+function barcode128(value: string): string {
+    const data = '{B' + deburr(value);
+    return GS + 'h' + '\x50' + GS + 'w' + '\x02' + GS + 'H' + '\x02'
+        + GS + 'k' + '\x49' + String.fromCharCode(data.length) + data + '\n';
+}
+
 /** Construye el recibo como texto ESC/POS. */
 export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width = 48): string {
     const w = width || 48;
+
+    // ── Diseño CLÁSICO (térmico estilo ferretería) ──
+    if ((cfg.design ?? 'modern') === 'classic') {
+        const num = `${cfg.receiptPrefix || ''}${sale.saleNumber}`;
+        const d = new Date(sale.date);
+        let c = INIT + ALIGN_C;
+        if (cfg.businessName) c += BOLD_ON + DBL_ON + center(cfg.businessName, Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
+        if (cfg.showAddress && cfg.address) c += center(cfg.address, w);
+        if (cfg.showPhone && cfg.phone) c += center(`Tel: ${cfg.phone}`, w);
+        if (cfg.showRnc && cfg.rnc) c += center(cfg.rnc, w);
+        c += ALIGN_L + two(d.toLocaleDateString(), d.toLocaleTimeString(), w);
+        c += ALIGN_C + BOLD_ON + center(`Recibo : ${num}`, w) + BOLD_OFF;
+        if (sale.isReprint && cfg.reprintLabel) c += center(cfg.reprintLabel, w);
+        c += ALIGN_L + rule(w);
+        for (const it of sale.items) {
+            c += leftLine(it.name.slice(0, w));
+            c += two(`  ${it.quantity}@ ${money(it.unitPrice)}`, money(it.quantity * it.unitPrice), w);
+            if (it.note) c += leftLine(`  * ${it.note}`.slice(0, w));
+        }
+        c += rule(w);
+        const count = sale.items.reduce((s, i) => s + i.quantity, 0);
+        c += BOLD_ON + two(`${count} Articulos   SUBTOTAL`, money(sale.subtotal), w) + BOLD_OFF;
+        if (sale.discount > 0) c += two('Descuento', `-${money(sale.discount)}`, w);
+        if (sale.taxState || sale.taxMunicipal || sale.taxReduced) {
+            c += two('+ Estatal', money(sale.taxState || 0), w);
+            c += two('+ Reducido', money(sale.taxReduced || 0), w);
+            c += two('+ Municipal', money(sale.taxMunicipal || 0), w);
+        } else if (cfg.showTaxBreakdown) c += two('+ IVU', money(sale.tax), w);
+        c += BOLD_ON + two('TOTAL', money(sale.total), w) + BOLD_OFF;
+        for (const p of sale.payments) c += two(p.method, money(p.amount), w);
+        if (sale.changeDue && sale.changeDue > 0) c += two('Cambio', money(sale.changeDue), w);
+        c += rule(w) + ALIGN_C;
+        for (const txt of [cfg.returnPolicyText, cfg.thankYouText, cfg.paymentTermsText]) if (txt) c += center(txt, w);
+        if (cfg.showBarcode) c += '\n' + barcode128(num);
+        c += ALIGN_L + CUT;
+        return c;
+    }
+
     let o = INIT + ALIGN_C;
     // Nombre del negocio en doble tamaño (ocupa el doble → centrar sobre w/2).
     if (cfg.businessName) o += BOLD_ON + DBL_ON + center(cfg.businessName, Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;

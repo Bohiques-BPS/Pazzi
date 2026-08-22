@@ -69,6 +69,6 @@ export const AthMovilButton: React.FC<AthMovilButtonProps> = ({
         }
     }, [publicToken, environment, total, subtotal, tax, items]);
 
-    // El SDK monta el botón dentro de este contenedor por su id.
-    return <div id="ATHMovil_Checkout_Button_payment" className="my-2" />;
+    // El SDK monta el botón dentro de este contenedor por su id EXACTO (no cambiar el id).
+    return <div id="ATHMovil_Checkout_Button" className="my-2" />;
 };

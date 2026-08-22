@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { usePagination, PaginationFooter } from '../../components/ui/tableTools';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { recurringService, type RecurringPayment, type RecurringCharge, type CreateRecurringInput, type RecurringMode, type LinkMethod } from '../../services/recurring';
@@ -32,6 +33,16 @@ const PAY_BADGE: Record<string, string> = {
 
 const payState = (c: RecurringCharge) => c.payState || c.status;
 
+// Último pago REALIZADO: el cargo más reciente que quedó pagado.
+const lastPaidDate = (rp: RecurringPayment): string | null => {
+    const paid = rp.charges
+        .filter(c => c.payState === 'paid' || /aprobad|approved|paid|pagad/i.test(c.status || '') || !!c.invoicePaidAt)
+        .map(c => c.invoicePaidAt || c.date)
+        .filter(Boolean) as string[];
+    if (paid.length === 0) return null;
+    return paid.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+};
+
 export const RecurringPaymentsPage: React.FC = () => {
     const { t } = useTranslation();
     const { clients } = useData();
@@ -39,6 +50,12 @@ export const RecurringPaymentsPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [expanded, setExpanded] = useState<string | null>(null);
+    // Filtros
+    const [search, setSearch] = useState('');
+    const [statusF, setStatusF] = useState<'all' | 'active' | 'paused' | 'cancelled'>('all');
+    const [modeF, setModeF] = useState<'all' | 'invoice_link' | 'auto'>('all');
+    const [payF, setPayF] = useState<'all' | 'paid' | 'unpaid'>('all');
+    const [showFilters, setShowFilters] = useState(false);
 
     // Form
     const [mode, setMode] = useState<RecurringMode>('invoice_link');
@@ -136,6 +153,28 @@ export const RecurringPaymentsPage: React.FC = () => {
         const url = `${window.location.origin}/#/pay/${token}`;
         navigator.clipboard?.writeText(url).then(() => toast.success(t('posx.recurring.toast.linkCopied')), () => toast.error(t('posx.recurring.toast.copyFailed')));
     };
+
+    // Filtrado + paginación (estilo Facturas).
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return items.filter(rp => {
+            if (statusF !== 'all' && rp.status !== statusF) return false;
+            if (modeF === 'invoice_link' && rp.mode !== 'invoice_link') return false;
+            if (modeF === 'auto' && rp.mode === 'invoice_link') return false;
+            if (payF !== 'all') {
+                const paid = rp.currentState === 'paid';
+                if (payF === 'paid' && !paid) return false;
+                if (payF === 'unpaid' && paid) return false;
+            }
+            if (q) {
+                const hay = `${rp.clientName || ''} ${rp.description || ''} ${rp.clientEmail || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [items, search, statusF, modeF, payF]);
+    const pg = usePagination(filtered, 25);
+    const hasActiveFilters = statusF !== 'all' || modeF !== 'all' || payF !== 'all';
 
     return (
         <div>
@@ -237,11 +276,36 @@ export const RecurringPaymentsPage: React.FC = () => {
                 </div>
             )}
 
+            {!loading && items.length > 0 && (
+                <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 mb-3 flex flex-wrap items-center gap-2">
+                    <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('posx.recurring.search_ph')} className={`${INPUT_SM_CLASSES} flex-grow min-w-[200px]`} />
+                    <select value={statusF} onChange={e => setStatusF(e.target.value as any)} className={INPUT_SM_CLASSES}>
+                        <option value="all">{t('posx.recurring.filter.all_status')}</option>
+                        <option value="active">{t('posx.recurring.status.active')}</option>
+                        <option value="paused">{t('posx.recurring.status.paused')}</option>
+                        <option value="cancelled">{t('posx.recurring.status.cancelled')}</option>
+                    </select>
+                    <select value={modeF} onChange={e => setModeF(e.target.value as any)} className={INPUT_SM_CLASSES}>
+                        <option value="all">{t('posx.recurring.filter.all_modes')}</option>
+                        <option value="invoice_link">{t('posx.recurring.mode.invoiceLink')}</option>
+                        <option value="auto">{t('posx.recurring.badge.autoCharge')}</option>
+                    </select>
+                    <select value={payF} onChange={e => setPayF(e.target.value as any)} className={INPUT_SM_CLASSES}>
+                        <option value="all">{t('posx.recurring.filter.all_pay')}</option>
+                        <option value="paid">{t('posx.recurring.filter.paid')}</option>
+                        <option value="unpaid">{t('posx.recurring.filter.unpaid')}</option>
+                    </select>
+                    {hasActiveFilters && <button onClick={() => { setStatusF('all'); setModeF('all'); setPayF('all'); }} className="text-sm text-neutral-500 hover:text-red-500 underline">{t('posx.recurring.filter.clear')}</button>}
+                </div>
+            )}
+
             {loading ? <LoadingSkeleton variant="list" rows={4} /> : items.length === 0 ? (
                 <EmptyState title={t('posx.recurring.empty.title')} description={t('posx.recurring.empty.desc')} />
+            ) : filtered.length === 0 ? (
+                <EmptyState title={t('posx.recurring.no_results')} description={t('posx.recurring.no_results_desc')} />
             ) : (
                 <div className="space-y-2">
-                    {items.map(rp => {
+                    {pg.paged.map(rp => {
                         const isInvoice = rp.mode === 'invoice_link';
                         const cur = rp.currentState;
                         return (
@@ -256,7 +320,8 @@ export const RecurringPaymentsPage: React.FC = () => {
                                 <span className="text-xs text-neutral-400 ml-auto">{isInvoice ? t('posx.recurring.nextInvoice') : t('posx.recurring.nextCharge')}: {rp.status === 'cancelled' ? '—' : new Date(rp.nextChargeDate).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-neutral-500">
-                                {rp.description && <span>{rp.description}</span>}
+                                {(() => { const lp = lastPaidDate(rp); return <span className="font-medium text-neutral-600 dark:text-neutral-300">{t('posx.recurring.last_paid')}: {lp ? new Date(lp).toLocaleDateString() : t('posx.recurring.no_payment')}</span>; })()}
+                                {rp.description && <span>· {rp.description}</span>}
                                 {isInvoice && rp.clientEmail && <span>· ✉ {rp.clientEmail}</span>}
                                 {isInvoice && <span>· Link: {(rp.linkMethods || 'agilpay,ath').split(',').map(m => m === 'ath' ? 'ATH Móvil' : 'AgilPay').join(' + ')}</span>}
                                 {isInvoice && (rp.graceDays ?? 0) > 0 && <span>· {t('posx.recurring.graceLabel', { days: rp.graceDays ?? 0 })}</span>}
@@ -292,6 +357,11 @@ export const RecurringPaymentsPage: React.FC = () => {
                         </div>
                         );
                     })}
+                    <PaginationFooter
+                        total={pg.total} page={pg.page} pageCount={pg.pageCount}
+                        pageSize={pg.pageSize} from={pg.from} to={pg.to}
+                        onPage={pg.setPage} onPageSize={pg.setPageSize}
+                    />
                 </div>
             )}
         </div>

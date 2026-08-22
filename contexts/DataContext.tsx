@@ -468,7 +468,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error("Error al cargar notificaciones del servidor:", e);
             }
         };
-        if (currentUser) fetchNotifications();
+        if (!currentUser) return;
+        fetchNotifications();
+        // Poll cada 60s para que lleguen avisos generados en el servidor (ej. pago de factura
+        // por AgilPay/ATH Móvil) sin tener que recargar la página.
+        const id = window.setInterval(fetchNotifications, 60000);
+        return () => window.clearInterval(id);
     }, [currentUser]);
 
     // Carga de logs de inventario.

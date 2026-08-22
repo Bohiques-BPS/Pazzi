@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
@@ -43,7 +43,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   const navigate = useNavigate();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
-  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false); 
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  // Cerrar los dropdowns al hacer clic fuera de su contenedor.
+  const moduleRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (moduleRef.current && !moduleRef.current.contains(target)) setModuleDropdownOpen(false);
+      if (notifRef.current && !notifRef.current.contains(target)) setNotificationDropdownOpen(false);
+      if (userRef.current && !userRef.current.contains(target)) setUserDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
   
   const unreadCount = getUnreadNotificationsCount();
   const latestNotifications = notifications.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 7); 
@@ -138,8 +152,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           }
           
           {/* Module Selector */}
-          {availableModulesForSelector.length > 0 && ( 
-            <div className="relative mr-1.5 sm:mr-3">
+          {availableModulesForSelector.length > 0 && (
+            <div className="relative mr-1.5 sm:mr-3" ref={moduleRef}>
                 {/* Mobile/Tablet */}
                 <button 
                     id="navbar-module-selector-button-mobile"
@@ -215,9 +229,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
         <div className="flex items-center space-x-1 sm:space-x-2">
            {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
-            <div className="relative">
-                <button 
-                    onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)} 
+            <div className="relative" ref={notifRef}>
+                <button
+                    onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
                     className="p-1.5 sm:p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-label={t('cmp.navbar.notifications')}
                     aria-haspopup="true"
@@ -277,7 +291,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
            )}
 
           {/* User Menu */}
-          <div className="relative">
+          <div className="relative" ref={userRef}>
             <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-1 sm:space-x-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
                 <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
                 <span className="hidden md:inline text-sm sm:text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
