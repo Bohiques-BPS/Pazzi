@@ -8,7 +8,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSE
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
-const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`;
+const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
 
 type DraftItem = { name: string; quantity: string; unitPrice: string };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });

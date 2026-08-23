@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { projectMeetingsService, googleCalendarLink, type ProjectMeeting } from '../../services/projectMeetings';
+import { googleService, type GoogleStatus } from '../../services/google';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
@@ -19,6 +20,7 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
 
     const [items, setItems] = useState<ProjectMeeting[]>([]);
     const [loading, setLoading] = useState(false);
+    const [gstatus, setGstatus] = useState<GoogleStatus | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -41,6 +43,16 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
         finally { setLoading(false); }
     };
     useEffect(() => { load(); /* eslint-disable-next-line */ }, [projectId]);
+    useEffect(() => { googleService.status().then(setGstatus).catch(() => setGstatus(null)); }, []);
+
+    const connectGoogle = async () => {
+        try { const { url } = await googleService.connectUrl(); window.location.href = url; }
+        catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo iniciar la conexión con Google.'); }
+    };
+    const disconnectGoogle = async () => {
+        try { await googleService.disconnect(); setGstatus(s => s ? { ...s, connected: false, email: null } : s); toast.success('Google desconectado.'); }
+        catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo desconectar.'); }
+    };
 
     const resetForm = () => {
         setTitle(''); setDate(todayISO()); setStartTime('09:00'); setDurationHours('1');
@@ -96,6 +108,24 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                     <PlusIcon className="w-4 h-4" /> {showForm ? 'Cerrar' : 'Nueva reunión'}
                 </button>
             </div>
+
+            {/* Conexión con Google Calendar (Meet + invitaciones automáticas). */}
+            {gstatus?.configured && (
+                <div className={`flex items-center gap-3 flex-wrap rounded-lg border p-3 mb-4 text-sm ${gstatus.connected ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50'}`}>
+                    {gstatus.connected ? (
+                        <>
+                            <span className="text-green-700 dark:text-green-300 font-medium">✓ Google Calendar conectado{gstatus.email ? ` — ${gstatus.email}` : ''}</span>
+                            <span className="text-neutral-500">Las reuniones nuevas crearán el evento con Meet e invitarán a los participantes automáticamente.</span>
+                            <button onClick={disconnectGoogle} className="ml-auto text-red-600 hover:underline">Desconectar</button>
+                        </>
+                    ) : (
+                        <>
+                            <span className="text-neutral-600 dark:text-neutral-300">Conecta Google Calendar para generar el <strong>Meet</strong> y enviar invitaciones automáticamente.</span>
+                            <button onClick={connectGoogle} className={`${BUTTON_SECONDARY_SM_CLASSES} ml-auto`}>Conectar Google Calendar</button>
+                        </>
+                    )}
+                </div>
+            )}
 
             {showForm && (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 mb-4 space-y-3">

@@ -72,7 +72,7 @@ export const ECommerceSettingsPage: React.FC = () => {
 
     const storeUrl = useMemo(() => {
         const id = storeOwnerId || currentUser?.id || '';
-        return `${window.location.origin}/#/store/${id}`;
+        return `${window.location.origin}/store/${id}`;
     }, [storeOwnerId, currentUser]);
 
     const selectedPayments = useMemo(

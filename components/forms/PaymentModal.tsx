@@ -9,7 +9,7 @@ import { getPrintFormat, setPrintFormat, type PrintFormat } from '../../services
 import { toast } from 'react-hot-toast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
-const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`;
+const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
 
 // Métodos dinámicos: string libre (viene de la config de Métodos de Pago).
 export type PaymentMethod = string;

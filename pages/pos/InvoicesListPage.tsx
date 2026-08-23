@@ -11,7 +11,7 @@ import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
-const publicLink = (token: string) => `${window.location.origin}/#/pay/${token}`;
+const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
 
 const STATUS: Record<string, { label: string; cls: string }> = {
     pending: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },

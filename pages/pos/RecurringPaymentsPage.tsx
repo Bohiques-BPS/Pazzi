@@ -150,7 +150,7 @@ export const RecurringPaymentsPage: React.FC = () => {
     };
 
     const copyLink = (token: string) => {
-        const url = `${window.location.origin}/#/pay/${token}`;
+        const url = `${window.location.origin}/pay/${token}`;
         navigator.clipboard?.writeText(url).then(() => toast.success(t('posx.recurring.toast.linkCopied')), () => toast.error(t('posx.recurring.toast.copyFailed')));
     };
 
