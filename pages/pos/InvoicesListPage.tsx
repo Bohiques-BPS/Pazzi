@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
-import { usePagination, PaginationFooter } from '../../components/ui/tableTools';
+import { DataTable, type TableColumn } from '../../components/DataTable';
 import { invoicesService, type Invoice, type InvoiceItemInput } from '../../services/invoices';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -229,11 +229,33 @@ export const InvoicesListPage: React.FC = () => {
             return true;
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [items, search, statusF, cashierF, typeF, dateFrom, dateTo, minAmount, maxAmount, onlyBalance]);
-    const pg = usePagination(filtered, 25);
     const hasActiveFilters = !!(statusF !== 'all' || cashierF !== 'all' || typeF !== 'all' || dateFrom || dateTo || minAmount || maxAmount || onlyBalance);
     const clearFilters = () => { setStatusF('all'); setCashierF('all'); setTypeF('all'); setDateFrom(''); setDateTo(''); setMinAmount(''); setMaxAmount(''); setOnlyBalance(false); };
     const cashierOptions = useMemo(() => [...new Set(items.map(i => i.cashierName).filter(Boolean))] as string[], [items]);
     const typeOptions = useMemo(() => [...new Set(items.map(i => i.type).filter(Boolean))] as string[], [items]);
+
+    const columns: TableColumn<Invoice>[] = useMemo(() => [
+        {
+            header: t('common.status'), sortValue: inv => inv.status, filterType: 'none',
+            accessor: (inv) => { const s = STATUS[inv.status] || STATUS.pending; return <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${s.cls}`}>{s.label}</span>; },
+        },
+        { header: '#', sortValue: inv => inv.number ?? 0, accessor: (inv) => <span className="font-semibold">{inv.number ? `#${inv.number}` : '—'}</span> },
+        { header: t('common.name'), sortValue: inv => inv.clientName || '', accessor: (inv) => inv.clientName || <span className="text-neutral-400">—</span> },
+        { header: t('common.email'), sortValue: inv => inv.clientEmail || '', accessor: (inv) => inv.clientEmail || <span className="text-neutral-400">—</span> },
+        { header: t('posx.invoices.cashier_label'), sortValue: inv => inv.cashierName || '', accessor: (inv) => inv.cashierName || <span className="text-neutral-400">—</span> },
+        { header: t('posx.invoices.type_label'), sortValue: inv => inv.type || '', accessor: (inv) => inv.type ? <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{inv.type}</span> : <span className="text-neutral-400">—</span> },
+        { header: t('common.total'), sortValue: inv => inv.total, className: 'text-right', accessor: (inv) => <span className="font-medium tabular-nums">{money(inv.total)}</span> },
+        {
+            header: t('pos.receivable.col.balance'), sortValue: inv => (inv.total || 0) - (inv.amountPaid || 0), className: 'text-right',
+            accessor: (inv) => { const bal = (inv.total || 0) - (inv.amountPaid || 0); return <span className={`tabular-nums ${bal > 0.001 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-400'}`}>{money(Math.max(0, bal))}</span>; },
+        },
+        { header: t('common.date'), sortValue: inv => inv.createdAt, accessor: (inv) => <span className="text-xs text-neutral-500 whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</span> },
+    ] as TableColumn<Invoice>[], [t, items]);
+
+    const onRowClick = (inv: Invoice) => {
+        if (inv.status === 'pending' || inv.status === 'partial') openEdit(inv);
+        else setShare(inv); // pagadas/canceladas: mostrar link/QR (no editables)
+    };
 
     return (
         <div>
@@ -367,45 +389,24 @@ export const InvoicesListPage: React.FC = () => {
 
             {loading ? <LoadingSkeleton variant="list" rows={4} /> : items.length === 0 ? (
                 <EmptyState title={t('posx.invoices.empty_title')} description={t('posx.invoices.empty_desc')} />
-            ) : filtered.length === 0 ? (
-                <EmptyState title={t('posx.invoices.no_results')} description={t('posx.invoices.no_results_desc')} />
             ) : (
-                <div className="space-y-2">
-                    {pg.paged.map(inv => {
-                        const st = STATUS[inv.status] || STATUS.pending;
-                        return (
-                            <div key={inv.id} className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3">
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
-                                    <span className="font-semibold text-neutral-800 dark:text-neutral-100">{t('posx.invoices.invoice_num', { num: inv.number ? `#${inv.number}` : '' })}</span>
-                                    {inv.clientName && <span className="text-neutral-500">· {inv.clientName}</span>}
-                                    <span className="text-neutral-500">· {money(inv.total)}</span>
-                                    {inv.type && <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{inv.type}</span>}
-                                    {inv.status === 'partial' && <span className="text-blue-600 dark:text-blue-400 text-xs">{t('posx.invoices.partial_info', { paid: money(inv.amountPaid || 0), balance: money((inv.total || 0) - (inv.amountPaid || 0)) })}</span>}
-                                    <span className="text-xs text-neutral-400 ml-auto">{new Date(inv.createdAt).toLocaleDateString()}</span>
-                                </div>
-                                <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-neutral-500">
-                                    {inv.cashierName && <span>{t('posx.invoices.cashier_label')}: {inv.cashierName}</span>}
-                                    {inv.clientEmail && <span>· ✉ {inv.clientEmail}</span>}
-                                    {inv.description && <span>· {inv.description}</span>}
-                                </div>
-                                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                    <button onClick={() => setShare(inv)} className="text-xs text-primary hover:underline">{t('posx.invoices.view_link_qr')}</button>
-                                    <button onClick={() => copyLink(inv)} className="text-xs text-neutral-500 hover:underline">{t('posx.invoices.copy_link')}</button>
-                                    <button onClick={() => sendByEmail(inv)} className="text-xs text-blue-600 hover:underline">{t('posx.invoices.send_email')}</button>
-                                    {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => openEdit(inv)} className="text-xs text-amber-600 hover:underline">{t('common.edit')}</button>}
-                                    {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => markPaid(inv)} className="text-xs text-green-600 hover:underline">{t('posx.invoices.register_payment')}</button>}
-                                    {inv.status === 'paid' && inv.paidMethod && <span className="text-xs text-neutral-400 ml-auto">{t('posx.invoices.paid_with', { method: inv.paidMethod })}{inv.paidReference ? t('posx.invoices.ref_suffix', { ref: inv.paidReference }) : ''}</span>}
-                                </div>
-                            </div>
-                        );
-                    })}
-                    <PaginationFooter
-                        total={pg.total} page={pg.page} pageCount={pg.pageCount}
-                        pageSize={pg.pageSize} from={pg.from} to={pg.to}
-                        onPage={pg.setPage} onPageSize={pg.setPageSize}
-                    />
-                </div>
+                <DataTable<Invoice>
+                    data={filtered}
+                    columns={columns}
+                    onRowClick={onRowClick}
+                    searchable={false}
+                    filterable={false}
+                    initialPageSize={25}
+                    actions={(inv) => (
+                        <div className="flex items-center gap-3 whitespace-nowrap">
+                            <button onClick={() => setShare(inv)} className="text-xs text-primary hover:underline">{t('posx.invoices.view_link_qr')}</button>
+                            <button onClick={() => copyLink(inv)} className="text-xs text-neutral-500 hover:underline">{t('posx.invoices.copy_link')}</button>
+                            <button onClick={() => sendByEmail(inv)} className="text-xs text-blue-600 hover:underline">{t('posx.invoices.send_email')}</button>
+                            {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => openEdit(inv)} className="text-xs text-amber-600 hover:underline">{t('common.edit')}</button>}
+                            {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => markPaid(inv)} className="text-xs text-green-600 hover:underline">{t('posx.invoices.register_payment')}</button>}
+                        </div>
+                    )}
+                />
             )}
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
