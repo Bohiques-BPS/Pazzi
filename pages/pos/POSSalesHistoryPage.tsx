@@ -348,6 +348,7 @@ export const POSSalesHistoryPage: React.FC = () => {
       <DataTable<HistoryItem> onRowClick={showDeleted ? undefined : handleTypeClick}
         data={combinedHistory}
         columns={columns}
+        tableId="sales-history"
         actions={(item) => (
           showDeleted ? (
             <button onClick={() => restoreSale(item.rawObject as Sale)} className="text-xs text-green-600 hover:underline whitespace-nowrap">{t('common.restore')}</button>

@@ -28,6 +28,7 @@ export interface Invoice {
     paidReference?: string | null;
     paidAt?: string | null;
     deletedAt?: string | null;
+    allowPartial?: boolean;
     createdAt: string;
 }
 
@@ -39,6 +40,7 @@ export interface CreateInvoiceInput {
     taxRate?: number;
     description?: string;
     allowedMethods?: string; // "agilpay,ath" (null/omitido = ambos)
+    allowPartial?: boolean;  // false = solo pago completo (sin abonos)
     type?: string | null;    // tipo de factura (etiqueta libre)
 }
 
@@ -49,6 +51,7 @@ export interface UpdateInvoiceInput {
     taxRate?: number;
     description?: string | null;
     allowedMethods?: string | null;
+    allowPartial?: boolean;
     type?: string | null;
 }
 
@@ -90,6 +93,7 @@ export interface PublicInvoice {
     business: PublicInvoiceBusiness;
     agilpayEnabled: boolean;
     allowedMethods?: string | null; // "agilpay,ath" (null = ambos)
+    allowPartial?: boolean;         // false = solo pago completo (sin abonos)
     athEnabled?: boolean;           // ATH Móvil con verificación automática disponible
     athPublicToken?: string | null; // token PÚBLICO para el botón (nunca el privado)
     athEnv?: string;                // 'production' | 'sandbox'

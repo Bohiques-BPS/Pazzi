@@ -19,6 +19,8 @@ interface AgilPayCardFormProps {
     onSuccess: (reference: string) => void;
     /** Si se pasa, reemplaza el cobro autenticado por uno propio (ej. pago público de factura). */
     chargeFn?: (data: AgilPayCardData) => Promise<{ success: boolean; reference: string }>;
+    /** Traducción a usar (en páginas públicas, el idioma del navegador del visitante). */
+    t?: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const luhnOk = (num: string) => {
@@ -45,8 +47,9 @@ const expiryOk = (exp: string) => {
 
 const inputCls = 'w-full text-base px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500';
 
-export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, customerName, customerEmail, onSuccess, chargeFn }) => {
-    const { t } = useTranslation();
+export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, customerName, customerEmail, onSuccess, chargeFn, t: tProp }) => {
+    const { t: tHook } = useTranslation();
+    const t = tProp || tHook;
     const [card, setCard] = useState('');
     const [expiry, setExpiry] = useState('');
     const [cvv, setCvv] = useState('');

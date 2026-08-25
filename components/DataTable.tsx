@@ -50,7 +50,17 @@ export interface TableProps<T> {
   initialPageSize?: number;
   /** Contenido extra en la barra de herramientas (a la izquierda del buscador). */
   toolbarExtra?: React.ReactNode;
+  /** Identificador estable de la tabla para recordar (por usuario/navegador) qué columnas se ocultan. */
+  tableId?: string;
 }
+
+/** Id estable de una columna, para recordar cuáles se ocultan. */
+const columnId = <T,>(col: TableColumn<T>, idx: number): string => {
+  if (col.sortKey) return col.sortKey;
+  if (typeof col.accessor !== 'function') return String(col.accessor);
+  if (typeof col.header === 'string') return col.header;
+  return `col_${idx}`;
+};
 
 const columnSortKey = <T,>(col: TableColumn<T>): string | undefined => {
   if (col.sortKey) return col.sortKey;
@@ -103,6 +113,12 @@ const FilterIcon: React.FC = () => (
   </svg>
 );
 
+const ColumnsIcon: React.FC = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+    <path fillRule="evenodd" d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15.5v-11ZM8.5 4.5h-5v11h5v-11Zm1.5 0v11h5v-11h-5Z" clipRule="evenodd" />
+  </svg>
+);
+
 const MAX_SELECT_OPTIONS = 12; // si una columna tiene ≤ N valores distintos → dropdown; si no → texto
 
 export const DataTable = <T extends {id: string}>({
@@ -124,8 +140,27 @@ export const DataTable = <T extends {id: string}>({
   pageSizeOptions = [10, 25, 50, 100, 'all'],
   initialPageSize = 25,
   toolbarExtra,
+  tableId,
 }: TableProps<T>): React.ReactNode => {
   const { t } = useTranslation();
+  // Clave para recordar columnas ocultas: tableId explícito, o firma de las cabeceras.
+  const colPersistKey = 'pazzi_cols_' + (tableId || columns.map((c, i) => columnId(c, i)).join('|'));
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {
+    try { const raw = localStorage.getItem(colPersistKey); return raw ? new Set<string>(JSON.parse(raw)) : new Set(); }
+    catch { return new Set(); }
+  });
+  const [showColMenu, setShowColMenu] = useState(false);
+  const toggleCol = (id: string) => setHiddenCols(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    try { localStorage.setItem(colPersistKey, JSON.stringify([...next])); } catch { /* sin storage */ }
+    return next;
+  });
+  // Columnas realmente visibles. Si el usuario ocultó todo, mostramos todas (evita tabla vacía).
+  const visibleColumns = useMemo(() => {
+    const vis = columns.filter((c, i) => !hiddenCols.has(columnId(c, i)));
+    return vis.length ? vis : columns;
+  }, [columns, hiddenCols]);
   const controlled = typeof onSortChange === 'function';
   // Por defecto, las funciones cliente (buscar/filtrar/paginar) se activan cuando el orden es interno.
   const enableSearch = searchable ?? !controlled;
@@ -166,9 +201,9 @@ export const DataTable = <T extends {id: string}>({
     if (!enableSearch || !search.trim()) return data;
     const q = search.trim().toLowerCase();
     return data.filter(item =>
-      columns.some(col => getFilterText(col, item).toLowerCase().includes(q))
+      visibleColumns.some(col => getFilterText(col, item).toLowerCase().includes(q))
     );
-  }, [data, columns, search, enableSearch]);
+  }, [data, visibleColumns, search, enableSearch]);
 
   // 2) Filtros por columna.
   const filteredData = useMemo(() => {
@@ -177,13 +212,13 @@ export const DataTable = <T extends {id: string}>({
     if (active.length === 0) return searchedData;
     return searchedData.filter(item =>
       active.every(([key, val]) => {
-        const col = columns.find((c, i) => colKeyOf(c, i) === key);
+        const col = visibleColumns.find((c, i) => colKeyOf(c, i) === key);
         if (!col) return true;
         const text = getFilterText(col, item).toLowerCase();
         return text.includes(val.trim().toLowerCase());
       })
     );
-  }, [searchedData, colFilters, columns, enableFilters]);
+  }, [searchedData, colFilters, visibleColumns, enableFilters]);
 
   // 3) Orden (interno).
   const sortedData = useMemo(() => {
@@ -213,7 +248,7 @@ export const DataTable = <T extends {id: string}>({
   const distinctByCol = useMemo(() => {
     if (!enableFilters || !showFilters) return {} as Record<string, string[]>;
     const map: Record<string, Set<string>> = {};
-    columns.forEach((col, i) => {
+    visibleColumns.forEach((col, i) => {
       if (!isFilterable(col)) return;
       const key = colKeyOf(col, i);
       const set = new Set<string>();
@@ -227,7 +262,7 @@ export const DataTable = <T extends {id: string}>({
     const out: Record<string, string[]> = {};
     Object.entries(map).forEach(([k, s]) => { out[k] = [...s].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); });
     return out;
-  }, [columns, searchedData, enableFilters, showFilters]);
+  }, [visibleColumns, searchedData, enableFilters, showFilters]);
 
   const hasActiveFilters = Object.values(colFilters).some(v => v && v.trim());
 
@@ -244,11 +279,42 @@ export const DataTable = <T extends {id: string}>({
   };
 
   const isAllSelected = selectedIds && sortedData.length > 0 && sortedData.every(it => selectedIds.includes(it.id));
-  const colCount = columns.length + (onSelectionChange ? 1 : 0) + (actions ? 1 : 0);
-  const showToolbar = enableSearch || enableFilters || !!toolbarExtra;
+  const colCount = visibleColumns.length + (onSelectionChange ? 1 : 0) + (actions ? 1 : 0);
+  const showColumnChooser = columns.length > 1;
+  const showToolbar = enableSearch || enableFilters || !!toolbarExtra || showColumnChooser;
 
   const from = total === 0 ? 0 : (currentPage - 1) * effectivePageSize + 1;
   const to = pageSize === 'all' ? total : Math.min(currentPage * effectivePageSize, total);
+
+  // Barra de paginación (selector de filas + "Mostrando" + ‹ ›). Se muestra arriba y abajo.
+  const paginationBar = (position: 'top' | 'bottom') => (!enablePagination || total === 0) ? null : (
+    <div className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2 ${position === 'top' ? 'border-b' : 'border-t'} border-neutral-200 dark:border-neutral-700 text-sm text-neutral-600 dark:text-neutral-300`}>
+      <div className="flex items-center gap-2">
+        <span>{t('cmp.datatable.rows_per_page')}</span>
+        <select
+          value={String(pageSize)}
+          onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+          className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 focus:ring-1 focus:ring-primary"
+        >
+          {pageSizeOptions.map(o => (
+            <option key={String(o)} value={String(o)}>{o === 'all' ? t('cmp.datatable.all') : o}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-3">
+        <span>{t('cmp.datatable.showing', { from: String(from), to: String(to), total: String(total) })}</span>
+        {pageSize !== 'all' && pageCount > 1 && (
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}
+              className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-700">‹</button>
+            <span className="px-1">{currentPage} / {pageCount}</span>
+            <button type="button" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={currentPage >= pageCount}
+              className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-700">›</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className={`min-w-0 bg-white dark:bg-neutral-800 shadow-md rounded-lg ${containerClassName}`}>
@@ -289,8 +355,42 @@ export const DataTable = <T extends {id: string}>({
               {t('cmp.datatable.clear_filters')}
             </button>
           )}
+          {showColumnChooser && (
+            <div className="relative ml-auto">
+              <button
+                type="button"
+                onClick={() => setShowColMenu(s => !s)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${hiddenCols.size > 0 ? 'border-primary text-primary bg-primary/10' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+              >
+                <ColumnsIcon />
+                {t('cmp.datatable.columns')}
+                {hiddenCols.size > 0 && <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 text-[10px] rounded-full bg-primary text-white">{hiddenCols.size}</span>}
+              </button>
+              {showColMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowColMenu(false)} />
+                  <div className="absolute right-0 mt-1 z-20 w-56 max-h-72 overflow-y-auto rounded-md border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg py-1">
+                    <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 border-b border-neutral-100 dark:border-neutral-700">{t('cmp.datatable.columns_show')}</div>
+                    {columns.map((col, idx) => {
+                      const id = columnId(col, idx);
+                      const label = typeof col.header === 'string' ? col.header : id;
+                      const checked = !hiddenCols.has(id);
+                      return (
+                        <label key={id} className="flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer">
+                          <input type="checkbox" checked={checked} onChange={() => toggleCol(id)} className="h-4 w-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary" />
+                          <span className="truncate">{label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
+
+      {paginationBar('top')}
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -307,7 +407,7 @@ export const DataTable = <T extends {id: string}>({
                   />
                 </th>
               )}
-              {columns.map((col, idx) => {
+              {visibleColumns.map((col, idx) => {
                 const key = columnSortKey(col);
                 const sortable = isColumnSortable(col) && !!key;
                 const direction = sortable && activeSort?.key === key ? activeSort.direction : null;
@@ -334,7 +434,7 @@ export const DataTable = <T extends {id: string}>({
             {enableFilters && showFilters && (
               <tr className="bg-neutral-50/60 dark:bg-neutral-700/40">
                 {onSelectionChange && <th className="px-4 py-1.5" />}
-                {columns.map((col, idx) => {
+                {visibleColumns.map((col, idx) => {
                   const key = colKeyOf(col, idx);
                   if (!isFilterable(col)) return <th key={idx} className="px-2 py-1.5" />;
                   const options = distinctByCol[key] || [];
@@ -387,7 +487,7 @@ export const DataTable = <T extends {id: string}>({
                     />
                   </td>
                 )}
-                {columns.map((col, idx) => (
+                {visibleColumns.map((col, idx) => (
                   <td key={idx} className={`px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 ${col.noWrap !== false ? 'whitespace-nowrap' : ''} ${col.className || ''}`}>
                     {typeof col.accessor === 'function' ? col.accessor(item) : String(item[col.accessor] ?? '')}
                   </td>
@@ -406,42 +506,7 @@ export const DataTable = <T extends {id: string}>({
         </table>
       </div>
 
-      {enablePagination && total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-neutral-200 dark:border-neutral-700 text-sm text-neutral-600 dark:text-neutral-300">
-          <div className="flex items-center gap-2">
-            <span>{t('cmp.datatable.rows_per_page')}</span>
-            <select
-              value={String(pageSize)}
-              onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 focus:ring-1 focus:ring-primary"
-            >
-              {pageSizeOptions.map(o => (
-                <option key={String(o)} value={String(o)}>{o === 'all' ? t('cmp.datatable.all') : o}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-3">
-            <span>{t('cmp.datatable.showing', { from: String(from), to: String(to), total: String(total) })}</span>
-            {pageSize !== 'all' && pageCount > 1 && (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1}
-                  className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-700"
-                >‹</button>
-                <span className="px-1">{currentPage} / {pageCount}</span>
-                <button
-                  type="button"
-                  onClick={() => setPage(p => Math.min(pageCount, p + 1))}
-                  disabled={currentPage >= pageCount}
-                  className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-700"
-                >›</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {paginationBar('bottom')}
     </div>
   );
 };

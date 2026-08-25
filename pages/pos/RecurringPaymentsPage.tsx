@@ -9,6 +9,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSE
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmationModal } from '../../components/Modal';
+import { ClientAutocomplete } from '../../components/ui/ClientAutocomplete';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 // Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
@@ -264,10 +265,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className={LABEL}>{t('posx.recurring.form.client')}</label>
-                            <select value={clientId} onChange={e => onSelectClient(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
-                                <option value="">{t('posx.recurring.form.select')}</option>
-                                {clients.filter(c => !c.isDefault).map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
-                            </select>
+                            <ClientAutocomplete clients={clients.filter(c => !c.isDefault)} value={clientId} onChange={onSelectClient} placeholder={t('posx.recurring.form.select')} />
                         </div>
                         <div>
                             <label className={LABEL}>{t('posx.recurring.form.amount')}</label>
@@ -435,6 +433,14 @@ export const RecurringPaymentsPage: React.FC = () => {
                 <EmptyState title={t('posx.recurring.no_results')} description={t('posx.recurring.no_results_desc')} />
             ) : (
                 <div className="space-y-2">
+                    <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg">
+                        <PaginationFooter
+                            position="top"
+                            total={pg.total} page={pg.page} pageCount={pg.pageCount}
+                            pageSize={pg.pageSize} from={pg.from} to={pg.to}
+                            onPage={pg.setPage} onPageSize={pg.setPageSize}
+                        />
+                    </div>
                     {pg.paged.map(rp => {
                         const isInvoice = rp.mode === 'invoice_link';
                         const cur = rp.currentState;

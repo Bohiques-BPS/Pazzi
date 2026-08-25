@@ -99,8 +99,11 @@ export const PaymentMethodsPage: React.FC = () => {
                                 <button onClick={() => move(idx, -1)} disabled={idx === 0} className="text-neutral-400 hover:text-primary disabled:opacity-30"><ArrowUpIcon className="w-4 h-4" /></button>
                                 <button onClick={() => move(idx, 1)} disabled={idx === methods.length - 1} className="text-neutral-400 hover:text-primary disabled:opacity-30"><ArrowDownIcon className="w-4 h-4" /></button>
                             </div>
-                            {/* Nombre */}
-                            <input type="text" value={m.name} onChange={e => patch(m.id, { name: e.target.value })} disabled={m.builtin} className={`${INPUT_SM_CLASSES} flex-grow min-w-[140px] disabled:opacity-70`} placeholder={t('posx.paymentmethods.method_name_placeholder')} />
+                            {/* Nombre: los métodos fijos se muestran como título; los personalizados son editables. */}
+                            {m.builtin
+                                ? <span className="flex-grow min-w-[140px] text-base font-semibold text-neutral-800 dark:text-neutral-100">{m.name}</span>
+                                : <input type="text" value={m.name} onChange={e => patch(m.id, { name: e.target.value })} className={`${INPUT_SM_CLASSES} flex-grow min-w-[140px]`} placeholder={t('posx.paymentmethods.method_name_placeholder')} />
+                            }
                             {/* Tipo de pago: solo texto en negrita para señalar el tipo (sin píldora ni color). */}
                             <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">{TYPE_LABEL[m.type] || m.type}{m.builtin ? '' : t('posx.paymentmethods.custom_suffix')}</span>
                             {/* Activar */}

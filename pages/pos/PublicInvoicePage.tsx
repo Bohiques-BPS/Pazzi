@@ -91,8 +91,12 @@ export const PublicInvoicePage: React.FC = () => {
     }, [availableMethods]); // eslint-disable-line
     const isPaid = inv?.status === 'paid';
     const balance = inv ? (inv.balance ?? inv.total) : 0;
-    // Monto validado para el cobro (no excede el saldo).
-    const charge = Math.min(Math.max(0, parseFloat(payAmount.replace(',', '.')) || 0), balance);
+    // Si la factura no permite abonos, el cliente solo puede pagar el saldo completo.
+    const allowPartial = inv?.allowPartial !== false;
+    // Monto validado para el cobro (no excede el saldo). Si no admite abonos → siempre el saldo.
+    const charge = allowPartial
+        ? Math.min(Math.max(0, parseFloat(payAmount.replace(',', '.')) || 0), balance)
+        : balance;
 
     const handleAgilPaySuccess = async () => {
         await load(); // refresca saldo/estado/abonos
@@ -218,18 +222,27 @@ export const PublicInvoicePage: React.FC = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {/* Monto a pagar (permite abonar una parte del saldo). */}
+                            {/* Monto a pagar. Si la factura admite abonos, es editable; si no, se fija al saldo. */}
                             <div>
                                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">{t('pay.amount_to_pay')}</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text" inputMode="decimal" value={payAmount}
-                                        onChange={e => setPayAmount(e.target.value)}
-                                        className="w-full text-lg px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                                    />
-                                    <button type="button" onClick={() => setPayAmount(balance.toFixed(2))} className="px-3 py-2 text-sm rounded-md border border-teal-400 dark:border-teal-500 text-teal-700 dark:text-teal-300 whitespace-nowrap">{t('pay.full_balance')}</button>
-                                </div>
-                                <p className="text-xs text-neutral-500 mt-1">{t('pay.pay_help', { balance: money(balance) })}</p>
+                                {allowPartial ? (
+                                    <>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text" inputMode="decimal" value={payAmount}
+                                                onChange={e => setPayAmount(e.target.value)}
+                                                className="w-full text-lg px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                                            />
+                                            <button type="button" onClick={() => setPayAmount(balance.toFixed(2))} className="px-3 py-2 text-sm rounded-md border border-teal-400 dark:border-teal-500 text-teal-700 dark:text-teal-300 whitespace-nowrap">{t('pay.full_balance')}</button>
+                                        </div>
+                                        <p className="text-xs text-neutral-500 mt-1">{t('pay.pay_help', { balance: money(balance) })}</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-full text-lg px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-neutral-50 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 tabular-nums">{money(balance)}</div>
+                                        <p className="text-xs text-neutral-500 mt-1">{t('pay.full_only')}</p>
+                                    </>
+                                )}
                             </div>
 
                             {/* Selector de método de pago (solo si hay más de una opción). */}
@@ -257,6 +270,7 @@ export const PublicInvoicePage: React.FC = () => {
                                 <AgilPayCardForm
                                     amount={charge}
                                     tax={inv.tax}
+                                    t={t}
                                     onSuccess={handleAgilPaySuccess}
                                     chargeFn={async (card) => {
                                         if (!(charge > 0)) return { success: false, reference: '' };
@@ -280,6 +294,7 @@ export const PublicInvoicePage: React.FC = () => {
                                                 total={charge}
                                                 tax={inv.tax}
                                                 items={inv.items.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
+                                                t={t}
                                                 onSuccess={handleAthSuccess}
                                                 onFail={(m) => setError(m)}
                                             />
@@ -289,9 +304,14 @@ export const PublicInvoicePage: React.FC = () => {
                                         <p className="text-xs text-neutral-400 mt-2">{t('pay.ath_auto')}</p>
                                     </div>
                                 ) : (
-                                    <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3 text-sm text-neutral-600 dark:text-neutral-300">
-                                        <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-1">{t('pay.pay_ath_q')}</div>
-                                        {t('pay.ath_manual', { balance: money(balance) })}
+                                    <div className="flex gap-3 rounded-lg border-l-4 border-teal-400 dark:border-teal-500 bg-teal-50 dark:bg-teal-900/20 p-3">
+                                        <svg className="w-5 h-5 flex-shrink-0 text-teal-500 dark:text-teal-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                        </svg>
+                                        <div className="text-sm text-teal-800 dark:text-teal-200">
+                                            <div className="font-semibold mb-0.5">{t('pay.pay_ath_q')}</div>
+                                            <p className="text-teal-700/90 dark:text-teal-300/90">{t('pay.ath_manual', { balance: money(balance) })}</p>
+                                        </div>
                                     </div>
                                 )
                             )}

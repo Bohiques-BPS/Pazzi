@@ -8,6 +8,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSE
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal, ConfirmationModal } from '../../components/Modal';
+import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -167,6 +168,7 @@ export const InvoicesListPage: React.FC = () => {
     const [clientOpen, setClientOpen] = useState(false);
     const [email, setEmail] = useState('');
     const [sendOnCreate, setSendOnCreate] = useState(true);
+    const [allowPartial, setAllowPartial] = useState(true);
     const [description, setDescription] = useState('');
     const [invType, setInvType] = useState('');
     const [editId, setEditId] = useState<string | null>(null);
@@ -196,7 +198,7 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); };
 
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
     const openEdit = (inv: Invoice) => {
@@ -206,6 +208,7 @@ export const InvoicesListPage: React.FC = () => {
         setEmail(inv.clientEmail || '');
         setDescription(inv.description || '');
         setInvType(inv.type || '');
+        setAllowPartial(inv.allowPartial !== false);
         setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice) })));
         setSendOnCreate(false);
         setShowForm(true);
@@ -235,6 +238,7 @@ export const InvoicesListPage: React.FC = () => {
                     email: email.trim() || null,
                     items: parsed,
                     description: description || null,
+                    allowPartial,
                     type: invType.trim() || null,
                 });
                 toast.success(t('posx.invoices.updated'));
@@ -246,6 +250,7 @@ export const InvoicesListPage: React.FC = () => {
                     send: sendOnCreate && !!email.trim(),
                     items: parsed,
                     description: description || undefined,
+                    allowPartial,
                     type: invType.trim() || null,
                 });
                 toast.success(sendOnCreate && email.trim() ? t('posx.invoices.created_sent', { email: email.trim() }) : t('posx.invoices.created'));
@@ -394,6 +399,10 @@ export const InvoicesListPage: React.FC = () => {
                                 <input type="checkbox" checked={sendOnCreate} onChange={e => setSendOnCreate(e.target.checked)} className="h-3.5 w-3.5" />
                                 {t('posx.invoices.send_on_create')}
                             </label>
+                            <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 mt-1">
+                                <input type="checkbox" checked={allowPartial} onChange={e => setAllowPartial(e.target.checked)} className="h-3.5 w-3.5" />
+                                {t('posx.invoices.allow_partial')}
+                            </label>
                         </div>
                         <div>
                             <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.desc_note_label')}</label>
@@ -518,6 +527,7 @@ export const InvoicesListPage: React.FC = () => {
                 <DataTable<Invoice>
                     data={filtered}
                     columns={columns}
+                    tableId="invoices"
                     onRowClick={showDeleted ? undefined : onRowClick}
                     searchable={false}
                     filterable={false}
@@ -526,14 +536,14 @@ export const InvoicesListPage: React.FC = () => {
                         showDeleted ? (
                             <button onClick={() => restore(inv)} className="text-xs text-green-600 hover:underline whitespace-nowrap">{t('common.restore')}</button>
                         ) : (
-                        <div className="flex items-center gap-3 whitespace-nowrap">
-                            <button onClick={() => setShare(inv)} className="text-xs text-primary hover:underline">{t('posx.invoices.view_link_qr')}</button>
-                            <button onClick={() => copyLink(inv)} className="text-xs text-neutral-500 hover:underline">{t('posx.invoices.copy_link')}</button>
-                            <button onClick={() => sendByEmail(inv)} className="text-xs text-blue-600 hover:underline">{t('posx.invoices.send_email')}</button>
-                            {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => openEdit(inv)} className="text-xs text-amber-600 hover:underline">{t('common.edit')}</button>}
-                            {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => markPaid(inv)} className="text-xs text-green-600 hover:underline">{t('posx.invoices.register_payment')}</button>}
-                            <button onClick={() => setToDelete(inv)} className="text-xs text-red-600 hover:underline">{t('common.delete')}</button>
-                        </div>
+                            <RowActionsMenu items={[
+                                { label: t('posx.invoices.view_link_qr'), onClick: () => setShare(inv), className: 'text-primary' },
+                                { label: t('posx.invoices.copy_link'), onClick: () => copyLink(inv) },
+                                { label: t('posx.invoices.send_email'), onClick: () => sendByEmail(inv), className: 'text-blue-600 dark:text-blue-400' },
+                                { label: t('common.edit'), onClick: () => openEdit(inv), className: 'text-amber-600 dark:text-amber-400', hidden: !(inv.status === 'pending' || inv.status === 'partial') },
+                                { label: t('posx.invoices.register_payment'), onClick: () => markPaid(inv), className: 'text-green-600 dark:text-green-400', hidden: !(inv.status === 'pending' || inv.status === 'partial') },
+                                { label: t('common.delete'), onClick: () => setToDelete(inv), className: 'text-red-600 dark:text-red-400' },
+                            ]} />
                         )
                     )}
                 />

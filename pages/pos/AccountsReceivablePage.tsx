@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useSortableRows, usePagination, SortableTh, PaginationFooter } from '../../components/ui/tableTools';
+import { useSortableRows, usePagination, SortableTh, PaginationFooter, useColumnChooser, ColumnChooserButton } from '../../components/ui/tableTools';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Sale, Client, SalePayment } from '../../types';
@@ -365,6 +365,17 @@ export const AccountsReceivablePage: React.FC = () => {
     }, [getClientById]);
     const { sorted: sortedReceivables, sort: receivableSort, toggle: toggleReceivableSort } = useSortableRows(receivableData, getReceivableSortValue);
     const salesPage = usePagination(sortedReceivables, 25);
+    const colChooser = useColumnChooser('accounts-receivable', [
+        { id: 'id', label: t('pos.receivable.col.id') },
+        { id: 'date', label: t('pos.receivable.col.date') },
+        { id: 'dueDate', label: t('pos.receivable.col.due_date') },
+        { id: 'client', label: t('pos.receivable.col.client') },
+        { id: 'total', label: t('pos.receivable.col.total') },
+        { id: 'paid', label: t('pos.receivable.col.paid') },
+        { id: 'balance', label: t('pos.receivable.col.balance') },
+        { id: 'status', label: t('pos.receivable.col.status') },
+    ]);
+    const spanCols = 2 + colChooser.visibleCount; // expandir + acciones + columnas visibles
 
     const [saleForReminder, setSaleForReminder] = useState<(typeof receivableData)[0] | null>(null);
 
@@ -485,22 +496,29 @@ export const AccountsReceivablePage: React.FC = () => {
                             <option value="30days">{t('posx.receivable.due.30days')}</option>
                             <option value="plus30">{t('posx.receivable.due.plus30')}</option>
                         </select>
+                        <ColumnChooserButton chooser={colChooser} />
                     </div>
                 </div>
             </div>
             <div className="overflow-x-auto bg-white dark:bg-neutral-800 shadow-md rounded-lg">
+                <PaginationFooter
+                    position="top"
+                    total={salesPage.total} page={salesPage.page} pageCount={salesPage.pageCount}
+                    pageSize={salesPage.pageSize} from={salesPage.from} to={salesPage.to}
+                    onPage={salesPage.setPage} onPageSize={salesPage.setPageSize}
+                />
                 <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
                     <thead className="bg-neutral-50 dark:bg-neutral-900">
                         <tr>
                             <th scope="col" className="w-12 px-4 py-2"></th>
-                            <SortableTh label={t('pos.receivable.col.id')} colKey="id" sort={receivableSort} onSort={toggleReceivableSort} />
-                            <SortableTh label={t('pos.receivable.col.date')} colKey="date" sort={receivableSort} onSort={toggleReceivableSort} />
-                            <SortableTh label={t('pos.receivable.col.due_date')} colKey="dueDate" sort={receivableSort} onSort={toggleReceivableSort} />
-                            <SortableTh label={t('pos.receivable.col.client')} colKey="client" sort={receivableSort} onSort={toggleReceivableSort} />
-                            <SortableTh label={t('pos.receivable.col.total')} colKey="total" sort={receivableSort} onSort={toggleReceivableSort} />
-                            <SortableTh label={t('pos.receivable.col.paid')} colKey="paid" sort={receivableSort} onSort={toggleReceivableSort} />
-                            <SortableTh label={t('pos.receivable.col.balance')} colKey="balance" sort={receivableSort} onSort={toggleReceivableSort} />
-                            <SortableTh label={t('pos.receivable.col.status')} colKey="status" sort={receivableSort} onSort={toggleReceivableSort} />
+                            {colChooser.visible('id') && <SortableTh label={t('pos.receivable.col.id')} colKey="id" sort={receivableSort} onSort={toggleReceivableSort} />}
+                            {colChooser.visible('date') && <SortableTh label={t('pos.receivable.col.date')} colKey="date" sort={receivableSort} onSort={toggleReceivableSort} />}
+                            {colChooser.visible('dueDate') && <SortableTh label={t('pos.receivable.col.due_date')} colKey="dueDate" sort={receivableSort} onSort={toggleReceivableSort} />}
+                            {colChooser.visible('client') && <SortableTh label={t('pos.receivable.col.client')} colKey="client" sort={receivableSort} onSort={toggleReceivableSort} />}
+                            {colChooser.visible('total') && <SortableTh label={t('pos.receivable.col.total')} colKey="total" sort={receivableSort} onSort={toggleReceivableSort} />}
+                            {colChooser.visible('paid') && <SortableTh label={t('pos.receivable.col.paid')} colKey="paid" sort={receivableSort} onSort={toggleReceivableSort} />}
+                            {colChooser.visible('balance') && <SortableTh label={t('pos.receivable.col.balance')} colKey="balance" sort={receivableSort} onSort={toggleReceivableSort} />}
+                            {colChooser.visible('status') && <SortableTh label={t('pos.receivable.col.status')} colKey="status" sort={receivableSort} onSort={toggleReceivableSort} />}
                             <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('common.actions')}</th>
                         </tr>
                     </thead>
@@ -527,14 +545,14 @@ export const AccountsReceivablePage: React.FC = () => {
                                                 </button>
                                             )}
                                         </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.id.substring(0, 8).toUpperCase()}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(sale.date).toLocaleDateString()}</td>
-                                        {vencimiento()}
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getClientById(sale.clientId || '')?.name || t('posx.receivable.walk_in')}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalAmount.toFixed(2)}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalPaid.toFixed(2)}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${sale.balance.toFixed(2)}</span></td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.effectiveStatus}</td>
+                                        {colChooser.visible('id') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.id.substring(0, 8).toUpperCase()}</td>}
+                                        {colChooser.visible('date') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(sale.date).toLocaleDateString()}</td>}
+                                        {colChooser.visible('dueDate') && vencimiento()}
+                                        {colChooser.visible('client') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getClientById(sale.clientId || '')?.name || t('posx.receivable.walk_in')}</td>}
+                                        {colChooser.visible('total') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalAmount.toFixed(2)}</td>}
+                                        {colChooser.visible('paid') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalPaid.toFixed(2)}</td>}
+                                        {colChooser.visible('balance') && <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${sale.balance.toFixed(2)}</span></td>}
+                                        {colChooser.visible('status') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.effectiveStatus}</td>}
                                         <td className="px-4 py-2 whitespace-nowrap text-base font-medium">
                                              <div className="flex space-x-1">
                                                 <button onClick={() => requestSendReminder(sale)} className="text-orange-500 p-1" title={t('pos.receivable.action.reminder')}><EnvelopeIcon className="w-4 h-4"/></button>
@@ -547,7 +565,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                     </tr>
                                     {isExpanded && paymentsForSale.length > 0 && (
                                         <tr className="bg-neutral-50 dark:bg-neutral-900/50">
-                                            <td colSpan={10} className="p-3">
+                                            <td colSpan={spanCols} className="p-3">
                                                 <h4 className="text-sm font-semibold mb-2 text-neutral-600 dark:text-neutral-300">{t('posx.receivable.payment_history')}</h4>
                                                 <table className="min-w-full bg-white dark:bg-neutral-800 rounded-md">
                                                     <thead className="bg-neutral-100 dark:bg-neutral-900 text-xs uppercase">
@@ -584,7 +602,7 @@ export const AccountsReceivablePage: React.FC = () => {
                             );
                         }) : (
                             <tr>
-                                <td colSpan={10} className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">
+                                <td colSpan={spanCols} className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">
                                     {t('posx.receivable.empty')}
                                 </td>
                             </tr>

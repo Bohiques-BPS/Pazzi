@@ -13,6 +13,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
+import { ClientAutocomplete } from '../../components/ui/ClientAutocomplete';
 import { ClientFormModal } from './ClientFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
 import { toast } from 'react-hot-toast';
@@ -294,13 +295,12 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                             <label htmlFor="clientId" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.client')}</label>
                             <div className="flex items-center gap-2">
                                 <div className="relative flex-grow">
-                                    <select name="clientId" id="clientId" value={formData.clientId} onChange={handleChange} className={selectFormStyle} required>
-                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.lastName}</option>)}
-                                        {clients.length === 0 && <option value="" disabled>{t('pm2x.project.no_clients')}</option>}
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-700 dark:text-neutral-200">
-                                        <ChevronDownIcon className="w-4 h-4" />
-                                    </div>
+                                    <ClientAutocomplete
+                                        clients={clients}
+                                        value={formData.clientId || ''}
+                                        onChange={(id) => handleChange({ target: { name: 'clientId', value: id } } as any)}
+                                        disabled={!canEditDetails}
+                                    />
                                 </div>
                                 <button
                                     type="button"

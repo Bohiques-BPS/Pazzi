@@ -53,6 +53,70 @@ export function usePagination<T>(rows: T[], initialSize: number | 'all' = 25) {
   return { paged, page: current, setPage, pageSize, setPageSize, total, pageCount, from, to };
 }
 
+/**
+ * Selector de columnas para tablas CUSTOM (las que no usan <DataTable/>). Recuerda por
+ * `tableId` (localStorage) qué columnas ocultar. Uso:
+ *   const chooser = useColumnChooser('accounts-receivable', [{id:'date', label:'Fecha'}, ...]);
+ *   <ColumnChooserButton chooser={chooser} />
+ *   {chooser.visible('date') && <th>…</th>}  // y su <td> correspondiente
+ */
+export interface ColumnDef { id: string; label: string; }
+export function useColumnChooser(tableId: string, cols: ColumnDef[]) {
+  const storageKey = 'pazzi_cols_' + tableId;
+  const [hidden, setHidden] = useState<Set<string>>(() => {
+    try { const r = localStorage.getItem(storageKey); return r ? new Set<string>(JSON.parse(r)) : new Set(); }
+    catch { return new Set(); }
+  });
+  const toggle = (id: string) => setHidden(prev => {
+    const n = new Set(prev);
+    n.has(id) ? n.delete(id) : n.add(id);
+    try { localStorage.setItem(storageKey, JSON.stringify([...n])); } catch { /* sin storage */ }
+    return n;
+  });
+  const anyVisible = cols.some(c => !hidden.has(c.id));
+  const visible = (id: string) => !anyVisible ? true : !hidden.has(id); // si ocultó todo, muestra todo
+  const visibleCount = cols.filter(c => visible(c.id)).length;
+  return { cols, hidden, toggle, visible, visibleCount };
+}
+
+const ColumnsGlyph: React.FC = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+    <path fillRule="evenodd" d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15.5v-11ZM8.5 4.5h-5v11h5v-11Zm1.5 0v11h5v-11h-5Z" clipRule="evenodd" />
+  </svg>
+);
+
+export const ColumnChooserButton: React.FC<{ chooser: ReturnType<typeof useColumnChooser> }> = ({ chooser }) => {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(s => !s)}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${chooser.hidden.size > 0 ? 'border-primary text-primary bg-primary/10' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+      >
+        <ColumnsGlyph />
+        {t('cmp.datatable.columns')}
+        {chooser.hidden.size > 0 && <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 text-[10px] rounded-full bg-primary text-white">{chooser.hidden.size}</span>}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 z-20 w-56 max-h-72 overflow-y-auto rounded-md border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg py-1">
+            <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 border-b border-neutral-100 dark:border-neutral-700">{t('cmp.datatable.columns_show')}</div>
+            {chooser.cols.map(c => (
+              <label key={c.id} className="flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer">
+                <input type="checkbox" checked={chooser.visible(c.id)} onChange={() => chooser.toggle(c.id)} className="h-4 w-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary" />
+                <span className="truncate">{c.label}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const SortIndicator: React.FC<{ direction: SortDirection | null }> = ({ direction }) => (
   <span className="inline-flex flex-col ml-1 -space-y-1 align-middle leading-none">
     <span className={direction === 'asc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-400'}>▲</span>
@@ -96,11 +160,13 @@ export const PaginationFooter: React.FC<{
   onPage: (p: number) => void;
   onPageSize: (s: number | 'all') => void;
   options?: (number | 'all')[];
-}> = ({ total, page, pageCount, pageSize, from, to, onPage, onPageSize, options = [10, 25, 50, 100, 'all'] }) => {
+  /** 'bottom' (borde superior, por defecto) o 'top' (borde inferior, para ponerla sobre la tabla). */
+  position?: 'top' | 'bottom';
+}> = ({ total, page, pageCount, pageSize, from, to, onPage, onPageSize, options = [10, 25, 50, 100, 'all'], position = 'bottom' }) => {
   const { t } = useTranslation();
   if (total === 0) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 border-t border-neutral-200 dark:border-neutral-700 text-sm text-neutral-600 dark:text-neutral-300">
+    <div className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2 ${position === 'top' ? 'border-b' : 'border-t'} border-neutral-200 dark:border-neutral-700 text-sm text-neutral-600 dark:text-neutral-300`}>
       <div className="flex items-center gap-2">
         <span>{t('cmp.datatable.rows_per_page')}</span>
         <select

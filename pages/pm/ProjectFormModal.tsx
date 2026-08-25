@@ -9,7 +9,7 @@ import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraI
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
-import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
+import { ClientAutocomplete } from '../../components/ui/ClientAutocomplete';
 import { ClientFormModal } from './ClientFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
@@ -493,20 +493,26 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                     <label htmlFor="projectName" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.name')}</label>
                                     <input type="text" name="name" id="projectName" value={formData.name} onChange={handleChange} className={inputFormStyle} required/>
                                 </div>
-                                <SelectWithCreate
-                                    id="clientId"
-                                    name="clientId"
-                                    label={t('project.field.client')}
-                                    value={formData.clientId}
-                                    onChange={(v) => setFormData(prev => ({ ...prev, clientId: v }))}
-                                    options={clients.map(c => ({ value: c.id, label: `${c.name} ${c.lastName}` }))}
-                                    onCreateClick={() => setShowCreateClient(true)}
-                                    required
-                                    placeholder={clients.length === 0 ? 'No hay clientes' : undefined}
-                                    emptyHint="No hay clientes. Usa + para crear uno sin perder este formulario."
-                                    createTitle="Crear nuevo cliente"
-                                    disabled={!canEditDetails}
-                                />
+                                <div>
+                                    <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.client')}</label>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <div className="flex-grow">
+                                            <ClientAutocomplete
+                                                clients={clients}
+                                                value={formData.clientId || ''}
+                                                onChange={(v) => setFormData(prev => ({ ...prev, clientId: v }))}
+                                                disabled={!canEditDetails}
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCreateClient(true)}
+                                            disabled={!canEditDetails}
+                                            className="flex-shrink-0 h-9 px-3 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title={t('pm2x.project.create_client')}
+                                        >+</button>
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <label htmlFor="projectStatus" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.status')}</label>

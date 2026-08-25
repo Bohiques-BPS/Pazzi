@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useData } from '../../contexts/DataContext';
-import { useSortableRows, usePagination, SortableTh, PaginationFooter } from '../../components/ui/tableTools';
+import { useSortableRows, usePagination, SortableTh, PaginationFooter, useColumnChooser, ColumnChooserButton } from '../../components/ui/tableTools';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { SupplierOrder, SupplierOrderStatus, Product as ProductType, Supplier } from '../../types';
 import { Modal, ConfirmationModal } from '../../components/Modal';
@@ -259,6 +259,16 @@ export const AccountsPayablePage: React.FC = () => {
     }, [getSupplierById]);
     const { sorted: sortedOrders, sort: orderSort, toggle: toggleOrderSort } = useSortableRows(filteredOrders, getOrderSortValue);
     const ordersPage = usePagination(sortedOrders, 25);
+    const colChooser = useColumnChooser('accounts-payable', [
+        { id: 'id', label: t('posx.payable.colOrderId') },
+        { id: 'supplier', label: t('posx.payable.colSupplier') },
+        { id: 'orderDate', label: t('posx.payable.colOrderDate') },
+        { id: 'totalCost', label: t('posx.payable.colTotalCost') },
+        { id: 'amountPaid', label: t('posx.payable.colAmountPaid') },
+        { id: 'balance', label: t('posx.payable.colPendingBalance') },
+        { id: 'paymentStatus', label: t('posx.payable.colPaymentStatus') },
+    ]);
+    const spanCols = 2 + colChooser.visibleCount;
 
     const handleEditOrder = (order: SupplierOrder) => { setOrderToEdit(order); setShowEditOrderModal(true); };
     const handleCancelOrder = (orderId: string) => { setOrderToCancelId(orderId); setShowCancelConfirmModal(true); };
@@ -332,21 +342,28 @@ export const AccountsPayablePage: React.FC = () => {
                             <option value="30days">{t('posx.payable.dueNext30')}</option>
                             <option value="plus30">{t('posx.payable.duePlus30')}</option>
                         </select>
+                        <ColumnChooserButton chooser={colChooser} />
                     </div>
                 </div>
             </div>
              <div className="overflow-x-auto bg-white dark:bg-neutral-800 shadow-md rounded-lg">
+                <PaginationFooter
+                    position="top"
+                    total={ordersPage.total} page={ordersPage.page} pageCount={ordersPage.pageCount}
+                    pageSize={ordersPage.pageSize} from={ordersPage.from} to={ordersPage.to}
+                    onPage={ordersPage.setPage} onPageSize={ordersPage.setPageSize}
+                />
                 <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
                     <thead className="bg-neutral-50 dark:bg-neutral-900">
                         <tr>
                             <th scope="col" className="w-12 px-4 py-2"></th>
-                            <SortableTh label={t('posx.payable.colOrderId')} colKey="id" sort={orderSort} onSort={toggleOrderSort} />
-                            <SortableTh label={t('posx.payable.colSupplier')} colKey="supplier" sort={orderSort} onSort={toggleOrderSort} />
-                            <SortableTh label={t('posx.payable.colOrderDate')} colKey="orderDate" sort={orderSort} onSort={toggleOrderSort} />
-                            <SortableTh label={t('posx.payable.colTotalCost')} colKey="totalCost" sort={orderSort} onSort={toggleOrderSort} />
-                            <SortableTh label={t('posx.payable.colAmountPaid')} colKey="amountPaid" sort={orderSort} onSort={toggleOrderSort} />
-                            <SortableTh label={t('posx.payable.colPendingBalance')} colKey="balance" sort={orderSort} onSort={toggleOrderSort} />
-                            <SortableTh label={t('posx.payable.colPaymentStatus')} colKey="paymentStatus" sort={orderSort} onSort={toggleOrderSort} />
+                            {colChooser.visible('id') && <SortableTh label={t('posx.payable.colOrderId')} colKey="id" sort={orderSort} onSort={toggleOrderSort} />}
+                            {colChooser.visible('supplier') && <SortableTh label={t('posx.payable.colSupplier')} colKey="supplier" sort={orderSort} onSort={toggleOrderSort} />}
+                            {colChooser.visible('orderDate') && <SortableTh label={t('posx.payable.colOrderDate')} colKey="orderDate" sort={orderSort} onSort={toggleOrderSort} />}
+                            {colChooser.visible('totalCost') && <SortableTh label={t('posx.payable.colTotalCost')} colKey="totalCost" sort={orderSort} onSort={toggleOrderSort} />}
+                            {colChooser.visible('amountPaid') && <SortableTh label={t('posx.payable.colAmountPaid')} colKey="amountPaid" sort={orderSort} onSort={toggleOrderSort} />}
+                            {colChooser.visible('balance') && <SortableTh label={t('posx.payable.colPendingBalance')} colKey="balance" sort={orderSort} onSort={toggleOrderSort} />}
+                            {colChooser.visible('paymentStatus') && <SortableTh label={t('posx.payable.colPaymentStatus')} colKey="paymentStatus" sort={orderSort} onSort={toggleOrderSort} />}
                             <th scope="col" className="px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">{t('posx.payable.colActions')}</th>
                         </tr>
                     </thead>
@@ -370,13 +387,13 @@ export const AccountsPayablePage: React.FC = () => {
                                                 </button>
                                             )}
                                         </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{order.id.substring(0, 8).toUpperCase()}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getSupplierById(order.supplierId)?.name || 'N/A'}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(order.orderDate + 'T00:00:00').toLocaleDateString()}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${order.totalCost.toFixed(2)}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${order.amountPaid.toFixed(2)}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${order.balance.toFixed(2)}</span></td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{order.paymentStatus}</td>
+                                        {colChooser.visible('id') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{order.id.substring(0, 8).toUpperCase()}</td>}
+                                        {colChooser.visible('supplier') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getSupplierById(order.supplierId)?.name || 'N/A'}</td>}
+                                        {colChooser.visible('orderDate') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(order.orderDate + 'T00:00:00').toLocaleDateString()}</td>}
+                                        {colChooser.visible('totalCost') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${order.totalCost.toFixed(2)}</td>}
+                                        {colChooser.visible('amountPaid') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${order.amountPaid.toFixed(2)}</td>}
+                                        {colChooser.visible('balance') && <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${order.balance.toFixed(2)}</span></td>}
+                                        {colChooser.visible('paymentStatus') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{order.paymentStatus}</td>}
                                         <td className="px-4 py-2 whitespace-nowrap text-base font-medium">
                                             <div className="flex space-x-1">
                                                 <button onClick={() => handleEditOrder(order)} className="text-blue-500 p-1" title={t('posx.payable.editOrder')}><EditIcon className="w-4 h-4" /></button>
@@ -388,7 +405,7 @@ export const AccountsPayablePage: React.FC = () => {
                                     </tr>
                                     {isExpanded && paymentNotesParsed.length > 0 && (
                                         <tr className="bg-neutral-50 dark:bg-neutral-900/50">
-                                            <td colSpan={9} className="p-3">
+                                            <td colSpan={spanCols} className="p-3">
                                                 <h4 className="text-sm font-semibold mb-2 text-neutral-600 dark:text-neutral-300">{t('posx.payable.paymentHistory')}</h4>
                                                 <table className="min-w-full bg-white dark:bg-neutral-800 rounded-md">
                                                     <thead className="bg-neutral-100 dark:bg-neutral-900 text-xs uppercase">
@@ -423,7 +440,7 @@ export const AccountsPayablePage: React.FC = () => {
                             );
                         }) : (
                             <tr>
-                                <td colSpan={9} className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">
+                                <td colSpan={spanCols} className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">
                                     {t('posx.payable.noResults')}
                                 </td>
                             </tr>
