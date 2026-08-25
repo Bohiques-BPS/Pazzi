@@ -778,7 +778,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return supplierOrders.filter(so => so.storeOwnerId === ownerId);
     }, [supplierOrders]);
 
-    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, subtotal?: number, taxAmount?: number, discountAmount?: number, allowOversell?: boolean, payments?: { method: string; amount: number; reference?: string }[]}, branchId: string) => {
+    const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, subtotal?: number, taxAmount?: number, taxState?: number, taxMunicipal?: number, taxReduced?: number, discountAmount?: number, allowOversell?: boolean, payments?: { method: string; amount: number; reference?: string }[]}, branchId: string) => {
         try {
             const hasCreditPayment = saleData.paymentMethod === 'Crédito C.' || 
                                     (saleData.payments && saleData.payments.some(p => p.method === 'Crédito C.'));
@@ -807,6 +807,9 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 totalAmount: saleData.totalAmount,
                 subtotal: saleData.subtotal,
                 taxAmount: saleData.taxAmount,
+                taxState: saleData.taxState,
+                taxMunicipal: saleData.taxMunicipal,
+                taxReduced: saleData.taxReduced,
                 discountAmount: saleData.discountAmount,
                 paymentMethod: saleData.paymentMethod,
                 paymentStatus: hasCreditPayment ? 'Pendiente' : 'Pagado',

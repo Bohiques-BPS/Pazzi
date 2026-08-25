@@ -850,6 +850,7 @@ export const POSCashierPage: React.FC = () => {
                 totalAmount: total,
                 subtotal,
                 taxAmount: tax,
+                ...(settings.taxBreakdownEnabled ? { taxState, taxMunicipal, taxReduced } : {}),
                 discountAmount: globalDiscountAmount,
                 paymentMethod: paymentMethodString,
                 paymentStatus: payments.some(p => p.method === 'Crédito C.') ? 'Pendiente de Pago' : 'Pagado',

@@ -193,17 +193,30 @@ export const ConfigurationPage: React.FC = () => {
                     <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4 flex items-center border-b pb-2 dark:border-neutral-700">
                         ⭐ <span className="ml-2">Programa de Lealtad</span>
                     </h2>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Puntos por cada $1 de venta</label>
-                    <input
-                        type="number" min="0" step="0.1"
-                        value={settings.loyaltyPointsPerDollar ?? 0}
-                        onChange={(e) => updateSettings({ loyaltyPointsPerDollar: Math.max(0, parseFloat(e.target.value) || 0) })}
-                        className={`${inputFormStyle} max-w-xs`}
-                    />
-                    <p className="text-xs text-neutral-500 mt-1">
-                        Los puntos se acumulan al cliente al finalizar cada venta. <strong>0 = desactivado.</strong>
-                        {' '}Ej. 1 = el cliente gana 1 punto por dólar; en una venta de $40 gana 40 puntos.
-                    </p>
+                    <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 cursor-pointer mb-3">
+                        <input
+                            type="checkbox"
+                            checked={(settings.loyaltyPointsPerDollar ?? 0) > 0}
+                            onChange={(e) => updateSettings({ loyaltyPointsPerDollar: e.target.checked ? ((settings.loyaltyPointsPerDollar ?? 0) > 0 ? settings.loyaltyPointsPerDollar : 1) : 0 })}
+                            className="h-4 w-4"
+                        />
+                        Activar programa de lealtad
+                    </label>
+                    {(settings.loyaltyPointsPerDollar ?? 0) > 0 && (
+                        <>
+                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Puntos por cada $1 de venta</label>
+                            <input
+                                type="number" min="0.1" step="0.1"
+                                value={settings.loyaltyPointsPerDollar ?? 1}
+                                onChange={(e) => updateSettings({ loyaltyPointsPerDollar: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                className={`${inputFormStyle} max-w-xs`}
+                            />
+                            <p className="text-xs text-neutral-500 mt-1">
+                                Los puntos se acumulan al cliente al finalizar cada venta.
+                                {' '}Ej. 1 = el cliente gana 1 punto por dólar; en una venta de $40 gana 40 puntos.
+                            </p>
+                        </>
+                    )}
                 </section>
 
                 {/* Impuestos (IVU) */}

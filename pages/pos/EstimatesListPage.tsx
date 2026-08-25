@@ -13,13 +13,14 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../co
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { splitTax } from '../../utils/taxBreakdown';
 import { estimatesService } from '../../services/estimates';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { PermissionGate } from '../../components/PermissionGate';
 
-const generateEstimatePDF = async (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any) => {
+const generateEstimatePDF = async (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any, taxCfg?: { enabled: boolean; stateRate?: number | null; municipalRate?: number | null }) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -94,9 +95,15 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
     doc.text("Subtotal:", totalsX, y, { align: 'left' });
     doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
     y += 7;
-    doc.text("IVA:", totalsX, y, { align: 'left' });
-    doc.text(`$${iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
-    y += 7;
+    if (taxCfg?.enabled) {
+        const sp = splitTax(iva, taxCfg.stateRate, taxCfg.municipalRate);
+        doc.text("IVU Estatal:", totalsX, y, { align: 'left' }); doc.text(`$${sp.state.toFixed(2)}`, pageWidth - margin, y, { align: 'right' }); y += 7;
+        doc.text("IVU Municipal:", totalsX, y, { align: 'left' }); doc.text(`$${sp.municipal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' }); y += 7;
+    } else {
+        doc.text("IVU:", totalsX, y, { align: 'left' });
+        doc.text(`$${iva.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+        y += 7;
+    }
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL ESTIMADO:", totalsX, y, { align: 'left' });
     doc.text(`$${(subtotal + iva).toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
@@ -153,6 +160,7 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
 
 export const EstimatesListPage: React.FC = () => {
     const { t } = useTranslation();
+    const { settings: globalSettings } = useGlobalSettings();
     const { estimates, setEstimates, getClientById, getProductById } = useData();
     const { currentUser } = useAuth();
     const { getDefaultSettings } = useECommerceSettings();
@@ -225,7 +233,9 @@ export const EstimatesListPage: React.FC = () => {
     const handlePrint = async (estimate: Estimate) => {
         const client = getClientById(estimate.clientId);
         const settings = getDefaultSettings();
-        await generateEstimatePDF(estimate, client, getProductById, settings);
+        await generateEstimatePDF(estimate, client, getProductById, settings, {
+            enabled: !!globalSettings.taxBreakdownEnabled, stateRate: globalSettings.taxStateRate, municipalRate: globalSettings.taxMunicipalRate,
+        });
     };
 
     const handleCombine = () => {

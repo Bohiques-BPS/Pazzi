@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { toast } from 'react-hot-toast';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { splitTax } from '../../utils/taxBreakdown';
 
 
 interface ClientEstimatesModalProps {
@@ -191,9 +192,16 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
         doc.text("Subtotal:", totalsX, y, { align: 'left' });
         doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
         y += 7;
-        doc.text("IVU:", totalsX, y, { align: 'left' });
-        doc.text(`$${ivu.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
-        y += 7;
+        if (settings.taxBreakdownEnabled) {
+            // Desglose IVU Estatal/Municipal (los estimados no marcan ítems reducidos → reparte proporcional).
+            const sp = splitTax(ivu, settings.taxStateRate, settings.taxMunicipalRate);
+            doc.text("IVU Estatal:", totalsX, y, { align: 'left' }); doc.text(`$${sp.state.toFixed(2)}`, pageWidth - margin, y, { align: 'right' }); y += 7;
+            doc.text("IVU Municipal:", totalsX, y, { align: 'left' }); doc.text(`$${sp.municipal.toFixed(2)}`, pageWidth - margin, y, { align: 'right' }); y += 7;
+        } else {
+            doc.text("IVU:", totalsX, y, { align: 'left' });
+            doc.text(`$${ivu.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+            y += 7;
+        }
         doc.setFont("helvetica", "bold");
         doc.text("TOTAL ESTIMADO:", totalsX, y, { align: 'left' });
         doc.text(`$${totalAmount.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });

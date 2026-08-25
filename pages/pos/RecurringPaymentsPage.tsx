@@ -11,9 +11,9 @@ import { EmptyState } from '../../components/ui/EmptyState';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 // Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
-const INTERVAL_LABEL: Record<string, string> = { weekly: 'posx.recurring.interval.weekly', biweekly: 'posx.recurring.interval.biweekly', monthly: 'posx.recurring.interval.monthly' };
-const STATUS_LABEL: Record<string, string> = { active: 'posx.recurring.status.active', paused: 'posx.recurring.status.paused', cancelled: 'posx.recurring.status.cancelled' };
-const STATUS_COLOR: Record<string, string> = { active: 'bg-green-100 text-green-700', paused: 'bg-amber-100 text-amber-700', cancelled: 'bg-neutral-200 text-neutral-500' };
+const INTERVAL_LABEL: Record<string, string> = { daily: 'posx.recurring.interval.daily', weekly: 'posx.recurring.interval.weekly', biweekly: 'posx.recurring.interval.biweekly', monthly: 'posx.recurring.interval.monthly', quarterly: 'posx.recurring.interval.quarterly', annual: 'posx.recurring.interval.annual' };
+const STATUS_LABEL: Record<string, string> = { active: 'posx.recurring.status.active', paused: 'posx.recurring.status.paused', cancelled: 'posx.recurring.status.cancelled', completed: 'posx.recurring.status.completed' };
+const STATUS_COLOR: Record<string, string> = { active: 'bg-green-100 text-green-700', paused: 'bg-amber-100 text-amber-700', cancelled: 'bg-neutral-200 text-neutral-500', completed: 'bg-blue-100 text-blue-700' };
 
 // Estado de pago de un período (para el modo factura + link, y compat con el modo cobro).
 const PAY_LABEL: Record<string, string> = {
@@ -62,6 +62,14 @@ export const RecurringPaymentsPage: React.FC = () => {
     const [clientId, setClientId] = useState('');
     const [amount, setAmount] = useState('');
     const [interval, setInterval] = useState<CreateRecurringInput['interval']>('monthly');
+    const [intervalCount, setIntervalCount] = useState('1');
+    const [monthlyDay, setMonthlyDay] = useState('');
+    const [retryEnabled, setRetryEnabled] = useState(true);
+    const [maxRetries, setMaxRetries] = useState('3');
+    const [startDate, setStartDate] = useState('');
+    const [execType, setExecType] = useState<'until' | 'occurrences'>('until');
+    const [endDate, setEndDate] = useState('');
+    const [maxOccurrences, setMaxOccurrences] = useState('');
     const [description, setDescription] = useState('');
     // auto_charge
     const [card, setCard] = useState('');
@@ -84,6 +92,7 @@ export const RecurringPaymentsPage: React.FC = () => {
 
     const resetForm = () => {
         setClientId(''); setAmount(''); setInterval('monthly'); setDescription('');
+        setIntervalCount('1'); setMonthlyDay(''); setRetryEnabled(true); setMaxRetries('3'); setStartDate(''); setExecType('until'); setEndDate(''); setMaxOccurrences('');
         setCard(''); setExpiry(''); setCvv(''); setZip('');
         setEmail(''); setMethods(['agilpay', 'ath']); setGraceDays('3');
     };
@@ -104,7 +113,16 @@ export const RecurringPaymentsPage: React.FC = () => {
         if (!clientId) return toast.error(t('posx.recurring.toast.selectClient'));
         if (!amount || Number(amount) <= 0) return toast.error(t('posx.recurring.toast.invalidAmount'));
 
-        const base: CreateRecurringInput = { clientId, mode, amount: Number(amount), interval, description: description || undefined };
+        const base: CreateRecurringInput = {
+            clientId, mode, amount: Number(amount), interval, description: description || undefined,
+            intervalCount: Math.max(1, Number(intervalCount) || 1),
+            monthlyDay: (['monthly', 'quarterly', 'annual'].includes(interval) && Number(monthlyDay) >= 1 && Number(monthlyDay) <= 31) ? Number(monthlyDay) : null,
+            retryEnabled,
+            maxRetries: Math.max(1, Number(maxRetries) || 3),
+            startDate: startDate || null,
+            endDate: execType === 'until' ? (endDate || null) : null,
+            maxOccurrences: execType === 'occurrences' ? (Number(maxOccurrences) > 0 ? Number(maxOccurrences) : null) : null,
+        };
 
         if (mode === 'invoice_link') {
             if (methods.length === 0) return toast.error(t('posx.recurring.toast.selectMethod'));
@@ -217,11 +235,62 @@ export const RecurringPaymentsPage: React.FC = () => {
                         <div>
                             <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.frequency')}</label>
                             <select value={interval} onChange={e => setInterval(e.target.value as any)} className={`${INPUT_SM_CLASSES} w-full`}>
+                                <option value="daily">{t('posx.recurring.interval.daily')}</option>
                                 <option value="weekly">{t('posx.recurring.interval.weekly')}</option>
                                 <option value="biweekly">{t('posx.recurring.interval.biweekly')}</option>
                                 <option value="monthly">{t('posx.recurring.interval.monthly')}</option>
+                                <option value="quarterly">{t('posx.recurring.interval.quarterly')}</option>
+                                <option value="annual">{t('posx.recurring.interval.annual')}</option>
                             </select>
                         </div>
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.each')}</label>
+                            <input type="number" min="1" value={intervalCount} onChange={e => setIntervalCount(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
+                        </div>
+                        {['monthly', 'quarterly', 'annual'].includes(interval) && (
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.monthly_day')}</label>
+                                <input type="number" min="1" max="31" value={monthlyDay} onChange={e => setMonthlyDay(e.target.value)} placeholder={t('posx.recurring.form.monthly_day_ph')} className={`${INPUT_SM_CLASSES} w-full`} />
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.retry')}</label>
+                            <select value={retryEnabled ? 'yes' : 'no'} onChange={e => setRetryEnabled(e.target.value === 'yes')} className={`${INPUT_SM_CLASSES} w-full`}>
+                                <option value="yes">{t('common.yes')}</option>
+                                <option value="no">{t('common.no')}</option>
+                            </select>
+                        </div>
+                        {retryEnabled && (
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.retry_number')}</label>
+                                <input type="number" min="1" max="20" value={maxRetries} onChange={e => setMaxRetries(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{t('posx.recurring.form.retry_hint')}</p>
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.first_charge')}</label>
+                            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.exec_type')}</label>
+                            <select value={execType} onChange={e => setExecType(e.target.value as any)} className={`${INPUT_SM_CLASSES} w-full`}>
+                                <option value="until">{t('posx.recurring.form.exec_until')}</option>
+                                <option value="occurrences">{t('posx.recurring.form.exec_occurrences')}</option>
+                            </select>
+                        </div>
+                        {execType === 'until' ? (
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.until')}</label>
+                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{t('posx.recurring.form.until_hint')}</p>
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.occurrences')}</label>
+                                <input type="number" min="1" value={maxOccurrences} onChange={e => setMaxOccurrences(e.target.value)} placeholder="12" className={`${INPUT_SM_CLASSES} w-full`} />
+                                <p className="text-[11px] text-neutral-400 mt-0.5">{t('posx.recurring.form.occurrences_hint')}</p>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-xs text-neutral-500 mb-1">{t('posx.recurring.form.description')}</label>
                             <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder={t('posx.recurring.form.description.ph')} className={`${INPUT_SM_CLASSES} w-full`} />

@@ -74,6 +74,9 @@ export interface PublicInvoice {
     subtotal: number;
     tax: number;
     total: number;
+    taxBreakdownEnabled?: boolean;
+    taxStateRate?: number | null;
+    taxMunicipalRate?: number | null;
     amountPaid: number;
     balance: number;
     payments: InvoicePaymentRow[];

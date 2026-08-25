@@ -18,7 +18,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   const { currentUser } = useAuth();
   const { t } = useTranslation(); // Use translation hook
   const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === currentModule);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({}); 
+  // Por defecto TODOS los grupos abiertos; solo UNO puede estar colapsado a la vez
+  // (colapsar otro reabre el anterior). null = ninguno colapsado.
+  const [collapsedGroup, setCollapsedGroup] = useState<string | null>(null);
 
   let subModulesToDisplay: SidebarItemConfig[] = []; 
 
@@ -63,7 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   };
 
   const toggleGroup = (groupName: string) => {
-    setOpenGroups(prev => ({ ...prev, [groupName]: !prev[groupName] }));
+    // Si el grupo está colapsado, lo abre; si está abierto, lo colapsa (y reabre cualquier otro).
+    setCollapsedGroup(prev => (prev === groupName ? null : groupName));
   };
 
   if (currentUser?.role === UserRole.CLIENT_ECOMMERCE) { 
@@ -99,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         );
       }
 
-      const isGroupOpen = openGroups[item.name] === undefined ? true : openGroups[item.name];
+      const isGroupOpen = collapsedGroup !== item.name;
       
       return (
         <div key={`${item.name}-${index}`}>

@@ -32,9 +32,14 @@ export interface RecurringPayment {
     linkMethods?: string | null;   // "agilpay,ath"
     graceDays?: number;
     amount: number;
-    interval: 'weekly' | 'biweekly' | 'monthly';
+    interval: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
+    intervalCount?: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    maxOccurrences?: number | null;
+    occurrencesDone?: number;
     description?: string | null;
-    status: 'active' | 'paused' | 'cancelled';
+    status: 'active' | 'paused' | 'cancelled' | 'completed';
     nextChargeDate: string;
     lastChargeAt?: string | null;
     lastResult?: string | null;
@@ -47,7 +52,14 @@ export interface CreateRecurringInput {
     clientId: string;
     mode: RecurringMode;
     amount: number;
-    interval: 'weekly' | 'biweekly' | 'monthly';
+    interval: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
+    intervalCount?: number;         // "Cada N" periodos
+    monthlyDay?: number | null;     // día fijo del mes (mensual/trimestral/anual)
+    retryEnabled?: boolean;         // reintentar cobros fallidos
+    maxRetries?: number;            // fallos antes de pausar
+    startDate?: string | null;      // fecha del 1er cobro
+    endDate?: string | null;        // "Hasta"
+    maxOccurrences?: number | null; // "Ocurrencias"
     description?: string;
     // Modo auto_charge:
     card?: string;

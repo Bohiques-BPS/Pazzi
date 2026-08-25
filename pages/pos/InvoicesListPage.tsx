@@ -63,7 +63,8 @@ const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = (
 
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { clients } = useData();
+    const { clients, products } = useData();
+    const [openLine, setOpenLine] = useState<number | null>(null);
     const [items, setItems] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(false);
     // Filtros de la lista de facturas.
@@ -319,7 +320,39 @@ export const InvoicesListPage: React.FC = () => {
                         <label className="block text-xs text-neutral-500">{t('posx.invoices.items')}</label>
                         {lines.map((l, i) => (
                             <div key={i} className="flex gap-2 items-center">
-                                <input type="text" value={l.name} onChange={e => setLine(i, { name: e.target.value })} placeholder={t('posx.invoices.item_desc_placeholder')} className={`${INPUT_SM_CLASSES} flex-1`} />
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={l.name}
+                                        onChange={e => { setLine(i, { name: e.target.value }); setOpenLine(i); }}
+                                        onFocus={() => setOpenLine(i)}
+                                        onBlur={() => setTimeout(() => setOpenLine(o => (o === i ? null : o)), 150)}
+                                        placeholder={t('posx.invoices.item_desc_placeholder')}
+                                        className={`${INPUT_SM_CLASSES} w-full`}
+                                        autoComplete="off"
+                                    />
+                                    {openLine === i && l.name.trim() && (() => {
+                                        const q = l.name.trim().toLowerCase();
+                                        const matches = (products || []).filter(p =>
+                                            `${p.name} ${(p.skus || []).join(' ')}`.toLowerCase().includes(q)
+                                        ).slice(0, 30);
+                                        if (matches.length === 0) return null;
+                                        return (
+                                            <ul className="absolute z-30 w-full mt-1 bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                                                {matches.map(p => (
+                                                    <li
+                                                        key={p.id}
+                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? '') }); setOpenLine(null); }}
+                                                        className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm flex justify-between gap-2"
+                                                    >
+                                                        <span className="truncate">{p.name}</span>
+                                                        <span className="text-neutral-400 whitespace-nowrap">{money(p.unitPrice || 0)}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        );
+                                    })()}
+                                </div>
                                 <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.invoices.qty_placeholder')} className={`${INPUT_SM_CLASSES} w-20`} />
                                 <input type="number" value={l.unitPrice} onChange={e => setLine(i, { unitPrice: e.target.value })} placeholder={t('posx.invoices.price_placeholder')} className={`${INPUT_SM_CLASSES} w-28`} />
                                 <span className="w-24 text-right text-sm text-neutral-500">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>

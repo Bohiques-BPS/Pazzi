@@ -3,6 +3,9 @@ import { api } from './api';
 export interface SalesReport {
   totalRevenue: number;
   totalTax?: number;
+  totalTaxState?: number;
+  totalTaxMunicipal?: number;
+  totalTaxReduced?: number;
   totalSubtotal?: number;
   totalDiscount?: number;
   totalTransactions: number;

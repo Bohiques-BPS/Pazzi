@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { ChartBarIcon, ChartPieIcon, BanknotesIcon, UserGroupIcon, UsersIcon } from '../../components/icons';
 import { BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { reportsService, cajaReportsService, type SalesReport, type CajaReportFilters } from '../../services/reports';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -251,6 +251,9 @@ export const POSReportsPage: React.FC = () => {
 
 const ResumenTab: React.FC<{ report: SalesReport }> = ({ report }) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
+    const anyBreakdown = (report.totalTaxState || 0) + (report.totalTaxMunicipal || 0) + (report.totalTaxReduced || 0) > 0;
+    const showBreakdown = !!settings.taxBreakdownEnabled && anyBreakdown;
     return (
     <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -259,6 +262,13 @@ const ResumenTab: React.FC<{ report: SalesReport }> = ({ report }) => {
             <Card icon={<ChartPieIcon className="w-6 h-6" />} title={t('posx.reports.avgTicket')} value={money(report.avgTicket)} />
             <Card icon={<BanknotesIcon className="w-6 h-6" />} title={t('posx.reports.taxCollected')} value={money(report.totalTax || 0)} sub={t('posx.reports.inNewSales')} />
         </div>
+        {showBreakdown && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Card title={t('posx.reports.taxState')} value={money(report.totalTaxState || 0)} />
+                <Card title={t('posx.reports.taxMunicipal')} value={money(report.totalTaxMunicipal || 0)} />
+                <Card title={t('posx.reports.taxReduced')} value={money(report.totalTaxReduced || 0)} />
+            </div>
+        )}
         <ReportTable title={t('posx.reports.topProducts')} columns={[{ header: '#', key: 'rank' }, { header: t('posx.reports.colProduct'), key: 'name' }, { header: t('posx.reports.colUnits'), key: 'totalQuantity', align: 'right' }]} rows={arr(report.topProducts).map((p, i) => ({ ...p, rank: i + 1 }))} />
         <ReportTable title={t('posx.reports.topClients')} columns={[{ header: t('posx.reports.colClient'), key: 'name' }, { header: t('posx.reports.colSales'), key: 'salesCount', align: 'right' }, { header: t('posx.reports.colTotal'), key: 'totalRevenue', money: true, align: 'right' }]} rows={arr(report.topClients)} />
         <ReportTable title={t('posx.reports.salesByEmployee')} columns={[{ header: t('posx.reports.colEmployee'), key: 'name' }, { header: t('posx.reports.colSales'), key: 'salesCount', align: 'right' }, { header: t('posx.reports.colTotal'), key: 'totalRevenue', money: true, align: 'right' }]} rows={arr(report.salesByEmployee)} />
