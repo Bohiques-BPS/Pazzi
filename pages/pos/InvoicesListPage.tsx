@@ -7,7 +7,7 @@ import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Modal } from '../../components/Modal';
+import { Modal, ConfirmationModal } from '../../components/Modal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -17,10 +17,8 @@ const STATUS: Record<string, { label: string; cls: string }> = {
     pending: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
     partial: { label: 'Pago parcial', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
     paid: { label: 'Pagada', cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-    cancelled: { label: 'Cancelada', cls: 'bg-neutral-200 text-neutral-500' },
+    cancelled: { label: 'Cancelada', cls: 'bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300' },
 };
-
-const money0 = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
 type DraftItem = { name: string; quantity: string; unitPrice: string };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
@@ -61,6 +59,86 @@ const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = (
     );
 };
 
+/** Métodos de cobro para registrar un abono manualmente. */
+const PAY_METHODS = ['ATH Móvil', 'AgilPay / Tarjeta', 'Efectivo', 'Transferencia', 'Cheque', 'Otro'];
+
+/** Modal con diseño de formulario para registrar un abono/pago a una factura. */
+const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone: () => void }> = ({ invoice, onClose, onDone }) => {
+    const { t } = useTranslation();
+    const balance = invoice ? Math.max(0, (invoice.total || 0) - (invoice.amountPaid || 0)) : 0;
+    const [amount, setAmount] = useState('');
+    const [method, setMethod] = useState(PAY_METHODS[0]);
+    const [reference, setReference] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    // Al abrir, precargar el saldo pendiente y limpiar el resto.
+    useEffect(() => {
+        if (invoice) { setAmount(balance.toFixed(2)); setMethod(PAY_METHODS[0]); setReference(''); }
+    }, [invoice]); // eslint-disable-line
+
+    const submit = async () => {
+        if (!invoice) return;
+        const amt = parseFloat(String(amount).replace(',', '.'));
+        if (!(amt > 0)) return toast.error(t('posx.invoices.err_amount'));
+        if (amt > balance + 0.001) return toast.error(t('posx.invoices.err_amount_over', { balance: money(balance) }));
+        setSaving(true);
+        try {
+            await invoicesService.markPaid(invoice.id, { method, reference: reference.trim() || undefined, amount: amt });
+            toast.success(t('posx.invoices.payment_recorded'));
+            onDone(); onClose();
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_payment')); }
+        finally { setSaving(false); }
+    };
+
+    const labelCls = 'block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1';
+
+    return (
+        <Modal isOpen={!!invoice} onClose={onClose} title={t('posx.invoices.pay_title', { num: invoice?.number ? `#${invoice.number}` : '' })} size="sm">
+            <div className="space-y-4">
+                {/* Resumen del saldo */}
+                <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-700/40 rounded-md px-3 py-2 text-sm">
+                    <span className="text-neutral-500">{t('pos.receivable.col.balance')}</span>
+                    <span className="font-bold text-red-600 dark:text-red-400 tabular-nums">{money(balance)}</span>
+                </div>
+
+                <div>
+                    <label className={labelCls}>{t('posx.invoices.pay_amount')}</label>
+                    <div className="flex gap-2">
+                        <input
+                            type="text" inputMode="decimal" value={amount} autoFocus
+                            onChange={e => setAmount(e.target.value)}
+                            className={`${INPUT_SM_CLASSES} w-full text-lg tabular-nums`}
+                        />
+                        <button type="button" onClick={() => setAmount(balance.toFixed(2))} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`}>{t('pay.full_balance')}</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label className={labelCls}>{t('posx.invoices.pay_method')}</label>
+                    <select value={method} onChange={e => setMethod(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
+                        {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                </div>
+
+                <div>
+                    <label className={labelCls}>{t('posx.invoices.pay_reference')} <span className="text-neutral-400 text-xs font-normal">{t('cmp.onb.optional')}</span></label>
+                    <input
+                        type="text" value={reference} onChange={e => setReference(e.target.value)}
+                        placeholder={t('posx.invoices.pay_reference_ph')} className={`${INPUT_SM_CLASSES} w-full`}
+                    />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                    <button type="button" onClick={onClose} disabled={saving} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                    <button type="button" onClick={submit} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
+                        {saving ? t('cmpx.agilpay.processing') : t('posx.invoices.pay_submit')}
+                    </button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
     const { clients, products } = useData();
@@ -76,8 +154,12 @@ export const InvoicesListPage: React.FC = () => {
     const [maxAmount, setMaxAmount] = useState('');
     const [onlyBalance, setOnlyBalance] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
+    const [showDeleted, setShowDeleted] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [share, setShare] = useState<Invoice | null>(null);
+    const [payFor, setPayFor] = useState<Invoice | null>(null);
+    const [toDelete, setToDelete] = useState<Invoice | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Form
     const [clientId, setClientId] = useState('');
@@ -103,11 +185,16 @@ export const InvoicesListPage: React.FC = () => {
 
     const load = useCallback(async () => {
         setLoading(true);
-        try { setItems(await invoicesService.list()); }
+        try { setItems(await invoicesService.list(showDeleted)); }
         catch (err) { if (err instanceof ApiError) toast.error(err.message); }
         finally { setLoading(false); }
-    }, []);
+    }, [showDeleted]);
     useEffect(() => { load(); }, [load]);
+
+    const restore = async (inv: Invoice) => {
+        try { await invoicesService.restore(inv.id); toast.success(t('posx.invoices.restored_ok')); load(); }
+        catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
+    };
 
     const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); };
 
@@ -187,18 +274,20 @@ export const InvoicesListPage: React.FC = () => {
         }
     };
 
-    const markPaid = async (inv: Invoice) => {
-        const balance = Math.max(0, (inv.total || 0) - (inv.amountPaid || 0));
-        const amtStr = prompt(t('posx.invoices.prompt_amount', { balance: money0(balance) }), balance.toFixed(2));
-        if (amtStr === null) return;
-        const amount = parseFloat(String(amtStr).replace(',', '.'));
-        if (!(amount > 0)) return toast.error(t('posx.invoices.err_amount'));
-        const reference = prompt(t('posx.invoices.prompt_reference')) ?? '';
+    // Abre el modal de abono (reemplaza los prompts nativos).
+    const markPaid = (inv: Invoice) => setPayFor(inv);
+
+    // Elimina la factura tras confirmar en el modal.
+    const confirmDelete = async () => {
+        if (!toDelete) return;
+        setDeleting(true);
         try {
-            await invoicesService.markPaid(inv.id, { method: 'ATH Móvil', reference: reference || undefined, amount });
-            toast.success(t('posx.invoices.payment_recorded'));
+            await invoicesService.remove(toDelete.id);
+            toast.success(t('posx.invoices.deleted_ok'));
+            setToDelete(null);
             load();
-        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_payment')); }
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_delete')); }
+        finally { setDeleting(false); }
     };
 
     const copyLink = async (inv: Invoice) => {
@@ -262,7 +351,10 @@ export const InvoicesListPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-2">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.title')}</h1>
-                <button onClick={() => { if (showForm) { setShowForm(false); resetForm(); } else { resetForm(); setShowForm(true); } }} className={BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.invoices.close') : t('posx.invoices.new_invoice_btn')}</button>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
+                    {!showDeleted && <button onClick={() => { if (showForm) { setShowForm(false); resetForm(); } else { resetForm(); setShowForm(true); } }} className={BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.invoices.close') : t('posx.invoices.new_invoice_btn')}</button>}
+                </div>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.invoices.intro')}</p>
 
@@ -271,7 +363,7 @@ export const InvoicesListPage: React.FC = () => {
                     <h3 className="font-semibold text-primary">{editId ? t('posx.invoices.edit_invoice') : t('posx.invoices.new_invoice')}</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.client_optional')}</label>
+                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.client_optional')}</label>
                             <div className="relative">
                                 <input
                                     type="text"
@@ -296,7 +388,7 @@ export const InvoicesListPage: React.FC = () => {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.client_email_label')}</label>
+                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.client_email_label')}</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="cliente@correo.com" className={`${INPUT_SM_CLASSES} w-full`} />
                             <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 mt-1">
                                 <input type="checkbox" checked={sendOnCreate} onChange={e => setSendOnCreate(e.target.checked)} className="h-3.5 w-3.5" />
@@ -304,11 +396,11 @@ export const InvoicesListPage: React.FC = () => {
                             </label>
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.desc_note_label')}</label>
+                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.desc_note_label')}</label>
                             <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder={t('posx.invoices.desc_placeholder')} className={`${INPUT_SM_CLASSES} w-full`} />
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.type_label')}</label>
+                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.type_label')}</label>
                             <input type="text" value={invType} onChange={e => setInvType(e.target.value)} placeholder={t('posx.invoices.type_ph')} className={`${INPUT_SM_CLASSES} w-full`} list="invoice-type-options" />
                             <datalist id="invoice-type-options">
                                 {[...new Set(items.map(i => i.type).filter(Boolean))].map(tp => <option key={tp as string} value={tp as string} />)}
@@ -398,22 +490,22 @@ export const InvoicesListPage: React.FC = () => {
                     </div>
                     {showFilters && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-700">
-                            <div><label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.filter.cashier')}</label>
+                            <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.cashier')}</label>
                                 <select value={cashierF} onChange={e => setCashierF(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
                                     <option value="all">{t('posx.invoices.filter.all_cashiers')}</option>
                                     {cashierOptions.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
-                            <div><label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.type_label')}</label>
+                            <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.type_label')}</label>
                                 <select value={typeF} onChange={e => setTypeF(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
                                     <option value="all">{t('posx.invoices.filter.all_types')}</option>
                                     {typeOptions.map(tp => <option key={tp} value={tp}>{tp}</option>)}
                                 </select>
                             </div>
-                            <div><label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.filter.date_from')}</label><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
-                            <div><label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.filter.date_to')}</label><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
-                            <div><label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.filter.min')}</label><input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder="0" className={`${INPUT_SM_CLASSES} w-full`} /></div>
-                            <div><label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.filter.max')}</label><input type="number" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} placeholder="∞" className={`${INPUT_SM_CLASSES} w-full`} /></div>
+                            <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.date_from')}</label><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
+                            <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.date_to')}</label><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
+                            <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.min')}</label><input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder="0" className={`${INPUT_SM_CLASSES} w-full`} /></div>
+                            <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.max')}</label><input type="number" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} placeholder="∞" className={`${INPUT_SM_CLASSES} w-full`} /></div>
                             <label className="flex items-end gap-2 text-sm text-neutral-700 dark:text-neutral-200 pb-1"><input type="checkbox" checked={onlyBalance} onChange={e => setOnlyBalance(e.target.checked)} className="h-4 w-4" />{t('posx.invoices.filter.only_balance')}</label>
                         </div>
                     )}
@@ -426,23 +518,46 @@ export const InvoicesListPage: React.FC = () => {
                 <DataTable<Invoice>
                     data={filtered}
                     columns={columns}
-                    onRowClick={onRowClick}
+                    onRowClick={showDeleted ? undefined : onRowClick}
                     searchable={false}
                     filterable={false}
                     initialPageSize={25}
                     actions={(inv) => (
+                        showDeleted ? (
+                            <button onClick={() => restore(inv)} className="text-xs text-green-600 hover:underline whitespace-nowrap">{t('common.restore')}</button>
+                        ) : (
                         <div className="flex items-center gap-3 whitespace-nowrap">
                             <button onClick={() => setShare(inv)} className="text-xs text-primary hover:underline">{t('posx.invoices.view_link_qr')}</button>
                             <button onClick={() => copyLink(inv)} className="text-xs text-neutral-500 hover:underline">{t('posx.invoices.copy_link')}</button>
                             <button onClick={() => sendByEmail(inv)} className="text-xs text-blue-600 hover:underline">{t('posx.invoices.send_email')}</button>
                             {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => openEdit(inv)} className="text-xs text-amber-600 hover:underline">{t('common.edit')}</button>}
                             {(inv.status === 'pending' || inv.status === 'partial') && <button onClick={() => markPaid(inv)} className="text-xs text-green-600 hover:underline">{t('posx.invoices.register_payment')}</button>}
+                            <button onClick={() => setToDelete(inv)} className="text-xs text-red-600 hover:underline">{t('common.delete')}</button>
                         </div>
+                        )
                     )}
                 />
             )}
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
+            <PayModal invoice={payFor} onClose={() => setPayFor(null)} onDone={load} />
+            <ConfirmationModal
+                isOpen={!!toDelete}
+                onClose={() => { if (!deleting) setToDelete(null); }}
+                onConfirm={confirmDelete}
+                title={t('posx.invoices.delete_title')}
+                confirmButtonText={t('common.delete')}
+                message={
+                    <div className="space-y-2">
+                        <p>{t('posx.invoices.delete_confirm', { num: toDelete?.number ? `#${toDelete.number}` : '', total: money(toDelete?.total || 0) })}</p>
+                        {(toDelete?.amountPaid || 0) > 0 ? (
+                            <p className="text-sm text-amber-600 dark:text-amber-400">{t('posx.invoices.delete_soft_note', { paid: money(toDelete?.amountPaid || 0) })}</p>
+                        ) : (
+                            <p className="text-sm text-neutral-500">{t('posx.invoices.delete_irreversible')}</p>
+                        )}
+                    </div>
+                }
+            />
         </div>
     );
 };

@@ -92,8 +92,8 @@ const compareValues = (a: any, b: any): number => {
 
 const SortIndicator: React.FC<{ direction: SortDirection | null }> = ({ direction }) => (
   <span className="inline-flex flex-col ml-1 -space-y-1 align-middle leading-none">
-    <span className={direction === 'asc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-500'}>▲</span>
-    <span className={direction === 'desc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-500'}>▼</span>
+    <span className={direction === 'asc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-400'}>▲</span>
+    <span className={direction === 'desc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-400'}>▼</span>
   </span>
 );
 
@@ -294,7 +294,7 @@ export const DataTable = <T extends {id: string}>({
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
-          <thead className="bg-neutral-50 dark:bg-neutral-700">
+          <thead className="bg-neutral-50 dark:bg-neutral-900">
             <tr>
               {onSelectionChange && (
                 <th scope="col" className="px-4 py-2">
@@ -371,7 +371,7 @@ export const DataTable = <T extends {id: string}>({
             {pagedData.map((item) => (
               <tr
                 key={item.id}
-                className={`hover:bg-neutral-50 dark:hover:bg-neutral-700 ${onRowClick ? 'cursor-pointer' : ''} ${selectedRowId === item.id ? 'bg-primary/10 dark:bg-primary/20' : ''}`}
+                className={`hover:bg-neutral-50 dark:hover:bg-neutral-700/60 ${onRowClick ? 'cursor-pointer' : ''} ${selectedRowId === item.id ? 'bg-primary/10 dark:bg-primary/20' : ''}`}
                 onClick={() => onRowClick?.(item)}
                 aria-selected={selectedRowId === item.id}
               >

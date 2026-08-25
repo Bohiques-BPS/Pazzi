@@ -38,6 +38,7 @@ export interface LayawayRecord {
   totalAmount: number;
   status: LayawayStatus;
   notes?: string | null;
+  deletedAt?: string | null;
   client?: { id: string; name: string; lastName?: string; email?: string; phone?: string };
   branch?: { id: string; name: string };
   items: Array<{
@@ -73,4 +74,9 @@ export const layawaysService = {
 
   cancel: (id: string, notes?: string) =>
     api.post<LayawayRecord>(`/layaways/${id}/cancel`, { notes }),
+  remove: (id: string) =>
+    api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/layaways/${id}`),
+  restore: (id: string) =>
+    api.post<{ restored: boolean; id: string }>(`/layaways/${id}/restore`),
+  getDeleted: () => api.get<LayawayRecord[]>('/layaways?deleted=1'),
 };

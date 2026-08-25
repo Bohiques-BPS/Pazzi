@@ -10,6 +10,7 @@ import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PermissionGate } from '../../components/PermissionGate';
+import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 
 interface LayawayRow extends LayawayRecord {
     amountPaid: number;
@@ -25,18 +26,25 @@ export const LayawaysListPage: React.FC = () => {
 
     const [paymentModalLayaway, setPaymentModalLayaway] = useState<LayawayRecord | null>(null);
     const [cancelConfirmLayaway, setCancelConfirmLayaway] = useState<LayawayRecord | null>(null);
+    const [deleteConfirmLayaway, setDeleteConfirmLayaway] = useState<LayawayRecord | null>(null);
+    const [showDeleted, setShowDeleted] = useState(false);
 
     const refresh = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await layawaysService.getAll();
+            const data = showDeleted ? await layawaysService.getDeleted() : await layawaysService.getAll();
             setLayaways(data);
         } catch (err) {
             if (err instanceof ApiError) toast.error(err.message);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [showDeleted]);
+
+    const restoreLayaway = async (l: LayawayRecord) => {
+        try { await layawaysService.restore(l.id); toast.success(t('posx.layaways.restored_ok')); refresh(); }
+        catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.layaways.restore_error')); }
+    };
 
     useEffect(() => { refresh(); }, [refresh]);
 
@@ -67,6 +75,19 @@ export const LayawaysListPage: React.FC = () => {
             toast.error(err instanceof ApiError ? err.message : t('posx.layaways.cancel_error'));
         } finally {
             setCancelConfirmLayaway(null);
+        }
+    };
+
+    const confirmDeleteLayaway = async () => {
+        if (!deleteConfirmLayaway) return;
+        try {
+            await layawaysService.remove(deleteConfirmLayaway.id);
+            setLayaways(prev => prev.filter(l => l.id !== deleteConfirmLayaway.id));
+            toast.success(t('posx.layaways.deleted_ok'));
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : t('posx.layaways.delete_error'));
+        } finally {
+            setDeleteConfirmLayaway(null);
         }
     };
 
@@ -117,6 +138,7 @@ export const LayawaysListPage: React.FC = () => {
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
                     {t('pos.layaways.title') || 'Apartados (Layaways)'}
                 </h1>
+                <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
             </div>
 
             {loading && <LoadingSkeleton variant="table" rows={6} />}
@@ -129,10 +151,15 @@ export const LayawaysListPage: React.FC = () => {
             )}
 
             {!loading && layawayData.length > 0 && (
-                <DataTable<LayawayRow> onRowClick={setPaymentModalLayaway}
+                <DataTable<LayawayRow> onRowClick={showDeleted ? undefined : setPaymentModalLayaway}
                     data={layawayData}
                     columns={columns}
                     actions={(layaway) => (
+                        showDeleted ? (
+                            <PermissionGate require="layaways.manage">
+                                <button onClick={() => restoreLayaway(layaway)} className="text-xs text-green-600 hover:underline whitespace-nowrap">{t('common.restore')}</button>
+                            </PermissionGate>
+                        ) : (
                         <div className="flex space-x-1">
                             <PermissionGate require={['layaways.recordPayment', 'layaways.manage']}>
                                 <button
@@ -154,7 +181,17 @@ export const LayawaysListPage: React.FC = () => {
                                     <TrashIconMini className="w-4 h-4" />
                                 </button>
                             </PermissionGate>
+                            <PermissionGate require="layaways.manage">
+                                <button
+                                    onClick={() => setDeleteConfirmLayaway(layaway)}
+                                    className="text-xs text-red-700 dark:text-red-400 hover:underline px-1"
+                                    title={t('common.delete')}
+                                >
+                                    {t('common.delete')}
+                                </button>
+                            </PermissionGate>
                         </div>
+                        )
                     )}
                 />
             )}
@@ -175,6 +212,24 @@ export const LayawaysListPage: React.FC = () => {
                     message={t('posx.layaways.cancel_confirm', { id: cancelConfirmLayaway.id.slice(-6).toUpperCase() }) || `¿Estás seguro de cancelar el apartado #${cancelConfirmLayaway.id.slice(-6).toUpperCase()}? Esta acción no se puede deshacer. Los pagos ya registrados quedarán pendientes de devolución manual.`}
                     confirmButtonText={t('posx.layaways.cancel_yes') || 'Sí, cancelar'}
                     cancelButtonText={t('posx.layaways.cancel_no') || 'No, mantener'}
+                />
+            )}
+
+            {deleteConfirmLayaway && (
+                <ConfirmationModal
+                    isOpen={!!deleteConfirmLayaway}
+                    onClose={() => setDeleteConfirmLayaway(null)}
+                    onConfirm={confirmDeleteLayaway}
+                    title={t('posx.layaways.delete_title')}
+                    message={
+                        <div className="space-y-2">
+                            <p>{t('posx.layaways.delete_confirm', { id: deleteConfirmLayaway.id.slice(-6).toUpperCase() })}</p>
+                            {(deleteConfirmLayaway.payments?.length || 0) > 0 && (
+                                <p className="text-sm text-amber-600 dark:text-amber-400">{t('common.delete_soft_note')}</p>
+                            )}
+                        </div>
+                    }
+                    confirmButtonText={t('common.delete')}
                 />
             )}
         </div>

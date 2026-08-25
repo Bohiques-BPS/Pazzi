@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Modal } from '../Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -31,6 +32,10 @@ export const BusinessOnboardingModal: React.FC = () => {
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
 
+    const { pathname } = useLocation();
+    // Nunca mostrar el onboarding en páginas PÚBLICAS (pago de factura, activación, tienda, login):
+    // ahí entra un cliente/visitante, no el dueño del negocio.
+    const isPublicRoute = /^\/(pay|activate|store|login|register)(\/|$)/.test(pathname);
     const isManager = currentUser?.role === UserRole.MANAGER;
     const localKey = `pazzi_onboarded_${currentUser?.id || 'anon'}`;
 
@@ -44,7 +49,7 @@ export const BusinessOnboardingModal: React.FC = () => {
 
     // Decide si mostrar: MANAGER, settings ya cargados, y aún sin onboarding ni nombre de empresa.
     useEffect(() => {
-        if (!ready || !isManager) return;
+        if (!ready || !isManager || isPublicRoute) return;
         const rc = settings.receiptConfig || ({} as ReceiptConfig);
         const alreadyOnboarded = !!rc.onboardedAt;
         const hasName = !!(rc.businessName && rc.businessName.trim());
@@ -109,7 +114,7 @@ export const BusinessOnboardingModal: React.FC = () => {
         ? (logoUrl.startsWith('http') || logoUrl.startsWith('data:') ? logoUrl : `${API_URL.replace('/api', '')}${logoUrl.startsWith('/') ? '' : '/'}${logoUrl}`)
         : '';
 
-    if (!open) return null;
+    if (!open || isPublicRoute) return null;
 
     return (
         <Modal isOpen={open} onClose={handleLater} title={t('cmp.onb.title')} size="lg">

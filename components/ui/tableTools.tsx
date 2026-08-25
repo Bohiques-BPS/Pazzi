@@ -55,8 +55,8 @@ export function usePagination<T>(rows: T[], initialSize: number | 'all' = 25) {
 
 const SortIndicator: React.FC<{ direction: SortDirection | null }> = ({ direction }) => (
   <span className="inline-flex flex-col ml-1 -space-y-1 align-middle leading-none">
-    <span className={direction === 'asc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-500'}>▲</span>
-    <span className={direction === 'desc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-500'}>▼</span>
+    <span className={direction === 'asc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-400'}>▲</span>
+    <span className={direction === 'desc' ? 'text-primary' : 'text-neutral-300 dark:text-neutral-400'}>▼</span>
   </span>
 );
 

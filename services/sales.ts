@@ -30,6 +30,12 @@ export const salesService = {
 
   voidSale: (saleId: string) =>
     api.post<any>(`/sales/${saleId}/void`),
+  remove: (saleId: string) =>
+    api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/sales/${saleId}`),
+  restore: (saleId: string) =>
+    api.post<{ restored: boolean; id: string }>(`/sales/${saleId}/restore`),
+  listDeleted: () =>
+    api.get<any[]>(`/sales?deleted=1`),
 
   getReport: (filters?: { branchId?: string; startDate?: string; endDate?: string }) =>
     api.get<any>('/sales/report', filters as any),

@@ -260,7 +260,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                             type="checkbox"
                                             checked={item.checked}
                                             onChange={() => handleToggleCheck(item)}
-                                            className="h-4 w-4 text-primary rounded border-neutral-300 focus:ring-primary flex-shrink-0"
+                                            className="h-4 w-4 text-primary rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 focus:ring-primary flex-shrink-0"
                                         />
                                         <span className={`flex-1 text-sm ${item.checked ? 'line-through text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'}`}>
                                             {item.text}

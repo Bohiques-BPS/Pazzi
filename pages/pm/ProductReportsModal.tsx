@@ -220,7 +220,7 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
             ) : (
                 <div className="max-h-[55vh] overflow-y-auto border rounded-md dark:border-neutral-700">
                     <table className="min-w-full text-sm">
-                        <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
+                        <thead className="bg-neutral-100 dark:bg-neutral-900 sticky top-0">
                             <tr>
                                 {isUnused && <th className="p-2 w-10"></th>}
                                 <th className="text-left p-2">{t('pmx.report.col_product')}</th>

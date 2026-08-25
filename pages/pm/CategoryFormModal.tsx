@@ -171,7 +171,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 text-xs uppercase tracking-wider">{t('pmx.category.image_label')}</label>
                     <div className="flex items-center space-x-4">
                         {imagePreview ? (
-                            <div className="relative w-24 h-24 border rounded-md overflow-hidden bg-neutral-100">
+                            <div className="relative w-24 h-24 border dark:border-neutral-600 rounded-md overflow-hidden bg-neutral-100 dark:bg-neutral-700">
                         <img
                             src={imagePreview.startsWith('http') || imagePreview.startsWith('data:')
                                 ? imagePreview
@@ -181,7 +181,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                                 <button type="button" onClick={() => {setImageFile(null); setImagePreview(null);}} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-md"><TrashIconMini className="w-4 h-4" /></button>
                             </div>
                         ) : (
-                            <label htmlFor="category-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 rounded-md flex items-center justify-center bg-neutral-50 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title={t('pmx.product.choose_image_hint')}><CameraIcon className="w-6 h-6 text-neutral-400" /></label>
+                            <label htmlFor="category-image-input" className="w-24 h-24 border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-md flex items-center justify-center bg-neutral-50 dark:bg-neutral-700/50 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors" title={t('pmx.product.choose_image_hint')}><CameraIcon className="w-6 h-6 text-neutral-400" /></label>
                         )}
                         <label className={BUTTON_SECONDARY_SM_CLASSES + " cursor-pointer"}>
                             {t('pmx.common.choose_image')}

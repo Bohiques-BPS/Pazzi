@@ -465,8 +465,8 @@ export const INITIAL_TASK_COMMENTS: TaskComment[] = [
 ];
 
 
-export const inputFormStyle = "block w-full px-3 py-2 text-lg text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary h-12";
-export const INPUT_SM_CLASSES = "h-9 px-2.5 py-1.5 text-sm text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
+export const inputFormStyle = "block w-full px-3 py-2 text-lg text-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary h-12";
+export const INPUT_SM_CLASSES = "h-9 px-2.5 py-1.5 text-sm text-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary dark:focus:ring-offset-neutral-800 focus:border-primary";
 
 export const BUTTON_PRIMARY_CLASSES = "bg-primary hover:bg-secondary text-white font-semibold text-lg py-2 px-4 rounded-md shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-neutral-900";
 export const BUTTON_PRIMARY_SM_CLASSES = "bg-primary hover:bg-secondary text-white font-semibold text-base py-2 px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 dark:focus:ring-offset-neutral-800";

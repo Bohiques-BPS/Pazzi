@@ -40,6 +40,7 @@ export interface RecurringPayment {
     occurrencesDone?: number;
     description?: string | null;
     status: 'active' | 'paused' | 'cancelled' | 'completed';
+    deletedAt?: string | null;
     nextChargeDate: string;
     lastChargeAt?: string | null;
     lastResult?: string | null;
@@ -74,8 +75,10 @@ export interface CreateRecurringInput {
 }
 
 export const recurringService = {
-    list: () => api.get<RecurringPayment[]>('/payments/recurring'),
     create: (data: CreateRecurringInput) => api.post<{ recurring: RecurringPayment }>('/payments/recurring', data),
     chargeNow: (id: string) => api.post<{ status: string; message: string; reference?: string }>(`/payments/recurring/${id}/charge`),
     setStatus: (id: string, action: 'pause' | 'resume' | 'cancel') => api.post<RecurringPayment>(`/payments/recurring/${id}/${action}`),
+    remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
+    restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/payments/recurring/${id}/restore`),
+    list: (deleted?: boolean) => api.get<RecurringPayment[]>(`/payments/recurring${deleted ? '?deleted=1' : ''}`),
 };

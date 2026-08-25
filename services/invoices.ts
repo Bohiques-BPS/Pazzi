@@ -27,6 +27,7 @@ export interface Invoice {
     paidMethod?: string | null;
     paidReference?: string | null;
     paidAt?: string | null;
+    deletedAt?: string | null;
     createdAt: string;
 }
 
@@ -96,9 +97,11 @@ export interface PublicInvoice {
 
 export const invoicesService = {
     // ── Auth (POS) ──
-    list: () => api.get<Invoice[]>('/invoices'),
+    list: (deleted?: boolean) => api.get<Invoice[]>(`/invoices${deleted ? '?deleted=1' : ''}`),
     create: (data: CreateInvoiceInput) => api.post<Invoice>('/invoices', data),
     update: (id: string, data: UpdateInvoiceInput) => api.put<Invoice>(`/invoices/${id}`, data),
+    remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/invoices/${id}`),
+    restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/invoices/${id}/restore`),
     markPaid: (id: string, body: { reference?: string; method?: string; amount?: number }) =>
         api.post<Invoice>(`/invoices/${id}/mark-paid`, body),
     send: (id: string, email?: string) =>

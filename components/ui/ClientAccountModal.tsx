@@ -91,7 +91,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm">
-                                    <thead className="bg-neutral-100 dark:bg-neutral-700/50">
+                                    <thead className="bg-neutral-100 dark:bg-neutral-900">
                                         <tr>
                                             <th className="text-left p-2">{t('cmpx.account.col_sale')}</th>
                                             <th className="text-left p-2">{t('common.date')}</th>

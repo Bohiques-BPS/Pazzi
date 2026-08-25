@@ -67,7 +67,7 @@ export const ReceivableEditModal: React.FC<ReceivableEditModalProps> = ({ isOpen
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('posx.receivableedit.products_detail')}</label>
                     <div className="border border-neutral-200 dark:border-neutral-600 rounded-md overflow-hidden max-h-40 overflow-y-auto">
                         <table className="min-w-full text-xs sm:text-sm">
-                            <thead className="bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 sticky top-0">
+                            <thead className="bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 sticky top-0">
                                 <tr>
                                     <th className="px-3 py-2 text-left font-medium">{t('posx.receivableedit.product')}</th>
                                     <th className="px-3 py-2 text-right font-medium">{t('posx.receivableedit.qty')}</th>

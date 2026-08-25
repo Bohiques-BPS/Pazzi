@@ -87,7 +87,7 @@ const ReportTable: React.FC<{ title: string; columns: Col[]; rows: any[]; empty?
         ) : (
             <div className="overflow-x-auto border border-neutral-200 dark:border-neutral-700 rounded-md">
                 <table className="min-w-full text-sm">
-                    <thead className="bg-neutral-100 dark:bg-neutral-700/50">
+                    <thead className="bg-neutral-100 dark:bg-neutral-900">
                         <tr>{columns.map(c => <th key={c.key} className={`p-2 ${c.align === 'right' ? 'text-right' : 'text-left'}`}>{c.header}</th>)}</tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -305,7 +305,7 @@ const CortesTab: React.FC<{ data: any; onDetail: (id: string) => void }> = ({ da
             {rows.length === 0 ? <p className="text-sm text-neutral-500">{t('posx.reports.noClosures')}</p> : (
                 <div className="overflow-x-auto border border-neutral-200 dark:border-neutral-700 rounded-md">
                     <table className="min-w-full text-sm">
-                        <thead className="bg-neutral-100 dark:bg-neutral-700/50"><tr>
+                        <thead className="bg-neutral-100 dark:bg-neutral-900"><tr>
                             {[t('posx.reports.colRegister'), t('posx.reports.colBranch'), t('posx.reports.colClosedBy'), t('posx.reports.colClosing'), t('posx.reports.colFloat'), t('posx.reports.colExpected'), t('posx.reports.colCounted'), t('posx.reports.colDifference'), ''].map((h, i) => <th key={i} className={`p-2 ${i >= 4 ? 'text-right' : 'text-left'}`}>{h}</th>)}
                         </tr></thead>
                         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">

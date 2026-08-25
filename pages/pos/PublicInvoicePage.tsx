@@ -49,6 +49,7 @@ export const PublicInvoicePage: React.FC = () => {
     const [payAmount, setPayAmount] = useState('');
     const [athMsg, setAthMsg] = useState<string | null>(null);
     const [athProcessing, setAthProcessing] = useState(false);
+    const [payMethod, setPayMethod] = useState<'card' | 'ath'>('card');
     const t = usePublicT();
 
     const load = async () => {
@@ -58,7 +59,9 @@ export const PublicInvoicePage: React.FC = () => {
             const data = await invoicesService.getPublic(token);
             setInv(data);
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'No se pudo cargar la factura.');
+            // Factura eliminada por el comercio → mensaje localizado para contactar al comercio.
+            if (err instanceof ApiError && (err as any).code === 'invoice_deleted') setError(t('pay.deleted'));
+            else setError(err instanceof ApiError ? err.message : t('pay.load_error'));
         } finally {
             setLoading(false);
         }
@@ -73,6 +76,19 @@ export const PublicInvoicePage: React.FC = () => {
     const allowedMethods = useMemo(() => (inv?.allowedMethods ? inv.allowedMethods.split(',').map(s => s.trim()) : ['agilpay', 'ath']), [inv]);
     const allowAgil = allowedMethods.includes('agilpay');
     const allowAth = allowedMethods.includes('ath');
+    // Métodos realmente disponibles para este link (para el selector de pestañas).
+    const availableMethods = useMemo(() => {
+        const list: { key: 'card' | 'ath'; label: string }[] = [];
+        if (allowAgil && inv?.agilpayEnabled) list.push({ key: 'card', label: t('pay.method_card') });
+        if (allowAth) list.push({ key: 'ath', label: t('pay.method_ath') });
+        return list;
+    }, [allowAgil, allowAth, inv?.agilpayEnabled, t]);
+    // Al cargar, seleccionar el primer método disponible por defecto.
+    useEffect(() => {
+        if (availableMethods.length && !availableMethods.some(m => m.key === payMethod)) {
+            setPayMethod(availableMethods[0].key);
+        }
+    }, [availableMethods]); // eslint-disable-line
     const isPaid = inv?.status === 'paid';
     const balance = inv ? (inv.balance ?? inv.total) : 0;
     // Monto validado para el cobro (no excede el saldo).
@@ -209,14 +225,35 @@ export const PublicInvoicePage: React.FC = () => {
                                     <input
                                         type="text" inputMode="decimal" value={payAmount}
                                         onChange={e => setPayAmount(e.target.value)}
-                                        className="w-full text-lg px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-700"
+                                        className="w-full text-lg px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                                     />
-                                    <button type="button" onClick={() => setPayAmount(balance.toFixed(2))} className="px-3 py-2 text-sm rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 whitespace-nowrap">{t('pay.full_balance')}</button>
+                                    <button type="button" onClick={() => setPayAmount(balance.toFixed(2))} className="px-3 py-2 text-sm rounded-md border border-teal-400 dark:border-teal-500 text-teal-700 dark:text-teal-300 whitespace-nowrap">{t('pay.full_balance')}</button>
                                 </div>
                                 <p className="text-xs text-neutral-500 mt-1">{t('pay.pay_help', { balance: money(balance) })}</p>
                             </div>
 
-                            {allowAgil && (inv.agilpayEnabled ? (
+                            {/* Selector de método de pago (solo si hay más de una opción). */}
+                            {availableMethods.length > 1 && (
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1.5">{t('pay.select_method')}</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {availableMethods.map(m => (
+                                            <button
+                                                key={m.key}
+                                                type="button"
+                                                onClick={() => setPayMethod(m.key)}
+                                                className={`py-2.5 px-3 rounded-md border text-sm font-medium transition ${payMethod === m.key
+                                                    ? 'bg-teal-600 border-teal-600 text-white shadow-sm'
+                                                    : 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-200 hover:border-teal-400'}`}
+                                            >
+                                                {m.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {payMethod === 'card' && allowAgil && (inv.agilpayEnabled ? (
                                 <AgilPayCardForm
                                     amount={charge}
                                     tax={inv.tax}
@@ -230,7 +267,7 @@ export const PublicInvoicePage: React.FC = () => {
                             ) : (
                                 <p className="text-sm text-center text-neutral-500">{t('pay.card_unavailable')}</p>
                             ))}
-                            {allowAth && (
+                            {payMethod === 'ath' && allowAth && (
                                 inv.athEnabled && inv.athPublicToken ? (
                                     <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
                                         <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-2 text-sm">{t('pay.pay_ath')}</div>

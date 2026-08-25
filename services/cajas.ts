@@ -39,6 +39,7 @@ export interface CajaSession {
   closingNotes?: string | null;
   openedAt: string;
   closedAt?: string | null;
+  deletedAt?: string | null;
   openedByUser?: { id: string; name: string; lastName: string };
   closedByUser?: { id: string; name: string; lastName: string };
   movements?: CashMovement[];
@@ -108,7 +109,7 @@ export const cajasService = {
       `/cajas/${cajaId}/session/current`
     ),
 
-  getSessions: (cajaId: string, params?: { limit?: number; skip?: number }) =>
+  getSessions: (cajaId: string, params?: { limit?: number; skip?: number; deleted?: 1 }) =>
     api.get<{ items: CajaSession[]; total: number }>(`/cajas/${cajaId}/sessions`, params),
 
   /** Detalle/cuadre de un turno (abierto o cerrado): totales recomputados + conteo guardado. */
@@ -119,4 +120,10 @@ export const cajasService = {
 
   recordCashMovement: (cajaId: string, data: CashMovementPayload) =>
     api.post<CashMovement>(`/cajas/${cajaId}/movements`, data),
+
+  /** Borrado lógico (recuperable) de un turno cerrado por su sessionId. */
+  deleteSession: (sessionId: string) =>
+    api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/cajas/sessions/${sessionId}`),
+  restoreSession: (sessionId: string) =>
+    api.post<{ restored: boolean; id: string }>(`/cajas/sessions/${sessionId}/restore`),
 };

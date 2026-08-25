@@ -299,7 +299,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                     {formData.items.length > 0 && (
                         <div className="max-h-40 overflow-y-auto border dark:border-neutral-600 rounded">
                             <table className="min-w-full text-sm">
-                                <thead className="bg-neutral-50 dark:bg-neutral-700 sticky top-0">
+                                <thead className="bg-neutral-50 dark:bg-neutral-900 sticky top-0">
                                     <tr>
                                         <th className="px-2 py-1 text-left">{t('ecommerce.supplier_orders.form.item_product')}</th>
                                         <th className="px-2 py-1 text-right">{t('ecomx.common.qty_short')}</th>

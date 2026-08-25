@@ -99,9 +99,9 @@ export const ProjectClientChatPage: React.FC = () => {
                 <h3 className="text-base sm:text-lg font-semibold text-neutral-800 dark:text-neutral-100 truncate">{project.name}</h3>
                 <div className="w-32 text-right"> {/* Spacer or Project Status */}
                     <span className={`text-xs px-2 py-1 rounded-full ${
-                         project.status === 'Activo' ? 'bg-green-100 text-green-700' : 
-                         project.status === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : 
-                         'bg-gray-100 text-gray-700'
+                         project.status === 'Activo' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
+                         project.status === 'Pendiente' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' :
+                         'bg-gray-100 text-gray-700 dark:bg-neutral-700 dark:text-neutral-200'
                     }`}>
                         {project.status}
                     </span>

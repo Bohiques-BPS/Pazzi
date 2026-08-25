@@ -43,7 +43,7 @@ const expiryOk = (exp: string) => {
     return true;
 };
 
-const inputCls = 'w-full text-base px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700';
+const inputCls = 'w-full text-base px-3 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500';
 
 export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, customerName, customerEmail, onSuccess, chargeFn }) => {
     const { t } = useTranslation();

@@ -485,6 +485,7 @@ export interface Sale {
     employeeId: string;
     branchId: string;
     paymentStatus: 'Pagado' | 'Pendiente de Pago' | 'Anulado' | 'Devolución Parcial' | 'Devolución Completa';
+    deletedAt?: string | null;
     clientId?: string;
     projectId?: string; // Link to project
     dueDate?: string; // For receivables

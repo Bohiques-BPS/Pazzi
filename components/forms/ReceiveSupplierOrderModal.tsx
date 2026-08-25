@@ -114,7 +114,7 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
                     <h4 className="text-sm font-semibold mb-2">{t('cmpx.receiveorder.products_to_receive', { count: order.items.length })}</h4>
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-600 rounded">
-                            <thead className="bg-neutral-100 dark:bg-neutral-700">
+                            <thead className="bg-neutral-100 dark:bg-neutral-900">
                                 <tr>
                                     <th className="text-left p-2">{t('cmpx.receiveorder.th_product')}</th>
                                     <th className="text-right p-2">{t('cmpx.receiveorder.th_quantity')}</th>

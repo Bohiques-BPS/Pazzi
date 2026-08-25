@@ -325,7 +325,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                                                     type="checkbox"
                                                     checked={isSelected}
                                                     onChange={() => handleToggleItem(item)}
-                                                    className="form-checkbox h-5 w-5 text-primary rounded border-neutral-300 focus:ring-primary mt-1"
+                                                    className="form-checkbox h-5 w-5 text-primary rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 focus:ring-primary mt-1"
                                                 />
                                                 <div className="flex-grow">
                                                     <p className="font-medium text-sm">{item.name}</p>

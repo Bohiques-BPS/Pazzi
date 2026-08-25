@@ -123,7 +123,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                     {/* Facturas */}
                     <div className="max-h-[40vh] overflow-y-auto border rounded-md dark:border-neutral-700">
                         <table className="w-full text-sm">
-                            <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
+                            <thead className="bg-neutral-100 dark:bg-neutral-900 sticky top-0">
                                 <tr>
                                     <th className="text-left p-2">{t('cmpx.credit.col_invoice')}</th>
                                     <th className="text-left p-2">{t('common.date')}</th>

@@ -258,7 +258,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                     </p>
                     <div className="max-h-[62vh] overflow-y-auto border rounded-md dark:border-neutral-700">
                         <table className="min-w-full text-sm">
-                            <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
+                            <thead className="bg-neutral-100 dark:bg-neutral-900 sticky top-0">
                                 <tr>
                                     <th className="text-left p-2">{t('cmpx.import.col_target')}</th>
                                     <th className="text-left p-2">{t('cmpx.import.col_file')}</th>
@@ -314,7 +314,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, title
                     {result.failed.length > 0 && (
                         <div className="max-h-56 overflow-y-auto border rounded-md dark:border-neutral-700">
                             <table className="min-w-full text-sm">
-                                <thead className="bg-neutral-100 dark:bg-neutral-700/50 sticky top-0">
+                                <thead className="bg-neutral-100 dark:bg-neutral-900 sticky top-0">
                                     <tr><th className="text-left p-2 w-16">{t('cmpx.import.col_row')}</th><th className="text-left p-2">{t('common.error')}</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">

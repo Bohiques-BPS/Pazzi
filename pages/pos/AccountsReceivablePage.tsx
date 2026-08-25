@@ -490,7 +490,7 @@ export const AccountsReceivablePage: React.FC = () => {
             </div>
             <div className="overflow-x-auto bg-white dark:bg-neutral-800 shadow-md rounded-lg">
                 <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
-                    <thead className="bg-neutral-50 dark:bg-neutral-700">
+                    <thead className="bg-neutral-50 dark:bg-neutral-900">
                         <tr>
                             <th scope="col" className="w-12 px-4 py-2"></th>
                             <SortableTh label={t('pos.receivable.col.id')} colKey="id" sort={receivableSort} onSort={toggleReceivableSort} />
@@ -550,7 +550,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                             <td colSpan={10} className="p-3">
                                                 <h4 className="text-sm font-semibold mb-2 text-neutral-600 dark:text-neutral-300">{t('posx.receivable.payment_history')}</h4>
                                                 <table className="min-w-full bg-white dark:bg-neutral-800 rounded-md">
-                                                    <thead className="bg-neutral-100 dark:bg-neutral-700 text-xs uppercase">
+                                                    <thead className="bg-neutral-100 dark:bg-neutral-900 text-xs uppercase">
                                                         <tr>
                                                             <th className="px-3 py-1.5 text-left">{t('posx.receivable.hist.date')}</th>
                                                             <th className="px-3 py-1.5 text-right">{t('posx.receivable.hist.amount')}</th>

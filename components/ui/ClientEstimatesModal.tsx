@@ -250,7 +250,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
                                         type="checkbox"
                                         checked={selectedEstimateIds.includes(est.id)}
                                         onChange={() => handleSelectionChange(est.id)}
-                                        className="form-checkbox h-5 w-5 text-primary rounded border-neutral-300 focus:ring-primary mt-1"
+                                        className="form-checkbox h-5 w-5 text-primary rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 focus:ring-primary mt-1"
                                     />
                                     <div className="ml-4 flex-grow">
                                         <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100">

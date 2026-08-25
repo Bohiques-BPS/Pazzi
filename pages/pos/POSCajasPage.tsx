@@ -4,7 +4,7 @@ import { CajaFormModal } from '../../components/forms/CajaFormModal';
 import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
-import { Modal } from '../../components/Modal';
+import { Modal, ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, EyeIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { cajasService, type CajaWithSession, type CajaSession } from '../../services/cajas';
@@ -205,7 +205,7 @@ export const POSCajasPage: React.FC = () => {
                             <PermissionGate require={['caja.viewDiscrepancies', 'reports.viewSales', 'branches.manage']}>
                                 <button
                                     onClick={() => setHistoryCaja(caja)}
-                                    className="text-neutral-500 hover:text-neutral-700 p-1"
+                                    className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
                                     title={t('posx.cajas.action.history')}
                                 >
                                     <EyeIcon className="w-5 h-5" />
@@ -285,20 +285,48 @@ const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({ isOpen, onClo
     const { t } = useTranslation();
     const [sessions, setSessions] = useState<CajaSession[]>([]);
     const [loading, setLoading] = useState(true);
+    const [sessionToDelete, setSessionToDelete] = useState<CajaSession | null>(null);
+    const [showDeleted, setShowDeleted] = useState(false);
+
+    const confirmDeleteSession = async () => {
+        if (!sessionToDelete) return;
+        try {
+            await cajasService.deleteSession(sessionToDelete.id);
+            setSessions(prev => prev.filter(s => s.id !== sessionToDelete.id));
+            toast.success(t('posx.cajas.history.deleted_ok'));
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : t('posx.cajas.history.delete_error'));
+        } finally {
+            setSessionToDelete(null);
+        }
+    };
+
+    const restoreSession = async (s: CajaSession) => {
+        try {
+            await cajasService.restoreSession(s.id);
+            setSessions(prev => prev.filter(x => x.id !== s.id));
+            toast.success(t('posx.cajas.history.restored_ok'));
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : t('posx.cajas.history.restore_error'));
+        }
+    };
 
     useEffect(() => {
         if (!isOpen) return;
         let cancelled = false;
         setLoading(true);
-        cajasService.getSessions(cajaId, { limit: 50 })
+        cajasService.getSessions(cajaId, { limit: 50, ...(showDeleted ? { deleted: 1 } : {}) })
             .then(res => { if (!cancelled) setSessions(res.items); })
             .catch(err => { if (!cancelled && err instanceof ApiError) toast.error(err.message); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, [isOpen, cajaId]);
+    }, [isOpen, cajaId, showDeleted]);
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('posx.cajas.history.title', { name: cajaName })} size="3xl">
+            <div className="flex justify-end mb-3">
+                <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
+            </div>
             {loading && <LoadingSkeleton variant="table" rows={6} />}
             {!loading && sessions.length === 0 && (
                 <EmptyState title={t('posx.cajas.history.empty.title')} description={t('posx.cajas.history.empty.desc')} />
@@ -306,7 +334,7 @@ const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({ isOpen, onClo
             {!loading && sessions.length > 0 && (
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
-                        <thead className="bg-neutral-100 dark:bg-neutral-700/50">
+                        <thead className="bg-neutral-100 dark:bg-neutral-900">
                             <tr>
                                 <th className="text-left p-2">{t('posx.cajas.history.col.opened')}</th>
                                 <th className="text-left p-2">{t('posx.cajas.history.col.closed')}</th>
@@ -316,6 +344,7 @@ const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({ isOpen, onClo
                                 <th className="text-right p-2">{t('posx.cajas.history.col.counted')}</th>
                                 <th className="text-right p-2">{t('posx.cajas.history.col.difference')}</th>
                                 <th className="text-center p-2">{t('posx.cajas.history.col.status')}</th>
+                                <th className="text-center p-2">{t('common.actions')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -348,6 +377,22 @@ const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({ isOpen, onClo
                                             {s.status === 'OPEN' ? t('posx.cajas.history.open') : t('posx.cajas.history.closed')}
                                         </span>
                                     </td>
+                                    <td className="p-2 text-center">
+                                        {showDeleted ? (
+                                            <button type="button" onClick={() => restoreSession(s)} className="text-xs text-green-600 dark:text-green-400 hover:underline" title={t('common.restore')}>
+                                                {t('common.restore')}
+                                            </button>
+                                        ) : s.status !== 'OPEN' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSessionToDelete(s)}
+                                                className="text-xs text-red-600 dark:text-red-400 hover:underline"
+                                                title={t('common.delete')}
+                                            >
+                                                {t('common.delete')}
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -357,6 +402,15 @@ const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({ isOpen, onClo
             <div className="flex justify-end pt-3">
                 <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.cajas.history.close')}</button>
             </div>
+
+            <ConfirmationModal
+                isOpen={!!sessionToDelete}
+                onClose={() => setSessionToDelete(null)}
+                onConfirm={confirmDeleteSession}
+                title={t('posx.cajas.history.delete_title')}
+                confirmButtonText={t('common.delete')}
+                message={t('posx.cajas.history.delete_confirm')}
+            />
         </Modal>
     );
 };
