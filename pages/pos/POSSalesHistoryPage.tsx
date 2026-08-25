@@ -16,6 +16,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { TrashIconMini } from '../../components/icons';
 import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { ClientNameLink } from '../../components/ui/EntityNameLink';
 
 // Unified interface for the table
 interface HistoryItem {
@@ -301,7 +302,7 @@ export const POSSalesHistoryPage: React.FC = () => {
         )
     },
     { header: t('pos.sales_history.col.date'), accessor: (item) => new Date(item.date).toLocaleString('es-ES') },
-    { header: t('posx.saleshistory.col.entity'), accessor: 'entityName' },
+    { header: t('posx.saleshistory.col.entity'), sortValue: (item) => item.entityName, accessor: (item) => item.type === 'CxP' ? item.entityName : <ClientNameLink clientId={(item.rawObject as Sale).clientId} name={item.entityName} /> },
     { 
         header: t('pos.sales_history.col.method'), 
         accessor: (item) => {

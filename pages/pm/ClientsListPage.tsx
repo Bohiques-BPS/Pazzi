@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Client, ClientFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
@@ -90,6 +91,18 @@ export const ClientsListPage: React.FC = () => {
         setEditingClient(client);
         setShowFormModal(true);
     };
+
+    // Abrir la edición de un cliente cuando llega ?edit=<id> (al hacer click en su nombre en otra tabla).
+    const [searchParams, setSearchParams] = useSearchParams();
+    useEffect(() => {
+        const editId = searchParams.get('edit');
+        if (!editId) return;
+        const c = clients.find(cl => cl.id === editId);
+        if (c) { setEditingClient(c); setShowFormModal(true); }
+        // Limpiar el parámetro para no reabrir al cerrar.
+        searchParams.delete('edit');
+        setSearchParams(searchParams, { replace: true });
+    }, [searchParams, clients]); // eslint-disable-line
 
     const requestDelete = (clientId: string) => {
         setItemToDeleteId(clientId);

@@ -6,6 +6,7 @@ export type CashMovementType = 'PAYOUT' | 'CASH_DROP' | 'CASH_IN' | 'REFUND' | '
 export interface CajaPayload {
   name: string;
   branchId: string;
+  design?: string;
   isActive?: boolean;
   applyIVA?: boolean;
   isExternal?: boolean;
@@ -15,6 +16,7 @@ export interface CajaWithSession {
   id: string;
   name: string;
   branchId: string;
+  design?: string | null;
   isActive: boolean;
   applyIVA: boolean;
   isExternal: boolean;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Employee, EmployeeFormData, UserStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -52,6 +53,20 @@ export const EmployeesListPage: React.FC = () => {
         setShowFormModal(true);
     };
     const openModalForEdit = (emp: Employee) => { setEditingEmployee(emp); setShowFormModal(true); };
+
+    // Abrir edición cuando llega ?edit=<employeeId> o ?editUser=<userId> (click en nombre de cajero).
+    const [searchParams, setSearchParams] = useSearchParams();
+    useEffect(() => {
+        const editId = searchParams.get('edit');
+        const editUser = searchParams.get('editUser');
+        if (!editId && !editUser) return;
+        const emp = editId
+            ? employees.find(e => e.id === editId)
+            : employees.find(e => (e as any).userId === editUser || (e as any).user?.id === editUser);
+        if (emp) { setEditingEmployee(emp); setShowFormModal(true); }
+        searchParams.delete('edit'); searchParams.delete('editUser');
+        setSearchParams(searchParams, { replace: true });
+    }, [searchParams, employees]); // eslint-disable-line
 
     const requestDelete = (empId: string) => {
         setItemToDeleteId(empId);

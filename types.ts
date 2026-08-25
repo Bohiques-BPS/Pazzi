@@ -125,6 +125,8 @@ export interface GlobalSettings {
     receiptConfig: ReceiptConfig;
     paymentMethods: PaymentMethodConfig[];
     paymentMethodScopes: PaymentMethodScopes;
+    /** Catálogo de tipos de factura editable por el negocio (para el select en el form de factura). */
+    invoiceTypes?: string[];
     /**
      * Interruptor maestro de módulos por negocio (aplica al MANAGER y a todos sus empleados).
      * Clave = valor del enum AppModule. Un módulo se considera ACTIVO salvo que su clave
@@ -177,6 +179,8 @@ export interface Caja {
     id: string;
     name: string;
     branchId: string;
+    /** Diseño/tema de color de la caja (id de preset en utils/cajaDesigns). */
+    design?: string | null;
     isActive: boolean;
     /** Etiqueta UI (PR usa "IVU"). En el BE el campo se llama `applyIVA`. Mantenemos ambos opcionales por compatibilidad. */
     applyIVU: boolean;

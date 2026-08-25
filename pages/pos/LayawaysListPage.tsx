@@ -11,6 +11,7 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PermissionGate } from '../../components/PermissionGate';
 import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { ClientNameLink } from '../../components/ui/EntityNameLink';
 
 interface LayawayRow extends LayawayRecord {
     amountPaid: number;
@@ -103,7 +104,7 @@ export const LayawaysListPage: React.FC = () => {
     const columns: TableColumn<LayawayRow>[] = [
         { header: t('pos.layaways.col.id') || 'ID', accessor: (l) => l.id.slice(-8).toUpperCase() },
         { header: t('pos.layaways.col.date') || 'Fecha', accessor: (l) => new Date(l.date).toLocaleDateString() },
-        { header: t('pos.layaways.col.client') || 'Cliente', accessor: 'clientName' },
+        { header: t('pos.layaways.col.client') || 'Cliente', sortValue: (l) => l.clientName, accessor: (l) => <ClientNameLink clientId={l.clientId} name={l.clientName} /> },
         { header: t('pos.layaways.col.total') || 'Total', accessor: (l) => `$${l.totalAmount.toFixed(2)}`, className: 'text-right' },
         { header: t('pos.layaways.col.paid') || 'Pagado', accessor: (l) => `$${l.amountPaid.toFixed(2)}`, className: 'text-right' },
         {

@@ -4,6 +4,7 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext'; // Imported useTranslation
 import { Product, CartItem, Client, Branch, Caja, HeldCart, Estimate, LayawayStatus, User, UserRole, Employee, Project, EstimateStatus, Sale, ProductVariation } from '../../types';
+import { getCajaDesign } from '../../utils/cajaDesigns';
 import {
     XMarkIcon,
     ArchiveBoxIcon,
@@ -1105,6 +1106,8 @@ export const POSCashierPage: React.FC = () => {
     
     const currentCajaName = cajas.find(c => c.id === selectedCajaId)?.name || '0008';
     const isCurrentCajaExternal = cajas.find(c => c.id === selectedCajaId)?.isExternal;
+    // Color del diseño asignado a la caja activa (acento del header). Externa mantiene el ámbar.
+    const currentCajaColor = getCajaDesign(cajas.find(c => c.id === selectedCajaId)?.design).color;
     const isCurrentCajaApplyIVU = cajas.find(c => c.id === selectedCajaId)?.applyIVU ?? true;
 
     const actionButtons = [
@@ -1193,7 +1196,7 @@ export const POSCashierPage: React.FC = () => {
     
     return (
         <div className="flex flex-col h-screen bg-gray-100 dark:bg-neutral-900 font-sans">
-            <header className={`flex items-center justify-between px-2 sm:px-4 py-1 flex-shrink-0 shadow-md ${isCurrentCajaExternal ? 'bg-amber-600' : 'bg-[#00897B]'}`}>
+            <header className="flex items-center justify-between px-2 sm:px-4 py-1 flex-shrink-0 shadow-md" style={{ backgroundColor: isCurrentCajaExternal ? '#D97706' : currentCajaColor }}>
                 <div className="flex items-center space-x-2 sm:space-x-3">
                     <KeyIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white opacity-75" />
                     <div className="max-w-[120px] sm:max-w-none">

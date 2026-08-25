@@ -9,6 +9,7 @@ import { ProjectCard } from '../../components/cards/ProjectCard';
 import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon } from '../../components/icons';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
+import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { projectsService } from '../../services/projects';
@@ -77,11 +78,13 @@ export const ProjectsListPage: React.FC = () => {
     
     const tableColumns: TableColumn<Project>[] = useMemo(() => [
         { header: t('project.field.name'), accessor: 'name' },
-        { 
-            header: t('project.field.client'), 
+        {
+            header: t('project.field.client'),
+            sortValue: (project) => { const c = getClientById(project.clientId); return c ? `${c.name} ${c.lastName}` : ''; },
             accessor: (project) => {
                 const client = getClientById(project.clientId);
-                return client ? `${client.name} ${client.lastName}` : 'N/A';
+                if (!client) return 'N/A';
+                return <ClientNameLink clientId={project.clientId} name={`${client.name} ${client.lastName}`} />;
             }
         },
         { 
@@ -111,7 +114,16 @@ export const ProjectsListPage: React.FC = () => {
                     .map(empId => allEmployees.find(e => e.id === empId))
                     .filter(emp => emp !== undefined);
                 if (assigned.length === 0) return 'N/A';
-                return assigned.slice(0, 2).map(e => e!.name).join(', ') + (assigned.length > 2 ? ` ${t('pm2x.common.and_more', { n: assigned.length - 2 })}` : '');
+                return (
+                    <span className="inline-flex flex-wrap gap-x-1">
+                        {assigned.slice(0, 2).map((e, i) => (
+                            <React.Fragment key={e!.id}>
+                                <EmployeeNameLink employeeId={e!.id} name={e!.name} />{i < Math.min(assigned.length, 2) - 1 ? ',' : ''}
+                            </React.Fragment>
+                        ))}
+                        {assigned.length > 2 ? ` ${t('pm2x.common.and_more', { n: assigned.length - 2 })}` : ''}
+                    </span>
+                );
             }
         },
     ], [getClientById, allEmployees, t]);

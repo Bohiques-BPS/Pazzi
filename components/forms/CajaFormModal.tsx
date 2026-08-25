@@ -10,6 +10,7 @@ import { ExclamationTriangleIcon } from '../icons';
 import { SelectWithCreate } from '../ui/SelectWithCreate';
 import { BranchFormModal } from './BranchFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { CAJA_DESIGNS } from '../../utils/cajaDesigns';
 
 interface CajaFormModalProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
     const initialFormData: CajaFormData = {
         name: '',
         branchId: activeBranches[0]?.id || '',
+        design: 'teal',
         isActive: true,
         applyIVU: true,
         isExternal: false,
@@ -41,6 +43,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
             setFormData({
                 name: cajaToEdit.name,
                 branchId: cajaToEdit.branchId,
+                design: cajaToEdit.design || 'teal',
                 isActive: cajaToEdit.isActive,
                 applyIVU: (cajaToEdit as any).applyIVA ?? cajaToEdit.applyIVU ?? true,
                 isExternal: cajaToEdit.isExternal || false,
@@ -98,6 +101,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         const payload = {
             name: formData.name.trim(),
             branchId: formData.branchId,
+            design: formData.design || 'teal',
             isActive: formData.isActive,
             applyIVA: formData.applyIVU,
             isExternal: formData.isExternal,
@@ -154,6 +158,30 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                     emptyHint={t('cmpx.cajaform.branch_empty_hint')}
                     createTitle={t('cmpx.cajaform.create_branch_title')}
                 />
+
+                {/* Diseño (tema de color) de la caja */}
+                <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('cmpx.cajaform.design_label')}</label>
+                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                        {CAJA_DESIGNS.map(d => {
+                            const selected = (formData.design || 'teal') === d.id;
+                            return (
+                                <button
+                                    key={d.id}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, design: d.id }))}
+                                    title={t(d.nameKey)}
+                                    aria-label={t(d.nameKey)}
+                                    className={`h-9 w-full rounded-md border-2 transition ${selected ? 'border-neutral-800 dark:border-white ring-2 ring-offset-1 dark:ring-offset-neutral-800' : 'border-transparent hover:border-neutral-300'}`}
+                                    style={{ backgroundColor: d.color, ...(selected ? { ['--tw-ring-color' as any]: d.color } : {}) }}
+                                >
+                                    {selected && <span className="text-white text-sm font-bold">✓</span>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('cmpx.cajaform.design_hint')}</p>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-6 pt-2">
                     <label htmlFor="isActive" className="flex items-center text-sm font-medium text-neutral-700 dark:text-neutral-300">

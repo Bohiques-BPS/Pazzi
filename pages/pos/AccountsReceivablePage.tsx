@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSortableRows, usePagination, SortableTh, PaginationFooter, useColumnChooser, ColumnChooserButton } from '../../components/ui/tableTools';
+import { ClientNameLink } from '../../components/ui/EntityNameLink';
 import { useData } from '../../contexts/DataContext';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Sale, Client, SalePayment } from '../../types';
@@ -548,7 +549,7 @@ export const AccountsReceivablePage: React.FC = () => {
                                         {colChooser.visible('id') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.id.substring(0, 8).toUpperCase()}</td>}
                                         {colChooser.visible('date') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(sale.date).toLocaleDateString()}</td>}
                                         {colChooser.visible('dueDate') && vencimiento()}
-                                        {colChooser.visible('client') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getClientById(sale.clientId || '')?.name || t('posx.receivable.walk_in')}</td>}
+                                        {colChooser.visible('client') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.clientId ? <ClientNameLink clientId={sale.clientId} name={getClientById(sale.clientId)?.name || t('posx.receivable.walk_in')} /> : (getClientById(sale.clientId || '')?.name || t('posx.receivable.walk_in'))}</td>}
                                         {colChooser.visible('total') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalAmount.toFixed(2)}</td>}
                                         {colChooser.visible('paid') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalPaid.toFixed(2)}</td>}
                                         {colChooser.visible('balance') && <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${sale.balance.toFixed(2)}</span></td>}

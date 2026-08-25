@@ -7,6 +7,7 @@ import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSE
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { buildTimesheet, bucketsFor, formatHours, timeOf, type Grouping } from '../../utils/timesheet';
+import { EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 
@@ -130,7 +131,7 @@ export const AttendancePage: React.FC = () => {
                         return (
                             <div key={emp.key} className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
                                 <div className="flex items-center justify-between px-4 py-2 bg-neutral-50 dark:bg-neutral-900/50">
-                                    <span className="font-semibold text-neutral-800 dark:text-neutral-100">{emp.employeeName}</span>
+                                    <span className="font-semibold"><EmployeeNameLink employeeId={emp.key} name={emp.employeeName} /></span>
                                     <span className="text-sm">
                                         {t('posx.attendance.total_label')} <strong>{formatHours(emp.totalHours)}</strong>
                                         {emp.openCount > 0 && <span className="ml-2 text-xs text-amber-600">{t('posx.attendance.without_exit', { count: emp.openCount })}</span>}
@@ -168,7 +169,7 @@ export const AttendancePage: React.FC = () => {
                 <DataTable<TimeClockPunch>
                     data={rows}
                     columns={[
-                        { header: t('posx.attendance.employee'), accessor: (r) => <span className="font-medium text-neutral-800 dark:text-neutral-100">{r.employeeName}</span>, sortValue: r => r.employeeName, filterValue: r => r.employeeName },
+                        { header: t('posx.attendance.employee'), accessor: (r) => <EmployeeNameLink employeeId={r.employeeId} name={r.employeeName} />, sortValue: r => r.employeeName, filterValue: r => r.employeeName },
                         { header: t('posx.attendance.type'), accessor: (r) => (
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.type === 'IN' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
                                 {r.type === 'IN' ? t('posx.attendance.punch_in') : t('posx.attendance.punch_out')}

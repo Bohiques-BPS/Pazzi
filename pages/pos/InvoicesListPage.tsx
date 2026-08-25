@@ -9,6 +9,8 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
+import { InvoiceTypeSelect } from '../../components/pos/InvoiceTypeSelect';
+import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -335,9 +337,9 @@ export const InvoicesListPage: React.FC = () => {
             accessor: (inv) => { const s = STATUS[inv.status] || STATUS.pending; return <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${s.cls}`}>{s.label}</span>; },
         },
         { header: '#', sortValue: inv => inv.number ?? 0, accessor: (inv) => <span className="font-semibold">{inv.number ? `#${inv.number}` : '—'}</span> },
-        { header: t('common.name'), sortValue: inv => inv.clientName || '', accessor: (inv) => inv.clientName || <span className="text-neutral-400">—</span> },
+        { header: t('common.name'), sortValue: inv => inv.clientName || '', accessor: (inv) => inv.clientName ? <ClientNameLink clientId={inv.clientId} name={inv.clientName} /> : <span className="text-neutral-400">—</span> },
         { header: t('common.email'), sortValue: inv => inv.clientEmail || '', accessor: (inv) => inv.clientEmail || <span className="text-neutral-400">—</span> },
-        { header: t('posx.invoices.cashier_label'), sortValue: inv => inv.cashierName || '', accessor: (inv) => inv.cashierName || <span className="text-neutral-400">—</span> },
+        { header: t('posx.invoices.cashier_label'), sortValue: inv => inv.cashierName || '', accessor: (inv) => inv.cashierName ? <EmployeeNameLink userId={inv.createdByUserId} name={inv.cashierName} /> : <span className="text-neutral-400">—</span> },
         { header: t('posx.invoices.type_label'), sortValue: inv => inv.type || '', accessor: (inv) => inv.type ? <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{inv.type}</span> : <span className="text-neutral-400">—</span> },
         { header: t('common.total'), sortValue: inv => inv.total, className: 'text-right', accessor: (inv) => <span className="font-medium tabular-nums">{money(inv.total)}</span> },
         {
@@ -410,10 +412,7 @@ export const InvoicesListPage: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.type_label')}</label>
-                            <input type="text" value={invType} onChange={e => setInvType(e.target.value)} placeholder={t('posx.invoices.type_ph')} className={`${INPUT_SM_CLASSES} w-full`} list="invoice-type-options" />
-                            <datalist id="invoice-type-options">
-                                {[...new Set(items.map(i => i.type).filter(Boolean))].map(tp => <option key={tp as string} value={tp as string} />)}
-                            </datalist>
+                            <InvoiceTypeSelect value={invType} onChange={setInvType} />
                         </div>
                     </div>
 

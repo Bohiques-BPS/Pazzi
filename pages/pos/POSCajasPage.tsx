@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DataTable, TableColumn } from '../../components/DataTable';
+import { getCajaDesign } from '../../utils/cajaDesigns';
 import { CajaFormModal } from '../../components/forms/CajaFormModal';
 import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
@@ -89,7 +90,15 @@ export const POSCajasPage: React.FC = () => {
     };
 
     const columns: TableColumn<CajaWithSession>[] = [
-        { header: t('posx.cajas.col.name'), accessor: 'name' },
+        {
+            header: t('posx.cajas.col.name'), sortValue: (c) => c.name,
+            accessor: (c) => (
+                <span className="inline-flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: getCajaDesign(c.design).color }} title={t(getCajaDesign(c.design).nameKey)} />
+                    {c.name}
+                </span>
+            ),
+        },
         {
             header: t('posx.cajas.col.branch'),
             accessor: (c) => c.branch?.name || getBranchById(c.branchId)?.name || 'N/A',

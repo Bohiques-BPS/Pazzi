@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
 import { useData } from '../../contexts/DataContext';
 import { DEFAULT_PAYMENT_METHODS, type PaymentMethodConfig, type PaymentMethodScopes } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { ArrowUpIcon, ArrowDownIcon, DeleteIcon, PlusIcon } from '../../components/icons';
 import { toast } from '../../hooks/useToast';
+import { SecretInput } from '../../components/pos/SecretInput';
 
 /** Quita/añade un id en una lista, devolviendo la nueva lista (sin duplicados, sin vacíos). */
 const toggleInList = (list: string[] | undefined, id: string, disabled: boolean): string[] => {
@@ -33,28 +34,52 @@ export const PaymentMethodsPage: React.FC = () => {
     });
     const [expandedScope, setExpandedScope] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    // Evita pisar ediciones sin guardar cuando llegan los settings del servidor (carga async).
+    const dirtyRef = useRef(false);
+    const markDirty = () => { dirtyRef.current = true; };
+
+    // Re-sincroniza el estado local cuando los settings terminan de cargar (o cambian tras guardar).
+    // Sin esto, al recargar la página el estado quedaba con los valores por defecto (tokens vacíos)
+    // aunque en la BD sí estuvieran guardados. Solo sincroniza si no hay ediciones pendientes.
+    useEffect(() => {
+        if (dirtyRef.current) return;
+        setMethods((settings.paymentMethods && settings.paymentMethods.length ? settings.paymentMethods : DEFAULT_PAYMENT_METHODS).map(m => ({ ...m })));
+        setScopes({
+            branchDisabled: { ...(settings.paymentMethodScopes?.branchDisabled || {}) },
+            cajaDisabled: { ...(settings.paymentMethodScopes?.cajaDisabled || {}) },
+        });
+    }, [settings.paymentMethods, settings.paymentMethodScopes]);
 
     // Efectivo/activo por alcance (global apagado ⇒ apagado en todas partes).
     const branchOn = (mId: string, bId: string) => !(scopes.branchDisabled[bId] || []).includes(mId);
     const cajaOn = (mId: string, cId: string) => !(scopes.cajaDisabled[cId] || []).includes(mId);
 
-    const setBranchDisabled = (mId: string, bId: string, disabled: boolean) =>
+    const setBranchDisabled = (mId: string, bId: string, disabled: boolean) => {
+        markDirty();
         setScopes(prev => ({ ...prev, branchDisabled: { ...prev.branchDisabled, [bId]: toggleInList(prev.branchDisabled[bId], mId, disabled) } }));
-    const setCajaDisabled = (mId: string, cId: string, disabled: boolean) =>
+    };
+    const setCajaDisabled = (mId: string, cId: string, disabled: boolean) => {
+        markDirty();
         setScopes(prev => ({ ...prev, cajaDisabled: { ...prev.cajaDisabled, [cId]: toggleInList(prev.cajaDisabled[cId], mId, disabled) } }));
+    };
 
     // Cuántos alcances tienen el método apagado (para el resumen del botón).
     const disabledScopeCount = (mId: string) =>
         Object.values(scopes.branchDisabled).filter(l => l.includes(mId)).length +
         Object.values(scopes.cajaDisabled).filter(l => l.includes(mId)).length;
 
-    const patch = (id: string, changes: Partial<PaymentMethodConfig>) =>
+    const patch = (id: string, changes: Partial<PaymentMethodConfig>) => {
+        markDirty();
         setMethods(prev => prev.map(m => (m.id === id ? { ...m, ...changes } : m)));
+    };
 
-    const patchConfig = (id: string, key: string, value: string) =>
+    const patchConfig = (id: string, key: string, value: string) => {
+        markDirty();
         setMethods(prev => prev.map(m => (m.id === id ? { ...m, config: { ...(m.config || {}), [key]: value } } : m)));
+    };
 
     const move = (idx: number, dir: -1 | 1) => {
+        markDirty();
         setMethods(prev => {
             const next = [...prev];
             const j = idx + dir;
@@ -65,17 +90,20 @@ export const PaymentMethodsPage: React.FC = () => {
     };
 
     const addCustom = () => {
+        markDirty();
         const id = `custom-${Date.now()}`;
         setMethods(prev => [...prev, { id, name: t('posx.paymentmethods.new_method_name'), enabled: true, color: '#607D8B', type: 'custom', requiresReference: false, referenceLabel: '', builtin: false }]);
     };
 
-    const remove = (id: string) => setMethods(prev => prev.filter(m => m.id !== id));
+    const remove = (id: string) => { markDirty(); setMethods(prev => prev.filter(m => m.id !== id)); };
 
     const handleSave = () => {
         // Normalizar ids de custom por si cambiaron el nombre.
         const cleaned = methods.map(m => (m.builtin ? m : { ...m, id: m.id.startsWith('custom-') ? m.id : slug(m.name) }));
         setSaving(true);
         updateSettings({ paymentMethods: cleaned, paymentMethodScopes: scopes });
+        // Ya guardado: permitir que futuras cargas de settings re-sincronicen el estado.
+        dirtyRef.current = false;
         setTimeout(() => { setSaving(false); toast.success(t('posx.paymentmethods.saved')); }, 300);
     };
 
@@ -136,7 +164,7 @@ export const PaymentMethodsPage: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-500 mb-1">Private Token</label>
-                                    <input type="password" value={m.config?.privateToken || ''} onChange={e => patchConfig(m.id, 'privateToken', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} placeholder="••••••••" />
+                                    <SecretInput methodId={m.id} field="privateToken" value={m.config?.privateToken || ''} onChange={v => patchConfig(m.id, 'privateToken', v)} hasSecret={!!(m.config as any)?._hasSecret} />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-500 mb-1">{t('posx.paymentmethods.environment')}</label>
@@ -162,7 +190,7 @@ export const PaymentMethodsPage: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-500 mb-1">Client Secret</label>
-                                    <input type="password" value={m.config?.clientSecret || ''} onChange={e => patchConfig(m.id, 'clientSecret', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} placeholder="•••••••• (guardado)" />
+                                    <SecretInput methodId={m.id} field="clientSecret" value={m.config?.clientSecret || ''} onChange={v => patchConfig(m.id, 'clientSecret', v)} hasSecret={!!(m.config as any)?._hasSecret} />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-500 mb-1">{t('posx.paymentmethods.environment')}</label>

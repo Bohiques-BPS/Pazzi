@@ -10,6 +10,7 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmationModal } from '../../components/Modal';
 import { ClientAutocomplete } from '../../components/ui/ClientAutocomplete';
+import { ClientNameLink } from '../../components/ui/EntityNameLink';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 // Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
@@ -449,7 +450,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                             <div className="flex items-center gap-3 flex-wrap">
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLOR[rp.status]}`}>{t(STATUS_LABEL[rp.status])}</span>
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${isInvoice ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{isInvoice ? `📧 ${t('posx.recurring.mode.invoiceLink')}` : `💳 ${t('posx.recurring.badge.autoCharge')}`}</span>
-                                <span className="font-semibold text-neutral-800 dark:text-neutral-100">{rp.clientName}</span>
+                                <span className="font-semibold"><ClientNameLink clientId={rp.clientId} name={rp.clientName} /></span>
                                 <span className="text-neutral-500">· {money(rp.amount)} {t(INTERVAL_LABEL[rp.interval])}</span>
                                 {!isInvoice && rp.cardLast4 && <span className="text-xs text-neutral-400">·•••• {rp.cardLast4}</span>}
                                 {isInvoice && cur && <span className={`text-xs px-2 py-0.5 rounded-full ${PAY_BADGE[cur] || 'bg-neutral-100 text-neutral-600'}`}>{PAY_LABEL[cur] ? t(PAY_LABEL[cur]) : cur}</span>}

@@ -10,6 +10,7 @@ import { EstimateFormModal } from './EstimateFormModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon, PrinterIcon, ShoppingCartIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { ClientNameLink } from '../../components/ui/EntityNameLink';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
@@ -494,7 +495,7 @@ export const EstimatesListPage: React.FC = () => {
     const columns: TableColumn<Estimate>[] = [
         { header: t('pos.estimates.col.id'), accessor: (e) => e.id.substring(0, 8).toUpperCase() },
         { header: t('pos.estimates.col.date'), accessor: (e) => new Date(e.date).toLocaleDateString() },
-        { header: t('pos.estimates.col.client'), accessor: (e) => getClientById(e.clientId)?.name || 'N/A' },
+        { header: t('pos.estimates.col.client'), sortValue: (e) => getClientById(e.clientId)?.name || '', accessor: (e) => e.clientId ? <ClientNameLink clientId={e.clientId} name={getClientById(e.clientId)?.name || 'N/A'} /> : 'N/A' },
         { header: t('pos.estimates.col.subtotal'), accessor: (e) => `$${estimateTotals(e).subtotal.toFixed(2)}`, sortable: false },
         { header: t('pos.estimates.col.total_ivu'), accessor: (e) => `$${estimateTotals(e).total.toFixed(2)}`, sortable: false },
         { 
