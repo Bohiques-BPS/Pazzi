@@ -41,8 +41,21 @@ export const AthMovilButton: React.FC<AthMovilButtonProps> = ({
 
     useEffect(() => {
         setStatus('loading');
-        const sub = subtotal != null ? subtotal : total;
-        const tx = tax != null ? tax : 0;
+        const round2 = (n: number) => Math.round(n * 100) / 100;
+        // ATH Móvil EXIGE que total === subtotal + tax y que la suma de los ítems === subtotal.
+        // Si no cuadra, el SDK NO renderiza el botón. Derivamos subtotal = total - tax.
+        const totalR = round2(total);
+        const tx = round2(tax != null ? tax : 0);
+        const sub = round2(Math.max(0, totalR - tx));
+        // Ítems para el SDK; si su suma no coincide con el subtotal (ej. abono parcial), usar 1 línea.
+        let sdkItems = (items || []).map(it => ({
+            name: (it.name || 'Item').slice(0, 50), description: '', quantity: String(it.quantity),
+            price: round2(it.price).toFixed(2), tax: '0.00', metadata: '',
+        }));
+        const itemsSum = round2(sdkItems.reduce((s, it) => s + parseFloat(it.price) * parseInt(it.quantity, 10), 0));
+        if (sdkItems.length === 0 || Math.abs(itemsSum - sub) > 0.01) {
+            sdkItems = [{ name: 'Pago', description: '', quantity: '1', price: sub.toFixed(2), tax: '0.00', metadata: '' }];
+        }
         // Configuración global que lee el SDK de ATH Móvil (debe existir ANTES de cargar el script).
         (window as any).ATHM_Checkout = {
             env: environment === 'sandbox' ? 'sandbox' : 'production',
@@ -50,13 +63,10 @@ export const AthMovilButton: React.FC<AthMovilButtonProps> = ({
             timeout: 600,
             theme: 'btn',
             lang: 'es',
-            total: Number(total.toFixed(2)),
-            subtotal: Number(sub.toFixed(2)),
-            tax: Number(tx.toFixed(2)),
-            items: (items || []).map(it => ({
-                name: it.name.slice(0, 50), description: '', quantity: String(it.quantity),
-                price: it.price.toFixed(2), tax: '0.00', metadata: '',
-            })),
+            total: totalR,
+            subtotal: sub,
+            tax: tx,
+            items: sdkItems,
         };
 
         // Callbacks globales que invoca el SDK.
