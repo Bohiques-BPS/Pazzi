@@ -161,15 +161,16 @@ export const PublicInvoicePage: React.FC = () => {
                     </table>
                     <div className="mt-4 space-y-1 text-sm">
                         <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>{t('pay.subtotal')}</span><span>{money(inv.subtotal)}</span></div>
-                        {inv.taxBreakdownEnabled ? (() => {
+                        {/* Si no hay IVU (tasas en 0 o factura exenta), no se muestran líneas de impuesto. */}
+                        {(inv.tax || 0) > 0 && (inv.taxBreakdownEnabled ? (() => {
                             const sp = splitTax(inv.tax, inv.taxStateRate, inv.taxMunicipalRate);
                             return (<>
-                                <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>IVU Estatal</span><span>{money(sp.state)}</span></div>
-                                <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>IVU Municipal</span><span>{money(sp.municipal)}</span></div>
+                                {sp.state > 0 && <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>IVU Estatal</span><span>{money(sp.state)}</span></div>}
+                                {sp.municipal > 0 && <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>IVU Municipal</span><span>{money(sp.municipal)}</span></div>}
                             </>);
                         })() : (
                             <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>{t('pay.tax')}</span><span>{money(inv.tax)}</span></div>
-                        )}
+                        ))}
                         <div className="flex justify-between text-lg font-bold text-neutral-900 dark:text-white pt-1"><span>{t('pay.total')}</span><span>{money(inv.total)}</span></div>
                         {(inv.amountPaid || 0) > 0 && (
                             <>

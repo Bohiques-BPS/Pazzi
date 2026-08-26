@@ -13,7 +13,7 @@ import { Modal, ConfirmationModal } from '../../components/Modal';
 import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
 import { InvoiceTypeSelect } from '../../components/pos/InvoiceTypeSelect';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
@@ -146,6 +146,7 @@ const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone:
 
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
     const { clients, products } = useData();
     const { currentUser } = useAuth();
     const [openLine, setOpenLine] = useState<number | null>(null);
@@ -246,11 +247,25 @@ export const InvoicesListPage: React.FC = () => {
     }, [products]);
     // Tasa de IVU de un producto (el BE la llama ivaRate; el público la renombra a ivuRate).
     const prodRate = (p: any): number | undefined => (p?.ivaRate != null ? p.ivaRate : p?.ivuRate);
-    // Tasa de IVU efectiva de una línea: la capturada al seleccionar, o la del producto por nombre.
+    // Config del desglose IVU (misma lógica que el POS). Con el desglose activo, la tasa la
+    // define la config (Estatal+Municipal), NO el ivuRate del producto → poner 0 = sin IVU.
+    const bd = !!settings.taxBreakdownEnabled;
+    const stateR = Number(settings.taxStateRate) || 0;
+    const municipalR = Number(settings.taxMunicipalRate) || 0;
+    const reducedR = Number(settings.taxReducedRate) || 0;
+    // Tasa de IVU efectiva de una línea.
     const lineTaxRate = (l: DraftItem): number | undefined => {
-        if (l.taxRate != null) return l.taxRate;
-        const p = productByName.get(l.name.trim().toLowerCase());
-        return p ? prodRate(p) : undefined;
+        const prod = productByName.get(l.name.trim().toLowerCase());
+        const explicit = l.taxRate != null ? l.taxRate : (prod ? prodRate(prod) : undefined);
+        // Producto EXENTO (tasa 0) → 0 en cualquier modo.
+        if (explicit === 0) return 0;
+        if (bd) {
+            // Desglose activo: tasa reducida si el producto está marcado; si no, Estatal+Municipal.
+            const reduced = prod ? !!(prod as any).reducedTax : false;
+            return reduced ? reducedR : (stateR + municipalR);
+        }
+        // Clásico: tasa del producto o (undefined → el default global del server).
+        return explicit;
     };
 
     const create = async () => {
