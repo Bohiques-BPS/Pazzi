@@ -4,9 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useModules } from '../../hooks/useModules';
-import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext'; // Import hook
 import { AppModule, UserRole, Notification } from '../../types';
 import { APP_MODULES_CONFIG } from '../../constants';
+import { API_URL } from '../../services/api';
 import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon } from '../icons';
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
@@ -40,7 +41,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData();
   const { isModuleEnabled } = useModules();
   const { t } = useTranslation(); // Use hook
+  const { settings } = useGlobalSettings();
   const navigate = useNavigate();
+
+  // Logo del negocio (arriba a la derecha). Fuente: GlobalSettings.receiptConfig.
+  const rc = settings.receiptConfig || ({} as any);
+  const rawLogo: string = rc.logoUrl || '';
+  const businessLogoSrc = rawLogo
+    ? (rawLogo.startsWith('http') || rawLogo.startsWith('data:')
+        ? rawLogo
+        : `${API_URL.replace('/api', '')}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`)
+    : '';
+  const businessName: string = rc.businessName || '';
+  const showBusinessLogo = !!businessLogoSrc
+    && currentUser
+    && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
@@ -225,8 +240,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           )}
         </div>
 
-        {/* Right side: Notifications & User Menu */}
+        {/* Right side: Business Logo, Notifications & User Menu */}
         <div className="flex items-center space-x-1 sm:space-x-2">
+           {/* Business Logo (del negocio, configurado en Administración) */}
+           {showBusinessLogo && (
+             <img
+               src={businessLogoSrc}
+               alt={businessName || 'Logo'}
+               title={businessName || undefined}
+               className="h-8 sm:h-10 w-auto max-w-[120px] object-contain rounded-md mr-1 sm:mr-2"
+             />
+           )}
            {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
             <div className="relative" ref={notifRef}>

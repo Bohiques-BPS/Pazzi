@@ -19,7 +19,7 @@ export const RowActionsMenu: React.FC<{ items: RowAction[] }> = ({ items }) => {
     const { t } = useTranslation();
     const visible = items.filter(i => !i.hidden);
     const [open, setOpen] = useState(false);
-    const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+    const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number }>({ top: 0, left: 0, maxHeight: 9999 });
     const btnRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
@@ -33,7 +33,18 @@ export const RowActionsMenu: React.FC<{ items: RowAction[] }> = ({ items }) => {
 
     const toggle = () => {
         const r = btnRef.current?.getBoundingClientRect();
-        if (r) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.right - 176, window.innerWidth - 184)) });
+        if (r) {
+            const left = Math.max(8, Math.min(r.right - 176, window.innerWidth - 184));
+            // Alto estimado del menú (cada ítem ~34px + padding).
+            const menuH = visible.length * 34 + 8;
+            const spaceBelow = window.innerHeight - r.bottom - 8;
+            const spaceAbove = r.top - 8;
+            // Si no cabe debajo pero sí (mejor) arriba, abrir hacia arriba.
+            const openUp = spaceBelow < menuH && spaceAbove > spaceBelow;
+            const top = openUp ? Math.max(8, r.top - Math.min(menuH, spaceAbove) - 4) : r.bottom + 4;
+            const maxHeight = openUp ? spaceAbove : spaceBelow;
+            setPos({ top, left, maxHeight: Math.max(120, maxHeight) });
+        }
         setOpen(o => !o);
     };
 
@@ -57,8 +68,8 @@ export const RowActionsMenu: React.FC<{ items: RowAction[] }> = ({ items }) => {
                     <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
                     <div
                         role="menu"
-                        style={{ top: pos.top, left: pos.left }}
-                        className="fixed z-50 w-44 rounded-md border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg py-1"
+                        style={{ top: pos.top, left: pos.left, maxHeight: pos.maxHeight }}
+                        className="fixed z-50 w-44 rounded-md border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg py-1 overflow-y-auto"
                     >
                         {visible.map((it, i) => (
                             <button
