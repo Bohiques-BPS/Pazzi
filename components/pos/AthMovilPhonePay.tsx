@@ -43,17 +43,22 @@ export const AthMovilPhonePay: React.FC<Props> = ({ token, amount, disabled, onP
         try {
             const r = await invoicesService.athCreate(token, digits, amount);
             if (!r.ecommerceId) throw new Error('no-id');
+            const baseline = r.baselinePaid;
             setPhase('waiting');
             triesRef.current = 0;
             // Polling cada 4s, hasta ~2.5 min.
             pollRef.current = window.setInterval(async () => {
                 triesRef.current += 1;
                 try {
-                    const s = await invoicesService.athStatus(token, r.ecommerceId, r.authToken);
+                    const s = await invoicesService.athStatus(token, r.ecommerceId, r.authToken, baseline);
                     if (s.status === 'completed') { stopPoll(); setPhase('done'); onPaid(); return; }
                     if (s.status === 'cancelled') { stopPoll(); setPhase('cancelled'); return; }
                 } catch { /* reintenta en el próximo tick */ }
-                if (triesRef.current >= 38) { stopPoll(); setPhase('cancelled'); setError(t('pay.ath_timeout')); }
+                if (triesRef.current >= 38) {
+                    // Se agotó el sondeo. El pago puede haber entrado por el webhook: recargamos la
+                    // factura y mostramos un aviso suave (no "cancelado").
+                    stopPoll(); setPhase('error'); setError(t('pay.ath_timeout')); onPaid();
+                }
             }, 4000);
         } catch (err) {
             setPhase('error');
