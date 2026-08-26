@@ -298,15 +298,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                 id: `var-${Date.now()}`,
                 name: newVariation.name,
                 sku: newVariation.sku,
-                unitPrice: newVariation.unitPrice
+                unitPrice: newVariation.unitPrice,
+                manualPrice: !!newVariation.manualPrice,
             };
             setFormData(prev => ({ ...prev, variations: [...(prev.variations || []), newItem] }));
-            setNewVariation({ name: '', sku: '', unitPrice: 0 });
+            setNewVariation({ name: '', sku: '', unitPrice: 0, manualPrice: false });
         }
     };
 
     const handleRemoveVariation = (id: string) => {
         setFormData(prev => ({ ...prev, variations: prev.variations?.filter(v => v.id !== id) }));
+    };
+
+    // Alterna el "precio manual" de una variante existente.
+    const handleToggleVariationManual = (id: string) => {
+        setFormData(prev => ({ ...prev, variations: prev.variations?.map(v => v.id === id ? { ...v, manualPrice: !v.manualPrice } : v) }));
     };
 
     const validateForm = (): Record<string, string> => {
@@ -987,6 +993,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                                 <button type="button" onClick={handleAddVariation} className={`${BUTTON_PRIMARY_SM_CLASSES} h-12 mt-auto`}>{t('common.add')}</button>
                                             </div>
                                         </div>
+                                        <label className="flex items-center gap-2 mt-3 text-sm">
+                                            <input type="checkbox" checked={!!newVariation.manualPrice} onChange={e => setNewVariation(prev => ({ ...prev, manualPrice: e.target.checked }))} className="h-4 w-4" />
+                                            {t('product.field.variation_manual_price')}
+                                        </label>
                                     </fieldset>
                                     {formData.variations && formData.variations.length > 0 && (
                                         <div className="bg-neutral-50 dark:bg-neutral-700/50 p-3 rounded-md">
@@ -996,6 +1006,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                                     <li key={v.id} className="flex justify-between items-center p-2 bg-white dark:bg-neutral-700 rounded shadow-sm">
                                                         <span>{v.name} {v.sku ? `(${v.sku})` : ''}</span>
                                                         <div className="flex items-center gap-4">
+                                                            <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer" title={t('product.field.variation_manual_price')}>
+                                                                <input type="checkbox" checked={!!v.manualPrice} onChange={() => handleToggleVariationManual(v.id)} className="h-3.5 w-3.5" />
+                                                                {t('product.field.manual_price_short')}
+                                                            </label>
                                                             <span className="font-semibold">${v.unitPrice.toFixed(2)}</span>
                                                             <button type="button" onClick={() => handleRemoveVariation(v.id)} className="text-red-500 hover:text-red-700"><TrashIconMini/></button>
                                                         </div>
@@ -1028,6 +1042,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                     <input type="checkbox" name="useBarcodePrinter" checked={formData.useBarcodePrinter} onChange={handleChange} className="h-4 w-4 text-primary rounded" />
                                     <span className="text-sm">{t('product.field.pos_barcode')}</span>
                                 </label>
+                                <label className="flex items-center space-x-2">
+                                    <input type="checkbox" name="manualPrice" checked={!!(formData as any).manualPrice} onChange={handleChange} className="h-4 w-4 text-primary rounded" />
+                                    <span className="text-sm">{t('product.field.pos_manual_price')}</span>
+                                </label>
+                                <p className="text-xs text-neutral-400 pl-6 -mt-1">{t('product.field.pos_manual_price_hint')}</p>
                             </div>
                         </div>
                     )}

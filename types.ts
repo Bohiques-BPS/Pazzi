@@ -198,6 +198,8 @@ export interface ProductVariation {
     name: string;
     unitPrice: number;
     sku?: string;
+    /** Si true, el POS pide precio manual al agregar esta variante. */
+    manualPrice?: boolean;
 }
 
 export interface ProductPriceLevel {

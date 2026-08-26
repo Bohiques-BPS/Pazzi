@@ -635,7 +635,8 @@ export const POSCashierPage: React.FC = () => {
         addResolvedToCart({ ...product, quantity: 1 });
     };
 
-    // El cajero confirmó el precio manual → agrega la línea con ese precio y comentario.
+    // El cajero confirmó el precio manual → agrega la línea (producto o variante ya resuelta)
+    // con ese precio y comentario.
     const handleAddManualPrice = (unitPrice: number, note: string) => {
         const p = manualPriceProduct;
         if (!p) return;
@@ -648,7 +649,7 @@ export const POSCashierPage: React.FC = () => {
     const handleSelectVariation = (variation: ProductVariation) => {
         const p = variationProduct;
         if (!p) return;
-        addResolvedToCart({
+        const resolved = {
             ...p,
             id: `${p.id}::${variation.id}`,
             productId: p.id,
@@ -658,8 +659,12 @@ export const POSCashierPage: React.FC = () => {
             variationId: variation.id,
             variationName: variation.name,
             quantity: 1,
-        } as CartItem);
+        } as CartItem;
         setVariationProduct(null);
+        // Precio manual por variante: si la variante lo pide (o el producto base), abrir el modal.
+        const wantsManual = variation.manualPrice != null ? variation.manualPrice : (p as any).manualPrice;
+        if (wantsManual) { setManualPriceProduct(resolved as any); return; }
+        addResolvedToCart(resolved);
     };
 
     // El usuario eligió el PRODUCTO BASE (sin variación): se agrega con su precio base.
