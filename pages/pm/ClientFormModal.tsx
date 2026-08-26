@@ -52,6 +52,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         socialSecurity: '', dateOfBirth: '',
         clientNotes: '',
         taxId: '', stateTaxRate: 0, municipalTaxRate: 0, municipalTaxExemptionUntil: '',
+        taxExemptState: false, taxExemptMunicipal: false,
         billingAddress: '',
         creditLimit: 0, paymentTerms: paymentTermsOptions[0], showBalance: false,
         category: clientCategoryOptions[0],
@@ -289,6 +290,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 <div className="grid grid-cols-2 gap-4 pt-2">
                      <div><label className="block text-sm font-medium">{t('client.taxes.state')}</label><input type="number" name="stateTaxRate" value={formData.stateTaxRate ?? ''} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
                      <div><label className="block text-sm font-medium">{t('client.taxes.municipal')}</label><input type="number" name="municipalTaxRate" value={formData.municipalTaxRate ?? ''} onChange={handleChange} className={inputFormStyle} step="0.01"/></div>
+                </div>
+                {/* Exención total de IVU por cliente (ej. dueños de finca). Al vender/facturar, pone el IVU en 0. */}
+                <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-600 space-y-2">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('client.taxes.exempt_hint')}</p>
+                    <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="taxExemptState" checked={!!(formData as any).taxExemptState} onChange={handleChange} className="h-4 w-4" />
+                        {t('client.taxes.exempt_state')}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="taxExemptMunicipal" checked={!!(formData as any).taxExemptMunicipal} onChange={handleChange} className="h-4 w-4" />
+                        {t('client.taxes.exempt_municipal')}
+                    </label>
                 </div>
             </fieldset>
             <div><label className="block text-sm font-medium">{t('client.taxes.tax_id')}</label><input type="text" name="taxId" value={formData.taxId} onChange={handleChange} className={inputFormStyle}/></div>

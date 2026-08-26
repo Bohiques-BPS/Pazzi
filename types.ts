@@ -336,6 +336,9 @@ export interface Client {
     stateTaxRate?: number;
     municipalTaxRate?: number;
     municipalTaxExemptionUntil?: string;
+    /** Exención de IVU por cliente (ej. dueños de finca). */
+    taxExemptState?: boolean;
+    taxExemptMunicipal?: boolean;
     billingAddress?: string;
     showBalance?: boolean;
     salesperson?: string;

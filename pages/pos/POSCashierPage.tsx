@@ -561,9 +561,16 @@ export const POSCashierPage: React.FC = () => {
         // Desglose IVU (PR): Estatal + Municipal para productos normales; Reducido (bucket aparte)
         // para productos cuyo departamento o categoría está marcado como tasa reducida.
         const breakdown = !!settings.taxBreakdownEnabled;
-        const stateRate = Number(settings.taxStateRate) || 0;
-        const municipalRate = Number(settings.taxMunicipalRate) || 0;
-        const reducedRate = Number(settings.taxReducedRate) || 0;
+        // Exención de IVU por cliente (ej. dueños de finca): pone estatal/municipal en 0.
+        // Municipal también se exenta si hay una fecha de exención vigente.
+        const cli: any = selectedClient;
+        const exemptState = !!cli?.taxExemptState;
+        const exemptMunicipal = !!cli?.taxExemptMunicipal
+            || (cli?.municipalTaxExemptionUntil && new Date(cli.municipalTaxExemptionUntil).getTime() > Date.now());
+        const stateRate = exemptState ? 0 : (Number(settings.taxStateRate) || 0);
+        const municipalRate = exemptMunicipal ? 0 : (Number(settings.taxMunicipalRate) || 0);
+        const reducedRate = exemptState ? 0 : (Number(settings.taxReducedRate) || 0);
+        const clientFullyExempt = exemptState && exemptMunicipal;
          if (applyIVU) {
             cart.forEach(item => {
                 // Tax is calculated on the discounted price
@@ -595,7 +602,8 @@ export const POSCashierPage: React.FC = () => {
                         txMunicipal += taxableAmount * municipalRate;
                     }
                 } else {
-                    // Modo clásico: usa ivuRate del producto (%) o el default global (fracción→%).
+                    // Modo clásico: cliente exento total → sin IVU; si no, ivuRate del producto o el default global.
+                    if (clientFullyExempt) return;
                     const fallbackPct = (Number(settings.defaultTaxRate) || 0) * 100;
                     const rawRate = item.ivuRate != null ? Number(item.ivuRate) : fallbackPct;
                     const rate = Number.isFinite(rawRate) ? rawRate : 0;
@@ -606,7 +614,7 @@ export const POSCashierPage: React.FC = () => {
         }
 
         return { subtotal: sub, globalDiscountAmount: discountAmt, tax: tx, taxState: txState, taxMunicipal: txMunicipal, taxReduced: txReduced, total: netSubtotal + tx };
-    }, [cart, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate, settings.taxBreakdownEnabled, settings.taxStateRate, settings.taxMunicipalRate, settings.taxReducedRate]);
+    }, [cart, selectedClient, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate, settings.taxBreakdownEnabled, settings.taxStateRate, settings.taxMunicipalRate, settings.taxReducedRate]);
 
     // Agrega al carrito una línea ya resuelta (producto simple o una variación específica).
     const addResolvedToCart = (item: CartItem) => {

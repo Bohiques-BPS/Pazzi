@@ -250,9 +250,15 @@ export const InvoicesListPage: React.FC = () => {
     // Config del desglose IVU (misma lógica que el POS). Con el desglose activo, la tasa la
     // define la config (Estatal+Municipal), NO el ivuRate del producto → poner 0 = sin IVU.
     const bd = !!settings.taxBreakdownEnabled;
-    const stateR = Number(settings.taxStateRate) || 0;
-    const municipalR = Number(settings.taxMunicipalRate) || 0;
-    const reducedR = Number(settings.taxReducedRate) || 0;
+    // Exención de IVU por CLIENTE (ej. dueños de finca): al elegir el cliente, pone estatal/municipal en 0.
+    const invClient: any = clients.find(c => c.id === clientId);
+    const exemptState = !!invClient?.taxExemptState;
+    const exemptMunicipal = !!invClient?.taxExemptMunicipal
+        || (invClient?.municipalTaxExemptionUntil && new Date(invClient.municipalTaxExemptionUntil).getTime() > Date.now());
+    const clientFullyExempt = exemptState && exemptMunicipal;
+    const stateR = exemptState ? 0 : (Number(settings.taxStateRate) || 0);
+    const municipalR = exemptMunicipal ? 0 : (Number(settings.taxMunicipalRate) || 0);
+    const reducedR = exemptState ? 0 : (Number(settings.taxReducedRate) || 0);
     // Tasa de IVU efectiva de una línea.
     const lineTaxRate = (l: DraftItem): number | undefined => {
         const prod = productByName.get(l.name.trim().toLowerCase());
@@ -260,11 +266,13 @@ export const InvoicesListPage: React.FC = () => {
         // Producto EXENTO (tasa 0) → 0 en cualquier modo.
         if (explicit === 0) return 0;
         if (bd) {
-            // Desglose activo: tasa reducida si el producto está marcado; si no, Estatal+Municipal.
+            // Desglose activo: tasa reducida si el producto está marcado; si no, Estatal+Municipal
+            // (ya con la exención del cliente aplicada arriba).
             const reduced = prod ? !!(prod as any).reducedTax : false;
             return reduced ? reducedR : (stateR + municipalR);
         }
-        // Clásico: tasa del producto o (undefined → el default global del server).
+        // Clásico: cliente exento total → 0; si no, tasa del producto o el default global del server.
+        if (clientFullyExempt) return 0;
         return explicit;
     };
 
