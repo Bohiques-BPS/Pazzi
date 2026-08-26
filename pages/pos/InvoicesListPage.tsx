@@ -154,6 +154,9 @@ export const InvoicesListPage: React.FC = () => {
     const [confirmProduct, setConfirmProduct] = useState<string | null>(null);
     const inventedQueueRef = useRef<string[]>([]);
     const pendingParsedRef = useRef<InvoiceItemInput[] | null>(null);
+    // El ConfirmationModal llama onClose TANTO al confirmar como al cancelar; este flag
+    // evita que "confirmar" dispare el flujo de cancelación (toast de error).
+    const confirmingProductRef = useRef(false);
     const [items, setItems] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(false);
     // Filtros de la lista de facturas.
@@ -317,11 +320,14 @@ export const InvoicesListPage: React.FC = () => {
     // El usuario aceptó crear el producto de la línea actual → abrir el modal precargado.
     const onConfirmCreateProduct = () => {
         const name = confirmProduct;
+        confirmingProductRef.current = true; // marcamos que este cierre viene de "confirmar"
         setConfirmProduct(null);
         if (name) setProductModal({ open: true, initialName: name });
     };
-    // El usuario rechazó crear el producto → no se puede crear la factura.
-    const onCancelCreateProduct = () => {
+    // onClose del ConfirmationModal: se dispara al confirmar Y al cancelar. Si venimos de
+    // confirmar, no hacemos nada; si es una cancelación real, no se puede crear la factura.
+    const onCloseConfirmProduct = () => {
+        if (confirmingProductRef.current) { confirmingProductRef.current = false; return; }
         setConfirmProduct(null);
         inventedQueueRef.current = [];
         pendingParsedRef.current = null;
@@ -680,7 +686,7 @@ export const InvoicesListPage: React.FC = () => {
             {/* ¿Crear producto inventado? (uno por cada línea sin producto válido) */}
             <ConfirmationModal
                 isOpen={!!confirmProduct}
-                onClose={onCancelCreateProduct}
+                onClose={onCloseConfirmProduct}
                 onConfirm={onConfirmCreateProduct}
                 title={t('posx.invoices.create_product_title')}
                 confirmButtonText={t('posx.invoices.create_product')}
