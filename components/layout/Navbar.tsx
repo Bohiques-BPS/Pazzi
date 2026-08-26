@@ -240,17 +240,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           )}
         </div>
 
-        {/* Right side: Business Logo, Notifications & User Menu */}
+        {/* Right side: Notifications & User Menu */}
         <div className="flex items-center space-x-1 sm:space-x-2">
-           {/* Business Logo (del negocio, configurado en Administración) */}
-           {showBusinessLogo && (
-             <img
-               src={businessLogoSrc}
-               alt={businessName || 'Logo'}
-               title={businessName || undefined}
-               className="h-8 sm:h-10 w-auto max-w-[120px] object-contain rounded-md mr-1 sm:mr-2"
-             />
-           )}
            {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
             <div className="relative" ref={notifRef}>
@@ -317,7 +308,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           {/* User Menu */}
           <div className="relative" ref={userRef}>
             <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-1 sm:space-x-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
-                <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
+                {showBusinessLogo
+                    ? <img src={businessLogoSrc} alt={businessName || 'Logo'} title={businessName || undefined} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-neutral-200 dark:border-neutral-600" />
+                    : <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />}
                 <span className="hidden md:inline text-sm sm:text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
                 <ChevronDownIcon className="w-4 h-4 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             </button>
