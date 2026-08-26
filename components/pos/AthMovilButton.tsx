@@ -10,6 +10,8 @@ interface AthMovilButtonProps {
     items?: { name: string; quantity: number; price: number }[];
     onSuccess: (reference: string) => void;
     onFail?: (msg: string) => void;
+    /** Identificador para correlacionar el webhook con la factura (su publicToken). */
+    metadata?: string;
     /** Traducción a usar (en páginas públicas, el idioma del navegador del visitante). */
     t?: (key: string, params?: Record<string, string | number>) => string;
 }
@@ -27,7 +29,7 @@ interface AthMovilButtonProps {
  * por eso vigilamos que el botón aparezca y, si no, mostramos un aviso.
  */
 export const AthMovilButton: React.FC<AthMovilButtonProps> = ({
-    publicToken, environment, total, subtotal, tax, items, onSuccess, onFail, t: tProp,
+    publicToken, environment, total, subtotal, tax, items, onSuccess, onFail, metadata, t: tProp,
 }) => {
     const { t: tHook } = useTranslation();
     const t = tProp || tHook;
@@ -66,7 +68,9 @@ export const AthMovilButton: React.FC<AthMovilButtonProps> = ({
             total: totalR,
             subtotal: sub,
             tax: tx,
-            items: sdkItems,
+            metadata1: metadata || '',
+            metadata2: '',
+            items: sdkItems.map(it => ({ ...it, metadata: metadata || '' })),
         };
 
         // Callbacks globales que invoca el SDK.

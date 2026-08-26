@@ -294,6 +294,7 @@ export const PublicInvoicePage: React.FC = () => {
                                                 total={charge}
                                                 tax={inv.tax}
                                                 items={inv.items.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
+                                                metadata={token}
                                                 t={t}
                                                 onSuccess={handleAthSuccess}
                                                 onFail={(m) => setError(m)}
