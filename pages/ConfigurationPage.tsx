@@ -228,7 +228,20 @@ export const ConfigurationPage: React.FC = () => {
                         <input
                             type="checkbox"
                             checked={!!settings.taxBreakdownEnabled}
-                            onChange={(e) => updateSettings({ taxBreakdownEnabled: e.target.checked })}
+                            onChange={(e) => {
+                                // Al activar, persistir también las tasas efectivas (estándar PR si no había),
+                                // para que el desglose no salga con municipal en $0 por tasas null en la BD.
+                                if (e.target.checked) {
+                                    updateSettings({
+                                        taxBreakdownEnabled: true,
+                                        taxStateRate: settings.taxStateRate ?? 0.105,
+                                        taxMunicipalRate: settings.taxMunicipalRate ?? 0.01,
+                                        taxReducedRate: settings.taxReducedRate ?? 0.06,
+                                    });
+                                } else {
+                                    updateSettings({ taxBreakdownEnabled: false });
+                                }
+                            }}
                             className="h-4 w-4"
                         />
                         Desglosar IVU en <strong>Estatal / Municipal / Reducido</strong> (Puerto Rico)
