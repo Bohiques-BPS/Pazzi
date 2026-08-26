@@ -817,6 +817,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 branchId,
                 clientId: saleData.clientId,
                 projectId: saleData.projectId,
+                cashierName: (saleData as any).cashierName,
+                operatorUserId: (saleData as any).operatorUserId,
                 isExternal: saleData.isExternal || false,
                 allowOversell: saleData.allowOversell || false,
                 payments: paymentsPayload,

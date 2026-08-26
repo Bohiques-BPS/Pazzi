@@ -64,6 +64,7 @@ import { authService } from '../../services/auth';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { DrawerOpenModal } from '../../components/pos/DrawerOpenModal';
 import { posService } from '../../services/pos';
+import { timeclockService } from '../../services/timeclock';
 import { openCashDrawer, isCashDrawerEnabled } from '../../services/cashDrawer';
 import { toast } from '../../hooks/useToast';
 import { PasswordInput } from '../../components/ui/PasswordInput';
@@ -235,6 +236,15 @@ export const POSCashierPage: React.FC = () => {
     // Siempre apunta al handler vigente de atajos de pago F1..F6 (sin closures obsoletos).
     const paymentShortcutRef = useRef<(e: KeyboardEvent) => void>(() => {});
 
+    // Cajero/operador REAL del turno (identificado por PIN). null = la cuenta que hizo login.
+    // Las ventas se atribuyen a este operador (cashierName + userId) para el cuadre.
+    const [operator, setOperator] = useState<{ userId: string | null; name: string; lastName: string } | null>(null);
+    // Nombre y userId del cajero efectivo (operador por PIN, o la cuenta que hizo login).
+    const operatorName = (operator
+        ? `${operator.name} ${operator.lastName || ''}`
+        : (currentUser ? `${currentUser.name} ${currentUser.lastName || ''}` : '')).trim();
+    const operatorUserId = operator?.userId || currentUser?.id;
+
     // Shift and security states
     const [isPosAuthenticated, setIsPosAuthenticated] = useState(false);
     // currentSession refleja la CajaSession real del BE para la caja seleccionada.
@@ -308,6 +318,7 @@ export const POSCashierPage: React.FC = () => {
                 role: e.role as UserRole,
                 profilePictureUrl: e.profilePictureUrl,
                 permissions: e.permissions,
+                pin: e.pin, // habilita el cambio de cajero por PIN
             } as unknown as User));
     }, [employees, currentUser?.email]);
 
@@ -401,11 +412,23 @@ export const POSCashierPage: React.FC = () => {
         return success;
     };
 
-    // Cambio por PIN aún no soportado por el BE; el modal solo muestra PIN si el empleado tiene uno.
-    const handleSwitchUserWithPin = async (_userId: string, _pin: string): Promise<boolean> => {
-        toast.error(t('posx.cashier.pin_switch_unavailable'));
-        return false;
+    // Cambio de CAJERO por PIN: identifica al operador (sin ponchar ni re-login) y le atribuye
+    // las ventas del turno. No cambia la sesión de la caja ni la cuenta del equipo.
+    const handleSwitchUserWithPin = async (employeeId: string, pin: string): Promise<boolean> => {
+        try {
+            const emp = posUsers.find(u => u.id === employeeId);
+            const identifier = emp ? `${emp.name} ${emp.lastName || ''}`.trim() : undefined;
+            const r = await timeclockService.identify(pin, identifier);
+            if (!r.ok) return false;
+            setOperator({ userId: r.userId, name: r.name, lastName: r.lastName });
+            toast.success(t('posx.cashier.operator_set', { name: `${r.name} ${r.lastName || ''}`.trim() }));
+            return true;
+        } catch {
+            return false;
+        }
     };
+    // Volver a operar como la cuenta que hizo login (quita el operador por PIN).
+    const clearOperator = () => setOperator(null);
 
     useEffect(() => {
         // Skip while DataContext hasn't loaded yet (both arrays still empty on mount)
@@ -852,7 +875,7 @@ export const POSCashierPage: React.FC = () => {
             })(),
             changeDue: changeDue || 0,
             clientName: selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined,
-            cashierName: currentUser ? `${currentUser.name} ${currentUser.lastName || ''}`.trim() : undefined,
+            cashierName: operatorName,
         };
 
         setActiveModal(null);
@@ -872,7 +895,9 @@ export const POSCashierPage: React.FC = () => {
                 clientId: selectedClient?.id,
                 projectId: selectedProjectId || undefined,
                 cajaId: selectedCajaId,
-                employeeId: currentUser.id,
+                employeeId: operatorUserId || currentUser.id,
+                cashierName: operatorName,
+                operatorUserId: operatorUserId,
                 isExternal: isExternalSale,
                 allowOversell,
             } as any, selectedBranchId);
@@ -1240,7 +1265,10 @@ export const POSCashierPage: React.FC = () => {
                     <div className="flex items-center space-x-2 sm:space-x-3 border-l border-white/20 pl-2 sm:pl-6">
                         <div className="text-right hidden lg:block">
                             <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold leading-none mb-1">{t('posx.cashier.cashier')}</p>
-                            <p className="text-sm font-bold text-white leading-tight">{currentUser?.name}</p>
+                            <p className="text-sm font-bold text-white leading-tight">{operator ? operatorName : currentUser?.name}</p>
+                            {operator && (
+                                <button onClick={clearOperator} className="text-[9px] text-white/60 hover:text-white underline leading-none">{t('posx.cashier.operator_clear')}</button>
+                            )}
                         </div>
                         <div className="relative">
                             <img 

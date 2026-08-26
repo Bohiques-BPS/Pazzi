@@ -17,6 +17,8 @@ export const posService = {
     isReturn?: boolean;
     originalSaleId?: string;
     isExternal?: boolean;
+    cashierName?: string;
+    operatorUserId?: string;
     relatedEstimateIds?: string[];
     payments?: { method: string; amount: number; reference?: string }[];
     items: { productId: string; quantity: number; unitPrice: number; discountType?: string; discountValue?: number; variationId?: string; variationName?: string }[];
