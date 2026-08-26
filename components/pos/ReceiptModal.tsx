@@ -52,8 +52,11 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
         const row = (l: string, r: string, bold = false) =>
             `<div style="display:flex;justify-content:space-between;${bold ? 'font-weight:700;' : ''}"><span>${esc(l)}</span><span>${esc(r)}</span></div>`;
         const itemCount = sale.items.reduce((s, it) => s + it.quantity, 0);
-        const taxRows = (sale.taxState || sale.taxMunicipal || sale.taxReduced)
-            ? `${row('+ Estatal', money(sale.taxState || 0))}${row('+ Reducido', money(sale.taxReduced || 0))}${row('+ Municipal', money(sale.taxMunicipal || 0))}`
+        // Sin IVU (tasas en 0 o venta exenta) → no se imprime ninguna línea de impuesto.
+        const taxRows = !((sale.tax || 0) > 0)
+            ? ''
+            : (sale.taxState || sale.taxMunicipal || sale.taxReduced)
+            ? `${sale.taxState ? row('+ Estatal', money(sale.taxState)) : ''}${sale.taxReduced ? row('+ Reducido', money(sale.taxReduced)) : ''}${sale.taxMunicipal ? row('+ Municipal', money(sale.taxMunicipal)) : ''}`
             : (cfg.showTaxBreakdown ? row('+ IVU', money(sale.tax)) : '');
         const reprint = sale.isReprint && cfg.reprintLabel ? `<div style="text-align:center;font-weight:700;">${esc(cfg.reprintLabel)}</div>` : '';
         const legal = [cfg.returnPolicyText, cfg.thankYouText, cfg.paymentTermsText]
@@ -126,7 +129,7 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
         <div style="border-top:1px dashed #999;padding-top:6px;margin-top:4px;">
             ${line('Subtotal', money(sale.subtotal))}
             ${sale.discount > 0 ? line('Descuento', `-${money(sale.discount)}`) : ''}
-            ${(sale.taxState || sale.taxMunicipal || sale.taxReduced)
+            ${!((sale.tax || 0) > 0) ? '' : (sale.taxState || sale.taxMunicipal || sale.taxReduced)
                 ? `${sale.taxState ? line('IVU Estatal', money(sale.taxState)) : ''}${sale.taxMunicipal ? line('IVU Municipal', money(sale.taxMunicipal)) : ''}${sale.taxReduced ? line('IVU Reducido', money(sale.taxReduced)) : ''}`
                 : (cfg.showTaxBreakdown ? line('IVU', money(sale.tax)) : '')}
             <div style="font-size:${is80 ? '14px' : '16px'};margin-top:4px;">${line('TOTAL', money(sale.total), true)}</div>
@@ -196,9 +199,13 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
         const count = sale.items.reduce((s, i) => s + i.quantity, 0);
         row(`${count} Articulos  SUBTOTAL`, money(sale.subtotal), true);
         if (sale.discount > 0) row('Descuento', `-${money(sale.discount)}`);
-        if (sale.taxState || sale.taxMunicipal || sale.taxReduced) {
-            row('+ Estatal', money(sale.taxState || 0)); row('+ Reducido', money(sale.taxReduced || 0)); row('+ Municipal', money(sale.taxMunicipal || 0));
-        } else if (cfg.showTaxBreakdown) row('+ IVU', money(sale.tax));
+        if ((sale.tax || 0) > 0) {
+            if (sale.taxState || sale.taxMunicipal || sale.taxReduced) {
+                if (sale.taxState) row('+ Estatal', money(sale.taxState));
+                if (sale.taxReduced) row('+ Reducido', money(sale.taxReduced));
+                if (sale.taxMunicipal) row('+ Municipal', money(sale.taxMunicipal));
+            } else if (cfg.showTaxBreakdown) row('+ IVU', money(sale.tax));
+        }
         row('TOTAL', money(sale.total), true);
         sale.payments.forEach(p => row(p.method, money(p.amount)));
         if (sale.changeDue && sale.changeDue > 0) row('Cambio', money(sale.changeDue), true);
@@ -232,7 +239,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
     doc.line(M, y, W - M, y); y += 4;
     row('Subtotal', money(sale.subtotal));
     if (sale.discount > 0) row('Descuento', `-${money(sale.discount)}`);
-    if (cfg.showTaxBreakdown) row('IVU', money(sale.tax));
+    if (cfg.showTaxBreakdown && (sale.tax || 0) > 0) row('IVU', money(sale.tax));
     row('TOTAL', money(sale.total), true);
     y += 1; doc.line(M, y, W - M, y); y += 4;
     sale.payments.forEach(p => row(p.method + (p.reference ? ` (${p.reference})` : ''), money(p.amount)));
