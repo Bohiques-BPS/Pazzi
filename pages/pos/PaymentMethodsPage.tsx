@@ -6,6 +6,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSE
 import { ArrowUpIcon, ArrowDownIcon, DeleteIcon, PlusIcon } from '../../components/icons';
 import { toast } from '../../hooks/useToast';
 import { SecretInput } from '../../components/pos/SecretInput';
+import { api, ApiError } from '../../services/api';
 
 /** Quita/añade un id en una lista, devolviendo la nueva lista (sin duplicados, sin vacíos). */
 const toggleInList = (list: string[] | undefined, id: string, disabled: boolean): string[] => {
@@ -34,6 +35,22 @@ export const PaymentMethodsPage: React.FC = () => {
     });
     const [expandedScope, setExpandedScope] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    // Verificación de credenciales por método (id → estado/resultado).
+    const [validating, setValidating] = useState<Record<string, boolean>>({});
+    const [validation, setValidation] = useState<Record<string, { valid: boolean; message?: string }>>({});
+
+    const validateCreds = async (m: PaymentMethodConfig) => {
+        setValidating(prev => ({ ...prev, [m.id]: true }));
+        setValidation(prev => { const n = { ...prev }; delete n[m.id]; return n; });
+        try {
+            const r = await api.post<{ valid: boolean; message?: string }>('/settings/validate-payment', { method: m.type, config: m.config || {} });
+            setValidation(prev => ({ ...prev, [m.id]: r }));
+        } catch (err) {
+            setValidation(prev => ({ ...prev, [m.id]: { valid: false, message: err instanceof ApiError ? err.message : t('posx.paymentmethods.validate_error') } }));
+        } finally {
+            setValidating(prev => ({ ...prev, [m.id]: false }));
+        }
+    };
     // Evita pisar ediciones sin guardar cuando llegan los settings del servidor (carga async).
     const dirtyRef = useRef(false);
     const markDirty = () => { dirtyRef.current = true; };
@@ -107,6 +124,23 @@ export const PaymentMethodsPage: React.FC = () => {
         setTimeout(() => { setSaving(false); toast.success(t('posx.paymentmethods.saved')); }, 300);
     };
 
+    // Fila "Verificar credenciales" + resultado (para ATH Móvil y AgilPay).
+    const renderValidate = (m: PaymentMethodConfig) => {
+        const res = validation[m.id];
+        return (
+            <div className="col-span-full flex flex-wrap items-center gap-3 mt-1">
+                <button type="button" onClick={() => validateCreds(m)} disabled={!!validating[m.id]} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>
+                    {validating[m.id] ? t('posx.paymentmethods.validating') : t('posx.paymentmethods.validate')}
+                </button>
+                {res && (
+                    <span className={`inline-flex items-center gap-1 text-sm font-medium ${res.valid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {res.valid ? `✓ ${t('posx.paymentmethods.validate_ok')}` : `✕ ${res.message || t('posx.paymentmethods.validate_bad')}`}
+                    </span>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-2">
@@ -174,6 +208,7 @@ export const PaymentMethodsPage: React.FC = () => {
                                     </select>
                                 </div>
                                 <p className="sm:col-span-3 text-xs text-neutral-400">{t('posx.paymentmethods.ath_note')}</p>
+                                {renderValidate(m)}
                             </div>
                         )}
 
@@ -200,6 +235,7 @@ export const PaymentMethodsPage: React.FC = () => {
                                     </select>
                                 </div>
                                 <p className="sm:col-span-4 text-xs text-neutral-400">{t('posx.paymentmethods.agilpay_note')}</p>
+                                {renderValidate(m)}
                             </div>
                         )}
 
