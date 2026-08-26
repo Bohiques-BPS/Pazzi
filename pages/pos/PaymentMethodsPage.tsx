@@ -124,8 +124,14 @@ export const PaymentMethodsPage: React.FC = () => {
         setTimeout(() => { setSaving(false); toast.success(t('posx.paymentmethods.saved')); }, 300);
     };
 
-    // Fila "Verificar credenciales" + resultado (para ATH Móvil y AgilPay).
+    // Fila "Verificar credenciales" + resultado. ATH Móvil no ofrece validación de credenciales
+    // por API (da falsos 401/403); su integración se confirma con el webhook / un pago real.
     const renderValidate = (m: PaymentMethodConfig) => {
+        if (m.type === 'ath_movil') {
+            return (
+                <p className="col-span-full text-xs text-amber-600 dark:text-amber-400 mt-1">{t('posx.paymentmethods.ath_no_validate')}</p>
+            );
+        }
         const res = validation[m.id];
         return (
             <div className="col-span-full flex flex-wrap items-center gap-3 mt-1">
