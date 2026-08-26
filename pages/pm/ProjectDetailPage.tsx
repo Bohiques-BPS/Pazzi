@@ -9,6 +9,7 @@ import { ArrowUturnLeftIcon, PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRig
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
 import { ConfirmationModal } from '../../components/Modal';
@@ -127,6 +128,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const { t } = useTranslation(); // Use translation hook
     const { addProject, setProjects, clients, products: allProductsHookData, employees: allEmployeesHook, getEmployeeById, projects, generateInvoiceForProject, getClientById } = useData();
     const { currentUser } = useAuth();
+    const { can } = usePermissions();
     const navigate = useNavigate();
 
     const selectFormStyle = inputFormStyle + " appearance-none pr-8";
@@ -155,7 +157,9 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const [showCreateClient, setShowCreateClient] = useState(false);
 
     const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
-    const canEditDetails = !isEmployeeView;
+    // Puede editar si es MANAGER o si el empleado tiene el permiso correspondiente
+    // (projects.edit para editar, projects.create para uno nuevo). NO se bloquea por ser empleado.
+    const canEditDetails = project ? can('projects.edit') : can('projects.create');
 
     const selectedClientDetails = useMemo(() => getClientById(formData.clientId), [formData.clientId, getClientById]);
 
@@ -182,7 +186,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     }, [project]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        if (isEmployeeView) return; 
+        if (!canEditDetails) return;
         const { name, value } = e.target;
         setFormData(prev => ({...prev, [name]: name === 'priority' ? parseInt(value, 10) : value}));
     };
@@ -372,7 +376,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                 </div>
                             </div>
                         </div>
-                        {(currentUser?.role === UserRole.MANAGER || (currentUser?.role === UserRole.EMPLOYEE && currentUser.permissions?.manageProjects)) && (
+                        {canEditDetails && (
                             <div>
                                 <label htmlFor="priority" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('pm2x.project.priority')}</label>
                                 <div className="relative">

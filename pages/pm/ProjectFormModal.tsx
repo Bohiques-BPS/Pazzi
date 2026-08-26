@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project, ProjectFormData, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, UserRole, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon } from '../../components/icons'; // Added DocumentArrowDownIcon
@@ -91,8 +92,10 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
 
 
     const projectMessages = useMemo(() => project ? getChatMessagesForProject(project.id) : [], [project, getChatMessagesForProject]);
+    const { can } = usePermissions();
     const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
-    const canEditDetails = !isEmployeeView;
+    // Editar por PERMISO (projects.edit / projects.create), no por ser empleado.
+    const canEditDetails = project ? can('projects.edit') : can('projects.create');
 
 
     const scrollToBottomChat = () => {
@@ -143,7 +146,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     }, [project, isOpen, initialTab]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        if (isEmployeeView && activeTab === 'details') return; 
+        if (!canEditDetails && activeTab === 'details') return;
         setFormData(prev => ({...prev, [e.target.name]: e.target.value}));
     };
 
