@@ -25,7 +25,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
     cancelled: { label: 'Cancelada', cls: 'bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300' },
 };
 
-type DraftItem = { name: string; quantity: string; unitPrice: string };
+type DraftItem = { name: string; quantity: string; unitPrice: string; taxRate?: number };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
 
 /** Modal que muestra el link público + QR de una factura. */
@@ -219,13 +219,14 @@ export const InvoicesListPage: React.FC = () => {
         setDescription(inv.description || '');
         setInvType(inv.type || '');
         setAllowPartial(inv.allowPartial !== false);
-        setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice) })));
+        setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), taxRate: (it as any).taxRate ?? undefined })));
         setSendOnCreate(false);
         setShowForm(true);
     };
     const setLine = (i: number, patch: Partial<DraftItem>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
     const addLine = () => setLines(ls => [...ls, emptyItem()]);
-    const removeLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls);
+    // Si hay varias líneas, elimina la línea; si es la única, la limpia (deja el form vacío).
+    const removeLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : [emptyItem()]);
 
     const draftTotal = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0);
 
@@ -234,6 +235,20 @@ export const InvoicesListPage: React.FC = () => {
         () => new Set((products || []).map(p => p.name.trim().toLowerCase())),
         [products]
     );
+    // Producto por nombre → para resolver la tasa de IVU (ivuRate=0 si es exento).
+    const productByName = useMemo(() => {
+        const m = new Map<string, any>();
+        for (const p of (products || [])) m.set(p.name.trim().toLowerCase(), p);
+        return m;
+    }, [products]);
+    // Tasa de IVU de un producto (el BE la llama ivaRate; el público la renombra a ivuRate).
+    const prodRate = (p: any): number | undefined => (p?.ivaRate != null ? p.ivaRate : p?.ivuRate);
+    // Tasa de IVU efectiva de una línea: la capturada al seleccionar, o la del producto por nombre.
+    const lineTaxRate = (l: DraftItem): number | undefined => {
+        if (l.taxRate != null) return l.taxRate;
+        const p = productByName.get(l.name.trim().toLowerCase());
+        return p ? prodRate(p) : undefined;
+    };
 
     const create = async () => {
         const parsed: InvoiceItemInput[] = [];
@@ -242,7 +257,8 @@ export const InvoicesListPage: React.FC = () => {
             if (!l.name.trim()) return toast.error(t('posx.invoices.err_line_desc'));
             if (!(q > 0)) return toast.error(t('posx.invoices.err_qty'));
             if (!(p >= 0)) return toast.error(t('posx.invoices.err_price'));
-            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p });
+            const rate = lineTaxRate(l);
+            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(rate != null ? { taxRate: rate } : {}) });
         }
         if (parsed.length === 0) return toast.error(t('posx.invoices.err_no_items'));
 
@@ -312,19 +328,26 @@ export const InvoicesListPage: React.FC = () => {
         toast.error(t('posx.invoices.err_invalid_product'));
     };
     // Producto creado en el modal → avanzar la cola; si no quedan inventados, enviar la factura.
-    const onProductCreated = (created: { name?: string; unitPrice?: number }) => {
+    const onProductCreated = (created: { name?: string; unitPrice?: number; ivuRate?: number; ivaRate?: number }) => {
         const createdName = (created?.name || '').trim();
-        // Si la línea no tenía precio, tomamos el del producto recién creado.
-        if (createdName && created?.unitPrice != null) {
-            setLines(ls => ls.map(l =>
-                l.name.trim().toLowerCase() === createdName.toLowerCase() && !(Number(l.unitPrice) > 0)
-                    ? { ...l, unitPrice: String(created.unitPrice) } : l
-            ));
+        // Tasa de IVU del producto recién creado (0 = exento). El BE la usa por línea.
+        const createdRate = created?.ivuRate != null ? created.ivuRate : created?.ivaRate;
+        const key = createdName.toLowerCase();
+        if (createdName) {
+            // Fijar precio (si faltaba) y la tasa en la línea correspondiente.
+            setLines(ls => ls.map(l => {
+                if (l.name.trim().toLowerCase() !== key) return l;
+                const patch: Partial<DraftItem> = { taxRate: createdRate };
+                if (created?.unitPrice != null && !(Number(l.unitPrice) > 0)) patch.unitPrice = String(created.unitPrice);
+                return { ...l, ...patch };
+            }));
             if (pendingParsedRef.current) {
-                pendingParsedRef.current = pendingParsedRef.current.map(it =>
-                    it.name.toLowerCase() === createdName.toLowerCase() && !(it.unitPrice > 0)
-                        ? { ...it, unitPrice: created.unitPrice! } : it
-                );
+                pendingParsedRef.current = pendingParsedRef.current.map(it => {
+                    if (it.name.toLowerCase() !== key) return it;
+                    const next: typeof it = { ...it, ...(createdRate != null ? { taxRate: createdRate } : {}) };
+                    if (created?.unitPrice != null && !(it.unitPrice > 0)) next.unitPrice = created.unitPrice;
+                    return next;
+                });
             }
         }
         // Quitar de la cola el nombre recién creado (por si acaso, todos los que ahora existen).
@@ -501,7 +524,7 @@ export const InvoicesListPage: React.FC = () => {
                                     <input
                                         type="text"
                                         value={l.name}
-                                        onChange={e => { setLine(i, { name: e.target.value }); setOpenLine(i); }}
+                                        onChange={e => { setLine(i, { name: e.target.value, taxRate: undefined }); setOpenLine(i); }}
                                         onFocus={() => setOpenLine(i)}
                                         onBlur={() => setTimeout(() => setOpenLine(o => (o === i ? null : o)), 150)}
                                         placeholder={t('posx.invoices.item_desc_placeholder')}
@@ -519,7 +542,7 @@ export const InvoicesListPage: React.FC = () => {
                                                 {matches.map(p => (
                                                     <li
                                                         key={p.id}
-                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? '') }); setOpenLine(null); }}
+                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? ''), taxRate: prodRate(p) }); setOpenLine(null); }}
                                                         className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm flex justify-between gap-2"
                                                     >
                                                         <span className="truncate">{p.name}</span>

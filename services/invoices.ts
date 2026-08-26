@@ -5,6 +5,8 @@ export interface InvoiceItemInput {
     name: string;
     quantity: number;
     unitPrice: number;
+    /** Tasa de IVU por línea (fracción). 0 = producto exento. Omitido = tasa por defecto del negocio. */
+    taxRate?: number | null;
 }
 
 export interface Invoice {
