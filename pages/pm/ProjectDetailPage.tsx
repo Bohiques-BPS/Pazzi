@@ -18,6 +18,7 @@ import { ClientFormModal } from './ClientFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
 import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
+import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
 
 
 type ActiveTab = 'details' | 'chat' | 'tasks' | 'seguimiento';
@@ -481,7 +482,9 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.map(emp => (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>))}</div>
                     </div>
                  </fieldset>
-                 {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}><p>{t('pm2x.project.invoicing_placeholder')}</p></fieldset>}
+                 {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}>
+                    {activeDetailsTab === 'Facturación' && <ProjectInvoicesTab projectId={project.id} />}
+                 </fieldset>}
             </div>
             {canEditDetails && (
                 <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
