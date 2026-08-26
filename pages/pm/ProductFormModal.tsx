@@ -599,7 +599,28 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.tax_rate')}</label>
-                                    <input type="number" name="ivuRate" value={formData.ivuRate ?? ''} onChange={handleChange} className={inputFormStyle} step="0.001" min="0" />
+                                    <input
+                                        type="number"
+                                        name="ivuRate"
+                                        value={formData.ivuRate ?? ''}
+                                        onChange={handleChange}
+                                        className={inputFormStyle}
+                                        step="0.001"
+                                        min="0"
+                                        disabled={Number(formData.ivuRate) === 0}
+                                    />
+                                    <label className="flex items-center gap-2 mt-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={Number(formData.ivuRate) === 0}
+                                            onChange={e => setFormData(prev => ({
+                                                ...prev,
+                                                ivuRate: e.target.checked ? 0 : (Number(settings.defaultTaxRate) || 0.115),
+                                            }))}
+                                            className="h-4 w-4"
+                                        />
+                                        {t('product.tax_exempt')}
+                                    </label>
                                 </div>
                                 {!productToEdit && (
                                     <>
