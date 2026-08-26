@@ -23,6 +23,8 @@ export const AthMovilPhonePay: React.FC<Props> = ({ token, amount, disabled, onP
     const [error, setError] = useState<string | null>(null);
     const pollRef = useRef<number | null>(null);
     const triesRef = useRef(0);
+    const cancelHitsRef = useRef(0);
+    const [athDbg, setAthDbg] = useState<string>('');
 
     useEffect(() => () => { if (pollRef.current) window.clearInterval(pollRef.current); }, []);
 
@@ -46,13 +48,27 @@ export const AthMovilPhonePay: React.FC<Props> = ({ token, amount, disabled, onP
             const baseline = r.baselinePaid;
             setPhase('waiting');
             triesRef.current = 0;
+            cancelHitsRef.current = 0;
             // Polling cada 4s, hasta ~2.5 min.
             pollRef.current = window.setInterval(async () => {
                 triesRef.current += 1;
                 try {
                     const s = await invoicesService.athStatus(token, r.ecommerceId, r.authToken, baseline);
+                    setAthDbg(s.athStatus || '');
                     if (s.status === 'completed') { stopPoll(); setPhase('done'); onPaid(); return; }
-                    if (s.status === 'cancelled') { stopPoll(); setPhase('cancelled'); return; }
+                    if (s.status === 'cancelled') {
+                        // NO cortamos de inmediato: el webhook puede registrar el cobro segundos
+                        // después. Seguimos sondeando un rato; solo cancelamos si persiste.
+                        cancelHitsRef.current += 1;
+                        if (cancelHitsRef.current >= 5) {
+                            stopPoll(); setPhase('cancelled');
+                            setError(t('pay.ath_cancelled') + (s.athStatus ? ` (${s.athStatus})` : ''));
+                            onPaid();
+                            return;
+                        }
+                    } else {
+                        cancelHitsRef.current = 0;
+                    }
                 } catch { /* reintenta en el próximo tick */ }
                 if (triesRef.current >= 38) {
                     // Se agotó el sondeo. El pago puede haber entrado por el webhook: recargamos la
@@ -77,6 +93,7 @@ export const AthMovilPhonePay: React.FC<Props> = ({ token, amount, disabled, onP
                     <div className="inline-block w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mb-2" />
                     <p className="text-sm text-neutral-700 dark:text-neutral-200 font-medium">{t('pay.ath_check_app')}</p>
                     <p className="text-xs text-neutral-500 mt-1">{t('pay.ath_waiting')}</p>
+                    {athDbg && <p className="text-[10px] text-neutral-400 mt-1">ATH: {athDbg}</p>}
                 </div>
             ) : (
                 <>
