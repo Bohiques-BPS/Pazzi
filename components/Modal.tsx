@@ -46,8 +46,14 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   const isScreen = size === 'screen';
 
+  // Cerrar al hacer clic en el fondo (fuera del contenido). Solo si el clic fue directamente
+  // sobre el backdrop, y respetando disableEscClose (modales con datos sin guardar).
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && !disableEscClose) onClose();
+  };
+
   return (
-    <div className={`fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 z-50 flex items-center justify-center ${isScreen ? '' : 'p-4'}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div onMouseDown={handleBackdrop} className={`fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 z-50 flex items-center justify-center ${isScreen ? '' : 'p-4'}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div className={`bg-white dark:bg-neutral-800 shadow-xl w-full ${sizeClasses[size]} ${isScreen ? 'max-h-none rounded-none' : 'max-h-[90vh] rounded-lg'} flex flex-col`}>
         <div className="flex justify-between items-center p-5 border-b border-neutral-200 dark:border-neutral-700">
           <h3 id="modal-title" className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">{title}</h3>
