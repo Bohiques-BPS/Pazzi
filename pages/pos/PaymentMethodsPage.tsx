@@ -37,13 +37,13 @@ export const PaymentMethodsPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     // Verificación de credenciales por método (id → estado/resultado).
     const [validating, setValidating] = useState<Record<string, boolean>>({});
-    const [validation, setValidation] = useState<Record<string, { valid: boolean; message?: string }>>({});
+    const [validation, setValidation] = useState<Record<string, { valid: boolean; inconclusive?: boolean; message?: string; detail?: string }>>({});
 
     const validateCreds = async (m: PaymentMethodConfig) => {
         setValidating(prev => ({ ...prev, [m.id]: true }));
         setValidation(prev => { const n = { ...prev }; delete n[m.id]; return n; });
         try {
-            const r = await api.post<{ valid: boolean; message?: string }>('/settings/validate-payment', { method: m.type, config: m.config || {} });
+            const r = await api.post<{ valid: boolean; inconclusive?: boolean; message?: string; detail?: string }>('/settings/validate-payment', { method: m.type, config: m.config || {} });
             setValidation(prev => ({ ...prev, [m.id]: r }));
         } catch (err) {
             setValidation(prev => ({ ...prev, [m.id]: { valid: false, message: err instanceof ApiError ? err.message : t('posx.paymentmethods.validate_error') } }));
@@ -133,8 +133,8 @@ export const PaymentMethodsPage: React.FC = () => {
                     {validating[m.id] ? t('posx.paymentmethods.validating') : t('posx.paymentmethods.validate')}
                 </button>
                 {res && (
-                    <span className={`inline-flex items-center gap-1 text-sm font-medium ${res.valid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {res.valid ? `✓ ${t('posx.paymentmethods.validate_ok')}` : `✕ ${res.message || t('posx.paymentmethods.validate_bad')}`}
+                    <span className={`inline-flex items-start gap-1 text-sm font-medium ${res.valid ? 'text-green-600 dark:text-green-400' : res.inconclusive ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {res.valid ? `✓ ${t('posx.paymentmethods.validate_ok')}` : `${res.inconclusive ? '⚠' : '✕'} ${res.message || t('posx.paymentmethods.validate_bad')}`}
                     </span>
                 )}
             </div>
