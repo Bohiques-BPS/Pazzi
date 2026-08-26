@@ -197,14 +197,24 @@ export const PublicInvoicePage: React.FC = () => {
                 {/* Pago / Descarga */}
                 <div className="px-6 pb-6">
                     {isPaid ? (
-                        <div className="space-y-3">
-                            <div className="text-center text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 rounded-md py-3">
-                                {t('pay.received_thanks')}
-                                {inv.paidReference && <div className="text-xs text-neutral-500 mt-1">{t('pay.ref')} {inv.paidReference}</div>}
+                        <div className="text-center space-y-4 py-2">
+                            {/* Círculo con checkmark */}
+                            <div className="mx-auto w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                                <svg className="w-9 h-9 text-green-600 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                             </div>
-                            <button onClick={downloadPDF} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-md">
+                            <div>
+                                <h3 className="text-xl font-bold text-neutral-900 dark:text-white">{t('pay.thankyou_title')}</h3>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('pay.thankyou_desc')}</p>
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg py-3 px-4 text-sm space-y-1">
+                                <div className="flex justify-between"><span className="text-neutral-600 dark:text-neutral-300">{t('pay.paid')}</span><span className="font-semibold text-green-700 dark:text-green-300 tabular-nums">{money(inv.amountPaid || inv.total)}</span></div>
+                                {inv.paidReference && <div className="flex justify-between"><span className="text-neutral-500">{t('pay.ref')}</span><span className="text-neutral-500 tabular-nums">{inv.paidReference}</span></div>}
+                            </div>
+                            <button onClick={downloadPDF} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-md flex items-center justify-center gap-2">
+                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
                                 {t('pay.download_pdf')}
                             </button>
+                            <p className="text-xs text-neutral-400">{t('pay.email_sent_note')}</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
