@@ -116,8 +116,12 @@ export const invoicesService = {
     payPublicAgilPay: (token: string, card: AgilPayCardData, amount?: number) =>
         api.post<{ success: boolean; reference: string; amountPaid: number; balance: number; fullyPaid: boolean }>(
             `/public/invoices/${token}/pay-agilpay`, { ...card, ...(amount != null ? { amount } : {}) }),
-    /** Registra automáticamente un pago por ATH Móvil (verificado server-side por su referencia). */
-    payPublicAthMovil: (token: string, referenceNumber: string, amount?: number) =>
-        api.post<{ success: boolean; reference?: string; amountPaid: number; balance: number; fullyPaid: boolean; alreadyRecorded?: boolean }>(
-            `/public/invoices/${token}/pay-athmovil`, { referenceNumber, ...(amount != null ? { amount } : {}) }),
+    /** ATH Móvil (flujo con teléfono) — paso 1: crea el pago y dispara el push. */
+    athCreate: (token: string, phoneNumber: string, amount?: number) =>
+        api.post<{ ok: boolean; ecommerceId: string; authToken?: string | null }>(
+            `/public/invoices/${token}/ath/create`, { phoneNumber, ...(amount != null ? { amount } : {}) }),
+    /** ATH Móvil — paso 2 (polling): consulta estado, autoriza y registra cuando completa. */
+    athStatus: (token: string, ecommerceId: string, authToken?: string | null) =>
+        api.post<{ status: 'pending' | 'completed' | 'cancelled'; athStatus?: string; reference?: string; amountPaid?: number; balance?: number; fullyPaid?: boolean }>(
+            `/public/invoices/${token}/ath/status`, { ecommerceId, authToken }),
 };

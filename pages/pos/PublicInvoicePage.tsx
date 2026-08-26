@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { invoicesService, type PublicInvoice } from '../../services/invoices';
 import { splitTax } from '../../utils/taxBreakdown';
 import { AgilPayCardForm } from '../../components/pos/AgilPayCardForm';
-import { AthMovilButton } from '../../components/pos/AthMovilButton';
+import { AthMovilPhonePay } from '../../components/pos/AthMovilPhonePay';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
@@ -47,8 +47,6 @@ export const PublicInvoicePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [payAmount, setPayAmount] = useState('');
-    const [athMsg, setAthMsg] = useState<string | null>(null);
-    const [athProcessing, setAthProcessing] = useState(false);
     const [payMethod, setPayMethod] = useState<'card' | 'ath'>('card');
     const t = usePublicT();
 
@@ -102,19 +100,6 @@ export const PublicInvoicePage: React.FC = () => {
         await load(); // refresca saldo/estado/abonos
     };
 
-    // El cliente completó el pago con el botón de ATH Móvil → verificar y registrar automáticamente.
-    const handleAthSuccess = async (referenceNumber: string) => {
-        if (!token) return;
-        setAthProcessing(true); setAthMsg(t('pay.ath_verifying')); setError(null);
-        try {
-            const r = await invoicesService.payPublicAthMovil(token, referenceNumber, charge > 0 ? charge : undefined);
-            setAthMsg(r.fullyPaid ? t('pay.ath_received') : t('pay.ath_partial'));
-            await load();
-        } catch (err) {
-            setError(err instanceof ApiError ? err.message : t('pay.ath_error'));
-            setAthMsg(null);
-        } finally { setAthProcessing(false); }
-    };
 
     const downloadPDF = () => {
         if (inv && cfg) generatePDF(saleFrom({ ...inv, status: 'paid' }), cfg);
@@ -282,27 +267,10 @@ export const PublicInvoicePage: React.FC = () => {
                                 <p className="text-sm text-center text-neutral-500">{t('pay.card_unavailable')}</p>
                             ))}
                             {payMethod === 'ath' && allowAth && (
-                                inv.athEnabled && inv.athPublicToken ? (
+                                inv.athPublicToken ? (
                                     <div className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
                                         <div className="font-medium text-neutral-700 dark:text-neutral-200 mb-2 text-sm">{t('pay.pay_ath')}</div>
-                                        {athProcessing || athMsg ? (
-                                            <p className={`text-sm text-center py-2 ${athProcessing ? 'text-neutral-500' : 'text-green-700 dark:text-green-300'}`}>{athMsg}</p>
-                                        ) : charge > 0 ? (
-                                            <AthMovilButton
-                                                publicToken={inv.athPublicToken}
-                                                environment={inv.athEnv || 'production'}
-                                                total={charge}
-                                                tax={inv.tax}
-                                                items={inv.items.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
-                                                metadata={token}
-                                                t={t}
-                                                onSuccess={handleAthSuccess}
-                                                onFail={(m) => setError(m)}
-                                            />
-                                        ) : (
-                                            <p className="text-sm text-neutral-500">{t('pay.ath_amount_gt0')}</p>
-                                        )}
-                                        <p className="text-xs text-neutral-400 mt-2">{t('pay.ath_auto')}</p>
+                                        <AthMovilPhonePay token={token!} amount={charge} onPaid={load} t={t} />
                                     </div>
                                 ) : (
                                     <div className="flex gap-3 rounded-lg border-l-4 border-teal-400 dark:border-teal-500 bg-teal-50 dark:bg-teal-900/20 p-3">
