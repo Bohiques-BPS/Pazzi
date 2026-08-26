@@ -32,6 +32,10 @@ interface ProductFormModalProps {
     onClose: () => void;
     productToEdit: Product | null;
     storeOwnerIdForNewProduct: string;
+    /** Nombre inicial al crear (ej. desde una línea de factura "inventada"). */
+    initialName?: string;
+    /** Callback con el producto recién creado (para continuar flujos externos). */
+    onCreated?: (product: Product) => void;
 }
 
 // Mapeo de campos a sus respectivas pestañas para navegación automática en caso de error
@@ -76,7 +80,7 @@ const fieldToTabMap: Record<string, string> = {
     useBarcodePrinter: 'Configuración POS',
 };
 
-export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, productToEdit, storeOwnerIdForNewProduct }) => {
+export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, productToEdit, storeOwnerIdForNewProduct, initialName, onCreated }) => {
     const { t } = useTranslation();
     const { settings } = useGlobalSettings();
     const { addProduct, updateProduct, categories, departments, suppliers, setProducts, branches } = useData();
@@ -155,7 +159,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     creationDate: productToEdit.creationDate ? productToEdit.creationDate.split('T')[0] : new Date().toISOString().split('T')[0],
                 });
             } else {
-                setFormData({ ...initialFormData, storeOwnerId: storeOwnerIdForNewProduct });
+                setFormData({ ...initialFormData, storeOwnerId: storeOwnerIdForNewProduct, name: initialName || '' });
             }
             setActiveTab('Principal');
             setSkuInput('');
@@ -166,7 +170,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             setFieldErrors({});
             setGeneralError(null);
         }
-    }, [isOpen, productToEdit, storeOwnerIdForNewProduct]);
+    }, [isOpen, productToEdit, storeOwnerIdForNewProduct, initialName]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
@@ -439,6 +443,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     setProducts(prev => prev.map(p => p.id === productToEdit.id ? normalizedProduct : p));
                 } else {
                     setProducts(prev => [normalizedProduct, ...prev]);
+                    onCreated?.(normalizedProduct as any);
                 }
                 onClose();
             } else if (response.status === 400 && Array.isArray(result.error)) {

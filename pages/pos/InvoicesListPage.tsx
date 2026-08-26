@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { ProductFormModal } from '../pm/ProductFormModal';
 import { DataTable, type TableColumn } from '../../components/DataTable';
 import { invoicesService, type Invoice, type InvoiceItemInput } from '../../services/invoices';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal, ConfirmationModal } from '../../components/Modal';
@@ -145,7 +147,13 @@ const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone:
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
     const { clients, products } = useData();
+    const { currentUser } = useAuth();
     const [openLine, setOpenLine] = useState<number | null>(null);
+    // Crear producto desde la factura: modal + flujo de "productos inventados".
+    const [productModal, setProductModal] = useState<{ open: boolean; initialName: string }>({ open: false, initialName: '' });
+    const [confirmProduct, setConfirmProduct] = useState<string | null>(null);
+    const inventedQueueRef = useRef<string[]>([]);
+    const pendingParsedRef = useRef<InvoiceItemInput[] | null>(null);
     const [items, setItems] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(false);
     // Filtros de la lista de facturas.
@@ -221,6 +229,12 @@ export const InvoicesListPage: React.FC = () => {
 
     const draftTotal = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0);
 
+    // Nombres de productos existentes (normalizados) para detectar líneas "inventadas".
+    const productNameSet = useMemo(
+        () => new Set((products || []).map(p => p.name.trim().toLowerCase())),
+        [products]
+    );
+
     const create = async () => {
         const parsed: InvoiceItemInput[] = [];
         for (const l of lines) {
@@ -231,6 +245,25 @@ export const InvoicesListPage: React.FC = () => {
             parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p });
         }
         if (parsed.length === 0) return toast.error(t('posx.invoices.err_no_items'));
+
+        // Productos "inventados": líneas cuyo nombre no coincide con ningún producto existente.
+        const invented: string[] = [];
+        for (const it of parsed) {
+            const key = it.name.toLowerCase();
+            if (!productNameSet.has(key) && !invented.some(n => n.toLowerCase() === key)) invented.push(it.name);
+        }
+        if (invented.length > 0) {
+            // Guardamos la factura pendiente y pedimos crear cada producto inventado, uno por uno.
+            pendingParsedRef.current = parsed;
+            inventedQueueRef.current = invented;
+            setConfirmProduct(invented[0]);
+            return;
+        }
+        await submitInvoice(parsed);
+    };
+
+    // Envío real de la factura (crear/editar), una vez validados los productos.
+    const submitInvoice = async (parsed: InvoiceItemInput[]) => {
         setSaving(true);
         try {
             if (editId) {
@@ -262,6 +295,50 @@ export const InvoicesListPage: React.FC = () => {
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_create'));
         } finally { setSaving(false); }
+    };
+
+    // ── Flujo de "productos inventados" ────────────────────────────────
+    // El usuario aceptó crear el producto de la línea actual → abrir el modal precargado.
+    const onConfirmCreateProduct = () => {
+        const name = confirmProduct;
+        setConfirmProduct(null);
+        if (name) setProductModal({ open: true, initialName: name });
+    };
+    // El usuario rechazó crear el producto → no se puede crear la factura.
+    const onCancelCreateProduct = () => {
+        setConfirmProduct(null);
+        inventedQueueRef.current = [];
+        pendingParsedRef.current = null;
+        toast.error(t('posx.invoices.err_invalid_product'));
+    };
+    // Producto creado en el modal → avanzar la cola; si no quedan inventados, enviar la factura.
+    const onProductCreated = (created: { name?: string; unitPrice?: number }) => {
+        const createdName = (created?.name || '').trim();
+        // Si la línea no tenía precio, tomamos el del producto recién creado.
+        if (createdName && created?.unitPrice != null) {
+            setLines(ls => ls.map(l =>
+                l.name.trim().toLowerCase() === createdName.toLowerCase() && !(Number(l.unitPrice) > 0)
+                    ? { ...l, unitPrice: String(created.unitPrice) } : l
+            ));
+            if (pendingParsedRef.current) {
+                pendingParsedRef.current = pendingParsedRef.current.map(it =>
+                    it.name.toLowerCase() === createdName.toLowerCase() && !(it.unitPrice > 0)
+                        ? { ...it, unitPrice: created.unitPrice! } : it
+                );
+            }
+        }
+        // Quitar de la cola el nombre recién creado (por si acaso, todos los que ahora existen).
+        const queue = inventedQueueRef.current.filter(n =>
+            n.trim().toLowerCase() !== createdName.toLowerCase()
+        );
+        inventedQueueRef.current = queue;
+        if (queue.length > 0) {
+            setConfirmProduct(queue[0]);
+        } else {
+            const parsed = pendingParsedRef.current;
+            pendingParsedRef.current = null;
+            if (parsed) submitInvoice(parsed);
+        }
     };
 
     const sendByEmail = async (inv: Invoice) => {
@@ -459,7 +536,16 @@ export const InvoicesListPage: React.FC = () => {
                                 <button onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
                             </div>
                         ))}
-                        <button onClick={addLine} className="text-sm text-primary hover:underline">{t('posx.invoices.add_item')}</button>
+                        <div className="flex items-center gap-4">
+                            <button onClick={addLine} className="text-sm text-primary hover:underline">{t('posx.invoices.add_item')}</button>
+                            <button
+                                type="button"
+                                onClick={() => setProductModal({ open: true, initialName: '' })}
+                                className="text-sm text-primary hover:underline"
+                            >
+                                + {t('posx.invoices.create_product')}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-700 pt-3">
@@ -566,6 +652,26 @@ export const InvoicesListPage: React.FC = () => {
                         )}
                     </div>
                 }
+            />
+
+            {/* ¿Crear producto inventado? (uno por cada línea sin producto válido) */}
+            <ConfirmationModal
+                isOpen={!!confirmProduct}
+                onClose={onCancelCreateProduct}
+                onConfirm={onConfirmCreateProduct}
+                title={t('posx.invoices.create_product_title')}
+                confirmButtonText={t('posx.invoices.create_product')}
+                message={<p>{t('posx.invoices.create_product_confirm', { name: confirmProduct || '' })}</p>}
+            />
+
+            {/* Modal de creación de producto (precargado con el nombre inventado) */}
+            <ProductFormModal
+                isOpen={productModal.open}
+                onClose={() => setProductModal({ open: false, initialName: '' })}
+                productToEdit={null}
+                storeOwnerIdForNewProduct={currentUser?.id || ADMIN_USER_ID}
+                initialName={productModal.initialName}
+                onCreated={onProductCreated}
             />
         </div>
     );
