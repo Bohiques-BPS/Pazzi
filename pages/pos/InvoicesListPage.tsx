@@ -449,10 +449,14 @@ export const InvoicesListPage: React.FC = () => {
         { header: t('posx.invoices.type_label'), sortValue: inv => inv.type || '', accessor: (inv) => inv.type ? <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{inv.type}</span> : <span className="text-neutral-400">—</span> },
         { header: t('common.total'), sortValue: inv => inv.total, className: 'text-right', accessor: (inv) => <span className="font-medium tabular-nums">{money(inv.total)}</span> },
         {
+            header: t('posx.invoices.paid_label'), sortValue: inv => inv.amountPaid || 0, className: 'text-right',
+            accessor: (inv) => { const paid = inv.amountPaid || 0; return <span className={`tabular-nums ${paid > 0.001 ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-neutral-400'}`}>{money(paid)}</span>; },
+        },
+        {
             header: t('pos.receivable.col.balance'), sortValue: inv => (inv.total || 0) - (inv.amountPaid || 0), className: 'text-right',
             accessor: (inv) => { const bal = (inv.total || 0) - (inv.amountPaid || 0); return <span className={`tabular-nums ${bal > 0.001 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-400'}`}>{money(Math.max(0, bal))}</span>; },
         },
-        { header: t('common.date'), sortValue: inv => inv.createdAt, accessor: (inv) => <span className="text-xs text-neutral-500 whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</span> },
+        { header: t('common.date'), sortValue: inv => inv.createdAt, accessor: (inv) => <span className="text-sm text-neutral-600 dark:text-neutral-300 whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</span> },
     ] as TableColumn<Invoice>[], [t, items]);
 
     const onRowClick = (inv: Invoice) => {
