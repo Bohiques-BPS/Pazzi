@@ -272,6 +272,43 @@ export const ConfigurationPage: React.FC = () => {
                         Con el desglose activo, los productos normales pagan Estatal + Municipal; los de <strong>departamentos o categorías marcados como "tasa reducida"</strong> pagan la tasa Reducida en su propia línea. Sin el desglose, se usa el IVU por producto/global de siempre.
                     </p>
                 </section>
+
+                {/* Recordatorios de cobro (clientes con crédito vencido) */}
+                <section className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4 flex items-center border-b pb-2 dark:border-neutral-700">
+                        📨 <span className="ml-2">Recordatorios de cobro</span>
+                    </h2>
+                    <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200 mb-3">
+                        <input
+                            type="checkbox"
+                            checked={!!settings.creditReminderEnabled}
+                            onChange={(e) => updateSettings({ creditReminderEnabled: e.target.checked })}
+                            className="h-4 w-4"
+                        />
+                        Enviar avisos automáticos por correo a clientes con crédito vencido
+                    </label>
+                    {settings.creditReminderEnabled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Días de gracia tras el vencimiento</label>
+                                <input type="number" min="0" step="1" value={settings.creditReminderDaysAfterDue ?? 0}
+                                    onChange={(e) => updateSettings({ creditReminderDaysAfterDue: Math.max(0, parseInt(e.target.value) || 0) })}
+                                    className={inputFormStyle} />
+                                <p className="text-xs text-neutral-400 mt-1">Espera estos días después de la fecha de vencimiento antes del primer aviso.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Reenviar cada (días)</label>
+                                <input type="number" min="1" step="1" value={settings.creditReminderRepeatDays ?? 7}
+                                    onChange={(e) => updateSettings({ creditReminderRepeatDays: Math.max(1, parseInt(e.target.value) || 1) })}
+                                    className={inputFormStyle} />
+                                <p className="text-xs text-neutral-400 mt-1">Si sigue sin pagar, se vuelve a enviar cada tantos días.</p>
+                            </div>
+                        </div>
+                    )}
+                    <p className="text-xs text-neutral-500 mt-3">
+                        Se envía un correo al cliente con el detalle de sus facturas a crédito vencidas y el saldo total. El envío corre automáticamente en segundo plano. <strong>WhatsApp</strong> requiere conectar un proveedor de mensajería (pendiente).
+                    </p>
+                </section>
             </div>
         </div>
     );

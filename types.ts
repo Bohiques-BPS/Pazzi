@@ -140,6 +140,10 @@ export interface GlobalSettings {
     taxStateRate?: number;      // estatal (ej. 0.105)
     taxMunicipalRate?: number;  // municipal (ej. 0.01)
     taxReducedRate?: number;    // reducida (ej. 0.06)
+    /** Recordatorios automáticos de cobro (clientes con crédito vencido). */
+    creditReminderEnabled?: boolean;
+    creditReminderDaysAfterDue?: number; // días de gracia tras el vencimiento
+    creditReminderRepeatDays?: number;   // reenviar cada N días
 }
 
 export interface AlertSettings {
