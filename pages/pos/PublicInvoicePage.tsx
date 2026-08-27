@@ -7,7 +7,7 @@ import { AthMovilPhonePay } from '../../components/pos/AthMovilPhonePay';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
-import { ApiError } from '../../services/api';
+import { ApiError, API_URL } from '../../services/api';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
@@ -101,8 +101,9 @@ export const PublicInvoicePage: React.FC = () => {
     };
 
 
+    // Abre el PDF con el diseño configurable del negocio (mismo que llega por correo).
     const downloadPDF = () => {
-        if (inv && cfg) generatePDF(saleFrom({ ...inv, status: 'paid' }), cfg);
+        if (token) window.open(`${API_URL}/public/invoices/${token}/pdf`, '_blank', 'noopener');
     };
 
     if (loading) {

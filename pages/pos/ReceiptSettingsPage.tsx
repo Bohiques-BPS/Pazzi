@@ -200,6 +200,55 @@ export const ReceiptSettingsPage: React.FC = () => {
                         )}
                     </section>
 
+                    {/* Diseño de la FACTURA (PDF de correo/descarga) */}
+                    {(() => {
+                        const dz: any = (cfg as any).invoiceDesign || {};
+                        const setDz = (patch: any) => set('invoiceDesign' as any, { ...dz, ...patch });
+                        const boolField = (key: string, label: string) => (
+                            <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                                <input type="checkbox" checked={dz[key] !== false} onChange={e => setDz({ [key]: e.target.checked })} className="h-4 w-4" />
+                                {label}
+                            </label>
+                        );
+                        return (
+                            <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 space-y-3">
+                                <h3 className="font-semibold text-primary mb-1">📄 Diseño de la factura</h3>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">Aplica al PDF de la factura que se envía por correo y se descarga.</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs text-neutral-500 mb-1">Título del documento</label>
+                                        <input type="text" value={dz.title ?? 'FACTURA'} onChange={e => setDz({ title: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`} placeholder="FACTURA" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-neutral-500 mb-1">Texto del pie</label>
+                                        <input type="text" value={dz.footerText ?? ''} onChange={e => setDz({ footerText: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`} placeholder="¡Gracias por su preferencia!" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-neutral-500 mb-1">Color del encabezado de la tabla</label>
+                                        <div className="flex items-center gap-2">
+                                            <input type="color" value={dz.headerColor ?? '#4CAF50'} onChange={e => setDz({ headerColor: e.target.value })} className="h-9 w-12 rounded border border-neutral-300 dark:border-neutral-600" />
+                                            <input type="text" value={dz.headerColor ?? '#4CAF50'} onChange={e => setDz({ headerColor: e.target.value })} className={`${INPUT_SM_CLASSES} w-28`} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-neutral-500 mb-1">Color del título / total</label>
+                                        <div className="flex items-center gap-2">
+                                            <input type="color" value={dz.accentColor ?? '#7E57C2'} onChange={e => setDz({ accentColor: e.target.value })} className="h-9 w-12 rounded border border-neutral-300 dark:border-neutral-600" />
+                                            <input type="text" value={dz.accentColor ?? '#7E57C2'} onChange={e => setDz({ accentColor: e.target.value })} className={`${INPUT_SM_CLASSES} w-28`} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                                    {boolField('showLogo', 'Mostrar logo')}
+                                    {boolField('showBusiness', 'Datos del negocio')}
+                                    {boolField('showClient', 'Datos del cliente')}
+                                    {boolField('showPaymentMethod', 'Método de pago')}
+                                    {boolField('showNotes', 'Notas / términos de línea')}
+                                </div>
+                            </section>
+                        );
+                    })()}
+
                     <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
                         <h3 className="font-semibold text-primary mb-1">{t('posx.receipt.finalize.title')}</h3>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">{t('posx.receipt.finalize.desc1')} <strong>{t('posx.receipt.finalize.deviceScope')}</strong>. {t('posx.receipt.finalize.desc2')}</p>
