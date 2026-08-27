@@ -52,12 +52,39 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
     const showPay = d.showPaymentMethod !== false;
     const showNotes = d.showNotes !== false;
 
+    const template = d.template || 'modern';
     const bizLines = [
         showBusiness && cfg.showAddress && cfg.address ? esc(cfg.address) : '',
         showBusiness && cfg.showPhone && cfg.phone ? esc(cfg.phone) : '',
         showBusiness && cfg.showEmail && cfg.email ? esc(cfg.email) : '',
         showBusiness && cfg.showRnc && cfg.rnc ? `RNC/Reg: ${esc(cfg.rnc)}` : '',
     ].filter(Boolean).join('<br/>');
+    const logoImg = showLogo && cfg.logoUrl ? `<img src="${esc(cfg.logoUrl)}" style="max-width:150px;max-height:70px;object-fit:contain;"/>` : '';
+    const headerBlock = template === 'banner'
+        ? `<div style="background:${headerColor};color:#fff;margin:-16mm -14mm 14px;padding:14mm 14mm 10px;display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>${logoImg ? `<img src="${esc(cfg.logoUrl)}" style="max-width:140px;max-height:60px;object-fit:contain;"/>` : ''}</div>
+                <div style="text-align:right;">
+                    ${cfg.businessName ? `<div style="font-size:17px;font-weight:800;">${esc(cfg.businessName)}</div>` : ''}
+                    <div style="font-size:12px;line-height:1.5;opacity:.92;">${bizLines}</div>
+                </div>
+           </div>
+           <div style="font-size:26px;font-weight:800;color:${accentColor};margin:0 0 12px;">${esc(title)}</div>`
+        : template === 'classic'
+        ? `<div style="text-align:center;margin-bottom:6px;">
+                ${logoImg}
+                ${cfg.businessName ? `<div style="font-size:17px;font-weight:700;margin-top:4px;">${esc(cfg.businessName)}</div>` : ''}
+                <div style="color:#555;font-size:12px;line-height:1.5;">${bizLines}</div>
+           </div>
+           <div style="text-align:center;font-size:22px;font-weight:800;letter-spacing:1px;border-bottom:2px solid #111;padding-bottom:6px;margin:8px 0 12px;">${esc(title).toUpperCase()}</div>`
+        : `<div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>${logoImg}</div>
+                <div style="text-align:right;">
+                    ${cfg.businessName ? `<div style="font-size:16px;font-weight:700;">${esc(cfg.businessName)}</div>` : ''}
+                    <div style="color:#555;font-size:12px;line-height:1.5;">${bizLines}</div>
+                </div>
+           </div>
+           <div style="font-size:28px;font-weight:800;color:${accentColor};margin:18px 0 12px;">${esc(title)}</div>`;
+    const thHeadStyle = template === 'classic' ? 'background:#e5e7eb;color:#111;' : `background:${headerColor};color:#fff;`;
 
     const rows = sale.items.map(it => `
         <tr>
@@ -75,16 +102,7 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
 
     return `
     <div style="width:210mm;min-height:auto;margin:0 auto;padding:16mm 14mm;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#222;box-sizing:border-box;font-size:13px;">
-        <!-- Encabezado -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div>${showLogo && cfg.logoUrl ? `<img src="${esc(cfg.logoUrl)}" style="max-width:150px;max-height:70px;object-fit:contain;"/>` : ''}</div>
-            <div style="text-align:right;">
-                ${cfg.businessName ? `<div style="font-size:16px;font-weight:700;">${esc(cfg.businessName)}</div>` : ''}
-                <div style="color:#555;font-size:12px;line-height:1.5;">${bizLines}</div>
-            </div>
-        </div>
-        <!-- Título -->
-        <div style="font-size:28px;font-weight:800;color:${headerColor === accentColor ? accentColor : accentColor};margin:18px 0 12px;">${esc(title)}</div>
+        ${headerBlock}
         <!-- Cliente + meta -->
         <div style="display:flex;justify-content:space-between;gap:20px;margin-bottom:14px;">
             <div style="max-width:50%;">
@@ -99,7 +117,7 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
         <!-- Tabla -->
         <table style="width:100%;border-collapse:collapse;margin-top:4px;">
             <thead>
-                <tr style="background:${headerColor};color:#fff;">
+                <tr style="${thHeadStyle}">
                     <th style="padding:9px 6px;text-align:left;">Producto</th>
                     <th style="padding:9px 6px;text-align:center;width:60px;">Cant</th>
                     <th style="padding:9px 6px;text-align:right;width:110px;">Precio Unit.</th>

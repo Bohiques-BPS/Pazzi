@@ -213,7 +213,32 @@ export const ReceiptSettingsPage: React.FC = () => {
                         return (
                             <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 space-y-3">
                                 <h3 className="font-semibold text-primary mb-1">📄 Diseño de la factura</h3>
-                                <p className="text-xs text-neutral-500 dark:text-neutral-400">Aplica al PDF de la factura que se envía por correo y se descarga.</p>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">Aplica al PDF de la factura (correo, descarga y factura del POS).</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs text-neutral-500 mb-1">Plantilla</label>
+                                        <select value={dz.template ?? 'modern'} onChange={e => setDz({ template: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
+                                            <option value="modern">Moderno (logo izq., título de color)</option>
+                                            <option value="banner">Banner (banda de color arriba)</option>
+                                            <option value="classic">Clásico (centrado, sobrio)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-neutral-500 mb-1">Combinaciones rápidas</label>
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            {[
+                                                { n: 'Verde/Morado', h: '#4CAF50', a: '#7E57C2' },
+                                                { n: 'Azul', h: '#1E88E5', a: '#0D47A1' },
+                                                { n: 'Teal', h: '#0D9488', a: '#0F766E' },
+                                                { n: 'Rojo', h: '#E53935', a: '#B71C1C' },
+                                                { n: 'Oscuro', h: '#374151', a: '#111827' },
+                                            ].map(p => (
+                                                <button key={p.n} type="button" title={p.n} onClick={() => setDz({ headerColor: p.h, accentColor: p.a })}
+                                                    className="w-8 h-8 rounded-md border border-neutral-300 dark:border-neutral-600 overflow-hidden flex" style={{ background: `linear-gradient(135deg, ${p.h} 50%, ${p.a} 50%)` }} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-xs text-neutral-500 mb-1">Título del documento</label>
