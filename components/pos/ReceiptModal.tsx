@@ -38,8 +38,91 @@ const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
 /** Construye el HTML autocontenido de la factura (para vista previa e impresión).
  *  `barcodeSvg` es opcional: el SVG del código de barras (Code128), generado async por el llamador. */
+/** Factura tamaño CARTA con el diseño configurable (mismo estilo que el PDF de correo). */
+function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
+    const d: any = (cfg as any).invoiceDesign || {};
+    const headerColor = d.headerColor || '#4CAF50';
+    const accentColor = d.accentColor || '#7E57C2';
+    const title = d.title || 'FACTURA';
+    const footerText = d.footerText != null ? d.footerText : '¡Gracias por su preferencia!';
+    const showLogo = d.showLogo !== false;
+    const showBusiness = d.showBusiness !== false;
+    const showClient = d.showClient !== false;
+    const showPay = d.showPaymentMethod !== false;
+    const showNotes = d.showNotes !== false;
+
+    const bizLines = [
+        showBusiness && cfg.showAddress && cfg.address ? esc(cfg.address) : '',
+        showBusiness && cfg.showPhone && cfg.phone ? esc(cfg.phone) : '',
+        showBusiness && cfg.showEmail && cfg.email ? esc(cfg.email) : '',
+        showBusiness && cfg.showRnc && cfg.rnc ? `RNC/Reg: ${esc(cfg.rnc)}` : '',
+    ].filter(Boolean).join('<br/>');
+
+    const rows = sale.items.map(it => `
+        <tr>
+            <td style="padding:8px 6px;border-bottom:1px solid #eee;">
+                <div style="font-weight:600;">${esc(it.name)}</div>
+                ${showNotes && it.note ? `<div style="color:#666;font-size:11px;margin-top:2px;">${esc(it.note)}</div>` : ''}
+            </td>
+            <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;">${it.quantity}</td>
+            <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;">${money(it.unitPrice)}</td>
+            <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">${money(it.quantity * it.unitPrice)}</td>
+        </tr>`).join('');
+
+    const taxLine = (sale.tax || 0) > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">IVU:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(sale.tax)}</td></tr>` : '';
+    const changeLine = sale.changeDue && sale.changeDue > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">Cambio:</td><td style="text-align:right;padding:2px 0;">${money(sale.changeDue)}</td></tr>` : '';
+
+    return `
+    <div style="width:210mm;min-height:auto;margin:0 auto;padding:16mm 14mm;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#222;box-sizing:border-box;font-size:13px;">
+        <!-- Encabezado -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>${showLogo && cfg.logoUrl ? `<img src="${esc(cfg.logoUrl)}" style="max-width:150px;max-height:70px;object-fit:contain;"/>` : ''}</div>
+            <div style="text-align:right;">
+                ${cfg.businessName ? `<div style="font-size:16px;font-weight:700;">${esc(cfg.businessName)}</div>` : ''}
+                <div style="color:#555;font-size:12px;line-height:1.5;">${bizLines}</div>
+            </div>
+        </div>
+        <!-- Título -->
+        <div style="font-size:28px;font-weight:800;color:${headerColor === accentColor ? accentColor : accentColor};margin:18px 0 12px;">${esc(title)}</div>
+        <!-- Cliente + meta -->
+        <div style="display:flex;justify-content:space-between;gap:20px;margin-bottom:14px;">
+            <div style="max-width:50%;">
+                ${showClient && sale.clientName ? `<div style="font-weight:700;margin-bottom:2px;">Datos del Cliente</div><div>${esc(sale.clientName)}</div>` : ''}
+            </div>
+            <div style="text-align:right;font-size:13px;">
+                <div><strong>Número:</strong> ${sale.saleNumber ? '#' + esc(String(sale.saleNumber)) : '—'}</div>
+                <div><strong>Fecha:</strong> ${esc(new Date(sale.date).toLocaleDateString())}</div>
+                ${showPay && sale.payments && sale.payments.length ? `<div><strong>Método de pago:</strong> ${esc(sale.payments.map(p => p.method).join(', '))}</div>` : ''}
+            </div>
+        </div>
+        <!-- Tabla -->
+        <table style="width:100%;border-collapse:collapse;margin-top:4px;">
+            <thead>
+                <tr style="background:${headerColor};color:#fff;">
+                    <th style="padding:9px 6px;text-align:left;">Producto</th>
+                    <th style="padding:9px 6px;text-align:center;width:60px;">Cant</th>
+                    <th style="padding:9px 6px;text-align:right;width:110px;">Precio Unit.</th>
+                    <th style="padding:9px 6px;text-align:right;width:110px;">Total</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <!-- Totales -->
+        <table style="margin-left:auto;margin-top:14px;border-collapse:collapse;">
+            <tr><td style="text-align:right;padding:2px 8px;color:#555;">Subtotal:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(sale.subtotal)}</td></tr>
+            ${sale.discount > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">Descuento:</td><td style="text-align:right;padding:2px 0;">-${money(sale.discount)}</td></tr>` : ''}
+            ${taxLine}
+            <tr><td style="text-align:right;padding:6px 8px;font-size:18px;font-weight:800;color:${accentColor};">Total:</td><td style="text-align:right;padding:6px 0;font-size:18px;font-weight:800;color:${accentColor};">${money(sale.total)}</td></tr>
+            ${changeLine}
+        </table>
+        ${footerText ? `<div style="text-align:center;color:#999;font-size:11px;margin-top:34px;">${esc(footerText)}</div>` : ''}
+    </div>`;
+}
+
 export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeSvg?: string): string {
     const is80 = cfg.paperSize === '80mm';
+    // Factura CARTA → diseño moderno configurable (no el monoespaciado).
+    if (!is80) return buildInvoiceLetterHTML(sale, cfg);
     const widthCss = is80 ? '72mm' : '210mm';
     const pad = is80 ? '4mm' : '14mm';
     const fs = is80 ? '11px' : '13px';
@@ -160,6 +243,13 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
         </div>`;
 }
 
+const hexToRgb = (hex: string): [number, number, number] => {
+    const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim());
+    if (!m) return [76, 175, 80];
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
 export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
     const { jsPDF } = await import('jspdf');
     const isLetter = cfg.paperSize === 'letter';
@@ -167,6 +257,69 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
     const W = doc.internal.pageSize.getWidth();
     const M = isLetter ? 14 : 4;
     let y = 10;
+
+    // ── Factura CARTA: diseño moderno configurable (mismo estilo que el correo) ──
+    if (isLetter) {
+        const { default: autoTable } = await import('jspdf-autotable');
+        const dz: any = (cfg as any).invoiceDesign || {};
+        const headerRgb = hexToRgb(dz.headerColor || '#4CAF50');
+        const accentRgb = hexToRgb(dz.accentColor || '#7E57C2');
+        const showLogo = dz.showLogo !== false, showBusiness = dz.showBusiness !== false;
+        const showClient = dz.showClient !== false, showPay = dz.showPaymentMethod !== false, showNotes = dz.showNotes !== false;
+        const RM = W - M;
+        let yy = 16;
+        if (showLogo && cfg.logoUrl?.startsWith('data:image')) { try { doc.addImage(cfg.logoUrl, 'PNG', M, yy, 34, 17); } catch { /* ignore */ } }
+        doc.setFont('helvetica', 'bold').setFontSize(14).setTextColor(20);
+        if (cfg.businessName) doc.text(cfg.businessName, RM, yy + 4, { align: 'right' });
+        doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(90);
+        let hy = yy + 9;
+        if (showBusiness) {
+            [cfg.showAddress && cfg.address, cfg.showPhone && cfg.phone, cfg.showEmail && cfg.email, cfg.showRnc && cfg.rnc ? `RNC/Reg: ${cfg.rnc}` : '']
+                .filter(Boolean).forEach(line => { doc.text(String(line), RM, hy, { align: 'right' }); hy += 4.5; });
+        }
+        yy = Math.max(yy + 20, hy) + 6;
+        doc.setFont('helvetica', 'bold').setFontSize(24).setTextColor(accentRgb[0], accentRgb[1], accentRgb[2]);
+        doc.text(dz.title || 'FACTURA', M, yy); yy += 8;
+        doc.setFontSize(10); doc.setTextColor(40);
+        const metaY = yy;
+        if (showClient && sale.clientName) {
+            doc.setFont('helvetica', 'bold').text('Datos del Cliente', M, yy);
+            doc.setFont('helvetica', 'normal').text(sale.clientName, M, yy + 5);
+        }
+        doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(40);
+        doc.text(`Número: ${sale.saleNumber ? '#' + sale.saleNumber : '—'}`, RM, metaY, { align: 'right' });
+        doc.text(`Fecha: ${new Date(sale.date).toLocaleDateString()}`, RM, metaY + 5, { align: 'right' });
+        if (showPay && sale.payments?.length) doc.text(`Método: ${sale.payments.map(p => p.method).join(', ')}`, RM, metaY + 10, { align: 'right' });
+        yy = metaY + 18;
+        autoTable(doc, {
+            startY: yy,
+            head: [['Producto', 'Cant', 'Precio Unit.', 'Total']],
+            body: sale.items.map(it => [
+                it.name + (showNotes && it.note ? `\n${it.note}` : ''),
+                String(it.quantity), money(it.unitPrice), money(it.quantity * it.unitPrice),
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: headerRgb, textColor: 255, halign: 'center' },
+            columnStyles: { 0: { halign: 'left' }, 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+            styles: { fontSize: 9, cellPadding: 2.5 },
+            margin: { left: M, right: M },
+        });
+        let ty = (doc as any).lastAutoTable.finalY + 8;
+        const totRow = (l: string, v: string, big = false) => {
+            doc.setFont('helvetica', big ? 'bold' : 'normal').setFontSize(big ? 14 : 10);
+            if (big) doc.setTextColor(accentRgb[0], accentRgb[1], accentRgb[2]); else doc.setTextColor(70);
+            doc.text(l, RM - 40, ty, { align: 'right' }); doc.text(v, RM, ty, { align: 'right' }); ty += big ? 8 : 6;
+        };
+        totRow('Subtotal:', money(sale.subtotal));
+        if (sale.discount > 0) totRow('Descuento:', `-${money(sale.discount)}`);
+        if ((sale.tax || 0) > 0) totRow('IVU:', money(sale.tax));
+        totRow('Total:', money(sale.total), true);
+        if (sale.changeDue && sale.changeDue > 0) totRow('Cambio:', money(sale.changeDue));
+        const footerText = dz.footerText != null ? dz.footerText : '¡Gracias por su preferencia!';
+        if (footerText) { doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(150); doc.text(footerText, W / 2, doc.internal.pageSize.getHeight() - 20, { align: 'center' }); }
+        doc.save(`factura-${sale.saleNumber}.pdf`);
+        return;
+    }
     const center = (txt: string, size: number, bold = false) => {
         doc.setFontSize(size); doc.setFont('courier', bold ? 'bold' : 'normal');
         doc.text(txt, W / 2, y, { align: 'center' }); y += size * 0.5;
