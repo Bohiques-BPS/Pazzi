@@ -213,6 +213,11 @@ export const PaymentMethodsPage: React.FC = () => {
                                         <option value="sandbox">{t('posx.paymentmethods.env_sandbox')}</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('posx.paymentmethods.ath_account_phone')}</label>
+                                    <input type="tel" inputMode="numeric" value={(m.config as any)?.accountPhone || ''} onChange={e => patchConfig(m.id, 'accountPhone', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} placeholder="787-000-0000" />
+                                    <p className="text-[11px] text-neutral-400 mt-1">{t('posx.paymentmethods.ath_account_phone_hint')}</p>
+                                </div>
                                 <p className="sm:col-span-3 text-xs text-neutral-400">{t('posx.paymentmethods.ath_note')}</p>
                                 {renderValidate(m)}
                             </div>
