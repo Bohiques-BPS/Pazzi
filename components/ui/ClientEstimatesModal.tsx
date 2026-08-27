@@ -5,6 +5,7 @@ import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { loadImageAsDataUrl, dataUrlFormat } from '../../utils/imageData';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { toast } from 'react-hot-toast';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
@@ -93,7 +94,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
         onLoadItems(combinedItems, selectedEstimateIds);
     };
 
-    const handleGeneratePDF = () => {
+    const handleGeneratePDF = async () => {
         const selected = clientEstimates.filter(e => selectedEstimateIds.includes(e.id));
         if (selected.length === 0 || !client) {
             toast.error(t('cmpx.estimates.select_one_client'));
@@ -141,8 +142,9 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
         const accent = toRgb(dz.accentColor || storeSettings.primaryColor || '#7E57C2');
         const headerRgb = toRgb(dz.headerColor || '#4CAF50');
         const RM = pageWidth - margin;
-        if (dz.showLogo !== false && typeof rc.logoUrl === 'string' && rc.logoUrl.startsWith('data:image')) {
-            try { doc.addImage(rc.logoUrl, 'PNG', margin, y, 34, 17); } catch { /* ignore */ }
+        if (dz.showLogo !== false && rc.logoUrl) {
+            const logoData = await loadImageAsDataUrl(rc.logoUrl);
+            if (logoData) { try { doc.addImage(logoData, dataUrlFormat(logoData), margin, y, 34, 17); } catch { /* ignore */ } }
         }
         doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
         doc.text(rc.businessName || storeSettings.storeName || 'Pazzi', RM, y + 4, { align: 'right' });

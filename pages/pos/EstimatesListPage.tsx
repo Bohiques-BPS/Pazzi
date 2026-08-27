@@ -13,6 +13,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../co
 import { ClientNameLink } from '../../components/ui/EntityNameLink';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { loadImageAsDataUrl, dataUrlFormat } from '../../utils/imageData';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { splitTax } from '../../utils/taxBreakdown';
@@ -44,9 +45,10 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
     const bizName = rc.businessName || storeSettings.storeName || 'Pazzi';
     const RM = pageWidth - margin;
 
-    // Header: logo (si es data URI) + datos reales del negocio
-    if (dz.showLogo !== false && typeof rc.logoUrl === 'string' && rc.logoUrl.startsWith('data:image')) {
-        try { doc.addImage(rc.logoUrl, 'PNG', margin, y, 34, 17); } catch { /* ignore */ }
+    // Header: logo (data URI o URL remota descargada) + datos reales del negocio
+    if (dz.showLogo !== false && rc.logoUrl) {
+        const logoData = await loadImageAsDataUrl(rc.logoUrl);
+        if (logoData) { try { doc.addImage(logoData, dataUrlFormat(logoData), margin, y, 34, 17); } catch { /* ignore */ } }
     }
     doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
     doc.text(bizName, RM, y + 4, { align: 'right' });
@@ -374,8 +376,9 @@ export const EstimatesListPage: React.FC = () => {
         const accent = pdfHexToRgb(dz.accentColor || storeSettings.primaryColor || '#7E57C2');
         const headerRgb2 = pdfHexToRgb(dz.headerColor || '#4CAF50');
         const RM = pageWidth - margin;
-        if (dz.showLogo !== false && typeof rc.logoUrl === 'string' && rc.logoUrl.startsWith('data:image')) {
-            try { doc.addImage(rc.logoUrl, 'PNG', margin, y, 34, 17); } catch { /* ignore */ }
+        if (dz.showLogo !== false && rc.logoUrl) {
+            const logoData = await loadImageAsDataUrl(rc.logoUrl);
+            if (logoData) { try { doc.addImage(logoData, dataUrlFormat(logoData), margin, y, 34, 17); } catch { /* ignore */ } }
         }
         doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
         doc.text(rc.businessName || storeSettings.storeName || 'Pazzi', RM, y + 4, { align: 'right' });

@@ -3,6 +3,7 @@ import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
 import { barcodeToSvg } from '../../utils/barcode';
+import { loadImageAsDataUrl, dataUrlFormat } from '../../utils/imageData';
 import { isReceiptPrinterEnabled, printReceiptViaQz, getPrintFormat } from '../../services/receiptPrinter';
 import { isWebUsbEnabled, printReceiptViaWebUsb } from '../../services/webusbPrinter';
 
@@ -268,7 +269,10 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
         const showClient = dz.showClient !== false, showPay = dz.showPaymentMethod !== false, showNotes = dz.showNotes !== false;
         const RM = W - M;
         let yy = 16;
-        if (showLogo && cfg.logoUrl?.startsWith('data:image')) { try { doc.addImage(cfg.logoUrl, 'PNG', M, yy, 34, 17); } catch { /* ignore */ } }
+        if (showLogo && cfg.logoUrl) {
+            const logoData = await loadImageAsDataUrl(cfg.logoUrl);
+            if (logoData) { try { doc.addImage(logoData, dataUrlFormat(logoData), M, yy, 34, 17); } catch { /* ignore */ } }
+        }
         doc.setFont('helvetica', 'bold').setFontSize(14).setTextColor(20);
         if (cfg.businessName) doc.text(cfg.businessName, RM, yy + 4, { align: 'right' });
         doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(90);
