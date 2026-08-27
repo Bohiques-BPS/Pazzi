@@ -21,45 +21,56 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { PermissionGate } from '../../components/PermissionGate';
 
-const generateEstimatePDF = async (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any, taxCfg?: { enabled: boolean; stateRate?: number | null; municipalRate?: number | null }) => {
+/** Hex → [r,g,b] para jsPDF. */
+const pdfHexToRgb = (hex: string): [number, number, number] => {
+    const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim());
+    if (!m) return [13, 148, 136];
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
+const generateEstimatePDF = async (estimate: Estimate, client: Client | undefined, getProductById: (id: string) => Product | undefined, storeSettings: any, taxCfg?: { enabled: boolean; stateRate?: number | null; municipalRate?: number | null }, receiptCfg?: any) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let y = margin;
 
-    // Header
-    doc.setFontSize(18);
-    doc.setTextColor(storeSettings.primaryColor || '#0D9488');
-    doc.setFont("helvetica", "bold");
-    doc.text(storeSettings.storeName || "Pazzi Tienda Por Defecto", margin, y);
-    y += 10;
-    
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont("helvetica", "normal");
-    doc.text("Sucursal: Sucursal Central", margin, y); // Hardcoded for now
-    doc.text("Tel: (555) 123-PAZZI", pageWidth - margin, y, { align: 'right' });
-    y += 10;
-    
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("Estimación de Costos", pageWidth / 2, y, { align: 'center' });
-    y += 15;
+    // Diseño unificado (mismo que la factura): datos reales del negocio + colores configurables.
+    const rc = receiptCfg || {};
+    const dz = rc.invoiceDesign || {};
+    const accent = pdfHexToRgb(dz.accentColor || storeSettings.primaryColor || '#7E57C2');
+    const headerRgb = pdfHexToRgb(dz.headerColor || '#4CAF50');
+    const bizName = rc.businessName || storeSettings.storeName || 'Pazzi';
+    const RM = pageWidth - margin;
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    if (client) {
-        doc.text(`Estimación para: ${client.name} ${client.lastName}`, margin, y);
+    // Header: logo (si es data URI) + datos reales del negocio
+    if (dz.showLogo !== false && typeof rc.logoUrl === 'string' && rc.logoUrl.startsWith('data:image')) {
+        try { doc.addImage(rc.logoUrl, 'PNG', margin, y, 34, 17); } catch { /* ignore */ }
     }
-    doc.text(`Fecha: ${new Date(estimate.date).toLocaleDateString()}`, pageWidth - margin, y, { align: 'right' });
+    doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
+    doc.text(bizName, RM, y + 4, { align: 'right' });
+    doc.setFontSize(9).setFont('helvetica', 'normal'); doc.setTextColor(90);
+    let hy = y + 9;
+    if (dz.showBusiness !== false) {
+        [rc.address, rc.phone, rc.email, rc.rnc ? `RNC/Reg: ${rc.rnc}` : '']
+            .filter(Boolean).forEach((line: string) => { doc.text(String(line), RM, hy, { align: 'right' }); hy += 4.5; });
+    }
+    y = Math.max(y + 20, hy) + 6;
+
+    doc.setFontSize(22).setFont('helvetica', 'bold'); doc.setTextColor(accent[0], accent[1], accent[2]);
+    doc.text('Estimación de Costos', margin, y);
+    y += 12;
+
+    doc.setFontSize(11).setFont('helvetica', 'normal'); doc.setTextColor(40);
+    if (client) doc.text(`Estimación para: ${client.name} ${client.lastName}`, margin, y);
+    doc.text(`Fecha: ${new Date(estimate.date).toLocaleDateString()}`, RM, y, { align: 'right' });
     y += 8;
 
-    doc.text("Agradecemos la oportunidad de presentarle esta estimación para su consideración.", margin, y);
-    y += 10;
-    
-    doc.setLineWidth(0.2);
-    doc.line(margin, y - 2, pageWidth - margin, y - 2);
+    doc.setTextColor(90);
+    doc.text('Agradecemos la oportunidad de presentarle esta estimación para su consideración.', margin, y);
+    doc.setTextColor(0);
+    y += 8;
 
     const tableHead = [['Cant.', 'Descripción', 'P. Unitario', 'Total']];
     const tableBody = estimate.items.map(item => [
@@ -82,7 +93,7 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
         body: tableBody,
         startY: y,
         theme: 'striped',
-        headStyles: { fillColor: [13, 148, 136] }, // teal-600
+        headStyles: { fillColor: headerRgb, textColor: 255 },
         didDrawPage: (data) => {
             y = data.cursor?.y || y;
         }
@@ -236,7 +247,7 @@ export const EstimatesListPage: React.FC = () => {
         const settings = getDefaultSettings();
         await generateEstimatePDF(estimate, client, getProductById, settings, {
             enabled: !!globalSettings.taxBreakdownEnabled, stateRate: globalSettings.taxStateRate, municipalRate: globalSettings.taxMunicipalRate,
-        });
+        }, (globalSettings as any).receiptConfig);
     };
 
     const handleCombine = () => {
@@ -357,34 +368,36 @@ export const EstimatesListPage: React.FC = () => {
         const margin = 15;
         let y = margin;
     
-        // Header
-        doc.setFontSize(18);
-        doc.setTextColor(storeSettings.primaryColor || '#0D9488');
-        doc.setFont("helvetica", "bold");
-        doc.text(storeSettings.storeName || "Pazzi Tienda Por Defecto", margin, y);
-        y += 10;
-        
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "normal");
-        doc.text("Sucursal: Sucursal Central", margin, y); // Hardcoded for now
-        doc.text("Tel: (555) 123-PAZZI", pageWidth - margin, y, { align: 'right' }); // Hardcoded
-        y += 10;
-        
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text("Estimación de Costos", pageWidth / 2, y, { align: 'center' });
-        y += 15;
-    
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
+        // Diseño unificado: datos reales del negocio + colores configurables.
+        const rc: any = (globalSettings as any).receiptConfig || {};
+        const dz: any = rc.invoiceDesign || {};
+        const accent = pdfHexToRgb(dz.accentColor || storeSettings.primaryColor || '#7E57C2');
+        const headerRgb2 = pdfHexToRgb(dz.headerColor || '#4CAF50');
+        const RM = pageWidth - margin;
+        if (dz.showLogo !== false && typeof rc.logoUrl === 'string' && rc.logoUrl.startsWith('data:image')) {
+            try { doc.addImage(rc.logoUrl, 'PNG', margin, y, 34, 17); } catch { /* ignore */ }
+        }
+        doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
+        doc.text(rc.businessName || storeSettings.storeName || 'Pazzi', RM, y + 4, { align: 'right' });
+        doc.setFontSize(9).setFont('helvetica', 'normal'); doc.setTextColor(90);
+        let hy = y + 9;
+        if (dz.showBusiness !== false) {
+            [rc.address, rc.phone, rc.email, rc.rnc ? `RNC/Reg: ${rc.rnc}` : '']
+                .filter(Boolean).forEach((line: string) => { doc.text(String(line), RM, hy, { align: 'right' }); hy += 4.5; });
+        }
+        y = Math.max(y + 20, hy) + 6;
+        doc.setFontSize(22).setFont('helvetica', 'bold'); doc.setTextColor(accent[0], accent[1], accent[2]);
+        doc.text('Estimación de Costos', margin, y);
+        y += 12;
+        doc.setFontSize(11).setFont('helvetica', 'normal'); doc.setTextColor(40);
         doc.text(`Estimación para: ${client.name} ${client.lastName}`, margin, y);
-        doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, pageWidth - margin, y, { align: 'right' });
+        doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, RM, y, { align: 'right' });
         y += 8;
-    
+        doc.setTextColor(90);
         doc.text("Agradecemos la oportunidad de presentarle esta estimación para su consideración.", margin, y);
-        y += 10;
-        
+        doc.setTextColor(0);
+        y += 8;
+
         doc.setLineWidth(0.2);
         doc.line(margin, y - 2, pageWidth - margin, y - 2);
     
@@ -401,7 +414,7 @@ export const EstimatesListPage: React.FC = () => {
             body: tableBody,
             startY: y,
             theme: 'striped',
-            headStyles: { fillColor: [13, 148, 136] }, // teal-600
+            headStyles: { fillColor: headerRgb2, textColor: 255 },
             didDrawPage: (data) => {
                 y = data.cursor?.y || y;
             }
