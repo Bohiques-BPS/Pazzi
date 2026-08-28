@@ -632,6 +632,14 @@ export interface ECommerceSettings {
     shippingNote?: string | null;
     // Pagos: lista separada por comas — "cash,card,transfer,whatsapp,ath"
     paymentMethods?: string;
+    // Elementos visibles de la tienda pública (default: todos activos).
+    showLogin?: boolean;       // enlace "Ingresar"
+    showRegister?: boolean;    // enlace "Registrarse"
+    showCart?: boolean;        // botón/carrito de compra (off = catálogo sin compra)
+    showSearch?: boolean;      // buscador
+    // Llamado a la acción del banner (hero).
+    bannerCtaText?: string | null;
+    bannerCtaLink?: string | null;
 }
 
 export interface Supplier {

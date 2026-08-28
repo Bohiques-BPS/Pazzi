@@ -209,6 +209,33 @@ export const ECommerceSettingsPage: React.FC = () => {
                     </div>
                 </Section>
 
+                {/* ── Elementos de la tienda ── */}
+                <Section title="Elementos de la tienda" subtitle="Activa o desactiva lo que ven tus clientes, y configura el banner.">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                        {([
+                            { k: 'showCart', label: '🛒 Carrito de compra' },
+                            { k: 'showLogin', label: '👤 Ingresar' },
+                            { k: 'showRegister', label: '📝 Registrarse' },
+                            { k: 'showSearch', label: '🔍 Buscador' },
+                        ] as { k: keyof ECommerceSettings; label: string }[]).map(item => (
+                            <label key={item.k} className="flex items-center gap-2 text-sm cursor-pointer bg-neutral-50 dark:bg-neutral-700/40 rounded-md px-3 py-2">
+                                <input type="checkbox" checked={(formData as any)[item.k] !== false} onChange={e => set(item.k, e.target.checked as any)} className="h-4 w-4" />
+                                {item.label}
+                            </label>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium mb-1">Texto del botón del banner (opcional)</label>
+                            <input type="text" value={formData.bannerCtaText || ''} onChange={e => set('bannerCtaText', e.target.value)} className={inputFormStyle} placeholder="Ej. Ver ofertas" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium mb-1">Enlace del botón del banner (opcional)</label>
+                            <input type="text" value={formData.bannerCtaLink || ''} onChange={e => set('bannerCtaLink', e.target.value)} className={inputFormStyle} placeholder="#productos o https://…" />
+                        </div>
+                    </div>
+                </Section>
+
                 {/* ── Envío ── */}
                 <Section title={t('ecomx.store_settings.shipping_title')} subtitle={t('ecomx.store_settings.shipping_subtitle')}>
                     <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer">
