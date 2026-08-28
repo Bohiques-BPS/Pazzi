@@ -52,6 +52,7 @@ export const EcommerceStorePage: React.FC = () => {
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [priceMax, setPriceMax] = useState('');   // filtro de precio máx (plantilla Autopartes)
 
     const effectiveStoreOwnerId = storeOwnerId || ECOMMERCE_CLIENT_ID;
 
@@ -129,11 +130,13 @@ export const EcommerceStorePage: React.FC = () => {
     );
     const filteredProducts = useMemo(() => {
         const q = searchTerm.toLowerCase();
+        const max = parseFloat(priceMax);
         return storeProducts.filter(p =>
             p.name.toLowerCase().includes(q) &&
-            (!categoryFilter || (p as any).category === categoryFilter)
+            (!categoryFilter || (p as any).category === categoryFilter) &&
+            (!(max > 0) || (Number(p.unitPrice) || 0) <= max)
         );
-    }, [storeProducts, searchTerm, categoryFilter]);
+    }, [storeProducts, searchTerm, categoryFilter, priceMax]);
 
 
     if (!storeSettings) {
@@ -145,7 +148,7 @@ export const EcommerceStorePage: React.FC = () => {
     const storeSecondary = (storeSettings as any).secondaryColor || storePrimaryColor;
     const template = (storeSettings as any).template || 'Moderno';
     // La grilla se adapta al template.
-    const gridClass = (template === 'Catalogo' || template === 'Marketplace')
+    const gridClass = (template === 'Catalogo' || template === 'Marketplace' || template === 'Ofertas')
         ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3'
         : (template === 'Minimalista' || template === 'Boutique')
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8'
@@ -154,7 +157,7 @@ export const EcommerceStorePage: React.FC = () => {
     return (
         <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
             {/* Store Header — varía según la plantilla */}
-            {template === 'Marketplace' ? (
+            {(template === 'Marketplace' || template === 'Ofertas') ? (
                 <>
                     {/* Barra estilo marketplace: logo + buscador ancho + carrito */}
                     <header style={{ backgroundColor: storePrimaryColor }} className="text-white shadow-md">
@@ -244,20 +247,86 @@ export const EcommerceStorePage: React.FC = () => {
                 </>
             )}
 
-            {/* Product Listing */}
-            <main id="productos" className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {filteredProducts.length > 0 ? (
-                    <div className={gridClass}>
-                        {filteredProducts.map(product => (
-                            <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} />
+            {/* Banners promocionales (plantilla Ofertas / Temu) */}
+            {template === 'Ofertas' && (
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                            { t: '🔥 Ofertas del día', c: storePrimaryColor },
+                            { t: '⚡ Envío rápido', c: storeSecondary },
+                            { t: '💰 Mejores precios', c: storeAccent },
+                            { t: '⭐ Calidad garantizada', c: storePrimaryColor },
+                        ].map((b, i) => (
+                            <div key={i} className="rounded-xl p-4 text-white font-bold text-sm shadow-sm" style={{ backgroundColor: b.c }}>{b.t}</div>
                         ))}
                     </div>
-                ) : (
-                    <p className="text-center text-neutral-500 dark:text-neutral-400 py-10">
-                        {searchTerm ? t('store.no_products_search') : t('store.no_products')}
-                    </p>
-                )}
-            </main>
+                </div>
+            )}
+
+            {/* Listado de productos — varía según la plantilla */}
+            {template === 'Mayorista' ? (
+                <main id="productos" className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-3">
+                    {filteredProducts.length === 0 ? (
+                        <p className="text-center text-neutral-500 dark:text-neutral-400 py-10">{searchTerm ? t('store.no_products_search') : t('store.no_products')}</p>
+                    ) : filteredProducts.map(product => (
+                        <div key={product.id} className="flex flex-col sm:flex-row gap-4 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 items-start">
+                            <img src={product.imageUrl || 'https://via.placeholder.com/120'} alt={product.name} className="w-24 h-24 object-cover rounded-md flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">{product.name}</h3>
+                                <p className="text-lg font-bold mt-1" style={{ color: storePrimaryColor }}>{t('store.from') || 'Desde'} ${product.unitPrice.toFixed(2)}</p>
+                                <p className="text-xs text-neutral-500 mt-1">{t('store.min_order') || 'Pedido mínimo'}: 1 · {t('store.supplier') || 'Proveedor'}: {storeSettings.storeName}</p>
+                            </div>
+                            <div className="flex flex-col gap-2 flex-shrink-0 w-full sm:w-40">
+                                <button onClick={() => handleAddToCart(product)} className="px-4 py-2 rounded-md text-white text-sm font-semibold" style={{ backgroundColor: storePrimaryColor }}>{t('store.add') || 'Añadir'}</button>
+                                <a href={`mailto:${(storeSettings as any).contactEmail || ''}`} className="px-4 py-2 rounded-md text-sm font-semibold text-center border" style={{ borderColor: storeAccent, color: storeAccent }}>{t('store.contact')}</a>
+                            </div>
+                        </div>
+                    ))}
+                </main>
+            ) : template === 'Autopartes' ? (
+                <main id="productos" className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row gap-6">
+                    {/* Sidebar de filtros */}
+                    <aside className="w-full md:w-56 flex-shrink-0 space-y-4">
+                        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
+                            <h4 className="text-sm font-bold mb-2 text-neutral-800 dark:text-neutral-100">{t('store.filter_category') || 'Categoría'}</h4>
+                            <div className="space-y-1 max-h-56 overflow-y-auto">
+                                <button onClick={() => setCategoryFilter('')} className={`block text-sm text-left w-full ${!categoryFilter ? 'font-bold' : 'text-neutral-600 dark:text-neutral-300'}`} style={!categoryFilter ? { color: storePrimaryColor } : undefined}>{t('store.all') || 'Todos'}</button>
+                                {categories.map(cat => (
+                                    <button key={cat} onClick={() => setCategoryFilter(cat)} className={`block text-sm text-left w-full ${categoryFilter === cat ? 'font-bold' : 'text-neutral-600 dark:text-neutral-300'}`} style={categoryFilter === cat ? { color: storePrimaryColor } : undefined}>{cat}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
+                            <h4 className="text-sm font-bold mb-2 text-neutral-800 dark:text-neutral-100">{t('store.filter_price') || 'Precio máximo'}</h4>
+                            <input type="number" min="0" value={priceMax} onChange={e => setPriceMax(e.target.value)} placeholder="$ máx." className="w-full px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-600 text-sm dark:bg-neutral-900" />
+                        </div>
+                    </aside>
+                    {/* Grilla */}
+                    <div className="flex-1">
+                        {filteredProducts.length > 0 ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {filteredProducts.map(product => (
+                                    <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} />
+                                ))}
+                            </div>
+                        ) : <p className="text-center text-neutral-500 dark:text-neutral-400 py-10">{searchTerm ? t('store.no_products_search') : t('store.no_products')}</p>}
+                    </div>
+                </main>
+            ) : (
+                <main id="productos" className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    {filteredProducts.length > 0 ? (
+                        <div className={gridClass}>
+                            {filteredProducts.map(product => (
+                                <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-center text-neutral-500 dark:text-neutral-400 py-10">
+                            {searchTerm ? t('store.no_products_search') : t('store.no_products')}
+                        </p>
+                    )}
+                </main>
+            )}
 
             {/* Cart Modal/Sidebar */}
             {isCartOpen && (
