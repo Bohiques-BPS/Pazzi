@@ -593,7 +593,8 @@ export const APP_MODULES_CONFIG = [
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [
-        { type: 'link', name: 'Dashboard E-commerce', path: '/ecommerce/dashboard', icon: HomeIcon },
+        { type: 'link', name: 'Reportes', path: '/ecommerce/dashboard', icon: HomeIcon },
+        { type: 'link', name: 'Diseño de la tienda', path: '/ecommerce/design', icon: Squares2X2Icon },
         { type: 'link', name: 'Pedidos Online', path: '/ecommerce/orders', icon: TruckIcon },
         { type: 'link', name: 'Proveedores', path: '/ecommerce/suppliers', icon: UserGroupIcon },
         { type: 'link', name: 'Pedidos a Proveedor', path: '/ecommerce/supplier-orders', icon: DocumentArrowUpIcon },

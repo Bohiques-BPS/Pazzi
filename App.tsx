@@ -78,7 +78,8 @@ import { LayawaysListPage } from './pages/pos/LayawaysListPage';
 
 
 // Admin Ecommerce Pages
-import { ECommerceSettingsPage } from './pages/ecommerce/DashboardHomePage'; 
+import { ECommerceSettingsPage } from './pages/ecommerce/DashboardHomePage';
+import { ECommerceReportsPage } from './pages/ecommerce/ECommerceDashboardPage';
 import { EcommerceStorePage } from './pages/ecommerce/EcommerceStorePage';
 import { EcommerceOrdersPage } from './pages/ecommerce/EcommerceOrdersPage';
 import { SuppliersListPage } from './pages/ecommerce/SuppliersListPage';
@@ -429,7 +430,8 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/invoices" element={<InvoicesListPage />} />
                 <Route path="/pos/attendance" element={<AttendancePage />} />
                 
-                <Route path="/ecommerce/dashboard" element={<ECommerceSettingsPage />} />
+                <Route path="/ecommerce/dashboard" element={<ECommerceReportsPage />} />
+                <Route path="/ecommerce/design" element={<ECommerceSettingsPage />} />
                 <Route path="/ecommerce/orders" element={<EcommerceOrdersPage />} />
                 <Route path="/ecommerce/suppliers" element={<SuppliersListPage />} />
                 <Route path="/ecommerce/supplier-orders" element={<SupplierOrdersListPage />} />

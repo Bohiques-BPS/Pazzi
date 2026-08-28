@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
+import { StorePreview } from '../../components/ecommerce/StorePreview';
 
 // ── Catálogo de templates disponibles ──
 const TEMPLATES: { id: ECommerceTemplate; name: string; desc: string; emoji: string }[] = [
@@ -112,7 +113,7 @@ export const ECommerceSettingsPage: React.FC = () => {
     if (loading) return <div className="max-w-4xl mx-auto p-2"><LoadingSkeleton variant="form" rows={8} /></div>;
 
     return (
-        <div className="max-w-4xl mx-auto pb-10">
+        <div className="max-w-7xl mx-auto pb-10">
             <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-1">{t('ecomx.store_settings.title')}</h1>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{t('ecomx.store_settings.subtitle')}</p>
 
@@ -136,7 +137,8 @@ export const ECommerceSettingsPage: React.FC = () => {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="lg:flex lg:gap-6 lg:items-start">
+            <form onSubmit={handleSubmit} className="space-y-6 flex-1 min-w-0">
                 {/* ── Identidad ── */}
                 <Section title={t('ecomx.store_settings.identity_title')} subtitle={t('ecomx.store_settings.identity_subtitle')}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -296,6 +298,13 @@ export const ECommerceSettingsPage: React.FC = () => {
                     <button type="submit" disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('common.saving') : t('ecomx.store_settings.save_changes')}</button>
                 </div>
             </form>
+            {/* Preview en vivo (pegajoso en escritorio) */}
+            <div className="mt-6 lg:mt-0 lg:w-[420px] flex-shrink-0 lg:sticky lg:top-4">
+                <div className="bg-white dark:bg-neutral-800 p-4 rounded-lg shadow-sm border border-neutral-100 dark:border-neutral-700">
+                    <StorePreview settings={formData} />
+                </div>
+            </div>
+            </div>
         </div>
     );
 };
