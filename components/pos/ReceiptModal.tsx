@@ -42,6 +42,7 @@ const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 /** Factura tamaño CARTA con el diseño configurable (mismo estilo que el PDF de correo). */
 function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
     const d: any = (cfg as any).invoiceDesign || {};
+    const L = (k: string, dflt: string) => (d.labels && d.labels[k]) || dflt;
     const headerColor = d.headerColor || '#4CAF50';
     const accentColor = d.accentColor || '#7E57C2';
     const title = d.title || 'FACTURA';
@@ -97,8 +98,8 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
             <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">${money(it.quantity * it.unitPrice)}</td>
         </tr>`).join('');
 
-    const taxLine = (sale.tax || 0) > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">IVU:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(sale.tax)}</td></tr>` : '';
-    const changeLine = sale.changeDue && sale.changeDue > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">Cambio:</td><td style="text-align:right;padding:2px 0;">${money(sale.changeDue)}</td></tr>` : '';
+    const taxLine = (sale.tax || 0) > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">${esc(L('tax', 'IVU'))}:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(sale.tax)}</td></tr>` : '';
+    const changeLine = sale.changeDue && sale.changeDue > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">${esc(L('change', 'Cambio'))}:</td><td style="text-align:right;padding:2px 0;">${money(sale.changeDue)}</td></tr>` : '';
 
     return `
     <div style="width:210mm;min-height:auto;margin:0 auto;padding:16mm 14mm;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#222;box-sizing:border-box;font-size:13px;">
@@ -106,32 +107,32 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
         <!-- Cliente + meta -->
         <div style="display:flex;justify-content:space-between;gap:20px;margin-bottom:14px;">
             <div style="max-width:50%;">
-                ${showClient && sale.clientName ? `<div style="font-weight:700;margin-bottom:2px;">Datos del Cliente</div><div>${esc(sale.clientName)}</div>` : ''}
+                ${showClient && sale.clientName ? `<div style="font-weight:700;margin-bottom:2px;">${esc(L('clientHeading', 'Datos del Cliente'))}</div><div>${esc(sale.clientName)}</div>` : ''}
             </div>
             <div style="text-align:right;font-size:13px;">
-                <div><strong>Número:</strong> ${sale.saleNumber ? '#' + esc(String(sale.saleNumber)) : '—'}</div>
-                <div><strong>Fecha:</strong> ${esc(new Date(sale.date).toLocaleDateString())}</div>
-                ${showPay && sale.payments && sale.payments.length ? `<div><strong>Método de pago:</strong> ${esc(sale.payments.map(p => p.method).join(', '))}</div>` : ''}
+                <div><strong>${esc(L('number', 'Número'))}:</strong> ${sale.saleNumber ? '#' + esc(String(sale.saleNumber)) : '—'}</div>
+                <div><strong>${esc(L('date', 'Fecha'))}:</strong> ${esc(new Date(sale.date).toLocaleDateString())}</div>
+                ${showPay && sale.payments && sale.payments.length ? `<div><strong>${esc(L('paymentMethod', 'Método de pago'))}:</strong> ${esc(sale.payments.map(p => p.method).join(', '))}</div>` : ''}
             </div>
         </div>
         <!-- Tabla -->
         <table style="width:100%;border-collapse:collapse;margin-top:4px;">
             <thead>
                 <tr style="${thHeadStyle}">
-                    <th style="padding:9px 6px;text-align:left;">Producto</th>
-                    <th style="padding:9px 6px;text-align:center;width:60px;">Cant</th>
-                    <th style="padding:9px 6px;text-align:right;width:110px;">Precio Unit.</th>
-                    <th style="padding:9px 6px;text-align:right;width:110px;">Total</th>
+                    <th style="padding:9px 6px;text-align:left;">${esc(L('colProduct', 'Producto'))}</th>
+                    <th style="padding:9px 6px;text-align:center;width:60px;">${esc(L('colQty', 'Cant'))}</th>
+                    <th style="padding:9px 6px;text-align:right;width:110px;">${esc(L('colPrice', 'Precio Unit.'))}</th>
+                    <th style="padding:9px 6px;text-align:right;width:110px;">${esc(L('colTotal', 'Total'))}</th>
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
         </table>
         <!-- Totales -->
         <table style="margin-left:auto;margin-top:14px;border-collapse:collapse;">
-            <tr><td style="text-align:right;padding:2px 8px;color:#555;">Subtotal:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(sale.subtotal)}</td></tr>
-            ${sale.discount > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">Descuento:</td><td style="text-align:right;padding:2px 0;">-${money(sale.discount)}</td></tr>` : ''}
+            <tr><td style="text-align:right;padding:2px 8px;color:#555;">${esc(L('subtotal', 'Subtotal'))}:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(sale.subtotal)}</td></tr>
+            ${sale.discount > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">${esc(L('discount', 'Descuento'))}:</td><td style="text-align:right;padding:2px 0;">-${money(sale.discount)}</td></tr>` : ''}
             ${taxLine}
-            <tr><td style="text-align:right;padding:6px 8px;font-size:18px;font-weight:800;color:${accentColor};">Total:</td><td style="text-align:right;padding:6px 0;font-size:18px;font-weight:800;color:${accentColor};">${money(sale.total)}</td></tr>
+            <tr><td style="text-align:right;padding:6px 8px;font-size:18px;font-weight:800;color:${accentColor};">${esc(L('total', 'Total'))}:</td><td style="text-align:right;padding:6px 0;font-size:18px;font-weight:800;color:${accentColor};">${money(sale.total)}</td></tr>
             ${changeLine}
         </table>
         ${footerText ? `<div style="text-align:center;color:#999;font-size:11px;margin-top:34px;">${esc(footerText)}</div>` : ''}
@@ -281,6 +282,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
     if (isLetter) {
         const { default: autoTable } = await import('jspdf-autotable');
         const dz: any = (cfg as any).invoiceDesign || {};
+        const L = (k: string, dflt: string) => (dz.labels && dz.labels[k]) || dflt;
         const headerRgb = hexToRgb(dz.headerColor || '#4CAF50');
         const accentRgb = hexToRgb(dz.accentColor || '#7E57C2');
         const showLogo = dz.showLogo !== false, showBusiness = dz.showBusiness !== false;
@@ -305,17 +307,17 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
         doc.setFontSize(10); doc.setTextColor(40);
         const metaY = yy;
         if (showClient && sale.clientName) {
-            doc.setFont('helvetica', 'bold').text('Datos del Cliente', M, yy);
+            doc.setFont('helvetica', 'bold').text(L('clientHeading', 'Datos del Cliente'), M, yy);
             doc.setFont('helvetica', 'normal').text(sale.clientName, M, yy + 5);
         }
         doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(40);
-        doc.text(`Número: ${sale.saleNumber ? '#' + sale.saleNumber : '—'}`, RM, metaY, { align: 'right' });
-        doc.text(`Fecha: ${new Date(sale.date).toLocaleDateString()}`, RM, metaY + 5, { align: 'right' });
-        if (showPay && sale.payments?.length) doc.text(`Método: ${sale.payments.map(p => p.method).join(', ')}`, RM, metaY + 10, { align: 'right' });
+        doc.text(`${L('number', 'Número')}: ${sale.saleNumber ? '#' + sale.saleNumber : '—'}`, RM, metaY, { align: 'right' });
+        doc.text(`${L('date', 'Fecha')}: ${new Date(sale.date).toLocaleDateString()}`, RM, metaY + 5, { align: 'right' });
+        if (showPay && sale.payments?.length) doc.text(`${L('paymentMethod', 'Método de pago')}: ${sale.payments.map(p => p.method).join(', ')}`, RM, metaY + 10, { align: 'right' });
         yy = metaY + 18;
         autoTable(doc, {
             startY: yy,
-            head: [['Producto', 'Cant', 'Precio Unit.', 'Total']],
+            head: [[L('colProduct', 'Producto'), L('colQty', 'Cant'), L('colPrice', 'Precio Unit.'), L('colTotal', 'Total')]],
             body: sale.items.map(it => [
                 it.name + (showNotes && it.note ? `\n${it.note}` : ''),
                 String(it.quantity), money(it.unitPrice), money(it.quantity * it.unitPrice),
@@ -332,11 +334,11 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
             if (big) doc.setTextColor(accentRgb[0], accentRgb[1], accentRgb[2]); else doc.setTextColor(70);
             doc.text(l, RM - 40, ty, { align: 'right' }); doc.text(v, RM, ty, { align: 'right' }); ty += big ? 8 : 6;
         };
-        totRow('Subtotal:', money(sale.subtotal));
-        if (sale.discount > 0) totRow('Descuento:', `-${money(sale.discount)}`);
-        if ((sale.tax || 0) > 0) totRow('IVU:', money(sale.tax));
-        totRow('Total:', money(sale.total), true);
-        if (sale.changeDue && sale.changeDue > 0) totRow('Cambio:', money(sale.changeDue));
+        totRow(`${L('subtotal', 'Subtotal')}:`, money(sale.subtotal));
+        if (sale.discount > 0) totRow(`${L('discount', 'Descuento')}:`, `-${money(sale.discount)}`);
+        if ((sale.tax || 0) > 0) totRow(`${L('tax', 'IVU')}:`, money(sale.tax));
+        totRow(`${L('total', 'Total')}:`, money(sale.total), true);
+        if (sale.changeDue && sale.changeDue > 0) totRow(`${L('change', 'Cambio')}:`, money(sale.changeDue));
         const footerText = dz.footerText != null ? dz.footerText : '¡Gracias por su preferencia!';
         if (footerText) { doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(150); doc.text(footerText, W / 2, doc.internal.pageSize.getHeight() - 20, { align: 'center' }); }
         doc.save(`factura-${sale.saleNumber}.pdf`);

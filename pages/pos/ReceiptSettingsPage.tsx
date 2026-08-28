@@ -270,6 +270,42 @@ export const ReceiptSettingsPage: React.FC = () => {
                                     {boolField('showPaymentMethod', 'Método de pago')}
                                     {boolField('showNotes', 'Notas / términos de línea')}
                                 </div>
+
+                                {/* Textos editables de la factura */}
+                                {(() => {
+                                    const labels = dz.labels || {};
+                                    const setLabel = (k: string, v: string) => setDz({ labels: { ...labels, [k]: v } });
+                                    const fields: { k: string; label: string; def: string }[] = [
+                                        { k: 'clientHeading', label: 'Encabezado del cliente', def: 'Datos del Cliente' },
+                                        { k: 'number', label: 'Etiqueta "Número"', def: 'Número' },
+                                        { k: 'date', label: 'Etiqueta "Fecha"', def: 'Fecha' },
+                                        { k: 'paymentMethod', label: 'Etiqueta "Método de pago"', def: 'Método de pago' },
+                                        { k: 'status', label: 'Etiqueta "Estado"', def: 'Estado' },
+                                        { k: 'paid', label: 'Texto "Pagada"', def: 'PAGADA' },
+                                        { k: 'pending', label: 'Texto "Pendiente"', def: 'PENDIENTE' },
+                                        { k: 'colProduct', label: 'Columna "Producto"', def: 'Producto' },
+                                        { k: 'colQty', label: 'Columna "Cant"', def: 'Cant' },
+                                        { k: 'colPrice', label: 'Columna "Precio Unit."', def: 'Precio Unit.' },
+                                        { k: 'colTotal', label: 'Columna "Total"', def: 'Total' },
+                                        { k: 'subtotal', label: 'Total: "Subtotal"', def: 'Subtotal' },
+                                        { k: 'tax', label: 'Total: "IVU"', def: 'IVU' },
+                                        { k: 'total', label: 'Total: "Total"', def: 'Total' },
+                                    ];
+                                    return (
+                                        <details className="pt-2">
+                                            <summary className="text-sm font-medium cursor-pointer text-primary">✏️ Editar textos de la factura</summary>
+                                            <p className="text-xs text-neutral-400 mt-1 mb-2">Personaliza cada etiqueta. Deja vacío para usar el texto por defecto.</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                {fields.map(f => (
+                                                    <div key={f.k}>
+                                                        <label className="block text-[11px] text-neutral-500 mb-0.5">{f.label}</label>
+                                                        <input type="text" value={labels[f.k] ?? ''} onChange={e => setLabel(f.k, e.target.value)} placeholder={f.def} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </details>
+                                    );
+                                })()}
                             </section>
                         );
                     })()}
