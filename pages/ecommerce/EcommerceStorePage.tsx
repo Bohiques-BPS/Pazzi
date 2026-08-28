@@ -51,6 +51,7 @@ export const EcommerceStorePage: React.FC = () => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
 
     const effectiveStoreOwnerId = storeOwnerId || ECOMMERCE_CLIENT_ID;
 
@@ -122,9 +123,17 @@ export const EcommerceStorePage: React.FC = () => {
         setIsCartOpen(false);
     };
     
+    const categories = useMemo(
+        () => Array.from(new Set(storeProducts.map(p => (p as any).category).filter(Boolean) as string[])).slice(0, 12),
+        [storeProducts]
+    );
     const filteredProducts = useMemo(() => {
-        return storeProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [storeProducts, searchTerm]);
+        const q = searchTerm.toLowerCase();
+        return storeProducts.filter(p =>
+            p.name.toLowerCase().includes(q) &&
+            (!categoryFilter || (p as any).category === categoryFilter)
+        );
+    }, [storeProducts, searchTerm, categoryFilter]);
 
 
     if (!storeSettings) {
@@ -133,61 +142,110 @@ export const EcommerceStorePage: React.FC = () => {
 
     const storePrimaryColor = storeSettings.primaryColor || DEFAULT_ECOMMERCE_SETTINGS.primaryColor;
     const storeAccent = (storeSettings as any).accentColor || storePrimaryColor;
+    const storeSecondary = (storeSettings as any).secondaryColor || storePrimaryColor;
     const template = (storeSettings as any).template || 'Moderno';
-    // La grilla se adapta al template: Catálogo = más denso; Minimalista = más aire.
-    const gridClass = template === 'Catalogo'
+    // La grilla se adapta al template.
+    const gridClass = (template === 'Catalogo' || template === 'Marketplace')
         ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3'
-        : template === 'Minimalista'
+        : (template === 'Minimalista' || template === 'Boutique')
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8'
         : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6';
 
     return (
         <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
-            {/* Store Header */}
-            <header style={{ backgroundColor: storePrimaryColor }} className="text-white shadow-md">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <div className="flex items-center">
-                        {storeSettings.logoUrl && <img src={storeSettings.logoUrl} alt={`${storeSettings.storeName} logo`} className="h-10 mr-3 rounded" />}
-                        <RouterLink to={`/store/${effectiveStoreOwnerId}`} className="text-2xl font-bold">{storeSettings.storeName}</RouterLink>
-                    </div>
-                    <div className="flex items-center gap-4">
-                         <input 
-                            type="text"
-                            placeholder={t('store.search_ph')}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="px-3 py-1.5 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-white/80 bg-white/20 placeholder-white/70 text-sm text-white"
-                        />
-                        <button onClick={() => setIsCartOpen(true)} className="relative p-2 hover:bg-white/10 rounded-full" aria-label={t('store.view_cart_aria')}>
-                            <ShoppingCartIcon className="w-6 h-6" />
-                            {cart.length > 0 && (
-                                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
-                                </span>
-                            )}
-                        </button>
-                        <RouterLink to="/login" className="text-sm hover:underline">{t('store.login')}</RouterLink>
-                    </div>
-                </div>
-            </header>
-
-            {/* Hero / banner */}
-            {((storeSettings as any).bannerUrl || (storeSettings as any).tagline) && (
-                <div className="relative overflow-hidden" style={{ backgroundColor: storePrimaryColor }}>
-                    {(storeSettings as any).bannerUrl && (
-                        <img src={(storeSettings as any).bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+            {/* Store Header — varía según la plantilla */}
+            {template === 'Marketplace' ? (
+                <>
+                    {/* Barra estilo marketplace: logo + buscador ancho + carrito */}
+                    <header style={{ backgroundColor: storePrimaryColor }} className="text-white shadow-md">
+                        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
+                            <div className="flex items-center flex-shrink-0">
+                                {storeSettings.logoUrl && <img src={storeSettings.logoUrl} alt="" className="h-9 mr-2 rounded" />}
+                                <RouterLink to={`/store/${effectiveStoreOwnerId}`} className="text-xl font-bold whitespace-nowrap">{storeSettings.storeName}</RouterLink>
+                            </div>
+                            <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                className="flex-1 min-w-0 px-4 py-2 rounded-md text-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-white/80" />
+                            <button onClick={() => setIsCartOpen(true)} className="relative p-2 hover:bg-white/10 rounded-full flex-shrink-0" aria-label={t('store.view_cart_aria')}>
+                                <ShoppingCartIcon className="w-6 h-6" />
+                                {cart.length > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{cart.reduce((s, i) => s + i.quantity, 0)}</span>}
+                            </button>
+                            <RouterLink to="/login" className="text-sm hover:underline hidden sm:inline flex-shrink-0">{t('store.login')}</RouterLink>
+                        </div>
+                    </header>
+                    {/* Menú de categorías */}
+                    {categories.length > 0 && (
+                        <div style={{ backgroundColor: storeSecondary }} className="text-white text-sm">
+                            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 flex gap-4 overflow-x-auto">
+                                <button onClick={() => setCategoryFilter('')} className={`whitespace-nowrap hover:underline ${!categoryFilter ? 'font-bold' : 'opacity-90'}`}>{t('store.all') || 'Todos'}</button>
+                                {categories.map(cat => (
+                                    <button key={cat} onClick={() => setCategoryFilter(cat)} className={`whitespace-nowrap hover:underline ${categoryFilter === cat ? 'font-bold' : 'opacity-90'}`}>{cat}</button>
+                                ))}
+                            </div>
+                        </div>
                     )}
-                    <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 text-center text-white">
-                        <h2 className="text-2xl sm:text-4xl font-bold drop-shadow">{storeSettings.storeName}</h2>
-                        {(storeSettings as any).tagline && (
-                            <p className="mt-2 text-sm sm:text-lg opacity-95 max-w-2xl mx-auto drop-shadow">{(storeSettings as any).tagline}</p>
-                        )}
+                </>
+            ) : template === 'Boutique' ? (
+                <>
+                    {/* Encabezado limpio (blanco) + hero grande */}
+                    <header className="bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 shadow-sm">
+                        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                            <div className="flex items-center">
+                                {storeSettings.logoUrl && <img src={storeSettings.logoUrl} alt="" className="h-10 mr-3 rounded" />}
+                                <RouterLink to={`/store/${effectiveStoreOwnerId}`} className="text-2xl font-bold" style={{ color: storePrimaryColor }}>{storeSettings.storeName}</RouterLink>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                    className="px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-600 text-sm focus:outline-none focus:ring-2 dark:bg-neutral-900" />
+                                <button onClick={() => setIsCartOpen(true)} className="relative p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-700" style={{ color: storePrimaryColor }} aria-label={t('store.view_cart_aria')}>
+                                    <ShoppingCartIcon className="w-6 h-6" />
+                                    {cart.length > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{cart.reduce((s, i) => s + i.quantity, 0)}</span>}
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+                    <div className="relative overflow-hidden" style={{ backgroundColor: storePrimaryColor }}>
+                        {(storeSettings as any).bannerUrl && <img src={(storeSettings as any).bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />}
+                        <div className="relative container mx-auto px-4 py-20 sm:py-28 text-center text-white">
+                            <h2 className="text-3xl sm:text-5xl font-extrabold drop-shadow">{storeSettings.storeName}</h2>
+                            {(storeSettings as any).tagline && <p className="mt-3 text-base sm:text-xl opacity-95 max-w-2xl mx-auto drop-shadow">{(storeSettings as any).tagline}</p>}
+                            <a href="#productos" className="inline-block mt-6 px-6 py-3 rounded-full font-semibold shadow-lg" style={{ backgroundColor: storeAccent }}>{t('store.see_products') || 'Ver productos'}</a>
+                        </div>
                     </div>
-                </div>
+                </>
+            ) : (
+                <>
+                    {/* Encabezado estándar (Moderno / Catálogo / Clásico / Minimalista) */}
+                    <header style={{ backgroundColor: storePrimaryColor }} className="text-white shadow-md">
+                        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                            <div className="flex items-center">
+                                {storeSettings.logoUrl && <img src={storeSettings.logoUrl} alt={`${storeSettings.storeName} logo`} className="h-10 mr-3 rounded" />}
+                                <RouterLink to={`/store/${effectiveStoreOwnerId}`} className="text-2xl font-bold">{storeSettings.storeName}</RouterLink>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="px-3 py-1.5 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-white/80 bg-white/20 placeholder-white/70 text-sm text-white" />
+                                <button onClick={() => setIsCartOpen(true)} className="relative p-2 hover:bg-white/10 rounded-full" aria-label={t('store.view_cart_aria')}>
+                                    <ShoppingCartIcon className="w-6 h-6" />
+                                    {cart.length > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>}
+                                </button>
+                                <RouterLink to="/login" className="text-sm hover:underline">{t('store.login')}</RouterLink>
+                            </div>
+                        </div>
+                    </header>
+                    {((storeSettings as any).bannerUrl || (storeSettings as any).tagline) && (
+                        <div className="relative overflow-hidden" style={{ backgroundColor: storePrimaryColor }}>
+                            {(storeSettings as any).bannerUrl && <img src={(storeSettings as any).bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />}
+                            <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 text-center text-white">
+                                <h2 className="text-2xl sm:text-4xl font-bold drop-shadow">{storeSettings.storeName}</h2>
+                                {(storeSettings as any).tagline && <p className="mt-2 text-sm sm:text-lg opacity-95 max-w-2xl mx-auto drop-shadow">{(storeSettings as any).tagline}</p>}
+                            </div>
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Product Listing */}
-            <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main id="productos" className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {filteredProducts.length > 0 ? (
                     <div className={gridClass}>
                         {filteredProducts.map(product => (

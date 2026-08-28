@@ -602,7 +602,7 @@ export interface ChatMessage {
     text: string;
 }
 
-export type ECommerceTemplate = 'Moderno' | 'Catalogo' | 'Clasico' | 'Minimalista';
+export type ECommerceTemplate = 'Moderno' | 'Catalogo' | 'Clasico' | 'Minimalista' | 'Marketplace' | 'Boutique';
 
 export interface ECommerceSettings {
     storeName: string;

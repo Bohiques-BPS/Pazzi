@@ -11,6 +11,8 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 // ── Catálogo de templates disponibles ──
 const TEMPLATES: { id: ECommerceTemplate; name: string; desc: string; emoji: string }[] = [
     { id: 'Moderno', name: 'Moderno', desc: 'Cuadrícula limpia con imágenes grandes.', emoji: '🟦' },
+    { id: 'Marketplace', name: 'Marketplace', desc: 'Estilo Amazon/MercadoLibre: barra con buscador y menú de categorías.', emoji: '🛒' },
+    { id: 'Boutique', name: 'Boutique', desc: 'Encabezado limpio + hero grande con banner y llamado a la acción.', emoji: '🛍️' },
     { id: 'Catalogo', name: 'Catálogo retail', desc: 'Denso, ideal para muchos productos (ferretería).', emoji: '🗂️' },
     { id: 'Clasico', name: 'Clásico', desc: 'Tradicional, con secciones y bloques.', emoji: '🧱' },
     { id: 'Minimalista', name: 'Minimalista', desc: 'Mucho espacio, tipografía protagonista.', emoji: '⚪' },
