@@ -188,6 +188,12 @@ export const InvoicesListPage: React.FC = () => {
     // "Avanzado": personalización del diseño/textos SOLO para esta factura.
     const [advOpen, setAdvOpen] = useState(false);
     const [design, setDesign] = useState<Record<string, any>>({});
+    // Abonos ya realizados al crear la factura (efectivo u otro método).
+    const [abonos, setAbonos] = useState<{ method: string; amount: string; reference: string }[]>([]);
+    const addAbono = () => setAbonos(a => [...a, { method: PAY_METHODS[2], amount: '', reference: '' }]);
+    const setAbono = (i: number, patch: Partial<{ method: string; amount: string; reference: string }>) => setAbonos(a => a.map((x, idx) => idx === i ? { ...x, ...patch } : x));
+    const removeAbono = (i: number) => setAbonos(a => a.filter((_, idx) => idx !== i));
+    const abonosTotal = abonos.reduce((s, a) => s + (Number(a.amount) || 0), 0);
     const gDesign: any = (settings as any)?.receiptConfig?.invoiceDesign || {};
     const setD = (k: string, v: any) => setDesign(d => { const n = { ...d }; if (v === '' || v == null) delete n[k]; else n[k] = v; return n; });
     const setLbl = (k: string, v: string) => setDesign(d => { const labels = { ...(d.labels || {}) }; if (!v) delete labels[k]; else labels[k] = v; const n = { ...d }; if (Object.keys(labels).length) n.labels = labels; else delete n.labels; return n; });
@@ -218,7 +224,7 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); };
 
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
     const openEdit = (inv: Invoice) => {
@@ -336,6 +342,7 @@ export const InvoicesListPage: React.FC = () => {
                     allowPartial,
                     type: invType.trim() || null,
                     designOverride: Object.keys(design).length ? design : undefined,
+                    initialPayments: abonos.map(a => ({ method: a.method, amount: Number(a.amount) || 0, reference: a.reference.trim() || undefined })).filter(a => a.amount > 0),
                 });
                 toast.success(sendOnCreate && email.trim() ? t('posx.invoices.created_sent', { email: email.trim() }) : t('posx.invoices.created'));
                 setShowForm(false); resetForm(); load();
@@ -674,10 +681,37 @@ export const InvoicesListPage: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Abonos ya realizados (opcional): la persona ya pagó parte/total al crear la factura */}
+                    {!editId && (
+                        <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('posx.invoices.abonos_title')}</span>
+                                {abonosTotal > 0 && <span className="text-xs text-green-600 dark:text-green-400">{t('posx.invoices.abonos_paid')}: {money(abonosTotal)}</span>}
+                            </div>
+                            {abonos.map((a, i) => (
+                                <div key={i} className="flex gap-2 items-center">
+                                    <select value={a.method} onChange={e => setAbono(i, { method: e.target.value })} className={`${INPUT_SM_CLASSES} w-40`}>
+                                        {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <input type="number" min="0" step="0.01" value={a.amount} onChange={e => setAbono(i, { amount: e.target.value })} placeholder={t('posx.invoices.price_placeholder')} className={`${INPUT_SM_CLASSES} w-28`} />
+                                    <input type="text" value={a.reference} onChange={e => setAbono(i, { reference: e.target.value })} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1`} />
+                                    <button onClick={() => removeAbono(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
+                                </div>
+                            ))}
+                            <button onClick={addAbono} className="text-sm text-primary hover:underline">{t('posx.invoices.abonos_add')}</button>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-700 pt-3">
                         <span className="text-sm text-neutral-500">{t('posx.invoices.subtotal_note')}</span>
                         <span className="font-semibold text-neutral-800 dark:text-neutral-100">{money(draftTotal)}</span>
                     </div>
+                    {!editId && abonosTotal > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-green-600 dark:text-green-400">{t('posx.invoices.abonos_paid')}</span>
+                            <span className="font-medium text-green-600 dark:text-green-400">−{money(abonosTotal)}</span>
+                        </div>
+                    )}
                     <div className="flex justify-end gap-2">
                         <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.invoices.creating') : editId ? t('posx.invoices.save_changes') : t('posx.invoices.create_invoice')}</button>

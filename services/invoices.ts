@@ -45,6 +45,7 @@ export interface CreateInvoiceInput {
     allowPartial?: boolean;  // false = solo pago completo (sin abonos)
     type?: string | null;    // tipo de factura (etiqueta libre)
     designOverride?: Record<string, any> | null; // personalización de diseño solo para esta factura
+    initialPayments?: { method?: string | null; amount: number; reference?: string | null }[]; // abonos ya realizados
 }
 
 export interface UpdateInvoiceInput {
