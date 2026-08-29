@@ -7,6 +7,7 @@ export interface TaskPayload {
   description?: string;
   projectId?: string;
   status?: TaskStatus;
+  section?: string | null;
   assignedEmployeeIds?: string[];
   order?: number;
   archived?: boolean;

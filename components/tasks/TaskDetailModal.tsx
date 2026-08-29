@@ -36,6 +36,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [assignedIds, setAssignedIds] = useState<string[]>(task.assignedEmployeeIds || []);
     const [dueDate, setDueDate] = useState<string>(task.dueDate ? task.dueDate.split('T')[0] : '');
     const [priority, setPriority] = useState<Task['priority']>(task.priority ?? null);
+    const [section, setSection] = useState<string>(task.section || '');
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<TaskCommentRecord[]>(((task as any).comments as TaskCommentRecord[]) || []);
     const [submitting, setSubmitting] = useState(false);
@@ -67,8 +68,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 assignedEmployeeIds: assignedIds,
                 dueDate: dueDate || null,
                 priority: priority || null,
+                section: section.trim() || null,
             });
-            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null } as any);
+            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null } as any);
             toast.success(t('cmpx.task.updated_ok'));
             onClose();
         } catch (err) {
@@ -205,6 +207,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             className={inputFormStyle}
                         />
                     </div>
+                </div>
+
+                {/* Sección / área del proyecto (ej. Diseño, Programación) */}
+                <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.section_label')}</label>
+                    <input
+                        type="text"
+                        value={section}
+                        onChange={e => setSection(e.target.value)}
+                        placeholder={t('cmpx.task.section_none')}
+                        className={inputFormStyle}
+                    />
                 </div>
 
                 <div>

@@ -790,6 +790,7 @@ export interface Task {
     title: string;
     description?: string;
     status: TaskStatus;
+    section?: string | null;   // área/sección del proyecto (ej. Diseño, Programación)
     archived: boolean;
     order: number; // For sorting within a column
     assignedEmployeeIds?: string[];

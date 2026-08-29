@@ -20,19 +20,41 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [isCreatingInStatus, setIsCreatingInStatus] = useState<TaskStatus | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    
+    // Sección/área activa ('' = Todas). extraSections: secciones creadas aún sin tareas.
+    const [activeSection, setActiveSection] = useState('');
+    const [extraSections, setExtraSections] = useState<string[]>([]);
+
     const allEmployees = getAllEmployees();
 
     const projectTasks = useMemo(() => {
         return tasks.filter(t => t.projectId === projectId && !t.archived).sort((a, b) => a.order - b.order);
     }, [tasks, projectId]);
 
+    // Secciones existentes (de las tareas) + las recién añadidas localmente.
+    const sections = useMemo(
+        () => Array.from(new Set([...projectTasks.map(t => t.section).filter(Boolean) as string[], ...extraSections])),
+        [projectTasks, extraSections]
+    );
+
+    // Tareas visibles según la sección activa.
+    const visibleTasks = useMemo(
+        () => activeSection ? projectTasks.filter(t => (t.section || '') === activeSection) : projectTasks,
+        [projectTasks, activeSection]
+    );
+
     const columns = useMemo(() => ({
-        [TaskStatus.TODO]: projectTasks.filter(t => t.status === TaskStatus.TODO),
-        [TaskStatus.IN_PROGRESS]: projectTasks.filter(t => t.status === TaskStatus.IN_PROGRESS),
-        [TaskStatus.FOR_APPROVAL]: projectTasks.filter(t => t.status === TaskStatus.FOR_APPROVAL),
-        [TaskStatus.DONE]: projectTasks.filter(t => t.status === TaskStatus.DONE),
-    }), [projectTasks]);
+        [TaskStatus.TODO]: visibleTasks.filter(t => t.status === TaskStatus.TODO),
+        [TaskStatus.IN_PROGRESS]: visibleTasks.filter(t => t.status === TaskStatus.IN_PROGRESS),
+        [TaskStatus.FOR_APPROVAL]: visibleTasks.filter(t => t.status === TaskStatus.FOR_APPROVAL),
+        [TaskStatus.DONE]: visibleTasks.filter(t => t.status === TaskStatus.DONE),
+    }), [visibleTasks]);
+
+    const addSection = () => {
+        const name = (window.prompt(t('cmpx.task.new_section_prompt') || 'Nombre de la sección (ej. Diseño, Programación):') || '').trim();
+        if (!name) return;
+        if (!sections.includes(name)) setExtraSections(prev => [...prev, name]);
+        setActiveSection(name);
+    };
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, task: Task) => {
         setDraggedTask(task);
@@ -105,7 +127,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             return;
         }
         try {
-            const saved = await tasksService.create({ projectId, title: newTaskTitle, status });
+            const saved = await tasksService.create({ projectId, title: newTaskTitle, status, section: activeSection || undefined });
             setTasks(prev => [...prev, {
                 ...saved,
                 assignedEmployeeIds: saved.assignedEmployeeIds || [],
@@ -119,6 +141,30 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
 
     return (
         <>
+            {/* Pestañas de sección (áreas del proyecto: Diseño, Programación, etc.) */}
+            <div className="flex items-center gap-2 mb-4 flex-wrap border-b border-neutral-200 dark:border-neutral-700 pb-2">
+                <button
+                    onClick={() => setActiveSection('')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${!activeSection ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                >
+                    {t('cmpx.task.all_sections') || 'Todas'} <span className="opacity-70">({projectTasks.length})</span>
+                </button>
+                {sections.map(sec => {
+                    const count = projectTasks.filter(x => x.section === sec).length;
+                    return (
+                        <button
+                            key={sec}
+                            onClick={() => setActiveSection(sec)}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeSection === sec ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                        >
+                            {sec} <span className="opacity-70">({count})</span>
+                        </button>
+                    );
+                })}
+                <button onClick={addSection} className="px-3 py-1.5 rounded-md text-sm font-medium text-primary hover:bg-primary/10 flex items-center gap-1">
+                    <PlusIcon className="w-4 h-4" /> {t('cmpx.task.add_section') || 'Sección'}
+                </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {Object.entries(columns).map(([status, tasksInColumn]: [string, Task[]]) => (
                     <div
