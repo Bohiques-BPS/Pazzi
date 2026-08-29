@@ -3,7 +3,8 @@ import React from 'react';
 import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department, Task, TaskStatus, TaskComment, ProjectPriority, SalePayment } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department, SalePayment
 import { 
     BriefcaseIcon, 
-    Squares2X2Icon, 
+    Squares2X2Icon,
+    KanbanIcon,
     ListBulletIcon, 
     UserGroupIcon,
     UsersIcon,
@@ -542,8 +543,8 @@ export const APP_MODULES_CONFIG = [
     path: '/pm/dashboard', 
     icon: BriefcaseIcon,
     subModulesProject: [
-        { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: HomeIcon },
-        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: BriefcaseIcon },
+        { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: Squares2X2Icon },
+        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: KanbanIcon },
         { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon },
         { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: CalendarDaysIcon },
         { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: ChartBarIcon },

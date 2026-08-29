@@ -144,8 +144,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         key={item.path}
         to={item.path}
         onClick={handleLinkClick}
-        className={`flex items-center py-2 px-2 rounded-md transition duration-200 text-lg font-semibold ${isActive ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
+        className={`relative flex items-center py-2 px-2 rounded-md transition duration-200 text-lg font-semibold ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
       >
+        {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" aria-hidden="true" />}
         {Icon && <span className="mr-3 w-6 h-6 flex items-center justify-center"><Icon className="w-5 h-5" /></span>}
         {translatedName}
       </Link>

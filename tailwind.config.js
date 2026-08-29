@@ -15,6 +15,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       colors: {
         primary: '#0D9488', // teal-600
         secondary: '#0F766E', // teal-700
