@@ -185,6 +185,12 @@ export const InvoicesListPage: React.FC = () => {
     const [allowPartial, setAllowPartial] = useState(true);
     const [description, setDescription] = useState('');
     const [invType, setInvType] = useState('');
+    // "Avanzado": personalización del diseño/textos SOLO para esta factura.
+    const [advOpen, setAdvOpen] = useState(false);
+    const [design, setDesign] = useState<Record<string, any>>({});
+    const gDesign: any = (settings as any)?.receiptConfig?.invoiceDesign || {};
+    const setD = (k: string, v: any) => setDesign(d => { const n = { ...d }; if (v === '' || v == null) delete n[k]; else n[k] = v; return n; });
+    const setLbl = (k: string, v: string) => setDesign(d => { const labels = { ...(d.labels || {}) }; if (!v) delete labels[k]; else labels[k] = v; const n = { ...d }; if (Object.keys(labels).length) n.labels = labels; else delete n.labels; return n; });
     const [editId, setEditId] = useState<string | null>(null);
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
     // Filtros extra
@@ -212,7 +218,7 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); };
 
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
     const openEdit = (inv: Invoice) => {
@@ -329,6 +335,7 @@ export const InvoicesListPage: React.FC = () => {
                     description: description || undefined,
                     allowPartial,
                     type: invType.trim() || null,
+                    designOverride: Object.keys(design).length ? design : undefined,
                 });
                 toast.success(sendOnCreate && email.trim() ? t('posx.invoices.created_sent', { email: email.trim() }) : t('posx.invoices.created'));
                 setShowForm(false); resetForm(); load();
@@ -548,6 +555,69 @@ export const InvoicesListPage: React.FC = () => {
                             <InvoiceTypeSelect value={invType} onChange={setInvType} />
                         </div>
                     </div>
+
+                    {/* AVANZADO: personalizar el diseño/textos de ESTA factura (sobre el diseño global) */}
+                    {!editId && (
+                        <div className="border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg">
+                            <button type="button" onClick={() => setAdvOpen(o => !o)} className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                                <span>⚙️ {t('posx.invoices.advanced')}{Object.keys(design).length > 0 && <span className="ml-2 text-xs text-primary">• {t('posx.invoices.advanced_active')}</span>}</span>
+                                <span className="text-neutral-400">{advOpen ? '▲' : '▼'}</span>
+                            </button>
+                            {advOpen && (
+                                <div className="px-3 pb-3 pt-1 space-y-3 border-t border-neutral-100 dark:border-neutral-700">
+                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('posx.invoices.advanced_hint')}</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.adv_title')}</label>
+                                            <input type="text" value={design.title ?? ''} onChange={e => setD('title', e.target.value)} placeholder={gDesign.title || 'FACTURA'} className={`${INPUT_SM_CLASSES} w-full`} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.adv_footer')}</label>
+                                            <input type="text" value={design.footerText ?? ''} onChange={e => setD('footerText', e.target.value)} placeholder={gDesign.footerText || '¡Gracias por su preferencia!'} className={`${INPUT_SM_CLASSES} w-full`} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.adv_template')}</label>
+                                            <select value={design.template ?? ''} onChange={e => setD('template', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
+                                                <option value="">{t('posx.invoices.adv_default')} ({gDesign.template || 'modern'})</option>
+                                                <option value="modern">Moderno</option>
+                                                <option value="banner">Banner</option>
+                                                <option value="classic">Clásico</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div>
+                                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.adv_header_color')}</label>
+                                                <input type="color" value={design.headerColor ?? gDesign.headerColor ?? '#4CAF50'} onChange={e => setD('headerColor', e.target.value)} className="h-9 w-14 rounded border border-neutral-300 dark:border-neutral-600" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.adv_accent_color')}</label>
+                                                <input type="color" value={design.accentColor ?? gDesign.accentColor ?? '#7E57C2'} onChange={e => setD('accentColor', e.target.value)} className="h-9 w-14 rounded border border-neutral-300 dark:border-neutral-600" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* Textos editables de ESTA factura */}
+                                    <details>
+                                        <summary className="text-xs font-medium cursor-pointer text-primary">✏️ {t('posx.invoices.adv_texts')}</summary>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                                            {([
+                                                ['clientHeading', 'Datos del Cliente'], ['colProduct', 'Producto'], ['colQty', 'Cant'],
+                                                ['colPrice', 'Precio Unit.'], ['colTotal', 'Total'], ['subtotal', 'Subtotal'],
+                                                ['tax', 'IVU'], ['total', 'Total'], ['paymentMethod', 'Método de pago'],
+                                            ] as [string, string][]).map(([k, def]) => (
+                                                <div key={k}>
+                                                    <label className="block text-[11px] text-neutral-400 mb-0.5">{def}</label>
+                                                    <input type="text" value={design.labels?.[k] ?? ''} onChange={e => setLbl(k, e.target.value)} placeholder={gDesign.labels?.[k] || def} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </details>
+                                    {Object.keys(design).length > 0 && (
+                                        <button type="button" onClick={() => setDesign({})} className="text-xs text-red-500 hover:underline">{t('posx.invoices.adv_reset')}</button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <label className="block text-xs text-neutral-500">{t('posx.invoices.items')}</label>

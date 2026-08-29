@@ -44,6 +44,7 @@ export interface CreateInvoiceInput {
     allowedMethods?: string; // "agilpay,ath" (null/omitido = ambos)
     allowPartial?: boolean;  // false = solo pago completo (sin abonos)
     type?: string | null;    // tipo de factura (etiqueta libre)
+    designOverride?: Record<string, any> | null; // personalización de diseño solo para esta factura
 }
 
 export interface UpdateInvoiceInput {
