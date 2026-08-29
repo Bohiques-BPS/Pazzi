@@ -132,7 +132,10 @@ export const ProjectsListPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('project.list.title')}</h1>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('project.list.title')}</h1>
+                    <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-700 rounded-full px-2.5 py-0.5">{filteredProjects.length}</span>
+                </div>
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <select
                         value={statusFilter}
