@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Project, ProjectStatus, ProjectPriority, Employee } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { EllipsisVerticalIcon, CalendarDaysIcon, UserGroupIcon, ChatBubbleLeftRightIcon, DocumentArrowDownIcon, ClipboardDocumentListIcon } from '../icons';
+import { EllipsisVerticalIcon, CalendarDaysIcon, UserGroupIcon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon } from '../icons';
 
 interface ProjectCardProps {
     project: Project;
@@ -31,14 +31,13 @@ const PRIORITY_META: Record<number, { label: string; cls: string }> = {
 
 const avatarColors = ['bg-teal-500', 'bg-indigo-500', 'bg-rose-500', 'bg-amber-500', 'bg-sky-500', 'bg-violet-500'];
 const initials = (e: Employee) => `${(e.name || '')[0] || ''}${(e.lastName || '')[0] || ''}`.toUpperCase();
-const stripHtml = (html?: string) => (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({
     project, onViewProject, onRequestDelete, onViewQuotation, onGenerateInvoice, onViewInvoice, allEmployees, showManagementActions = true,
 }) => {
     const [actionsOpen, setActionsOpen] = useState(false);
     const { t } = useTranslation();
-    const { getClientById } = useData();
+    const { getClientById, tasks } = useData();
     const client = getClientById(project.clientId);
     const meta = STATUS_META[project.status] || STATUS_META[ProjectStatus.PENDING];
     const priority = project.priority ? PRIORITY_META[project.priority] : null;
@@ -47,8 +46,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         () => project.assignedEmployeeIds.map(id => allEmployees.find(e => e.id === id)).filter(Boolean) as Employee[],
         [project.assignedEmployeeIds, allEmployees]
     );
-    const desc = stripHtml(project.description);
-    const visit = project.visitDate ? new Date(project.visitDate + 'T00:00:00').toLocaleDateString() : null;
+
+    // Progreso derivado de las tareas del proyecto ('Hecho' / total, sin archivadas).
+    const { doneTasks, totalTasks, progress } = useMemo(() => {
+        const pt = tasks.filter(tk => tk.projectId === project.id && !tk.archived);
+        const done = pt.filter(tk => tk.status === 'Hecho').length;
+        return { doneTasks: done, totalTasks: pt.length, progress: pt.length ? Math.round((done / pt.length) * 100) : 0 };
+    }, [tasks, project.id]);
+
+    const chatCount = (project as any)._count?.chatMessages ?? 0;
+    const dueRaw = project.workEndDate || (project as any).paymentDueDate || project.visitDate;
+    const dueDate = dueRaw ? new Date(String(dueRaw).slice(0, 10) + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : null;
 
     return (
         <div className="group bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col">
@@ -82,6 +90,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     )}
                 </div>
 
+                {/* Cliente */}
+                <div className="flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                    <UserGroupIcon className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{client ? `${client.name} ${client.lastName || ''}`.trim() : 'N/A'}</span>
+                </div>
+
                 {/* Estado + prioridad */}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${meta.pill}`}>
@@ -90,25 +104,19 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     {priority && <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${priority.cls}`}>⚑ {priority.label}</span>}
                 </div>
 
-                {/* Descripción */}
-                {desc && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2 line-clamp-2">{desc}</p>}
-
-                {/* Cliente + visita */}
-                <div className="mt-3 space-y-1.5 text-sm">
-                    <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
-                        <UserGroupIcon className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{t('cmp.projectcard.client')} <span className="font-medium text-neutral-700 dark:text-neutral-200">{client ? `${client.name} ${client.lastName || ''}`.trim() : 'N/A'}</span></span>
+                {/* Progreso */}
+                <div className="mt-4">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('cmp.projectcard.progress')}</span>
+                        <span className="text-xs font-bold text-neutral-700 dark:text-neutral-200">{progress}%</span>
                     </div>
-                    {visit && (
-                        <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
-                            <CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
-                            <span>{t('cmp.projectcard.visit')} {visit}</span>
-                        </div>
-                    )}
+                    <div className="h-2 w-full bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+                    </div>
                 </div>
 
-                {/* Equipo (avatares) */}
-                <div className="mt-3 flex items-center justify-between min-h-[28px]">
+                {/* Equipo + tareas/fecha */}
+                <div className="mt-3 flex items-center justify-between gap-2 min-h-[28px]">
                     {assigned.length > 0 ? (
                         <div className="flex -space-x-2">
                             {assigned.slice(0, 4).map((e, i) => (
@@ -118,18 +126,18 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                             ))}
                             {assigned.length > 4 && <span className="w-7 h-7 rounded-full bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-200 text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-neutral-800">+{assigned.length - 4}</span>}
                         </div>
-                    ) : <span className="text-xs text-neutral-400">Sin equipo asignado</span>}
-                    {project.invoiceGenerated && (
-                        <button onClick={() => onViewInvoice(project)} className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                            <DocumentArrowDownIcon className="w-4 h-4" /> {t('cmp.projectcard.view_invoice')}
-                        </button>
-                    )}
+                    ) : <span className="text-xs text-neutral-400">{t('cmp.projectcard.no_team')}</span>}
+                    <div className="flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-500 flex-shrink-0">
+                        {totalTasks > 0 && <span className="inline-flex items-center gap-1" title={t('cmp.projectcard.tasks')}><ClipboardDocumentListIcon className="w-4 h-4" />{doneTasks}/{totalTasks}</span>}
+                        {dueDate && <span className="inline-flex items-center gap-1"><CalendarDaysIcon className="w-4 h-4" />{dueDate}</span>}
+                    </div>
                 </div>
 
                 {/* Acciones */}
-                <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-700 flex gap-2">
+                <div className="mt-auto pt-3 border-t border-neutral-100 dark:border-neutral-700 flex gap-2">
                     <button onClick={() => onViewProject(project, 'chat')} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5">
                         <ChatBubbleLeftRightIcon className="w-4 h-4" /> {t('cmp.projectcard.chat')}
+                        {chatCount > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">{chatCount}</span>}
                     </button>
                     <button onClick={() => onViewProject(project, 'tasks')} className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary dark:text-teal-300 font-semibold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5">
                         <ClipboardDocumentListIcon className="w-4 h-4" /> {t('cmp.projectcard.tasks')}

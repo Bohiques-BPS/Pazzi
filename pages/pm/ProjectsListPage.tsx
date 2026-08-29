@@ -6,9 +6,9 @@ import { Project, ProjectStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { ConfirmationModal } from '../../components/Modal';
 import { ProjectCard } from '../../components/cards/ProjectCard';
-import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon } from '../../components/icons';
+import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon, BriefcaseIcon, ClipboardDocumentListIcon, ChartBarIcon, UserGroupIcon } from '../../components/icons';
 import { DataTable, TableColumn } from '../../components/DataTable';
-import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
@@ -16,8 +16,16 @@ import { projectsService } from '../../services/projects';
 
 export const ProjectsListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { projects, setProjects, employees: allEmployees, generateInvoiceForProject, getClientById } = useData();
+    const { projects, setProjects, employees: allEmployees, tasks, generateInvoiceForProject, getClientById } = useData();
     const navigate = useNavigate();
+
+    // KPIs de la cabecera.
+    const kpis = useMemo(() => ({
+        active: projects.filter(p => p.status === ProjectStatus.ACTIVE).length,
+        completed: projects.filter(p => p.status === ProjectStatus.COMPLETED).length,
+        pendingTasks: tasks.filter(tk => !tk.archived && tk.status !== 'Hecho').length,
+        collaborators: allEmployees.length,
+    }), [projects, tasks, allEmployees]);
 
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
@@ -131,36 +139,65 @@ export const ProjectsListPage: React.FC = () => {
 
     return (
         <div>
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-                <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('project.list.title')}</h1>
-                    <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-700 rounded-full px-2.5 py-0.5">{filteredProjects.length}</span>
+            {/* Cabecera */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+                <div>
+                    <h1 className="text-3xl font-bold text-neutral-800 dark:text-neutral-100">{t('project.list.title')}</h1>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        {projects.length} {t('project.list.count_suffix')} · {t('project.list.updated_today')}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'Todos')}
-                        className={`${INPUT_SM_CLASSES}`}
-                        aria-label={t('pm2x.project.filter_status_aria')}
-                    >
-                        <option value="Todos">{t('pm2x.project.all_statuses')}</option>
-                        {PROJECT_STATUS_OPTIONS.map(status => (
-                            <option key={status} value={status}>{status}</option>
-                        ))}
-                    </select>
-                    <div className="flex items-center bg-neutral-200 dark:bg-neutral-700 p-0.5 rounded-md">
-                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.card_view')}><Squares2X2Icon className="w-5 h-5"/></button>
-                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.table_view')}><ListBulletIcon className="w-5 h-5"/></button>
-                    </div>
-                    <button
-                        onClick={() => navigate('/pm/projects/new')}
-                        className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}
-                    >
-                       <PlusIcon className="w-5 h-5"/> {t('project.list.create')}
-                    </button>
+                <button
+                    onClick={() => navigate('/pm/projects/new')}
+                    className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0 self-start sm:self-auto`}
+                >
+                    <PlusIcon className="w-5 h-5"/> {t('project.list.create')}
+                </button>
+            </div>
+
+            {/* KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {[
+                    { icon: BriefcaseIcon, label: t('project.kpi.active'), value: kpis.active },
+                    { icon: ClipboardDocumentListIcon, label: t('project.kpi.pending_tasks'), value: kpis.pendingTasks },
+                    { icon: ChartBarIcon, label: t('project.kpi.completed'), value: kpis.completed },
+                    { icon: UserGroupIcon, label: t('project.kpi.collaborators'), value: kpis.collaborators },
+                ].map((k, i) => {
+                    const Icon = k.icon;
+                    return (
+                        <div key={i} className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 shadow-sm">
+                            <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
+                                <Icon className="w-4 h-4 flex-shrink-0" />
+                                <span className="truncate">{k.label}</span>
+                            </div>
+                            <div className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 mt-1">{k.value}</div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Filtros (pestañas) + vista */}
+            <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+                <div className="flex items-center gap-1 flex-wrap">
+                    {(['Todos', ...PROJECT_STATUS_OPTIONS] as (ProjectStatus | 'Todos')[]).map(s => {
+                        const activeTab = statusFilter === s;
+                        return (
+                            <button
+                                key={s}
+                                onClick={() => setStatusFilter(s)}
+                                className={`px-3.5 py-1.5 text-sm font-medium rounded-full transition-colors ${activeTab ? 'bg-primary text-white shadow-sm' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                            >
+                                {s === 'Todos' ? t('pm2x.project.all_statuses') : s}
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="flex items-center bg-neutral-100 dark:bg-neutral-700 p-0.5 rounded-md flex-shrink-0">
+                    <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.card_view')}><Squares2X2Icon className="w-5 h-5"/></button>
+                    <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.table_view')}><ListBulletIcon className="w-5 h-5"/></button>
                 </div>
             </div>
-            
+
             {viewMode === 'card' ? (
                 <>
                     {filteredProjects.length > 0 ? (
