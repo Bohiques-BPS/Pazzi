@@ -59,9 +59,9 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     const dueDate = dueRaw ? new Date(String(dueRaw).slice(0, 10) + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : null;
 
     return (
-        <div className="group bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col">
-            {/* Acento de estado */}
-            <div className={`h-1.5 ${meta.bar}`} />
+        <div className={`group relative bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col ${actionsOpen ? 'z-30' : ''}`}>
+            {/* Acento de estado (redondeado arriba; sin overflow-hidden para no recortar el menú "···") */}
+            <div className={`h-1.5 rounded-t-xl ${meta.bar}`} />
             <div className="p-4 flex flex-col flex-grow">
                 {/* Título + menú */}
                 <div className="flex justify-between items-start gap-2">
