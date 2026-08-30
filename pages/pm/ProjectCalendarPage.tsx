@@ -1,11 +1,14 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Visit, Project, ProjectStatus, VisitStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { ScheduleVisitModal } from './ScheduleVisitModal';
 import { VisitDetailModal } from './VisitDetailModal';
 import { ProjectFormModal } from './ProjectFormModal';
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon as CreateVisitIcon, BriefcaseIcon } from '../../components/icons';
+import { Modal } from '../../components/Modal';
+import { projectMeetingsService, type ProjectMeeting } from '../../services/projectMeetings';
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon as CreateVisitIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CalendarDaysIcon, UserGroupIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation
@@ -17,8 +20,8 @@ interface CalendarEvent {
     title: string;
     start: Date;
     end: Date;
-    type: 'visit' | 'project';
-    originalData: Visit | Project;
+    type: 'visit' | 'project' | 'meeting';
+    originalData: Visit | Project | ProjectMeeting;
     status: VisitStatus | ProjectStatus;
     isAllDay: boolean;
 }
@@ -30,9 +33,27 @@ const isSameDate = (date1?: Date, date2?: Date): boolean => {
     return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate();
 };
 
-const getEventsForRange = (projects: Project[], visits: Visit[]): CalendarEvent[] => {
+const getEventsForRange = (projects: Project[], visits: Visit[], meetings: ProjectMeeting[] = []): CalendarEvent[] => {
     const events: CalendarEvent[] = [];
-    
+
+    // Process Meetings (Seguimiento)
+    meetings.forEach(m => {
+        const dateStr = String(m.date || '').slice(0, 10);
+        const start = new Date(`${dateStr}T${m.startTime || '00:00'}`);
+        if (!isValidDate(start)) return;
+        const end = new Date(start.getTime() + (m.durationHours || 1) * 3600 * 1000);
+        events.push({
+            id: `meeting-${m.id}`,
+            title: m.title,
+            start,
+            end,
+            type: 'meeting',
+            originalData: m,
+            status: ProjectStatus.ACTIVE,
+            isAllDay: false,
+        });
+    });
+
     // Process Visits
     visits.forEach(visit => {
         const start = new Date(`${visit.date}T${visit.startTime}`);
@@ -136,7 +157,10 @@ export const ProjectCalendarPage: React.FC = () => {
     const { t, lang } = useTranslation(); // Use hook
     const locale = lang === 'es' ? 'es-ES' : 'en-US';
 
-    const { visits, projects, setVisits } = useData();
+    const { visits, projects, setVisits, employees, getProjectById } = useData();
+    const navigate = useNavigate();
+    const [meetings, setMeetings] = useState<ProjectMeeting[]>([]);
+    const [meetingToView, setMeetingToView] = useState<ProjectMeeting | null>(null);
     const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
     const [currentDate, setCurrentDate] = useState(() => new Date());
     const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -152,7 +176,9 @@ export const ProjectCalendarPage: React.FC = () => {
 
     const [currentTimePosition, setCurrentTimePosition] = useState(0);
 
-    const allCalendarEvents = useMemo(() => getEventsForRange(projects, visits), [projects, visits]);
+    useEffect(() => { projectMeetingsService.listAll().then(setMeetings).catch(() => setMeetings([])); }, []);
+
+    const allCalendarEvents = useMemo(() => getEventsForRange(projects, visits, meetings), [projects, visits, meetings]);
     const calendarDays = useMemo(() => getDaysForMonthView(currentDate, allCalendarEvents), [currentDate, allCalendarEvents]);
     // Dynamic Day Names based on Locale
     const daysOfWeekNamesMonth = useMemo(() => {
@@ -208,11 +234,15 @@ export const ProjectCalendarPage: React.FC = () => {
         if (event.type === 'visit') {
             setVisitToView(event.originalData as Visit);
             setIsVisitDetailModalOpen(true);
+        } else if (event.type === 'meeting') {
+            setMeetingToView(event.originalData as ProjectMeeting);
         } else {
             setProjectToEdit(event.originalData as Project);
             setIsProjectFormModalOpen(true);
         }
     };
+
+    const empName = (id: string) => { const e = employees.find(x => x.id === id); return e ? `${e.name} ${e.lastName || ''}`.trim() : id; };
     
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)] text-sm">
@@ -230,6 +260,7 @@ export const ProjectCalendarPage: React.FC = () => {
                         <div className="flex items-center gap-x-3 text-xs">
                             <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-teal-500 mr-1.5"></span>{t('calendar.visit')}</span>
                             <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>{t('calendar.project')}</span>
+                            <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-purple-500 mr-1.5"></span>{t('calendar.followup') || 'Seguimiento'}</span>
                         </div>
                         <select value={viewMode} onChange={e => setViewMode(e.target.value as 'month' | 'week')} className={`${INPUT_SM_CLASSES} !py-1.5 !text-xs`}>
                             <option value="month">{t('calendar.month')}</option>
@@ -252,9 +283,10 @@ export const ProjectCalendarPage: React.FC = () => {
                                 <time className={`text-xs font-semibold ${dayObj.isToday ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center' : ''}`}>{dayObj.date.getDate()}</time>
                                 <div className="mt-1 space-y-1 overflow-y-auto flex-grow max-h-[calc(100%-20px)]">
                                     {dayObj.events.slice(0, 3).map(event => (
-                                        <div key={event.id} onClick={e => { e.stopPropagation(); handleEventClick(event); }} 
-                                            className={`block w-full p-0.5 text-left text-[9px] sm:text-xs rounded shadow-sm truncate ${event.type === 'visit' ? 'bg-teal-100 dark:bg-teal-700/50 text-teal-700 dark:text-teal-200 hover:bg-teal-200' : 'bg-blue-100 dark:bg-blue-700/50 text-blue-700 dark:text-blue-200 hover:bg-blue-200'}`}>
+                                        <div key={event.id} onClick={e => { e.stopPropagation(); handleEventClick(event); }}
+                                            className={`block w-full p-0.5 text-left text-[9px] sm:text-xs rounded shadow-sm truncate ${event.type === 'visit' ? 'bg-teal-100 dark:bg-teal-700/50 text-teal-700 dark:text-teal-200 hover:bg-teal-200' : event.type === 'meeting' ? 'bg-purple-100 dark:bg-purple-700/50 text-purple-700 dark:text-purple-200 hover:bg-purple-200' : 'bg-blue-100 dark:bg-blue-700/50 text-blue-700 dark:text-blue-200 hover:bg-blue-200'}`}>
                                             {event.type === 'project' && <BriefcaseIcon className="w-2.5 h-2.5 inline mr-1" />}
+                                            {event.type === 'meeting' && <ChatBubbleLeftRightIcon className="w-2.5 h-2.5 inline mr-1" />}
                                             {event.title}
                                         </div>
                                     ))}
@@ -276,6 +308,7 @@ export const ProjectCalendarPage: React.FC = () => {
                         {eventsForSelectedDay.map(event => (
                             <li key={event.id} onClick={() => handleEventClick(event)} className="p-2 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer">
                                 {event.type === 'project' && <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{t('calendar.project').toUpperCase()}</p>}
+                                {event.type === 'meeting' && <p className="text-xs font-semibold text-purple-600 dark:text-purple-400">{(t('calendar.followup') || 'SEGUIMIENTO').toUpperCase()}</p>}
                                 <div className="flex justify-between items-start">
                                     <h4 className="font-semibold text-primary text-xs sm:text-sm">{event.title}</h4>
                                     {event.type === 'visit' && <VisitStatusBadge status={event.status as VisitStatus} />}
@@ -291,6 +324,35 @@ export const ProjectCalendarPage: React.FC = () => {
             <ScheduleVisitModal isOpen={isScheduleVisitModalOpen} onClose={() => setIsScheduleVisitModalOpen(false)} visitToEdit={visitToEdit} initialDate={initialDateForNewVisit || (selectedDate && isValidDate(selectedDate) ? selectedDate : new Date())} />
             <VisitDetailModal isOpen={isVisitDetailModalOpen} onClose={() => setIsVisitDetailModalOpen(false)} visit={visitToView} />
             <ProjectFormModal isOpen={isProjectFormModalOpen} onClose={() => setIsProjectFormModalOpen(false)} project={projectToEdit} />
+
+            {/* Detalle de reunión (Seguimiento) */}
+            <Modal isOpen={!!meetingToView} onClose={() => setMeetingToView(null)} title={meetingToView?.title || 'Reunión'} size="md">
+                {meetingToView && (() => {
+                    const proj = getProjectById?.(meetingToView.projectId);
+                    const start = new Date(`${String(meetingToView.date).slice(0, 10)}T${meetingToView.startTime || '00:00'}`);
+                    const dateLabel = isValidDate(start) ? start.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : String(meetingToView.date).slice(0, 10);
+                    return (
+                        <div className="space-y-3 text-sm">
+                            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
+                                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">SEGUIMIENTO</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="flex items-start gap-2"><CalendarDaysIcon className="w-4 h-4 mt-0.5 text-neutral-400" /><div><div className="text-xs text-neutral-400">Fecha y hora</div><div className="text-neutral-700 dark:text-neutral-200">{dateLabel}</div><div className="text-neutral-500">{meetingToView.startTime} · {meetingToView.durationHours}h</div></div></div>
+                                <div className="flex items-start gap-2"><BriefcaseIcon className="w-4 h-4 mt-0.5 text-neutral-400" /><div><div className="text-xs text-neutral-400">Proyecto</div><div className="text-neutral-700 dark:text-neutral-200">{proj?.name || '—'}</div></div></div>
+                            </div>
+                            <div className="flex items-start gap-2"><UserGroupIcon className="w-4 h-4 mt-0.5 text-neutral-400" /><div><div className="text-xs text-neutral-400">Participantes</div><div className="text-neutral-700 dark:text-neutral-200">{meetingToView.employeeIds.length ? meetingToView.employeeIds.map(empName).join(', ') : 'Sin participantes'}{meetingToView.inviteClient ? ' · Cliente invitado' : ''}</div></div></div>
+                            {meetingToView.notes && <div><div className="text-xs text-neutral-400">Notas</div><p className="text-neutral-700 dark:text-neutral-200 italic">{meetingToView.notes}</p></div>}
+                            <div className="text-xs">
+                                {meetingToView.transcript ? <span className="text-green-600 dark:text-green-400">✓ Transcripción guardada</span> : <span className="text-neutral-400">Sin transcripción aún</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-2 pt-3 border-t border-neutral-100 dark:border-neutral-700">
+                                {meetingToView.meetLink && <a href={meetingToView.meetLink} target="_blank" rel="noopener noreferrer" className={`${BUTTON_SECONDARY_SM_CLASSES} inline-flex items-center gap-1`}><ChatBubbleLeftRightIcon className="w-4 h-4" /> Abrir Meet</a>}
+                                <button onClick={() => { const id = meetingToView.projectId; setMeetingToView(null); navigate(`/pm/projects/${id}?tab=seguimiento`); }} className={`${BUTTON_PRIMARY_SM_CLASSES} inline-flex items-center gap-1`}>Ver en el proyecto</button>
+                            </div>
+                        </div>
+                    );
+                })()}
+            </Modal>
         </div>
     );
 };

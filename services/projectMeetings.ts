@@ -38,6 +38,8 @@ export interface MeetingTaskSuggestion {
 
 export const projectMeetingsService = {
     list: (projectId: string) => api.get<ProjectMeeting[]>('/project-meetings', { projectId }),
+    /** Todas las reuniones del negocio (para el calendario). */
+    listAll: () => api.get<ProjectMeeting[]>('/project-meetings'),
     create: (data: ProjectMeetingInput) => api.post<ProjectMeeting>('/project-meetings', data),
     update: (id: string, data: Partial<ProjectMeetingInput>) => api.put<ProjectMeeting>(`/project-meetings/${id}`, data),
     delete: (id: string) => api.delete<{ message: string }>(`/project-meetings/${id}`),
