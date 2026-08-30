@@ -3,6 +3,7 @@ import { useData } from '../../contexts/DataContext';
 import { Task, TaskStatus, Employee } from '../../types';
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
+import { InputModal } from '../InputModal';
 import { PlusIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { tasksService } from '../../services/tasks';
@@ -23,6 +24,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     // Sección/área activa ('' = Todas). extraSections: secciones creadas aún sin tareas.
     const [activeSection, setActiveSection] = useState('');
     const [extraSections, setExtraSections] = useState<string[]>([]);
+    const [sectionModalOpen, setSectionModalOpen] = useState(false);
 
     const allEmployees = getAllEmployees();
 
@@ -49,11 +51,11 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         [TaskStatus.DONE]: visibleTasks.filter(t => t.status === TaskStatus.DONE),
     }), [visibleTasks]);
 
-    const addSection = () => {
-        const name = (window.prompt(t('cmpx.task.new_section_prompt') || 'Nombre de la sección (ej. Diseño, Programación):') || '').trim();
-        if (!name) return;
+    const addSection = () => setSectionModalOpen(true);
+    const confirmAddSection = (name: string) => {
         if (!sections.includes(name)) setExtraSections(prev => [...prev, name]);
         setActiveSection(name);
+        setSectionModalOpen(false);
     };
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, task: Task) => {
@@ -236,6 +238,16 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                     onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setSelectedTask(null); }}
                 />
             )}
+            <InputModal
+                isOpen={sectionModalOpen}
+                title={t('cmpx.task.new_section_title') || 'Nueva sección'}
+                label={t('cmpx.task.new_section_prompt') || 'Nombre de la sección (ej. Diseño, Programación):'}
+                placeholder={t('cmpx.task.new_section_ph') || 'Ej. Diseño'}
+                confirmText={t('common.add') || 'Añadir'}
+                cancelText={t('common.cancel') || 'Cancelar'}
+                onConfirm={confirmAddSection}
+                onClose={() => setSectionModalOpen(false)}
+            />
         </>
     );
 };

@@ -10,6 +10,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSE
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal, ConfirmationModal } from '../../components/Modal';
+import { InputModal } from '../../components/InputModal';
 import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
 import { InvoiceTypeSelect } from '../../components/pos/InvoiceTypeSelect';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
@@ -173,6 +174,7 @@ export const InvoicesListPage: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [share, setShare] = useState<Invoice | null>(null);
     const [payFor, setPayFor] = useState<Invoice | null>(null);
+    const [emailFor, setEmailFor] = useState<Invoice | null>(null);
     const [toDelete, setToDelete] = useState<Invoice | null>(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -412,15 +414,20 @@ export const InvoicesListPage: React.FC = () => {
             const r = await invoicesService.send(inv.id);
             toast.success(t('posx.invoices.sent_to', { to: r.to }));
         } catch (err) {
-            // Si no hay correo del cliente, lo pedimos y reintentamos.
-            const to = prompt(t('posx.invoices.prompt_email')) || '';
-            if (!to.trim()) return;
-            try {
-                const r = await invoicesService.send(inv.id, to.trim());
-                toast.success(t('posx.invoices.sent_to', { to: r.to }));
-            } catch (e) {
-                toast.error(e instanceof ApiError ? e.message : t('posx.invoices.err_send'));
-            }
+            // Si no hay correo del cliente, lo pedimos con un modal y reintentamos.
+            setEmailFor(inv);
+        }
+    };
+
+    const confirmSendEmail = async (to: string) => {
+        if (!emailFor) return;
+        const inv = emailFor;
+        setEmailFor(null);
+        try {
+            const r = await invoicesService.send(inv.id, to.trim());
+            toast.success(t('posx.invoices.sent_to', { to: r.to }));
+        } catch (e) {
+            toast.error(e instanceof ApiError ? e.message : t('posx.invoices.err_send'));
         }
     };
 
@@ -796,6 +803,17 @@ export const InvoicesListPage: React.FC = () => {
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
             <PayModal invoice={payFor} onClose={() => setPayFor(null)} onDone={load} />
+            <InputModal
+                isOpen={!!emailFor}
+                title={t('posx.invoices.send_email_title') || 'Enviar factura por correo'}
+                label={t('posx.invoices.prompt_email') || 'Correo del cliente:'}
+                placeholder="cliente@correo.com"
+                inputType="email"
+                confirmText={t('posx.invoices.send') || 'Enviar'}
+                cancelText={t('common.cancel') || 'Cancelar'}
+                onConfirm={confirmSendEmail}
+                onClose={() => setEmailFor(null)}
+            />
             <ConfirmationModal
                 isOpen={!!toDelete}
                 onClose={() => { if (!deleting) setToDelete(null); }}
