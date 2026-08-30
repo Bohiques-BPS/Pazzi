@@ -60,6 +60,18 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
     const openReview = (m: ProjectMeeting) => { setReviewFor(m); setTranscript(m.transcript || ''); setRows([]); setAnalyzed(false); };
     const closeReview = () => { setReviewFor(null); setTranscript(''); setRows([]); setAnalyzed(false); };
 
+    // Cargar la transcripción desde un archivo de texto (.txt/.vtt/.srt/.md).
+    const onTranscriptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { toast.error('El archivo es muy grande (máx. 2 MB).'); return; }
+        const reader = new FileReader();
+        reader.onload = () => { setTranscript(String(reader.result || '')); setRows([]); setAnalyzed(false); };
+        reader.onerror = () => toast.error('No se pudo leer el archivo.');
+        reader.readAsText(file);
+    };
+
     // Empareja el nombre mencionado en la llamada con un empleado (para sugerir responsable).
     const matchEmp = (hint?: string): string => {
         if (!hint) return '';
@@ -286,11 +298,17 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                             value={transcript}
                             onChange={e => setTranscript(e.target.value)}
                             rows={7}
-                            placeholder="Pega aquí la transcripción de la reunión (de Google Meet, Zoom, etc.). La IA sugerirá posibles tareas; tú decides cuáles crear."
+                            placeholder="Pega aquí la transcripción de la reunión (de Google Meet, Zoom, etc.) o sube un archivo. La IA sugerirá posibles tareas; tú decides cuáles crear."
                             className={`${INPUT_SM_CLASSES} w-full font-mono text-xs`}
                         />
-                        <div className="flex justify-between items-center mt-2">
-                            <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
+                        <div className="flex justify-between items-center mt-2 gap-2 flex-wrap">
+                            <div className="flex items-center gap-3">
+                                <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer`}>
+                                    Subir archivo
+                                    <input type="file" accept=".txt,.vtt,.srt,.md,text/plain" onChange={onTranscriptFile} className="hidden" />
+                                </label>
+                                <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
+                            </div>
                             <button onClick={analyze} disabled={analyzing || transcript.trim().length < 20} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
                                 {analyzing ? 'Analizando…' : (analyzed ? 'Volver a analizar' : 'Analizar y sugerir tareas')}
                             </button>
