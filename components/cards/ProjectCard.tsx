@@ -62,7 +62,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         <div className={`group relative bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col ${actionsOpen ? 'z-30' : ''}`}>
             {/* Acento de estado (redondeado arriba; sin overflow-hidden para no recortar el menú "···") */}
             <div className={`h-1.5 rounded-t-xl ${meta.bar}`} />
-            <div className="p-4 flex flex-col flex-grow">
+            <div className="p-6 flex flex-col flex-grow">
                 {/* Título + menú */}
                 <div className="flex justify-between items-start gap-2">
                     <button onClick={() => onViewProject(project, 'details')} className="text-left min-w-0 flex-1">
@@ -135,11 +135,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
                 {/* Acciones */}
                 <div className="mt-auto pt-3 border-t border-neutral-100 dark:border-neutral-700 flex gap-2">
-                    <button onClick={() => onViewProject(project, 'chat')} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                    <button onClick={() => onViewProject(project, 'chat')} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-1.5">
                         <ChatBubbleLeftRightIcon className="w-4 h-4" /> {t('cmp.projectcard.chat')}
                         {chatCount > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">{chatCount}</span>}
                     </button>
-                    <button onClick={() => onViewProject(project, 'tasks')} className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary dark:text-teal-300 font-semibold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                    <button onClick={() => onViewProject(project, 'tasks')} className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary dark:text-teal-300 font-semibold text-xs py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-1.5">
                         <ClipboardDocumentListIcon className="w-4 h-4" /> {t('cmp.projectcard.tasks')}
                     </button>
                 </div>
