@@ -212,7 +212,7 @@ export const POSCashierPage: React.FC = () => {
     const { settings } = useGlobalSettings();
     const {
         products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
-        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales, employees
+        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales, employees, getBranchById
     } = useData();
     const { currentUser, login, logout } = useAuth();
     const productSearchRef = useRef<HTMLInputElement>(null);
@@ -434,15 +434,24 @@ export const POSCashierPage: React.FC = () => {
         // Skip while DataContext hasn't loaded yet (both arrays still empty on mount)
         if (!branches.length && !cajas.length) return;
 
+        // Respeta la selección manual del usuario: si ya eligió caja, no la sobreescribimos.
+        if (selectedCajaId && cajas.some(c => c.id === selectedCajaId)) { setCajaInitialized(true); return; }
+
+        // 0) Preferir la última caja que este usuario eligió (si sigue activa).
+        const storedId = currentUser ? localStorage.getItem(`pos_caja_${currentUser.id}`) : null;
+        let caja = storedId ? cajas.find(c => c.id === storedId && c.isActive) : undefined;
+        let branchId = caja?.branchId;
+
         // 1) Camino normal: primera sucursal activa + una caja activa suya.
-        const firstActiveBranch = branches.find(b => b.isActive);
-        let branchId = firstActiveBranch?.id;
-        let caja = branchId ? cajas.find(c => c.branchId === branchId && c.isActive) : undefined;
+        if (!caja) {
+            const firstActiveBranch = branches.find(b => b.isActive);
+            branchId = firstActiveBranch?.id;
+            caja = branchId ? cajas.find(c => c.branchId === branchId && c.isActive) : undefined;
+        }
 
         // 2) Fallback robusto: si la lista de sucursales NO incluye la sucursal de la caja
         //    (p.ej. la sucursal quedó con otro dueño/null por el aislamiento multi-tenant),
         //    tomamos la primera caja activa disponible y derivamos su branchId de la propia caja.
-        //    Evita el falso "aún no tienes una caja" cuando en realidad sí existe una.
         if (!caja) {
             caja = cajas.find(c => c.isActive) || cajas[0];
             if (caja) branchId = caja.branchId;
@@ -454,7 +463,28 @@ export const POSCashierPage: React.FC = () => {
         // Mark as initialized: data was loaded; if selectedCajaId is still '' after this,
         // it means there is genuinely no active caja configured for this store.
         setCajaInitialized(true);
-    }, [branches, cajas]);
+    }, [branches, cajas, selectedCajaId, currentUser]);
+
+    // Selectores de sucursal/caja (solo se muestran cuando hay más de una opción).
+    const selectableBranches = useMemo(
+        () => branches.filter(b => b.isActive && cajas.some(c => c.branchId === b.id && c.isActive)),
+        [branches, cajas]
+    );
+    const cajasInSelectedBranch = useMemo(
+        () => cajas.filter(c => c.branchId === selectedBranchId && c.isActive),
+        [cajas, selectedBranchId]
+    );
+    const chooseCaja = (id: string) => {
+        if (!id || id === selectedCajaId) return;
+        setSelectedCajaId(id);
+        if (currentUser) localStorage.setItem(`pos_caja_${currentUser.id}`, id);
+    };
+    const chooseBranch = (id: string) => {
+        if (!id) return;
+        setSelectedBranchId(id);
+        const first = cajas.find(c => c.branchId === id && c.isActive);
+        if (first) chooseCaja(first.id);
+    };
 
     // Atajos F1..Fn: abren el modal de pago con ese método habilitado (solo si NO hay otro modal
     // abierto, para no chocar con los F1..Fn internos del modal de pago).
@@ -1237,12 +1267,25 @@ export const POSCashierPage: React.FC = () => {
             <header className="flex items-center justify-between px-2 sm:px-4 py-1 flex-shrink-0 shadow-md" style={{ backgroundColor: isCurrentCajaExternal ? '#D97706' : currentCajaColor }}>
                 <div className="flex items-center space-x-2 sm:space-x-3">
                     <KeyIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white opacity-75" />
-                    <div className="max-w-[120px] sm:max-w-none">
+                    <div className="max-w-[140px] sm:max-w-none">
                         <h1 className="text-sm sm:text-lg font-bold text-white leading-tight truncate">{t('pos.title')} ({currentCajaName})</h1>
-                        <p className="text-[10px] sm:text-sm text-white flex items-center opacity-90 truncate">
-                            {t('posx.cashier.central_branch')}
-                            {isCurrentCajaExternal && <span className="ml-1 px-1 py-0.5 bg-black/20 rounded text-[8px] font-bold border border-white/30">{t('posx.cashier.external_badge')}</span>}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {selectableBranches.length > 1 ? (
+                                <select value={selectedBranchId} onChange={e => chooseBranch(e.target.value)} title={t('posx.cashier.branch') || 'Sucursal'}
+                                    className="bg-white/15 text-white text-[10px] sm:text-xs rounded px-1.5 py-0.5 border border-white/30 focus:outline-none max-w-[120px] cursor-pointer">
+                                    {selectableBranches.map(b => <option key={b.id} value={b.id} className="text-neutral-800">{b.name}</option>)}
+                                </select>
+                            ) : (
+                                <span className="text-[10px] sm:text-sm text-white/90 truncate">{getBranchById?.(selectedBranchId)?.name || t('posx.cashier.central_branch')}</span>
+                            )}
+                            {cajasInSelectedBranch.length > 1 && (
+                                <select value={selectedCajaId} onChange={e => chooseCaja(e.target.value)} title={t('posx.cashier.register') || 'Caja'}
+                                    className="bg-white/15 text-white text-[10px] sm:text-xs rounded px-1.5 py-0.5 border border-white/30 focus:outline-none max-w-[120px] cursor-pointer">
+                                    {cajasInSelectedBranch.map(c => <option key={c.id} value={c.id} className="text-neutral-800">{c.name}</option>)}
+                                </select>
+                            )}
+                            {isCurrentCajaExternal && <span className="px-1 py-0.5 bg-black/20 rounded text-[8px] font-bold border border-white/30 text-white">{t('posx.cashier.external_badge')}</span>}
+                        </div>
                     </div>
                 </div>
 
