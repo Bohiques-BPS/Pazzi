@@ -1,17 +1,30 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../contexts/DataContext';
-import { projectMeetingsService, googleCalendarLink, type ProjectMeeting } from '../../services/projectMeetings';
+import { projectMeetingsService, googleCalendarLink, type ProjectMeeting, type MeetingTaskSuggestion } from '../../services/projectMeetings';
 import { googleService, type GoogleStatus } from '../../services/google';
+import { tasksService } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
 import { EmptyState } from '../ui/EmptyState';
-import { DeleteIcon, CalendarDaysIcon, PlusIcon } from '../icons';
+import { Modal } from '../Modal';
+import { DeleteIcon, CalendarDaysIcon, PlusIcon, ClipboardDocumentListIcon } from '../icons';
 
 interface Props { projectId: string; }
 
 const todayISO = () => new Date().toISOString().split('T')[0];
+
+// Fila editable de tarea sugerida por la IA (el empleado decide si la acepta).
+interface SuggestionRow {
+    accepted: boolean;
+    title: string;
+    description: string;
+    assigneeId: string;
+    dueDate: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    dueHint?: string;
+}
 
 export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
     const { employees, getProjectById, getClientById } = useData();
@@ -35,6 +48,75 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
     const [notes, setNotes] = useState('');
 
     const activeEmployees = useMemo(() => employees.filter(e => !!e), [employees]);
+
+    // Revisión de transcripción → tareas sugeridas
+    const [reviewFor, setReviewFor] = useState<ProjectMeeting | null>(null);
+    const [transcript, setTranscript] = useState('');
+    const [analyzing, setAnalyzing] = useState(false);
+    const [analyzed, setAnalyzed] = useState(false);
+    const [rows, setRows] = useState<SuggestionRow[]>([]);
+    const [creating, setCreating] = useState(false);
+
+    const openReview = (m: ProjectMeeting) => { setReviewFor(m); setTranscript(m.transcript || ''); setRows([]); setAnalyzed(false); };
+    const closeReview = () => { setReviewFor(null); setTranscript(''); setRows([]); setAnalyzed(false); };
+
+    // Empareja el nombre mencionado en la llamada con un empleado (para sugerir responsable).
+    const matchEmp = (hint?: string): string => {
+        if (!hint) return '';
+        const h = hint.toLowerCase().trim();
+        const e = employees.find(x => {
+            const full = `${x.name} ${x.lastName || ''}`.toLowerCase().trim();
+            return full.includes(h) || h.includes((x.name || '').toLowerCase()) || (!!x.name && h.includes(x.name.toLowerCase()));
+        });
+        return e?.id || '';
+    };
+
+    const analyze = async () => {
+        if (!reviewFor) return;
+        if (transcript.trim().length < 20) { toast.error('Pega la transcripción de la llamada.'); return; }
+        setAnalyzing(true);
+        try {
+            const { suggestions } = await projectMeetingsService.extractTasks(reviewFor.id, transcript.trim());
+            setRows((suggestions || []).map((s: MeetingTaskSuggestion) => ({
+                accepted: true,
+                title: s.title,
+                description: s.description || '',
+                assigneeId: matchEmp(s.assigneeHint),
+                dueDate: '',
+                priority: s.priority,
+                dueHint: s.dueDateHint,
+            })));
+            setAnalyzed(true);
+            setItems(list => list.map(x => x.id === reviewFor.id ? { ...x, transcript: transcript.trim() } : x));
+            if (!suggestions || suggestions.length === 0) toast.info('No se detectaron tareas claras en la transcripción.');
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo analizar la transcripción.'); }
+        finally { setAnalyzing(false); }
+    };
+
+    const patchRow = (i: number, patch: Partial<SuggestionRow>) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+
+    const createSelected = async () => {
+        if (!reviewFor) return;
+        const chosen = rows.filter(r => r.accepted && r.title.trim());
+        if (chosen.length === 0) { toast.error('Selecciona al menos una tarea.'); return; }
+        setCreating(true);
+        try {
+            for (const r of chosen) {
+                await tasksService.create({
+                    projectId: reviewFor.projectId,
+                    title: r.title.trim(),
+                    description: r.description.trim() || undefined,
+                    status: 'Tareas por Realizar',
+                    assignedEmployeeIds: r.assigneeId ? [r.assigneeId] : [],
+                    dueDate: r.dueDate || null,
+                    priority: r.priority || null,
+                });
+            }
+            toast.success(`${chosen.length} tarea(s) creada(s) en el proyecto.`);
+            closeReview();
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudieron crear las tareas.'); }
+        finally { setCreating(false); }
+    };
 
     const load = async () => {
         setLoading(true);
@@ -182,6 +264,9 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                                 <div className="ml-auto flex items-center gap-3">
                                     <a href={gcalFor(m)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1"><CalendarDaysIcon className="w-4 h-4" /> Google Calendar</a>
                                     {m.meetLink && <a href={m.meetLink} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 hover:underline">Meet</a>}
+                                    <button onClick={() => openReview(m)} className="text-xs text-primary hover:underline inline-flex items-center gap-1" title="Revisar transcripción y sacar tareas">
+                                        <ClipboardDocumentListIcon className="w-4 h-4" /> Revisar documento{m.transcript ? ' ✓' : ''}
+                                    </button>
                                     <button onClick={() => remove(m)} className="text-red-500 hover:text-red-700 p-1" title="Eliminar"><DeleteIcon className="w-4 h-4" /></button>
                                 </div>
                             </div>
@@ -191,6 +276,76 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                     ))}
                 </div>
             )}
+
+            {/* Revisar documento: transcripción → tareas sugeridas (el empleado decide) */}
+            <Modal isOpen={!!reviewFor} onClose={closeReview} title={reviewFor ? `Revisar documento — ${reviewFor.title}` : ''} size="lg">
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs text-neutral-500 mb-1">Transcripción de la llamada</label>
+                        <textarea
+                            value={transcript}
+                            onChange={e => setTranscript(e.target.value)}
+                            rows={7}
+                            placeholder="Pega aquí la transcripción de la reunión (de Google Meet, Zoom, etc.). La IA sugerirá posibles tareas; tú decides cuáles crear."
+                            className={`${INPUT_SM_CLASSES} w-full font-mono text-xs`}
+                        />
+                        <div className="flex justify-between items-center mt-2">
+                            <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
+                            <button onClick={analyze} disabled={analyzing || transcript.trim().length < 20} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
+                                {analyzing ? 'Analizando…' : (analyzed ? 'Volver a analizar' : 'Analizar y sugerir tareas')}
+                            </button>
+                        </div>
+                    </div>
+
+                    {analyzed && (
+                        rows.length === 0 ? (
+                            <p className="text-sm text-neutral-500 text-center py-4">No se detectaron tareas claras. Puedes editar la transcripción y volver a analizar.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Posibles tareas ({rows.filter(r => r.accepted).length}/{rows.length} seleccionadas)</p>
+                                    <div className="flex gap-2 text-xs">
+                                        <button onClick={() => setRows(rs => rs.map(r => ({ ...r, accepted: true })))} className="text-primary hover:underline">Todas</button>
+                                        <button onClick={() => setRows(rs => rs.map(r => ({ ...r, accepted: false })))} className="text-neutral-400 hover:underline">Ninguna</button>
+                                    </div>
+                                </div>
+                                <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+                                    {rows.map((r, i) => (
+                                        <div key={i} className={`border rounded-lg p-3 ${r.accepted ? 'border-primary/40 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700 opacity-60'}`}>
+                                            <div className="flex items-start gap-2">
+                                                <input type="checkbox" checked={r.accepted} onChange={e => patchRow(i, { accepted: e.target.checked })} className="mt-2 h-4 w-4 flex-shrink-0" />
+                                                <div className="flex-1 space-y-2">
+                                                    <input type="text" value={r.title} onChange={e => patchRow(i, { title: e.target.value })} className={`${INPUT_SM_CLASSES} w-full font-medium`} placeholder="Título de la tarea" />
+                                                    {r.description && <p className="text-xs text-neutral-500 dark:text-neutral-400">{r.description}</p>}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        <div>
+                                                            <label className="block text-[11px] text-neutral-400 mb-0.5">Responsable</label>
+                                                            <select value={r.assigneeId} onChange={e => patchRow(i, { assigneeId: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
+                                                                <option value="">Sin asignar</option>
+                                                                {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.name} {e.lastName}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[11px] text-neutral-400 mb-0.5">Fecha límite {r.dueHint ? `(mencionado: ${r.dueHint})` : ''}</label>
+                                                            <input type="date" value={r.dueDate} onChange={e => patchRow(i, { dueDate: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-700">
+                                    <button onClick={closeReview} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                                    <button onClick={createSelected} disabled={creating || rows.filter(r => r.accepted && r.title.trim()).length === 0} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
+                                        {creating ? 'Creando…' : `Crear ${rows.filter(r => r.accepted && r.title.trim()).length} tarea(s)`}
+                                    </button>
+                                </div>
+                            </div>
+                        )
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 };

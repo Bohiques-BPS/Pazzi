@@ -11,6 +11,7 @@ export interface ProjectMeeting {
     inviteClient: boolean;
     meetLink?: string | null;
     notes?: string | null;
+    transcript?: string | null;
     createdAt: string;
 }
 
@@ -24,6 +25,15 @@ export interface ProjectMeetingInput {
     inviteClient: boolean;
     meetLink?: string | null;
     notes?: string | null;
+    transcript?: string | null;
+}
+
+export interface MeetingTaskSuggestion {
+    title: string;
+    description?: string;
+    assigneeHint?: string;
+    dueDateHint?: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
 }
 
 export const projectMeetingsService = {
@@ -31,6 +41,9 @@ export const projectMeetingsService = {
     create: (data: ProjectMeetingInput) => api.post<ProjectMeeting>('/project-meetings', data),
     update: (id: string, data: Partial<ProjectMeetingInput>) => api.put<ProjectMeeting>(`/project-meetings/${id}`, data),
     delete: (id: string) => api.delete<{ message: string }>(`/project-meetings/${id}`),
+    /** Analiza la transcripción y devuelve posibles tareas (no crea nada). */
+    extractTasks: (id: string, transcript?: string) =>
+        api.post<{ suggestions: MeetingTaskSuggestion[] }>(`/project-meetings/${id}/extract-tasks`, transcript != null ? { transcript } : {}),
 };
 
 /**
