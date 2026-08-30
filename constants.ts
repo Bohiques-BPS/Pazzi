@@ -4,7 +4,7 @@ import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule,
 import { 
     BriefcaseIcon, 
     Squares2X2Icon,
-    KanbanIcon,
+    FoldersIcon,
     ListBulletIcon, 
     UserGroupIcon,
     UsersIcon,
@@ -544,7 +544,7 @@ export const APP_MODULES_CONFIG = [
     icon: BriefcaseIcon,
     subModulesProject: [
         { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: Squares2X2Icon },
-        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: KanbanIcon },
+        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: FoldersIcon },
         { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon },
         { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: CalendarDaysIcon },
         { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: ChartBarIcon },
