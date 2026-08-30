@@ -165,7 +165,7 @@ export const ProjectsListPage: React.FC = () => {
                 ].map((k, i) => {
                     const Icon = k.icon;
                     return (
-                        <div key={i} className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
+                        <div key={i} className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 shadow-sm">
                             <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
                                 <Icon className="w-4 h-4 flex-shrink-0" />
                                 <span className="truncate">{k.label}</span>
