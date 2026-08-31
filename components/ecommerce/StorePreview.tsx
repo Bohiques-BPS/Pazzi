@@ -119,19 +119,80 @@ export const StorePreview: React.FC<{ settings: ECommerceSettings }> = ({ settin
                                 ))}
                             </div>
                         )}
-                        <div className={`grid ${gridCols} gap-2 p-3`}>
-                            {SAMPLE.map((p, i) => (
-                                <div key={i} className="border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden">
-                                    <div className="h-14 bg-neutral-200 dark:bg-neutral-700" />
-                                    <div className="p-1.5">
-                                        <div className="text-[9px] font-semibold text-neutral-700 dark:text-neutral-200 truncate">{p.name}</div>
-                                        <div className="flex items-center justify-between mt-1">
-                                            <span className="text-[10px] font-bold" style={{ color: primary }}>${p.price.toFixed(2)}</span>
-                                            {showCart && <span className="text-white text-[8px] px-1.5 py-0.5 rounded" style={{ background: accent }}>+ Añadir</span>}
+                        <div className={`grid ${gridCols} ${template === 'Boutique' || template === 'Minimalista' ? 'gap-x-2 gap-y-4' : 'gap-2'} p-3`}>
+                            {SAMPLE.map((p, i) => {
+                                // ── Ofertas (Temu) ──
+                                if (template === 'Ofertas') {
+                                    const off = 20 + (i * 12) % 45;
+                                    const orig = p.price / (1 - off / 100);
+                                    return (
+                                        <div key={i} className="border border-neutral-100 dark:border-neutral-700 rounded-md overflow-hidden">
+                                            <div className="relative h-14 bg-neutral-200 dark:bg-neutral-700"><span className="absolute top-0.5 left-0.5 text-[7px] font-extrabold text-white px-1 rounded" style={{ background: '#f43f5e' }}>-{off}%</span></div>
+                                            <div className="p-1.5">
+                                                <div className="text-[8px] text-neutral-600 dark:text-neutral-300 truncate">{p.name}</div>
+                                                <div className="flex items-baseline gap-1 mt-0.5">
+                                                    <span className="text-[11px] font-extrabold" style={{ color: '#f43f5e' }}>${p.price.toFixed(2)}</span>
+                                                    <span className="text-[7px] text-neutral-400 line-through">${orig.toFixed(2)}</span>
+                                                </div>
+                                                {showCart && <div className="text-white text-[7px] text-center py-0.5 rounded-full mt-1 font-bold" style={{ background: '#f97316' }}>Agregar</div>}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                // ── Marketplace / Catálogo (Amazon/ML) ──
+                                if (template === 'Marketplace' || template === 'Catalogo') {
+                                    return (
+                                        <div key={i} className="border border-neutral-200 dark:border-neutral-700 rounded overflow-hidden bg-white dark:bg-neutral-800">
+                                            <div className="h-14 bg-neutral-100 dark:bg-neutral-700" />
+                                            <div className="p-1.5">
+                                                <div className="text-[8px] text-neutral-600 dark:text-neutral-300 truncate">{p.name}</div>
+                                                <div className="text-amber-400 text-[8px] leading-none">★★★★<span className="text-neutral-300">★</span></div>
+                                                <div className="text-[11px] font-bold text-neutral-900 dark:text-neutral-50">${p.price.toFixed(2)}</div>
+                                                <div className="text-[7px] font-semibold" style={{ color: '#16a34a' }}>Envío gratis</div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                // ── Boutique ──
+                                if (template === 'Boutique') {
+                                    return (
+                                        <div key={i} className="text-center">
+                                            <div className="h-16 bg-neutral-200 dark:bg-neutral-700" />
+                                            <div className="text-[8px] uppercase tracking-wide font-medium text-neutral-700 dark:text-neutral-200 mt-1 truncate px-1">{p.name}</div>
+                                            <div className="text-[9px]" style={{ color: primary }}>${p.price.toFixed(2)}</div>
+                                            {showCart && <div className="inline-block mt-1 px-2 py-0.5 text-[7px] uppercase tracking-widest border" style={{ borderColor: primary, color: primary }}>Añadir</div>}
+                                        </div>
+                                    );
+                                }
+                                // ── Minimalista ──
+                                if (template === 'Minimalista') {
+                                    return (
+                                        <div key={i}>
+                                            <div className="h-16 bg-neutral-200 dark:bg-neutral-700 mb-1.5" />
+                                            <div className="flex items-start justify-between gap-1">
+                                                <div className="min-w-0">
+                                                    <div className="text-[8px] text-neutral-700 dark:text-neutral-200 truncate">{p.name}</div>
+                                                    <div className="text-[8px] text-neutral-500">${p.price.toFixed(2)}</div>
+                                                </div>
+                                                {showCart && <span className="text-[7px] underline" style={{ color: primary }}>Añadir</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                // ── Moderno / Clásico (default) ──
+                                return (
+                                    <div key={i} className="border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden shadow-sm">
+                                        <div className="h-14 bg-neutral-200 dark:bg-neutral-700" />
+                                        <div className="p-1.5">
+                                            <div className="text-[9px] font-semibold text-neutral-700 dark:text-neutral-200 truncate">{p.name}</div>
+                                            <div className="flex items-center justify-between mt-1">
+                                                <span className="text-[10px] font-bold" style={{ color: primary }}>${p.price.toFixed(2)}</span>
+                                                {showCart && <span className="text-white text-[8px] px-1.5 py-0.5 rounded" style={{ background: accent }}>+ Añadir</span>}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                         <div className="text-center text-[8px] text-neutral-400 py-2 border-t border-neutral-100 dark:border-neutral-700">© {s.storeName || 'Mi Tienda'}</div>
                     </div>

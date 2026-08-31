@@ -11,20 +11,138 @@ import { toast } from '../../hooks/useToast';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { useAuth } from '../../contexts/AuthContext';
 
-const ProductStoreCard: React.FC<{ product: PublicProduct; onAddToCart: (product: PublicProduct) => void; storePrimaryColor: string; showCart?: boolean; }> = ({ product, onAddToCart, storePrimaryColor, showCart = true }) => {
+// Hash estable a partir del id, para "ratings"/"vendidos" consistentes por producto.
+const hashId = (id: string): number => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return h;
+};
+
+interface CardProps {
+    product: PublicProduct;
+    onAddToCart: (product: PublicProduct) => void;
+    storePrimaryColor: string;
+    accent?: string;
+    template?: string;
+    showCart?: boolean;
+}
+
+const PLACEHOLDER = 'https://picsum.photos/seed/defaultprod/400/300';
+
+const ProductStoreCard: React.FC<CardProps> = ({ product, onAddToCart, storePrimaryColor, accent, template = 'Moderno', showCart = true }) => {
     const t = usePublicT();
+    const img = product.imageUrl || PLACEHOLDER;
+    const price = product.unitPrice;
+    const acc = accent || storePrimaryColor;
+    const h = hashId(product.id);
+
+    // ── Ofertas (Temu): agresivo, precio grande, descuento, "vendidos", botón full ──
+    if (template === 'Ofertas') {
+        const off = 15 + (h % 45);                       // 15%–59% off
+        const original = price / (1 - off / 100);
+        const sold = 120 + (h % 4800);
+        return (
+            <div className="bg-white dark:bg-neutral-800 rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-lg transition-shadow border border-neutral-100 dark:border-neutral-700">
+                <div className="relative">
+                    <img src={img} alt={product.name} className="w-full aspect-square object-cover" />
+                    <span className="absolute top-1.5 left-1.5 text-[10px] font-extrabold text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: '#f43f5e' }}>-{off}%</span>
+                </div>
+                <div className="p-2 flex flex-col flex-grow">
+                    <h3 className="text-xs text-neutral-700 dark:text-neutral-200 line-clamp-2 leading-tight mb-1" title={product.name}>{product.name}</h3>
+                    <div className="flex items-baseline gap-1 mt-auto">
+                        <span className="text-lg font-extrabold" style={{ color: '#f43f5e' }}>${price.toFixed(2)}</span>
+                        <span className="text-[11px] text-neutral-400 line-through">${original.toFixed(2)}</span>
+                    </div>
+                    <p className="text-[10px] text-neutral-400 mb-1.5">{sold.toLocaleString()} {t('store.sold') || 'vendidos'}</p>
+                    {showCart && (
+                        <button onClick={() => onAddToCart(product)} className="w-full text-white text-xs font-bold py-1.5 rounded-full" style={{ backgroundColor: '#f97316' }}>
+                            {t('store.add') || 'Agregar'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Marketplace (Amazon/MercadoLibre): fondo blanco, imagen contain, rating, envío gratis ──
+    if (template === 'Marketplace' || template === 'Catalogo') {
+        const rating = (40 + (h % 10)) / 10;             // 4.0–4.9
+        const reviews = 8 + (h % 900);
+        const freeShip = h % 3 !== 0;
+        return (
+            <div className="bg-white dark:bg-neutral-800 rounded-md overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700 hover:shadow-md transition-shadow">
+                <div className="p-2 bg-white">
+                    <img src={img} alt={product.name} className="w-full aspect-square object-contain" />
+                </div>
+                <div className="p-2.5 flex flex-col flex-grow">
+                    <h3 className="text-xs text-neutral-700 dark:text-neutral-200 line-clamp-2 leading-tight mb-1 hover:underline cursor-default" title={product.name}>{product.name}</h3>
+                    <div className="flex items-center gap-1 mb-1">
+                        <span className="text-amber-400 text-[11px] leading-none">{'★'.repeat(Math.round(rating))}<span className="text-neutral-300">{'★'.repeat(5 - Math.round(rating))}</span></span>
+                        <span className="text-[10px] text-neutral-400">({reviews})</span>
+                    </div>
+                    <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50 mt-auto">${price.toFixed(2)}</p>
+                    {freeShip && <p className="text-[10px] font-semibold" style={{ color: '#16a34a' }}>{t('store.free_shipping') || 'Envío gratis'}</p>}
+                    {showCart && (
+                        <button onClick={() => onAddToCart(product)} className="mt-1.5 w-full text-neutral-900 text-xs font-semibold py-1.5 rounded-full border border-neutral-300 hover:brightness-95" style={{ backgroundColor: acc }}>
+                            {t('store.add') || 'Agregar'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Boutique: elegante, imagen alta, texto centrado, botón ghost ──
+    if (template === 'Boutique') {
+        return (
+            <div className="group bg-white dark:bg-neutral-800 flex flex-col text-center">
+                <div className="overflow-hidden">
+                    <img src={img} alt={product.name} className="w-full aspect-[3/4] object-cover transition-transform duration-500 group-hover:scale-105" />
+                </div>
+                <div className="pt-4 pb-2 px-2 flex flex-col flex-grow">
+                    <h3 className="text-sm font-medium tracking-wide uppercase text-neutral-800 dark:text-neutral-100 mb-1" title={product.name}>{product.name}</h3>
+                    <p className="text-base mt-auto mb-3" style={{ color: storePrimaryColor }}>${price.toFixed(2)}</p>
+                    {showCart && (
+                        <button onClick={() => onAddToCart(product)} className="mx-auto px-6 py-2 text-xs font-semibold tracking-widest uppercase border transition-colors hover:text-white" style={{ borderColor: storePrimaryColor, color: storePrimaryColor }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = storePrimaryColor; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}>
+                            {t('store.add') || 'Añadir'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Minimalista: sin sombras, mucho aire, tipografía protagonista ──
+    if (template === 'Minimalista') {
+        return (
+            <div className="flex flex-col">
+                <img src={img} alt={product.name} className="w-full aspect-square object-cover mb-4" />
+                <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                        <h3 className="text-sm text-neutral-800 dark:text-neutral-100 truncate" title={product.name}>{product.name}</h3>
+                        <p className="text-sm text-neutral-500 mt-0.5">${price.toFixed(2)}</p>
+                    </div>
+                    {showCart && (
+                        <button onClick={() => onAddToCart(product)} className="text-xs font-medium underline underline-offset-4 whitespace-nowrap flex-shrink-0" style={{ color: storePrimaryColor }}>
+                            {t('store.add') || 'Añadir'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Moderno / Clásico (default): tarjeta con descripción y botón sólido ──
     return (
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md overflow-hidden flex flex-col transition-all duration-300 hover:shadow-xl dark:hover:shadow-primary/20">
-            <img 
-                src={product.imageUrl || 'https://picsum.photos/seed/defaultprod/400/300'} 
-                alt={product.name} 
-                className="w-full h-48 object-cover"
-            />
+            <img src={img} alt={product.name} className="w-full h-48 object-cover" />
             <div className="p-4 flex flex-col flex-grow">
                 <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-1 truncate" title={product.name}>{product.name}</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-2 line-clamp-2 flex-grow">{product.description || t('store.no_description')}</p>
                 <div className="flex justify-between items-center mt-auto">
-                    <p className="text-xl font-bold" style={{ color: storePrimaryColor }}>${product.unitPrice.toFixed(2)}</p>
+                    <p className="text-xl font-bold" style={{ color: storePrimaryColor }}>${price.toFixed(2)}</p>
                     {showCart && (
                         <button
                             onClick={() => onAddToCart(product)}
@@ -167,8 +285,10 @@ export const EcommerceStorePage: React.FC = () => {
     // La grilla se adapta al template.
     const gridClass = (template === 'Catalogo' || template === 'Marketplace' || template === 'Ofertas')
         ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3'
-        : (template === 'Minimalista' || template === 'Boutique')
-        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8'
+        : template === 'Boutique'
+        ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10'
+        : template === 'Minimalista'
+        ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12'
         : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6';
 
     return (
@@ -328,7 +448,7 @@ export const EcommerceStorePage: React.FC = () => {
                         {filteredProducts.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                                 {filteredProducts.map(product => (
-                                    <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} showCart={showCart} />
+                                    <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} accent={storeAccent} template={template} showCart={showCart} />
                                 ))}
                             </div>
                         ) : <p className="text-center text-neutral-500 dark:text-neutral-400 py-10">{searchTerm ? t('store.no_products_search') : t('store.no_products')}</p>}
@@ -339,7 +459,7 @@ export const EcommerceStorePage: React.FC = () => {
                     {filteredProducts.length > 0 ? (
                         <div className={gridClass}>
                             {filteredProducts.map(product => (
-                                <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} showCart={showCart} />
+                                <ProductStoreCard key={product.id} product={product} onAddToCart={handleAddToCart} storePrimaryColor={storePrimaryColor} accent={storeAccent} template={template} showCart={showCart} />
                             ))}
                         </div>
                     ) : (

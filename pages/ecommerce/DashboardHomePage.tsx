@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ECommerceSettings, ECommerceTemplate } from '../../types';
 import { DEFAULT_ECOMMERCE_SETTINGS, inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ecommerceSettingsService } from '../../services/ecommerceSettings';
+import { uploadImage } from '../../services/upload';
 import { ApiError } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -37,6 +38,57 @@ const Section: React.FC<{ title: string; subtitle?: string; children: React.Reac
         {children}
     </div>
 );
+
+// Campo para subir imagen (logo/banner) a Cloudinary con vista previa.
+const ImageUploadField: React.FC<{
+    label: string;
+    value?: string;
+    onChange: (url: string) => void;
+    hint?: string;
+    aspect?: 'square' | 'wide';
+}> = ({ label, value, onChange, hint, aspect = 'square' }) => {
+    const [uploading, setUploading] = useState(false);
+    const previewBox = aspect === 'wide' ? 'w-32 h-16' : 'w-16 h-16';
+
+    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { toast.error('El archivo debe ser una imagen.'); return; }
+        if (file.size > 5 * 1024 * 1024) { toast.error('La imagen no debe superar 5MB.'); return; }
+        setUploading(true);
+        try {
+            const url = await uploadImage(file);
+            onChange(url);
+            toast.success('Imagen subida.');
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'No se pudo subir la imagen.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    return (
+        <div>
+            <label className="block text-xs font-medium mb-1">{label}</label>
+            <div className="flex items-center gap-3">
+                {value ? (
+                    <img src={value} alt={label} className={`${previewBox} object-contain rounded-md border border-neutral-200 dark:border-neutral-600 bg-white flex-shrink-0`} />
+                ) : (
+                    <div className={`${previewBox} rounded-md border border-dashed border-neutral-300 dark:border-neutral-600 flex items-center justify-center text-[10px] text-neutral-400 flex-shrink-0 text-center px-1`}>Sin imagen</div>
+                )}
+                <div className="flex flex-col gap-1 min-w-0">
+                    <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer inline-flex items-center gap-1 ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                        {uploading ? 'Subiendo…' : (value ? 'Cambiar imagen' : 'Subir imagen')}
+                        <input type="file" accept="image/*" onChange={handleFile} className="hidden" disabled={uploading} />
+                    </label>
+                    {value && <button type="button" onClick={() => onChange('')} className="text-xs text-red-500 hover:underline text-left">Quitar</button>}
+                </div>
+            </div>
+            {hint && <p className="text-[11px] text-neutral-400 mt-1">{hint}</p>}
+        </div>
+    );
+};
 
 const ColorField: React.FC<{ label: string; value: string; onChange: (v: string) => void }> = ({ label, value, onChange }) => (
     <div>
@@ -150,14 +202,19 @@ export const ECommerceSettingsPage: React.FC = () => {
                             <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.tagline')}</label>
                             <input type="text" value={formData.tagline || ''} onChange={e => set('tagline', e.target.value)} className={inputFormStyle} placeholder={t('ecomx.store_settings.tagline_ph')} />
                         </div>
-                        <div>
-                            <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.logo_url')}</label>
-                            <input type="url" value={formData.logoUrl || ''} onChange={e => set('logoUrl', e.target.value)} className={inputFormStyle} placeholder="https://…/logo.png" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.banner_url')}</label>
-                            <input type="url" value={formData.bannerUrl || ''} onChange={e => set('bannerUrl', e.target.value)} className={inputFormStyle} placeholder="https://…/banner.jpg" />
-                        </div>
+                        <ImageUploadField
+                            label={t('ecomx.store_settings.logo_url')}
+                            value={formData.logoUrl || ''}
+                            onChange={url => set('logoUrl', url)}
+                            hint="PNG o JPG, hasta 5MB. Se muestra en el encabezado de tu tienda."
+                        />
+                        <ImageUploadField
+                            label={t('ecomx.store_settings.banner_url')}
+                            value={formData.bannerUrl || ''}
+                            onChange={url => set('bannerUrl', url)}
+                            aspect="wide"
+                            hint="Imagen ancha (ideal 1600×500). Se muestra como portada."
+                        />
                         <div className="md:col-span-2">
                             <label className="block text-xs font-medium mb-1">{t('ecomx.store_settings.description')}</label>
                             <textarea value={formData.description || ''} onChange={e => set('description', e.target.value)} rows={2} className={inputFormStyle} placeholder={t('ecomx.store_settings.description_ph')} />
