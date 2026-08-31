@@ -4,11 +4,12 @@ import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Product, CartItem, ECommerceSettings as StoreSettingsType } from '../../types';
 import { ShoppingCartIcon, PlusIcon, TrashIconMini } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS, ADMIN_USER_ID } from '../../constants';
 import { publicStoreService, type PublicProduct } from '../../services/publicStore';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { usePublicT } from '../../hooks/usePublicTranslation';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ProductStoreCard: React.FC<{ product: PublicProduct; onAddToCart: (product: PublicProduct) => void; storePrimaryColor: string; showCart?: boolean; }> = ({ product, onAddToCart, storePrimaryColor, showCart = true }) => {
     const t = usePublicT();
@@ -44,6 +45,7 @@ const ProductStoreCard: React.FC<{ product: PublicProduct; onAddToCart: (product
 export const EcommerceStorePage: React.FC = () => {
     const { storeOwnerId } = useParams<{ storeOwnerId: string }>();
     const { getSettingsForClient } = useECommerceSettings();
+    const { currentUser } = useAuth();
     const navigate = useNavigate();
 
     const [storeSettings, setStoreSettings] = useState<StoreSettingsType | null>(null);
@@ -56,7 +58,10 @@ export const EcommerceStorePage: React.FC = () => {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [priceMax, setPriceMax] = useState('');   // filtro de precio máx (plantilla Autopartes)
 
-    const effectiveStoreOwnerId = storeOwnerId || ECOMMERCE_CLIENT_ID;
+    // El link "Mi Tienda (Vista Previa)" usa ADMIN_USER_ID como marcador; para la vista previa del
+    // dueño usamos SU id real. Un visitante público (sin sesión) usa el id de la URL tal cual.
+    const isPlaceholderOwner = !storeOwnerId || storeOwnerId === ADMIN_USER_ID;
+    const effectiveStoreOwnerId = (isPlaceholderOwner && currentUser?.id) ? currentUser.id : (storeOwnerId || currentUser?.id || ECOMMERCE_CLIENT_ID);
 
     // Cargar productos públicos desde el BE (sin auth)
     useEffect(() => {
@@ -75,11 +80,12 @@ export const EcommerceStorePage: React.FC = () => {
     // Cargar settings de la tienda (puede ser desde context legacy o BE)
     useEffect(() => {
         if (!effectiveStoreOwnerId) return;
-        // Primero el context (datos cacheados); en paralelo intenta BE público
-        setStoreSettings(getSettingsForClient(effectiveStoreOwnerId));
+        // Primero el context (datos cacheados) o el default; en paralelo intenta BE público.
+        // Siempre dejamos settings NO nulo para que la tienda renderice (no se quede en "Cargando").
+        setStoreSettings((getSettingsForClient(effectiveStoreOwnerId) as any) || (DEFAULT_ECOMMERCE_SETTINGS as any));
         publicStoreService.getStoreSettings(effectiveStoreOwnerId)
-            .then(s => setStoreSettings(s as any))
-            .catch(() => { /* mantener fallback */ });
+            .then(s => { if (s) setStoreSettings(s as any); })
+            .catch(() => setStoreSettings(prev => prev || (DEFAULT_ECOMMERCE_SETTINGS as any)));
     }, [effectiveStoreOwnerId, getSettingsForClient]);
 
     const handleAddToCart = (product: PublicProduct) => {
