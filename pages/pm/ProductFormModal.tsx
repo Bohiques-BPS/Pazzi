@@ -14,6 +14,8 @@ import { ADVANCED_PRODUCT_FIELDS, ADVANCED_PRODUCT_GROUPS } from '../../config/a
 import { API_URL } from '../../services/api';
 import { printBarcodeLabel } from '../../services/labelPrinter';
 import { toast } from '../../hooks/useToast';
+import { inventoryService } from '../../services/inventory';
+import { ApiError } from '../../services/api';
 import { z } from 'zod';
 import { zodIssuesToFieldErrors } from '../../schemas/common.schema';
 
@@ -125,6 +127,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     };
 
     const [formData, setFormData] = useState<ProductFormData>(initialFormData);
+    // Stock por sucursal (solo al editar): cantidad ACTUAL local + delta a sumar por sucursal.
+    const [localStock, setLocalStock] = useState<Record<string, number>>({});
+    const [stockDeltas, setStockDeltas] = useState<Record<string, string>>({});
+    const [applyingStock, setApplyingStock] = useState(false);
+    useEffect(() => {
+        if (isOpen && productToEdit) {
+            const m: Record<string, number> = {};
+            ((productToEdit as any).stockByBranch || []).forEach((s: any) => { m[s.branchId] = s.quantity; });
+            setLocalStock(m); setStockDeltas({});
+        }
+    }, [isOpen, productToEdit]);
+    const applyStock = async () => {
+        if (!productToEdit) return;
+        const changes = Object.entries(stockDeltas)
+            .map(([branchId, v]) => ({ branchId, qty: Number(v) }))
+            .filter(c => c.qty && !isNaN(c.qty));
+        if (!changes.length) { toast.error('Ingresa una cantidad en al menos una sucursal.'); return; }
+        setApplyingStock(true);
+        try {
+            for (const c of changes) {
+                const res = await inventoryService.adjustStock(productToEdit.id, { branchId: c.branchId, quantity: c.qty, type: 'ADJUSTMENT_MANUAL', notes: 'Ajuste desde ficha de producto' });
+                setLocalStock(s => ({ ...s, [c.branchId]: res.stockAfter }));
+            }
+            toast.success('Stock actualizado por sucursal.');
+            setStockDeltas({});
+        } catch (e) { toast.error(e instanceof ApiError ? e.message : 'No se pudo actualizar el stock.'); }
+        finally { setApplyingStock(false); }
+    };
     const [activeTab, setActiveTab] = useState('Principal');
     const [skuInput, setSkuInput] = useState('');
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -661,6 +691,36 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                     </>
                                 )}
                             </div>
+                            {/* Stock por sucursal (solo al editar): sumar/restar por sucursal */}
+                            {productToEdit && (
+                                <div className="border border-neutral-200 dark:border-neutral-600 rounded-lg p-3">
+                                    <label className="block text-sm font-semibold mb-2">Stock por sucursal</label>
+                                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                                        {branches.filter(b => b.isActive).length === 0 ? (
+                                            <p className="text-xs text-neutral-400">No hay sucursales activas.</p>
+                                        ) : branches.filter(b => b.isActive).map(b => (
+                                            <div key={b.id} className="flex items-center gap-2">
+                                                <span className="flex-1 text-sm truncate">{b.name}</span>
+                                                <span className="text-xs text-neutral-500 w-24 text-right">Actual: <strong>{localStock[b.id] ?? 0}</strong></span>
+                                                <input
+                                                    type="number"
+                                                    value={stockDeltas[b.id] ?? ''}
+                                                    onChange={e => setStockDeltas(d => ({ ...d, [b.id]: e.target.value }))}
+                                                    placeholder="+/−"
+                                                    className={`${inputFormStyle} !w-24 text-center`}
+                                                    title="Cantidad a sumar (o negativa para restar)"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-between items-center mt-2">
+                                        <p className="text-xs text-neutral-400">Suma (o resta con negativo) unidades por sucursal.</p>
+                                        <button type="button" onClick={applyStock} disabled={applyingStock} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>
+                                            {applyingStock ? 'Aplicando…' : 'Aplicar stock'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2">
                                 <input type="checkbox" name="isEmergencyTaxExempt" checked={formData.isEmergencyTaxExempt} onChange={handleChange} className="h-4 w-4" />
                                 <label className="text-sm">{t('product.emergency_exempt')}</label>

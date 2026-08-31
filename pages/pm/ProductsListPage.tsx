@@ -6,10 +6,11 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Imported useTranslation
 import { DataTable, TableColumn } from '../../components/DataTable'; 
-import { ProductFormModal } from './ProductFormModal'; 
+import { ProductFormModal } from './ProductFormModal';
+import { CameraScanModal } from '../../components/ui/CameraScanModal';
 import { ConfirmationModal } from '../../components/Modal'; 
 import { ProductCard } from '../../components/cards/ProductCard'; 
-import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, Cog6ToothIcon } from '../../components/icons'; 
+import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, Cog6ToothIcon, CameraIcon } from '../../components/icons';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID, inputFormStyle } from '../../constants'; 
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
@@ -64,6 +65,7 @@ export const ProductsListPage: React.FC = () => {
     
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [showScanner, setShowScanner] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [showReportsModal, setShowReportsModal] = useState(false);
@@ -186,6 +188,21 @@ export const ProductsListPage: React.FC = () => {
                        toast.error(t('pmx.product.no_permission_edit'));
 
         }
+    };
+
+    // Escanear un código → buscar el producto (código de barras / SKU / nombre) y abrir su edición.
+    const handleScan = (raw: string) => {
+        const code = String(raw || '').trim();
+        setShowScanner(false);
+        if (!code) return;
+        const c = code.toLowerCase();
+        const found = globalProducts.find(p =>
+            (p as any).barcode13Digits === code || (p as any).barcode2 === code ||
+            (Array.isArray(p.skus) && p.skus.some((s: any) => String(s).toLowerCase() === c)) ||
+            p.name.toLowerCase() === c
+        );
+        if (found) openModalForEdit(found);
+        else toast.error(t('pmx.product.scan_not_found', { code }) || `No se encontró un producto para: ${code}`);
     };
 
     const requestDelete = (productId: string) => {
@@ -336,6 +353,13 @@ export const ProductsListPage: React.FC = () => {
                        {migratingImages ? '…' : `☁️ ${t('pmx.product.migrate_btn')}`}
                     </button>
                     <button
+                        onClick={() => setShowScanner(true)}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center flex-shrink-0`}
+                        title={t('pmx.product.scan_title') || 'Escanear un producto para editarlo'}
+                    >
+                       <CameraIcon className="w-5 h-5 mr-1" /> {t('pmx.product.scan') || 'Escanear'}
+                    </button>
+                    <button
                         onClick={openModalForCreate}
                         className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}
                     >
@@ -465,8 +489,15 @@ export const ProductsListPage: React.FC = () => {
                 )}
                 </>
             )}
-            <ProductFormModal 
-                isOpen={showFormModal} 
+            <CameraScanModal
+                isOpen={showScanner}
+                onClose={() => setShowScanner(false)}
+                onDetected={handleScan}
+                title={t('pmx.product.scan') || 'Escanear producto'}
+            />
+
+            <ProductFormModal
+                isOpen={showFormModal}
                 onClose={() => setShowFormModal(false)} 
                 productToEdit={editingProduct} 
                 storeOwnerIdForNewProduct={currentUser?.id || ADMIN_USER_ID} // Pasar el ID del usuario actual para nuevos productos
