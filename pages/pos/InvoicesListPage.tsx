@@ -324,7 +324,9 @@ export const InvoicesListPage: React.FC = () => {
             if (!l.name.trim()) return toast.error(t('posx.invoices.err_line_desc'));
             if (!(q > 0)) return toast.error(t('posx.invoices.err_qty'));
             if (!(p >= 0)) return toast.error(t('posx.invoices.err_price'));
-            const rate = lineTaxRate(l);
+            // La tasa se envía como FRACCIÓN (0.115). Si viene como % (ej. 11.5), se normaliza.
+            const rawRate = lineTaxRate(l);
+            const rate = rawRate == null ? null : (rawRate > 1 ? rawRate / 100 : rawRate);
             parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(rate != null ? { taxRate: rate } : {}) });
         }
         if (parsed.length === 0) return toast.error(t('posx.invoices.err_no_items'));
