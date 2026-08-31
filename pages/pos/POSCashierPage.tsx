@@ -217,7 +217,8 @@ export const POSCashierPage: React.FC = () => {
     const { currentUser, login, logout } = useAuth();
     const productSearchRef = useRef<HTMLInputElement>(null);
     // Cantidad pre-escrita: se teclea ANTES de elegir el producto y este entra con esa cantidad.
-    const [quantityInput, setQuantityInput] = useState('');
+    // Por defecto 1 (nunca 0/vacío).
+    const [quantityInput, setQuantityInput] = useState('1');
     const quantityInputRef = useRef<HTMLInputElement>(null);
     // Cantidad "en espera" para productos que abren un modal (variaciones / precio manual).
     const pendingQtyRef = useRef(1);
@@ -269,6 +270,13 @@ export const POSCashierPage: React.FC = () => {
     
     const [cart, setCart] = useState<CartItem[]>([]);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+    // Cliente de mostrador por defecto: por bandera isDefault, por id conocido, o por nombre
+    // "Público General" (el que crea el backend). Robusto ante datos que no traigan isDefault.
+    const findDefaultClient = useCallback((list: Client[]): Client | undefined =>
+        list.find(c => c.isDefault)
+        || list.find(c => c.id === DEFAULT_CLIENT_ID)
+        || list.find(c => `${c.name || ''} ${c.lastName || ''}`.trim().toLowerCase() === 'público general'),
+    []);
     const [selectedBranchId, setSelectedBranchId] = useState<string>('');
     const [selectedCajaId, setSelectedCajaId] = useState<string>('');
     // Métodos de pago disponibles en ESTA caja: activos globalmente y no deshabilitados por su
@@ -544,7 +552,7 @@ export const POSCashierPage: React.FC = () => {
     // Set default client if none selected
     useEffect(() => {
         if (!selectedClient && clients.length > 0) {
-            const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
+            const defaultClient = findDefaultClient(clients);
             if (defaultClient) {
                 setSelectedClient(defaultClient);
             }
@@ -684,7 +692,7 @@ export const POSCashierPage: React.FC = () => {
             }
             return [...prev, { ...item, quantity: qty }];
         });
-        setQuantityInput(''); // la próxima línea vuelve a cantidad 1 por defecto
+        setQuantityInput('1'); // la próxima línea vuelve a cantidad 1 por defecto
         pendingQtyRef.current = 1;
         if (productSearchRef.current) productSearchRef.current.focus();
     };
@@ -851,7 +859,7 @@ export const POSCashierPage: React.FC = () => {
 
     const clearCart = () => {
         setCart([]);
-        const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
+        const defaultClient = findDefaultClient(clients);
         setSelectedClient(defaultClient || null);
         setSelectedProjectId(null);
         setGeneralDiscount(null);
@@ -997,12 +1005,12 @@ export const POSCashierPage: React.FC = () => {
                     setSelectedClient(client);
                 } else {
                     // If client not found, fallback to default or null
-                    const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
+                    const defaultClient = findDefaultClient(clients);
                     setSelectedClient(defaultClient || null);
                 }
             } else {
                 // If no clientId in recalled cart, reset to default
-                const defaultClient = (clients.find(c => c.isDefault) || clients.find(c => c.id === DEFAULT_CLIENT_ID));
+                const defaultClient = findDefaultClient(clients);
                 setSelectedClient(defaultClient || null);
             }
             setPosError(null);
@@ -1439,12 +1447,12 @@ export const POSCashierPage: React.FC = () => {
                                 min="1"
                                 inputMode="numeric"
                                 value={quantityInput}
-                                onChange={(e) => setQuantityInput(e.target.value.replace(/[^\d]/g, ''))}
+                                onChange={(e) => { const v = e.target.value.replace(/[^\d]/g, ''); setQuantityInput(v === '0' ? '1' : v); }}
                                 onFocus={(e) => e.currentTarget.select()}
+                                onBlur={() => { if (!quantityInput || quantityInput === '0') setQuantityInput('1'); }}
                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'ArrowRight') { e.preventDefault(); productSearchRef.current?.focus(); } }}
                                 disabled={!isShiftActive}
                                 title={t('posx.cashier.qty_hint')}
-                                placeholder={t('posx.cashier.qty_ph')}
                                 aria-label={t('posx.cashier.qty_hint')}
                                 className="flex-shrink-0 w-16 sm:w-20 h-12 text-center text-lg font-bold border border-neutral-400 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:opacity-40"
                             />
