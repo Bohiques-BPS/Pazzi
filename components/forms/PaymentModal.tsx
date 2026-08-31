@@ -90,8 +90,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const showRefField = needsRef || isAth;
     const refLabel = selectedConfig?.referenceLabel || t('cmpx.payment.reference_default');
 
-    // Vuelto en vivo mientras se escribe el monto de efectivo (antes de "Agregar Pago").
-    const previewChange = isCash ? Math.max(0, (parseAmount(amountInput) || 0) - balance) : 0;
+    // Valores EN VIVO: incluyen el efectivo que se está tecleando (aún sin "Agregar Pago"),
+    // para que Total Recibido, Saldo Pendiente y Cambio a Devolver se actualicen al instante.
+    const typedCash = isCash ? (parseAmount(amountInput) || 0) : 0;
+    const liveReceived = round2(totalPaid + typedCash);
+    const liveChange = Math.max(0, round2(liveReceived - totalAmount));
+    const livePending = Math.max(0, round2(totalAmount - liveReceived));
     // Métodos que se pueden confirmar con un solo Enter (sin referencia ni pasarela externa).
     const isDirectMethod = !needsRef && selectedConfig?.type !== 'agilpay' && selectedConfig?.type !== 'ath_movil';
 
@@ -450,11 +454,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                                         {t('cmpx.payment.clear')}
                                     </button>
                                 </div>
-                                {previewChange > 0.001 && (
-                                    <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                                        {t('cmpx.payment.change_live', { amount: previewChange.toFixed(2) })}
-                                    </p>
-                                )}
                             </div>
                         )}
                     </div>
@@ -468,15 +467,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                         </div>
                         <div className="flex items-center justify-between gap-4 bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 rounded-xl px-6 py-5">
                             <span className="text-2xl sm:text-3xl font-semibold text-primary dark:text-accent">{t('cmpx.payment.total_received')}</span>
-                            <span className="text-5xl sm:text-6xl font-extrabold text-primary dark:text-accent tabular-nums leading-none">${totalPaid.toFixed(2)}</span>
+                            <span className="text-5xl sm:text-6xl font-extrabold text-primary dark:text-accent tabular-nums leading-none">${liveReceived.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between gap-4 bg-red-50 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-800 rounded-xl px-6 py-5">
                             <span className="text-2xl sm:text-3xl font-semibold text-red-700 dark:text-red-300">{t('cmpx.payment.pending_balance')}</span>
-                            <span className="text-5xl sm:text-6xl font-extrabold text-red-600 dark:text-red-400 tabular-nums leading-none">${Math.max(0, balance).toFixed(2)}</span>
+                            <span className="text-5xl sm:text-6xl font-extrabold text-red-600 dark:text-red-400 tabular-nums leading-none">${livePending.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between gap-4 bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-800 rounded-xl px-6 py-5">
                             <span className="text-2xl sm:text-3xl font-semibold text-green-700 dark:text-green-300">{t('cmpx.payment.change_due')}</span>
-                            <span className="text-5xl sm:text-6xl font-extrabold text-green-600 dark:text-green-400 tabular-nums leading-none">${Math.max(0, totalPaid - totalAmount).toFixed(2)}</span>
+                            <span className="text-5xl sm:text-6xl font-extrabold text-green-600 dark:text-green-400 tabular-nums leading-none">${liveChange.toFixed(2)}</span>
                         </div>
                     </div>
 
