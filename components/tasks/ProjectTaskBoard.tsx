@@ -4,7 +4,8 @@ import { Task, TaskStatus, Employee } from '../../types';
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { InputModal } from '../InputModal';
-import { PlusIcon } from '../icons';
+import { ExtractTasksModal } from '../pm/ExtractTasksModal';
+import { PlusIcon, DocumentTextIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { tasksService } from '../../services/tasks';
 import { toast } from 'react-hot-toast';
@@ -25,6 +26,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [activeSection, setActiveSection] = useState('');
     const [extraSections, setExtraSections] = useState<string[]>([]);
     const [sectionModalOpen, setSectionModalOpen] = useState(false);
+    const [extractOpen, setExtractOpen] = useState(false);
+    const reloadTasks = () => { tasksService.getAll().then(d => setTasks(d as any)).catch(() => {}); };
 
     const allEmployees = getAllEmployees();
 
@@ -166,6 +169,9 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 <button onClick={addSection} className="px-3 py-1.5 rounded-md text-sm font-medium text-primary hover:bg-primary/10 flex items-center gap-1">
                     <PlusIcon className="w-4 h-4" /> {t('cmpx.task.add_section') || 'Sección'}
                 </button>
+                <button onClick={() => setExtractOpen(true)} className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 flex items-center gap-1" title={t('cmpx.task.analyze_doc_hint') || 'Analizar un documento o transcripción y sugerir tareas'}>
+                    <DocumentTextIcon className="w-4 h-4" /> {t('cmpx.task.analyze_doc') || 'Analizar documento'}
+                </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {Object.entries(columns).map(([status, tasksInColumn]: [string, Task[]]) => (
@@ -247,6 +253,13 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 cancelText={t('common.cancel') || 'Cancelar'}
                 onConfirm={confirmAddSection}
                 onClose={() => setSectionModalOpen(false)}
+            />
+            <ExtractTasksModal
+                isOpen={extractOpen}
+                onClose={() => setExtractOpen(false)}
+                projectId={projectId}
+                section={activeSection || undefined}
+                onCreated={reloadTasks}
             />
         </>
     );

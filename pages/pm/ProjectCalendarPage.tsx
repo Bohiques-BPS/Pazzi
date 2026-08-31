@@ -7,6 +7,7 @@ import { ScheduleVisitModal } from './ScheduleVisitModal';
 import { VisitDetailModal } from './VisitDetailModal';
 import { ProjectFormModal } from './ProjectFormModal';
 import { Modal } from '../../components/Modal';
+import { ScheduleMeetingModal } from '../../components/pm/ScheduleMeetingModal';
 import { projectMeetingsService, type ProjectMeeting } from '../../services/projectMeetings';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon as CreateVisitIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CalendarDaysIcon, UserGroupIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
@@ -161,6 +162,8 @@ export const ProjectCalendarPage: React.FC = () => {
     const navigate = useNavigate();
     const [meetings, setMeetings] = useState<ProjectMeeting[]>([]);
     const [meetingToView, setMeetingToView] = useState<ProjectMeeting | null>(null);
+    const [scheduleMeetingOpen, setScheduleMeetingOpen] = useState(false);
+    const loadMeetings = useCallback(() => { projectMeetingsService.listAll().then(setMeetings).catch(() => setMeetings([])); }, []);
     const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
     const [currentDate, setCurrentDate] = useState(() => new Date());
     const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -176,7 +179,7 @@ export const ProjectCalendarPage: React.FC = () => {
 
     const [currentTimePosition, setCurrentTimePosition] = useState(0);
 
-    useEffect(() => { projectMeetingsService.listAll().then(setMeetings).catch(() => setMeetings([])); }, []);
+    useEffect(() => { loadMeetings(); }, [loadMeetings]);
 
     const allCalendarEvents = useMemo(() => getEventsForRange(projects, visits, meetings), [projects, visits, meetings]);
     const calendarDays = useMemo(() => getDaysForMonthView(currentDate, allCalendarEvents), [currentDate, allCalendarEvents]);
@@ -266,6 +269,9 @@ export const ProjectCalendarPage: React.FC = () => {
                             <option value="month">{t('calendar.month')}</option>
                             <option value="week">{t('calendar.week')}</option>
                         </select>
+                        <button onClick={() => setScheduleMeetingOpen(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center gap-1 text-xs`}>
+                            <ChatBubbleLeftRightIcon className="w-4 h-4" /> {t('calendar.schedule_followup') || 'Programar Seguimiento'}
+                        </button>
                         <button onClick={() => openScheduleVisitModal(undefined, selectedDate)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center text-xs`}>
                             <CreateVisitIcon className="w-4 h-4" /> {t('calendar.schedule_visit')}
                         </button>
@@ -324,6 +330,13 @@ export const ProjectCalendarPage: React.FC = () => {
             <ScheduleVisitModal isOpen={isScheduleVisitModalOpen} onClose={() => setIsScheduleVisitModalOpen(false)} visitToEdit={visitToEdit} initialDate={initialDateForNewVisit || (selectedDate && isValidDate(selectedDate) ? selectedDate : new Date())} />
             <VisitDetailModal isOpen={isVisitDetailModalOpen} onClose={() => setIsVisitDetailModalOpen(false)} visit={visitToView} />
             <ProjectFormModal isOpen={isProjectFormModalOpen} onClose={() => setIsProjectFormModalOpen(false)} project={projectToEdit} />
+
+            <ScheduleMeetingModal
+                isOpen={scheduleMeetingOpen}
+                onClose={() => setScheduleMeetingOpen(false)}
+                initialDate={isValidDate(selectedDate) ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}` : undefined}
+                onCreated={loadMeetings}
+            />
 
             {/* Detalle de reunión (Seguimiento) */}
             <Modal isOpen={!!meetingToView} onClose={() => setMeetingToView(null)} title={meetingToView?.title || 'Reunión'} size="md">

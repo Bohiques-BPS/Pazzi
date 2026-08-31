@@ -45,4 +45,7 @@ export const projectsService = {
   delete: (id: string) => api.delete<any>(`/projects/${id}`),
   generateInvoice: (id: string, data?: any) =>
     api.post<any>(`/projects/${id}/invoice`, data),
+  /** Analiza un documento/transcripción y devuelve posibles tareas (no crea nada). */
+  extractTasks: (id: string, transcript: string) =>
+    api.post<{ suggestions: { title: string; description?: string; assigneeHint?: string; dueDateHint?: string; priority?: 'low' | 'medium' | 'high' | 'urgent' }[] }>(`/projects/${id}/extract-tasks`, { transcript }),
 };
