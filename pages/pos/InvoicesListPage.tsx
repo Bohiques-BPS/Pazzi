@@ -688,25 +688,28 @@ export const InvoicesListPage: React.FC = () => {
                                     {Object.keys(design).length > 0 && (
                                         <button type="button" onClick={() => setDesign({})} className="text-xs text-red-500 hover:underline">{t('posx.invoices.adv_reset')}</button>
                                     )}
-
-                                    {/* Vista previa en vivo */}
-                                    <div className="pt-3 mt-2 border-t border-dashed border-neutral-300 dark:border-neutral-600">
-                                        <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">👁️ {t('posx.invoices.adv_preview') || 'Vista previa (cómo va quedando)'}</p>
-                                        <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900/40 rounded-lg p-4">
-                                            <InvoiceDesignPreview
-                                                design={previewMergedDesign}
-                                                business={previewBusiness}
-                                                clientName={previewClientName}
-                                                notes={description}
-                                                items={previewItems}
-                                                subtotal={draftTotal}
-                                                tax={previewTax}
-                                                total={draftTotal + previewTax}
-                                            />
-                                        </div>
-                                    </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Vista previa en vivo — SIEMPRE visible (no solo en Avanzado) */}
+                    {!editId && (
+                        <div className="border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">👁️ {t('posx.invoices.adv_preview') || 'Vista previa (cómo va quedando)'}</p>
+                            <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900/40 rounded-lg p-4">
+                                <InvoiceDesignPreview
+                                    design={previewMergedDesign}
+                                    business={previewBusiness}
+                                    clientName={previewClientName}
+                                    notes={description}
+                                    items={previewItems}
+                                    subtotal={draftTotal}
+                                    tax={previewTax}
+                                    total={draftTotal + previewTax}
+                                    amountPaid={abonosTotal}
+                                />
+                            </div>
                         </div>
                     )}
 

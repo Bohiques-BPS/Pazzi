@@ -23,10 +23,12 @@ interface Props {
     subtotal: number;
     tax: number;
     total: number;
+    /** Abonos ya realizados (para mostrar Pagado / Saldo). */
+    amountPaid?: number;
 }
 
 /** Vista aproximada de cómo quedará la factura con el diseño actual (no es el PDF final). */
-export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, clientName, notes, items, subtotal, tax, total }) => {
+export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, clientName, notes, items, subtotal, tax, total, amountPaid = 0 }) => {
     const d = design || {};
     const template = d.template || 'modern';
     const header = d.headerColor || '#4CAF50';
@@ -36,6 +38,7 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
     const L = (k: string, dflt: string) => (d.labels && d.labels[k]) || dflt;
     const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
     const rows = items.filter(it => it.name.trim());
+    const paid = Math.min(total, Math.max(0, amountPaid || 0));
 
     const isBanner = template === 'banner';
     const isClassic = template === 'classic';
@@ -112,6 +115,12 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
                     <div className="flex justify-between font-bold text-[13px] pt-1 mt-1 border-t" style={{ color: accent, borderColor: accent }}>
                         <span>{L('total', 'Total')}</span><span>{money(total)}</span>
                     </div>
+                    {paid > 0 && (
+                        <>
+                            <div className="flex justify-between text-green-700"><span>{L('paid', 'Pagado')}</span><span>-{money(paid)}</span></div>
+                            <div className="flex justify-between font-bold"><span>{L('balance', 'Saldo pendiente')}</span><span>{money(Math.max(0, total - paid))}</span></div>
+                        </>
+                    )}
                 </div>
 
                 {/* Notas */}
