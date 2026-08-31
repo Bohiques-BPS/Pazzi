@@ -812,12 +812,19 @@ export const POSCashierPage: React.FC = () => {
         }
     }, [searchProductsRemote]);
 
+    // Cambiar la cantidad NUNCA elimina la línea: se limita a mínimo 1. Quitar un producto del
+    // carrito solo se hace con el botón de basura, que exige autorización (PIN/contraseña) del
+    // gerente/supervisor. Así, poner 0 no borra el artículo.
     const updateQuantity = (productId: string, quantity: number) => {
         setPosError(null);
-        setCart(prev => {
-            if (quantity <= 0) return prev.filter(item => item.id !== productId);
-            return prev.map(item => item.id === productId ? { ...item, quantity } : item);
-        });
+        const q = Math.max(1, Math.floor(Number(quantity)) || 1);
+        setCart(prev => prev.map(item => item.id === productId ? { ...item, quantity: q } : item));
+    };
+
+    // Elimina realmente la línea del carrito. SOLO debe llamarse tras autorización (delete auth).
+    const removeCartItem = (productId: string) => {
+        setPosError(null);
+        setCart(prev => prev.filter(item => item.id !== productId));
     };
 
     // Comentario por línea ("Modificar Línea").
@@ -837,7 +844,7 @@ export const POSCashierPage: React.FC = () => {
             // localStorage y "restauraría" el artículo recién borrado).
             const { valid } = await authService.verifyPassword(password);
             if (valid) {
-                updateQuantity(itemToDelete.id, 0);
+                removeCartItem(itemToDelete.id);
                 setActiveModal(null);
                 setItemToDelete(null);
                 return true;
@@ -1531,10 +1538,11 @@ export const POSCashierPage: React.FC = () => {
                                         
                                         <div className="flex w-full sm:col-span-6 items-center justify-between sm:justify-end gap-3">
                                             <div className="flex items-center">
-                                                <input 
-                                                    type="number" 
-                                                    value={item.quantity} 
-                                                    onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 0)} 
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    value={item.quantity}
+                                                    onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 1)}
                                                     className="w-16 sm:w-20 text-center text-base sm:text-xl font-semibold bg-gray-100 dark:bg-neutral-900 rounded-lg border border-gray-300 dark:border-neutral-600 p-1 sm:p-2 focus:ring-primary focus:border-primary"
                                                     aria-label={t('posx.cashier.quantity_for', { name: item.name })}
                                                 />
