@@ -6,6 +6,7 @@ import { projectMeetingsService } from '../../services/projectMeetings';
 import { tasksService } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
+import { extractDocxText, isDocx } from '../../utils/docx';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 
 interface SuggestionRow {
@@ -54,15 +55,23 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
         return e?.id || '';
     };
 
-    const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file) return;
-        if (file.size > 2 * 1024 * 1024) { toast.error('El archivo es muy grande (máx. 2 MB).'); return; }
-        const reader = new FileReader();
-        reader.onload = () => { setTranscript(String(reader.result || '')); setRows([]); setAnalyzed(false); };
-        reader.onerror = () => toast.error('No se pudo leer el archivo.');
-        reader.readAsText(file);
+        if (file.size > 5 * 1024 * 1024) { toast.error('El archivo es muy grande (máx. 5 MB).'); return; }
+        try {
+            let text: string;
+            if (isDocx(file)) {
+                text = await extractDocxText(file);
+                if (!text.trim()) { toast.error('El documento no contiene texto legible.'); return; }
+            } else {
+                text = await file.text();
+            }
+            setTranscript(text); setRows([]); setAnalyzed(false);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'No se pudo leer el archivo.');
+        }
     };
 
     const analyze = async () => {
@@ -129,7 +138,7 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                         <div className="flex items-center gap-3">
                             <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer`}>
                                 Subir archivo
-                                <input type="file" accept=".txt,.vtt,.srt,.md,text/plain" onChange={onFile} className="hidden" />
+                                <input type="file" accept=".txt,.vtt,.srt,.md,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFile} className="hidden" />
                             </label>
                             <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
                         </div>

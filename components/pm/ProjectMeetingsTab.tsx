@@ -9,6 +9,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSE
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
 import { EmptyState } from '../ui/EmptyState';
 import { Modal } from '../Modal';
+import { extractDocxText, isDocx } from '../../utils/docx';
 import { DeleteIcon, CalendarDaysIcon, PlusIcon, ClipboardDocumentListIcon } from '../icons';
 
 interface Props { projectId: string; }
@@ -60,16 +61,19 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
     const openReview = (m: ProjectMeeting) => { setReviewFor(m); setTranscript(m.transcript || ''); setRows([]); setAnalyzed(false); };
     const closeReview = () => { setReviewFor(null); setTranscript(''); setRows([]); setAnalyzed(false); };
 
-    // Cargar la transcripción desde un archivo de texto (.txt/.vtt/.srt/.md).
-    const onTranscriptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Cargar la transcripción desde un archivo (.txt/.vtt/.srt/.md/.docx).
+    const onTranscriptFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file) return;
-        if (file.size > 2 * 1024 * 1024) { toast.error('El archivo es muy grande (máx. 2 MB).'); return; }
-        const reader = new FileReader();
-        reader.onload = () => { setTranscript(String(reader.result || '')); setRows([]); setAnalyzed(false); };
-        reader.onerror = () => toast.error('No se pudo leer el archivo.');
-        reader.readAsText(file);
+        if (file.size > 5 * 1024 * 1024) { toast.error('El archivo es muy grande (máx. 5 MB).'); return; }
+        try {
+            const text = isDocx(file) ? await extractDocxText(file) : await file.text();
+            if (!text.trim()) { toast.error('El documento no contiene texto legible.'); return; }
+            setTranscript(text); setRows([]); setAnalyzed(false);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'No se pudo leer el archivo.');
+        }
     };
 
     // Empareja el nombre mencionado en la llamada con un empleado (para sugerir responsable).
@@ -305,7 +309,7 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                             <div className="flex items-center gap-3">
                                 <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer`}>
                                     Subir archivo
-                                    <input type="file" accept=".txt,.vtt,.srt,.md,text/plain" onChange={onTranscriptFile} className="hidden" />
+                                    <input type="file" accept=".txt,.vtt,.srt,.md,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onTranscriptFile} className="hidden" />
                                 </label>
                                 <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
                             </div>
