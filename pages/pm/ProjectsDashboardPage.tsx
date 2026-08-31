@@ -1,11 +1,23 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { Project, ProjectStatus, VisitStatus } from '../../types';
 import { BriefcaseIcon, ExclamationTriangleIcon, ChartBarIcon, BanknotesIcon, CalendarDaysIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { MiniChart } from '../../components/pm/MiniChart';
+import { projectMeetingsService, type ProjectMeeting } from '../../services/projectMeetings';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+
+/** Últimos 6 meses como {key: 'YYYY-M', label: 'mar'}. */
+function last6Months() {
+    const out: { key: string; label: string }[] = [];
+    const base = new Date();
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+        out.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString('es-ES', { month: 'short' }) });
+    }
+    return out;
+}
 
 const PRIMARY = '#0D9488';
 const PRIMARY_LIGHT = '#5EEAD4';
@@ -15,9 +27,11 @@ export const ProjectsDashboardPage: React.FC = () => {
     const { projects, visits, sales, tasks, getClientById, getEmployeeById } = useData();
     const navigate = useNavigate();
 
+    const [meetings, setMeetings] = useState<ProjectMeeting[]>([]);
+    useEffect(() => { projectMeetingsService.listAll().then(setMeetings).catch(() => setMeetings([])); }, []);
+
     const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
     const money = (n: number) => '$' + Math.round(n || 0).toLocaleString('en-US');
-    const moneyK = (n: number) => n >= 1000 ? `${Math.round(n / 1000)}k` : String(Math.round(n));
 
     // Progreso de un proyecto = tareas 'Hecho' / total (sin archivar).
     const progressOf = (projectId: string) => {
@@ -37,33 +51,32 @@ export const ProjectsDashboardPage: React.FC = () => {
         return s;
     }, [projects, tasks]);
 
-    // ── Series mensuales (últimos 6 meses) desde ventas ──
-    const cashFlow = useMemo(() => {
-        const months: { key: string; label: string }[] = [];
-        const base = new Date();
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
-            months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString('es-ES', { month: 'short' }) });
-        }
-        const facturado: Record<string, number> = {}; const cobrado: Record<string, number> = {};
-        months.forEach(m => { facturado[m.key] = 0; cobrado[m.key] = 0; });
-        sales.forEach(sale => {
-            if (sale.paymentStatus === 'Anulado') return;
-            const d = new Date(sale.date);
+    // ── Series mensuales (últimos 6 meses): tareas realizadas y seguimientos ──
+    const monthly = useMemo(() => {
+        const months = last6Months();
+        const tasksDone: Record<string, number> = {}; const meetingsCount: Record<string, number> = {};
+        months.forEach(m => { tasksDone[m.key] = 0; meetingsCount[m.key] = 0; });
+        // Tareas realizadas: status 'Hecho', por mes en que se actualizaron (≈ cuándo se completaron).
+        tasks.forEach(tk => {
+            if (tk.status !== 'Hecho') return;
+            const ref = (tk as any).updatedAt || (tk as any).createdAt;
+            if (!ref) return;
+            const d = new Date(ref);
             const key = `${d.getFullYear()}-${d.getMonth()}`;
-            if (!(key in facturado)) return;
-            facturado[key] += sale.totalAmount || 0;
-            const paid = Array.isArray(sale.payments) && sale.payments.length
-                ? sale.payments.reduce((s, p) => s + (p.amount || 0), 0)
-                : (sale.paymentStatus === 'Pagado' ? (sale.totalAmount || 0) : 0);
-            cobrado[key] += paid;
+            if (key in tasksDone) tasksDone[key]++;
+        });
+        // Seguimientos (reuniones) por mes según su fecha.
+        meetings.forEach(mt => {
+            const d = new Date(String(mt.date));
+            const key = `${d.getFullYear()}-${d.getMonth()}`;
+            if (key in meetingsCount) meetingsCount[key]++;
         });
         return {
             labels: months.map(m => m.label),
-            facturado: months.map(m => facturado[m.key]),
-            cobrado: months.map(m => cobrado[m.key]),
+            tasksDone: months.map(m => tasksDone[m.key]),
+            meetings: months.map(m => meetingsCount[m.key]),
         };
-    }, [sales]);
+    }, [tasks, meetings]);
 
     // ── KPIs ──
     const kpis = useMemo(() => {
@@ -175,14 +188,11 @@ export const ProjectsDashboardPage: React.FC = () => {
 
             {/* Gráficas */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card title="Facturación por mes" subtitle="Últimos 6 meses del portafolio">
-                    <MiniChart labels={cashFlow.labels} area formatY={moneyK} series={[{ label: 'Facturado', color: PRIMARY, values: cashFlow.facturado }]} />
+                <Card title="Tareas realizadas por mes" subtitle="Tareas marcadas como Hecho (últimos 6 meses)">
+                    <MiniChart labels={monthly.labels} area series={[{ label: 'Tareas', color: PRIMARY, values: monthly.tasksDone }]} />
                 </Card>
-                <Card title="Facturado vs. cobrado" subtitle="Flujo de caja de los últimos 6 meses">
-                    <MiniChart labels={cashFlow.labels} formatY={moneyK} series={[
-                        { label: 'Facturado', color: PRIMARY, values: cashFlow.facturado },
-                        { label: 'Cobrado', color: PRIMARY_LIGHT, values: cashFlow.cobrado },
-                    ]} />
+                <Card title="Seguimientos por mes" subtitle="Reuniones de seguimiento agendadas (últimos 6 meses)">
+                    <MiniChart labels={monthly.labels} area series={[{ label: 'Seguimientos', color: PRIMARY_LIGHT, values: monthly.meetings }]} />
                 </Card>
             </div>
 
