@@ -13,6 +13,7 @@ import { Modal, ConfirmationModal } from '../../components/Modal';
 import { InputModal } from '../../components/InputModal';
 import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
 import { InvoiceTypeSelect } from '../../components/pos/InvoiceTypeSelect';
+import { InvoiceDesignPreview } from '../../components/pos/InvoiceDesignPreview';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 
@@ -289,6 +290,15 @@ export const InvoicesListPage: React.FC = () => {
         if (clientFullyExempt) return 0;
         return explicit;
     };
+
+    // ── Preview en vivo del diseño de la factura ──
+    const previewMergedDesign = { ...gDesign, ...design, labels: { ...(gDesign.labels || {}), ...(design.labels || {}) } };
+    const previewRC: any = (settings as any).receiptConfig || {};
+    const previewBusiness = { name: previewRC.businessName, logoUrl: previewRC.logoUrl, rnc: previewRC.rnc, address: previewRC.address, phone: previewRC.phone };
+    const previewItems = lines.map(l => ({ name: l.name, quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0 }));
+    const normRate = (r?: number) => r == null ? 0 : (r > 1 ? r / 100 : r); // acepta fracción (0.115) o % (11.5)
+    const previewTax = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
+    const previewClientName = invClient ? `${invClient.name} ${invClient.lastName || ''}`.trim() : (clientQuery.trim() || undefined);
 
     const create = async () => {
         const parsed: InvoiceItemInput[] = [];
@@ -628,6 +638,23 @@ export const InvoicesListPage: React.FC = () => {
                                     {Object.keys(design).length > 0 && (
                                         <button type="button" onClick={() => setDesign({})} className="text-xs text-red-500 hover:underline">{t('posx.invoices.adv_reset')}</button>
                                     )}
+
+                                    {/* Vista previa en vivo */}
+                                    <div className="pt-3 mt-2 border-t border-dashed border-neutral-300 dark:border-neutral-600">
+                                        <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">👁️ {t('posx.invoices.adv_preview') || 'Vista previa (cómo va quedando)'}</p>
+                                        <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900/40 rounded-lg p-4">
+                                            <InvoiceDesignPreview
+                                                design={previewMergedDesign}
+                                                business={previewBusiness}
+                                                clientName={previewClientName}
+                                                notes={description}
+                                                items={previewItems}
+                                                subtotal={draftTotal}
+                                                tax={previewTax}
+                                                total={draftTotal + previewTax}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
