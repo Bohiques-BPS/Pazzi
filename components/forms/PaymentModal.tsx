@@ -481,20 +481,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
 
                     {/* Pagos aplicados (detalle) */}
                     <div>
-                        <h3 className="text-base font-semibold text-neutral-600 dark:text-neutral-300">{t('cmpx.payment.applied_payments')}</h3>
-                        <div className="mt-2 space-y-2 text-base max-h-40 overflow-y-auto pr-2">
-                           {payments.length === 0 ? (
-                                <p className="text-neutral-500 dark:text-neutral-400">{t('cmpx.payment.no_payments')}</p>
-                           ) : (
-                                payments.map((p, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-neutral-100 dark:bg-neutral-700 px-3 py-2.5 rounded">
-                                        <span>{p.method}{p.reference ? ` (${p.reference})` : ''}:</span>
-                                        <span className="font-semibold">${p.amount.toFixed(2)}</span>
-                                        <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 ml-2 text-xl leading-none">&times;</button>
+                        <h3 className="text-xl font-semibold text-neutral-600 dark:text-neutral-300 mb-2">{t('cmpx.payment.applied_payments')}</h3>
+                        {payments.length === 0 ? (
+                            <p className="text-lg text-neutral-500 dark:text-neutral-400">{t('cmpx.payment.no_payments')}</p>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
+                                {payments.map((p, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-3 bg-neutral-100 dark:bg-neutral-700 rounded-xl px-5 py-4">
+                                        <span className="text-lg sm:text-xl font-medium text-neutral-700 dark:text-neutral-200 truncate">{p.method}{p.reference ? ` (${p.reference})` : ''}</span>
+                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                            <span className="text-2xl sm:text-3xl font-extrabold tabular-nums text-neutral-800 dark:text-neutral-100">${p.amount.toFixed(2)}</span>
+                                            <button onClick={() => handleRemovePayment(i)} className="text-red-500 hover:text-red-700 text-3xl leading-none" aria-label="Quitar pago">&times;</button>
+                                        </div>
                                     </div>
-                                ))
-                           )}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
