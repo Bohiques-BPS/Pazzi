@@ -43,7 +43,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     const priority = project.priority ? PRIORITY_META[project.priority] : null;
 
     const assigned = useMemo(
-        () => project.assignedEmployeeIds.map(id => allEmployees.find(e => e.id === id)).filter(Boolean) as Employee[],
+        // assignedEmployeeIds guarda User.id; los empleados se emparejan por su userId.
+        () => project.assignedEmployeeIds.map(id => allEmployees.find(e => (e as any).userId === id || e.id === id)).filter(Boolean) as Employee[],
         [project.assignedEmployeeIds, allEmployees]
     );
 

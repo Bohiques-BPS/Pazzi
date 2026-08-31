@@ -483,7 +483,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
 
                     <div>
                         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('project.resources.assign_employees')}</label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.map(emp => (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(emp.id)} onChange={() => handleEmployeeToggle(emp.id)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>))}</div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.filter(emp => (emp as any).userId).map(emp => { const uid = (emp as any).userId as string; return (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(uid)} onChange={() => handleEmployeeToggle(uid)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>); })}</div>
                     </div>
                  </fieldset>
                  {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}>

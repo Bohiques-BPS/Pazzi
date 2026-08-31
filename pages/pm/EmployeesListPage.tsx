@@ -34,9 +34,10 @@ export const EmployeesListPage: React.FC = () => {
 
     // Proyectos asignados a un empleado. La asignación se guarda por el id del empleado
     // (mismo criterio que la tarjeta de proyecto), así que cruzamos por emp.id.
-    const projectsOf = useCallback((emp: Employee) =>
-        projects.filter(p => ((p as any).assignedEmployeeIds || []).includes(emp.id)),
-        [projects]);
+    const projectsOf = useCallback((emp: Employee) => {
+        const uid = (emp as any).userId;
+        return projects.filter(p => { const ids = (p as any).assignedEmployeeIds || []; return ids.includes(emp.id) || (uid && ids.includes(uid)); });
+    }, [projects]);
 
     const deptOf = (emp: Employee) => ((emp as any).department || '').trim();
 
