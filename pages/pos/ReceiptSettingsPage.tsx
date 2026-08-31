@@ -506,8 +506,8 @@ export const ReceiptSettingsPage: React.FC = () => {
                     </section>
                 </div>
 
-                {/* Vista previa */}
-                <div>
+                {/* Vista previa — sticky en desktop para seguir el scroll del formulario */}
+                <div className="lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
                     <h3 className="font-semibold text-neutral-600 dark:text-neutral-300 mb-2">{t('posx.receipt.preview')}</h3>
                     <div className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 flex justify-center overflow-x-auto">
                         <div className="bg-white shadow" dangerouslySetInnerHTML={{ __html: previewHtml }} />
