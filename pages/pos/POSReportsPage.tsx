@@ -53,13 +53,13 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 const Card: React.FC<{ icon?: React.ReactNode; title: string; value: string; sub?: string }> = ({ icon, title, value, sub }) => (
-    <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 flex items-start gap-3">
-        {icon && <div className="text-primary">{icon}</div>}
-        <div className="flex-1">
-            <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{title}</div>
-            <div className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{value}</div>
-            {sub && <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{sub}</div>}
+    <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{title}</p>
+            {icon && <span className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">{icon}</span>}
         </div>
+        <div className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 mt-2">{value}</div>
+        {sub && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{sub}</p>}
     </div>
 );
 
