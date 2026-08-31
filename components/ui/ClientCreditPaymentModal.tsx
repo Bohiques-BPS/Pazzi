@@ -43,13 +43,17 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
         if (!isOpen || !clientId) return;
         let cancelled = false;
         setLoading(true); setAmounts({}); setMethod('Efectivo'); setReference(''); setDistribute('');
-        salesService.getAll({ clientId, paymentStatus: 'Pendiente de Pago', isReturn: false })
+        // Mismo criterio que "Cuentas por Cobrar": pendiente = SALDO > 0 (total − pagos), no el
+        // campo paymentStatus exacto (que puede diferir). Así siempre coincide con lo que ve el
+        // usuario en CxC. Excluimos anuladas y devoluciones.
+        salesService.getAll({ clientId, isReturn: false })
             .then((data: any[]) => {
                 if (cancelled) return;
                 const rows: PendingSale[] = (Array.isArray(data) ? data : [])
+                    .filter(s => s.paymentStatus !== 'Anulado' && !s.isReturn)
                     .map(s => {
-                        const paid = (s.payments || []).reduce((a: number, p: any) => a + p.amountPaid, 0);
-                        return { id: s.id, saleNumber: s.saleNumber, date: s.date, totalAmount: s.totalAmount, balance: r2(s.totalAmount - paid) };
+                        const paid = (s.payments || []).reduce((a: number, p: any) => a + (Number(p.amountPaid) || 0), 0);
+                        return { id: s.id, saleNumber: s.saleNumber, date: s.date, totalAmount: Number(s.totalAmount) || 0, balance: r2((Number(s.totalAmount) || 0) - paid) };
                     })
                     .filter(s => s.balance > 0.001)
                     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // más antiguas primero
