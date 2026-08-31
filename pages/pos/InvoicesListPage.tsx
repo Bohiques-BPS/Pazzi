@@ -148,7 +148,7 @@ const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone:
 
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { settings } = useGlobalSettings();
+    const { settings, updateSettings } = useGlobalSettings();
     const { clients, products } = useData();
     const { currentUser } = useAuth();
     const [openLine, setOpenLine] = useState<number | null>(null);
@@ -299,6 +299,23 @@ export const InvoicesListPage: React.FC = () => {
     const normRate = (r?: number) => r == null ? 0 : (r > 1 ? r / 100 : r); // acepta fracción (0.115) o % (11.5)
     const previewTax = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
     const previewClientName = invClient ? `${invClient.name} ${invClient.lastName || ''}`.trim() : (clientQuery.trim() || undefined);
+
+    // ── Plantillas personalizadas guardadas (en receiptConfig.invoiceTemplates) ──
+    const savedTemplates: { id: string; name: string; design: any }[] = (settings as any)?.receiptConfig?.invoiceTemplates || [];
+    const [tplNameOpen, setTplNameOpen] = useState(false);
+    const persistTemplates = (list: any[]) => updateSettings({ receiptConfig: { ...(settings as any).receiptConfig, invoiceTemplates: list } } as any);
+    const applyTemplate = (id: string) => { const tpl = savedTemplates.find(x => x.id === id); if (tpl) setDesign({ ...(tpl.design || {}), labels: { ...(tpl.design?.labels || {}) } }); };
+    const saveTemplate = (name: string) => {
+        const id = `tpl_${Date.now().toString(36)}`;
+        persistTemplates([...savedTemplates, { id, name: name.trim(), design: { ...previewMergedDesign } }]);
+        toast.success(t('posx.invoices.tpl_saved') || 'Plantilla guardada.');
+        setTplNameOpen(false);
+    };
+    const deleteTemplate = (id: string) => persistTemplates(savedTemplates.filter(x => x.id !== id));
+    const saveAsDefault = () => {
+        updateSettings({ receiptConfig: { ...(settings as any).receiptConfig, invoiceDesign: { ...previewMergedDesign } } } as any);
+        toast.success(t('posx.invoices.tpl_default_saved') || 'Diseño guardado como predeterminado del negocio.');
+    };
 
     const create = async () => {
         const parsed: InvoiceItemInput[] = [];
@@ -590,6 +607,39 @@ export const InvoicesListPage: React.FC = () => {
                             {advOpen && (
                                 <div className="px-3 pb-3 pt-1 space-y-3 border-t border-neutral-100 dark:border-neutral-700">
                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('posx.invoices.advanced_hint')}</p>
+
+                                    {/* Plantillas personalizadas guardadas */}
+                                    <div className="flex flex-wrap items-end gap-2 bg-primary/5 border border-primary/20 rounded-lg p-2">
+                                        <div className="flex-1 min-w-[180px]">
+                                            <label className="block text-[11px] text-neutral-500 mb-1">{t('posx.invoices.tpl_saved_label') || 'Plantillas guardadas'}</label>
+                                            <div className="flex items-center gap-1">
+                                                <select
+                                                    value=""
+                                                    onChange={e => { if (e.target.value) applyTemplate(e.target.value); }}
+                                                    className={`${INPUT_SM_CLASSES} w-full`}
+                                                >
+                                                    <option value="">{savedTemplates.length ? (t('posx.invoices.tpl_apply') || 'Aplicar una plantilla…') : (t('posx.invoices.tpl_none') || 'Aún no hay plantillas')}</option>
+                                                    {savedTemplates.map(tpl => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
+                                                </select>
+                                            </div>
+                                            {savedTemplates.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {savedTemplates.map(tpl => (
+                                                        <span key={tpl.id} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600">
+                                                            {tpl.name}
+                                                            <button type="button" onClick={() => deleteTemplate(tpl.id)} className="text-red-400 hover:text-red-600" title={t('common.delete') || 'Eliminar'}>×</button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button type="button" onClick={() => setTplNameOpen(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`}>
+                                            💾 {t('posx.invoices.tpl_save') || 'Guardar como plantilla'}
+                                        </button>
+                                        <button type="button" onClick={saveAsDefault} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`} title={t('posx.invoices.tpl_default_hint') || 'Usar este diseño por defecto en todas las facturas nuevas'}>
+                                            ⭐ {t('posx.invoices.tpl_default') || 'Guardar como predeterminado'}
+                                        </button>
+                                    </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.adv_title')}</label>
@@ -840,6 +890,16 @@ export const InvoicesListPage: React.FC = () => {
                 cancelText={t('common.cancel') || 'Cancelar'}
                 onConfirm={confirmSendEmail}
                 onClose={() => setEmailFor(null)}
+            />
+            <InputModal
+                isOpen={tplNameOpen}
+                title={t('posx.invoices.tpl_save') || 'Guardar como plantilla'}
+                label={t('posx.invoices.tpl_name_label') || 'Nombre de la plantilla:'}
+                placeholder={t('posx.invoices.tpl_name_ph') || 'Ej. Factura elegante'}
+                confirmText={t('common.save') || 'Guardar'}
+                cancelText={t('common.cancel') || 'Cancelar'}
+                onConfirm={saveTemplate}
+                onClose={() => setTplNameOpen(false)}
             />
             <ConfirmationModal
                 isOpen={!!toDelete}
