@@ -173,6 +173,7 @@ export const EcommerceStorePage: React.FC = () => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [menuOpen, setMenuOpen] = useState(false);   // menú hamburguesa (móvil)
     const [categoryFilter, setCategoryFilter] = useState('');
     const [priceMax, setPriceMax] = useState('');   // filtro de precio máx (plantilla Autopartes)
 
@@ -291,6 +292,39 @@ export const EcommerceStorePage: React.FC = () => {
         ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12'
         : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6';
 
+    // Botón hamburguesa (solo móvil) — hereda color del header vía currentColor.
+    const HamburgerBtn: React.FC<{ color?: string }> = ({ color }) => (
+        <button type="button" onClick={() => setMenuOpen(o => !o)} className="md:hidden p-2 rounded-md hover:bg-black/5 flex-shrink-0" style={color ? { color } : undefined} aria-label={t('store.menu') || 'Menú'} aria-expanded={menuOpen}>
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {menuOpen ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            </svg>
+        </button>
+    );
+
+    // Panel desplegable del menú móvil (buscador + categorías + accesos).
+    const MobileMenu = () => menuOpen ? (
+        <div className="md:hidden border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-inner">
+            <div className="container mx-auto px-4 py-3 space-y-3">
+                {showSearch && (
+                    <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md border border-neutral-300 dark:border-neutral-600 text-sm dark:bg-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2" style={{ ['--tw-ring-color' as any]: storePrimaryColor }} />
+                )}
+                {categories.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => { setCategoryFilter(''); }} className="text-xs px-3 py-1.5 rounded-full border" style={!categoryFilter ? { backgroundColor: storePrimaryColor, color: '#fff', borderColor: storePrimaryColor } : { borderColor: '#d4d4d4' }}>{t('store.all') || 'Todos'}</button>
+                        {categories.map(cat => (
+                            <button key={cat} onClick={() => setCategoryFilter(cat)} className="text-xs px-3 py-1.5 rounded-full border" style={categoryFilter === cat ? { backgroundColor: storePrimaryColor, color: '#fff', borderColor: storePrimaryColor } : { borderColor: '#d4d4d4' }}>{cat}</button>
+                        ))}
+                    </div>
+                )}
+                <div className="flex items-center gap-4 pt-1">
+                    {showRegister && <RouterLink to="/register" onClick={() => setMenuOpen(false)} className="text-sm font-semibold" style={{ color: storePrimaryColor }}>{t('store.register') || 'Registrarse'}</RouterLink>}
+                    {showLogin && <RouterLink to="/login" onClick={() => setMenuOpen(false)} className="text-sm font-semibold" style={{ color: storePrimaryColor }}>{t('store.login')}</RouterLink>}
+                </div>
+            </div>
+        </div>
+    ) : null;
+
     return (
         <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
             {/* Store Header — varía según la plantilla */}
@@ -304,16 +338,18 @@ export const EcommerceStorePage: React.FC = () => {
                                 <RouterLink to={`/store/${effectiveStoreOwnerId}`} className="text-xl font-bold whitespace-nowrap">{storeSettings.storeName}</RouterLink>
                             </div>
                             {showSearch && <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                className="flex-1 min-w-0 px-4 py-2 rounded-md text-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-white/80" />}
-                            {!showSearch && <div className="flex-1" />}
+                                className="hidden md:block flex-1 min-w-0 px-4 py-2 rounded-md text-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-white/80" />}
+                            <div className={`flex-1 ${showSearch ? 'md:hidden' : ''}`} />
                             {showCart && <button onClick={() => setIsCartOpen(true)} className="relative p-2 hover:bg-white/10 rounded-full flex-shrink-0" aria-label={t('store.view_cart_aria')}>
                                 <ShoppingCartIcon className="w-6 h-6" />
                                 {cartCount > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{cartCount}</span>}
                             </button>}
-                            {showRegister && <RouterLink to="/register" className="text-sm hover:underline hidden sm:inline flex-shrink-0">{t('store.register') || 'Registrarse'}</RouterLink>}
-                            {showLogin && <RouterLink to="/login" className="text-sm hover:underline hidden sm:inline flex-shrink-0">{t('store.login')}</RouterLink>}
+                            {showRegister && <RouterLink to="/register" className="text-sm hover:underline hidden md:inline flex-shrink-0">{t('store.register') || 'Registrarse'}</RouterLink>}
+                            {showLogin && <RouterLink to="/login" className="text-sm hover:underline hidden md:inline flex-shrink-0">{t('store.login')}</RouterLink>}
+                            <HamburgerBtn />
                         </div>
                     </header>
+                    <MobileMenu />
                     {/* Menú de categorías */}
                     {categories.length > 0 && (
                         <div style={{ backgroundColor: storeSecondary }} className="text-white text-sm">
@@ -336,17 +372,21 @@ export const EcommerceStorePage: React.FC = () => {
                                 <RouterLink to={`/store/${effectiveStoreOwnerId}`} className="text-2xl font-bold" style={{ color: storePrimaryColor }}>{storeSettings.storeName}</RouterLink>
                             </div>
                             <div className="flex items-center gap-4">
-                                {showSearch && <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                    className="px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-600 text-sm focus:outline-none focus:ring-2 dark:bg-neutral-900" />}
-                                {showRegister && <RouterLink to="/register" className="text-sm hover:underline" style={{ color: storePrimaryColor }}>{t('store.register') || 'Registrarse'}</RouterLink>}
-                                {showLogin && <RouterLink to="/login" className="text-sm hover:underline" style={{ color: storePrimaryColor }}>{t('store.login')}</RouterLink>}
+                                <div className="hidden md:flex items-center gap-4">
+                                    {showSearch && <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                        className="px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-600 text-sm focus:outline-none focus:ring-2 dark:bg-neutral-900" />}
+                                    {showRegister && <RouterLink to="/register" className="text-sm hover:underline" style={{ color: storePrimaryColor }}>{t('store.register') || 'Registrarse'}</RouterLink>}
+                                    {showLogin && <RouterLink to="/login" className="text-sm hover:underline" style={{ color: storePrimaryColor }}>{t('store.login')}</RouterLink>}
+                                </div>
                                 {showCart && <button onClick={() => setIsCartOpen(true)} className="relative p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-700" style={{ color: storePrimaryColor }} aria-label={t('store.view_cart_aria')}>
                                     <ShoppingCartIcon className="w-6 h-6" />
                                     {cartCount > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{cartCount}</span>}
                                 </button>}
+                                <HamburgerBtn color={storePrimaryColor} />
                             </div>
                         </div>
                     </header>
+                    <MobileMenu />
                     <div className="relative overflow-hidden" style={{ backgroundColor: storePrimaryColor }}>
                         {(storeSettings as any).bannerUrl && <img src={(storeSettings as any).bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />}
                         <div className="relative container mx-auto px-4 py-20 sm:py-28 text-center text-white">
@@ -367,16 +407,18 @@ export const EcommerceStorePage: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-4">
                                 {showSearch && <input type="text" placeholder={t('store.search_ph')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="px-3 py-1.5 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-white/80 bg-white/20 placeholder-white/70 text-sm text-white" />}
+                                    className="hidden md:block px-3 py-1.5 rounded-md border border-transparent focus:outline-none focus:ring-2 focus:ring-white/80 bg-white/20 placeholder-white/70 text-sm text-white" />}
                                 {showCart && <button onClick={() => setIsCartOpen(true)} className="relative p-2 hover:bg-white/10 rounded-full" aria-label={t('store.view_cart_aria')}>
                                     <ShoppingCartIcon className="w-6 h-6" />
                                     {cartCount > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{cartCount}</span>}
                                 </button>}
-                                {showRegister && <RouterLink to="/register" className="text-sm hover:underline">{t('store.register') || 'Registrarse'}</RouterLink>}
-                                {showLogin && <RouterLink to="/login" className="text-sm hover:underline">{t('store.login')}</RouterLink>}
+                                {showRegister && <RouterLink to="/register" className="text-sm hover:underline hidden md:inline">{t('store.register') || 'Registrarse'}</RouterLink>}
+                                {showLogin && <RouterLink to="/login" className="text-sm hover:underline hidden md:inline">{t('store.login')}</RouterLink>}
+                                <HamburgerBtn />
                             </div>
                         </div>
                     </header>
+                    <MobileMenu />
                     {((storeSettings as any).bannerUrl || (storeSettings as any).tagline) && (
                         <div className="relative overflow-hidden" style={{ backgroundColor: storePrimaryColor }}>
                             {(storeSettings as any).bannerUrl && <img src={(storeSettings as any).bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />}

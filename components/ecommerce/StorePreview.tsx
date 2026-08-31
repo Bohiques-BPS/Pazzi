@@ -34,6 +34,50 @@ export const StorePreview: React.FC<{ settings: ECommerceSettings }> = ({ settin
         </div>
     ) : null;
 
+    const Hamburger = () => (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+    );
+    const SearchIcon = () => (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
+    );
+
+    // ── Header móvil unificado: hamburguesa + logo + buscar/carrito ──
+    const mobileHeader = (() => {
+        const boutique = template === 'Boutique';
+        const barStyle = boutique ? { background: '#fff' } : { background: primary };
+        const textCls = boutique ? '' : 'text-white';
+        const iconStyle = boutique ? { color: primary } : undefined;
+        return (
+            <div>
+                <div style={barStyle} className={`px-3 py-2.5 flex items-center justify-between ${textCls} ${boutique ? 'border-b border-neutral-200' : ''}`}>
+                    <div className="flex items-center gap-2 min-w-0" style={iconStyle}>
+                        <Hamburger />
+                        {s.logoUrl && <img src={s.logoUrl} alt="" className="h-5 rounded" />}
+                        <span className="font-bold text-sm truncate">{s.storeName || 'Mi Tienda'}</span>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0" style={iconStyle}>
+                        {showSearch && <SearchIcon />}
+                        <CartBtn />
+                    </div>
+                </div>
+                {/* Categorías scroll horizontal (marketplace/ofertas) */}
+                {(template === 'Marketplace' || template === 'Ofertas') && (
+                    <div style={{ background: secondary }} className="text-white px-3 py-1 flex gap-3 text-[10px] overflow-x-auto">
+                        <span className="font-bold whitespace-nowrap">Todos</span>
+                        {cats.map(c => <span key={c} className="whitespace-nowrap opacity-90">{c}</span>)}
+                    </div>
+                )}
+                {/* Hero (boutique) */}
+                {boutique && (
+                    <div style={{ background: primary }} className="text-white text-center px-3 py-5">
+                        <div className="text-base font-extrabold">{s.storeName || 'Mi Tienda'}</div>
+                        {s.tagline && <div className="text-[10px] opacity-90 mt-1">{s.tagline}</div>}
+                    </div>
+                )}
+            </div>
+        );
+    })();
+
     const header = template === 'Marketplace' || template === 'Ofertas' ? (
         <>
             <div style={{ background: primary }} className="text-white px-3 py-2 flex items-center gap-2 text-xs">
@@ -111,7 +155,7 @@ export const StorePreview: React.FC<{ settings: ECommerceSettings }> = ({ settin
                         <span className="ml-2 text-[9px] text-neutral-500 dark:text-neutral-400 truncate">tutienda.ppazi.com</span>
                     </div>
                     <div className="max-h-[520px] overflow-y-auto">
-                        {header}
+                        {isMobile ? mobileHeader : header}
                         {template === 'Ofertas' && (
                             <div className="grid grid-cols-4 gap-1 p-2">
                                 {['🔥 Ofertas', '⚡ Envío', '💰 Precios', '⭐ Calidad'].map((b, i) => (
