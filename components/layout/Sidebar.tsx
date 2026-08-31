@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AppModule, UserRole } from '../../types'; 
 import { APP_MODULES_CONFIG, SidebarItemConfig, SubModuleGroup, SubModuleLink } from '../../constants'; 
@@ -58,6 +58,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   }
 
 
+  // Abre automáticamente el grupo (dropdown) que contiene la ruta activa.
+  useEffect(() => {
+    for (const item of subModulesToDisplay) {
+      if (item.type === 'group' && (item as any).children?.some((c: any) => c.type === 'link' && c.path && location.pathname.startsWith(c.path))) {
+        setOpenGroup(item.name);
+        return;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, currentModule]);
+
   const handleLinkClick = () => {
     if (isOpen && window.innerWidth < 1024) { 
       setSidebarOpen(false);
@@ -88,20 +99,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
     const translatedName = t(item.name);
 
     if (item.type === 'group') {
-      if (currentModule === AppModule.TIENDA) {
-        return (
-          <div key={`${item.name}-${index}`}>
-            <div className="flex items-center w-full py-2 px-2 text-lg font-semibold text-neutral-700 dark:text-neutral-200">
-              {Icon && <span className="mr-3"><Icon className="w-5 h-5" /></span>}
-              {translatedName}
-            </div>
-            <div className="space-y-1 mt-1">
-              {item.children.map((child, childIndex) => renderSidebarItem(child, childIndex))}
-            </div>
-          </div>
-        );
-      }
-
       const isGroupOpen = openGroup === item.name;
       
       return (
