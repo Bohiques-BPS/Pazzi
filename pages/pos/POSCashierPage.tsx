@@ -216,6 +216,11 @@ export const POSCashierPage: React.FC = () => {
     } = useData();
     const { currentUser, login, logout } = useAuth();
     const productSearchRef = useRef<HTMLInputElement>(null);
+    // Cantidad pre-escrita: se teclea ANTES de elegir el producto y este entra con esa cantidad.
+    const [quantityInput, setQuantityInput] = useState('');
+    const quantityInputRef = useRef<HTMLInputElement>(null);
+    // Cantidad "en espera" para productos que abren un modal (variaciones / precio manual).
+    const pendingQtyRef = useRef(1);
     const [showScanCamera, setShowScanCamera] = useState(false);
     // Factura generada tras finalizar la venta (muestra el ReceiptModal).
     const [lastReceipt, setLastReceipt] = useState<ReceiptSale | null>(null);
@@ -671,18 +676,23 @@ export const POSCashierPage: React.FC = () => {
 
     // Agrega al carrito una línea ya resuelta (producto simple o una variación específica).
     const addResolvedToCart = (item: CartItem) => {
+        const qty = Math.max(1, item.quantity || 1);
         setCart(prev => {
             const existing = prev.find(ci => ci.id === item.id);
             if (existing) {
-                return prev.map(ci => ci.id === item.id ? { ...ci, quantity: ci.quantity + 1 } : ci);
+                return prev.map(ci => ci.id === item.id ? { ...ci, quantity: ci.quantity + qty } : ci);
             }
-            return [...prev, item];
+            return [...prev, { ...item, quantity: qty }];
         });
+        setQuantityInput(''); // la próxima línea vuelve a cantidad 1 por defecto
+        pendingQtyRef.current = 1;
         if (productSearchRef.current) productSearchRef.current.focus();
     };
 
-    const addProductToCart = (product: Product) => {
+    const addProductToCart = (product: Product, qty: number = 1) => {
         setPosError(null);
+        const q = Math.max(1, Math.floor(qty) || 1);
+        pendingQtyRef.current = q; // se usa cuando el producto abre un modal (variación / precio manual)
         // Si el producto tiene variaciones, primero se elige cuál (cada una con su precio/SKU).
         if (product.hasVariations && Array.isArray(product.variations) && product.variations.length > 0) {
             setVariationProduct(product);
@@ -693,7 +703,7 @@ export const POSCashierPage: React.FC = () => {
             setManualPriceProduct(product);
             return;
         }
-        addResolvedToCart({ ...product, quantity: 1 });
+        addResolvedToCart({ ...product, quantity: q });
     };
 
     // El cajero confirmó el precio manual → agrega la línea (producto o variante ya resuelta)
@@ -701,7 +711,7 @@ export const POSCashierPage: React.FC = () => {
     const handleAddManualPrice = (unitPrice: number, note: string) => {
         const p = manualPriceProduct;
         if (!p) return;
-        addResolvedToCart({ ...p, unitPrice, quantity: 1, isManual: true, ...(note ? { note } : {}) } as CartItem);
+        addResolvedToCart({ ...p, unitPrice, quantity: pendingQtyRef.current, isManual: true, ...(note ? { note } : {}) } as CartItem);
         setManualPriceProduct(null);
     };
 
@@ -719,7 +729,7 @@ export const POSCashierPage: React.FC = () => {
             skus: variation.sku ? [variation.sku] : p.skus,
             variationId: variation.id,
             variationName: variation.name,
-            quantity: 1,
+            quantity: pendingQtyRef.current,
         } as CartItem;
         setVariationProduct(null);
         // Precio manual por variante: si la variante lo pide (o el producto base), abrir el modal.
@@ -732,7 +742,7 @@ export const POSCashierPage: React.FC = () => {
     const handleSelectBase = () => {
         const p = variationProduct;
         if (!p) return;
-        addResolvedToCart({ ...p, quantity: 1 });
+        addResolvedToCart({ ...p, quantity: pendingQtyRef.current });
         setVariationProduct(null);
     };
 
@@ -1423,11 +1433,27 @@ export const POSCashierPage: React.FC = () => {
                     </div>
                     <div className="p-3 border-b dark:border-neutral-700">
                         <div className="flex items-center gap-2">
+                            <input
+                                ref={quantityInputRef}
+                                type="number"
+                                min="1"
+                                inputMode="numeric"
+                                value={quantityInput}
+                                onChange={(e) => setQuantityInput(e.target.value.replace(/[^\d]/g, ''))}
+                                onFocus={(e) => e.currentTarget.select()}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'ArrowRight') { e.preventDefault(); productSearchRef.current?.focus(); } }}
+                                disabled={!isShiftActive}
+                                title={t('posx.cashier.qty_hint')}
+                                placeholder={t('posx.cashier.qty_ph')}
+                                aria-label={t('posx.cashier.qty_hint')}
+                                className="flex-shrink-0 w-16 sm:w-20 h-12 text-center text-lg font-bold border border-neutral-400 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 disabled:opacity-40"
+                            />
                             <div className="flex-grow min-w-0">
                                 <ProductAutocomplete
-                                    onProductSelect={addProductToCart}
+                                    onProductSelect={(p) => addProductToCart(p, Math.max(1, parseInt(quantityInput, 10) || 1))}
                                     inputRef={productSearchRef}
                                     onRemoteSearch={searchProductsRemote}
+                                    onEmptyArrowLeft={() => quantityInputRef.current?.focus()}
                                     disabled={!isShiftActive}
                                     autoFocus
                                     placeholder={t('posx.cashier.product_search_placeholder')}

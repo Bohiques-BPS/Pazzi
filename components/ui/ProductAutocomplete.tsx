@@ -15,6 +15,8 @@ interface ProductAutocompleteProps {
      *  en lugar de filtrar el array local `products`. Resuelve datos siempre frescos. */
     onRemoteSearch?: (term: string) => Promise<Product[]>;
     autoFocus?: boolean;
+    /** Se llama al presionar ← con el buscador vacío (para mover el foco al input de cantidad). */
+    onEmptyArrowLeft?: () => void;
 }
 
 export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
@@ -25,6 +27,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     inputRef,
     onRemoteSearch,
     autoFocus = false,
+    onEmptyArrowLeft,
 }) => {
     const { t } = useTranslation();
     const resolvedPlaceholder = placeholder ?? t('cmpx.product_ac.search_ph');
@@ -126,6 +129,13 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (disabled) return;
+
+        // Atajo: con el buscador vacío, ← mueve el foco al input de cantidad.
+        if (event.key === 'ArrowLeft' && searchTerm === '' && onEmptyArrowLeft) {
+            event.preventDefault();
+            onEmptyArrowLeft();
+            return;
+        }
 
         if (isDropdownOpen) {
             if (event.key === 'ArrowDown') {
