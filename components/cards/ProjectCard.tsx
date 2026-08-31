@@ -59,7 +59,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     const dueDate = dueRaw ? new Date(String(dueRaw).slice(0, 10) + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : null;
 
     return (
-        <div className={`group relative bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col ${actionsOpen ? 'z-30' : ''}`}>
+        <div onClick={() => onViewProject(project, 'details')} className={`group relative cursor-pointer bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col ${actionsOpen ? 'z-30' : ''}`}>
             {/* Acento de estado (redondeado arriba; sin overflow-hidden para no recortar el menú "···") */}
             <div className={`h-1.5 rounded-t-xl ${meta.bar}`} />
             <div className="p-8 flex flex-col flex-grow">
@@ -69,7 +69,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary transition-colors line-clamp-1" title={project.name}>{project.name}</h3>
                     </button>
                     {showManagementActions && (
-                        <div className="relative flex-shrink-0">
+                        <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => setActionsOpen(o => !o)} onBlur={() => setTimeout(() => setActionsOpen(false), 150)} className="p-1 rounded-full text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700" aria-label={t('common.actions')}>
                                 <EllipsisVerticalIcon />
                             </button>
@@ -135,11 +135,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
                 {/* Acciones */}
                 <div className="mt-auto pt-3 border-t border-neutral-100 dark:border-neutral-700 flex gap-2">
-                    <button onClick={() => onViewProject(project, 'chat')} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                    <button onClick={(e) => { e.stopPropagation(); onViewProject(project, 'chat'); }} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-1.5">
                         <ChatBubbleLeftRightIcon className="w-4 h-4" /> {t('cmp.projectcard.chat')}
                         {chatCount > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">{chatCount}</span>}
                     </button>
-                    <button onClick={() => onViewProject(project, 'tasks')} className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary dark:text-teal-300 font-semibold text-xs py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                    <button onClick={(e) => { e.stopPropagation(); onViewProject(project, 'tasks'); }} className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary dark:text-teal-300 font-semibold text-xs py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-1.5">
                         <ClipboardDocumentListIcon className="w-4 h-4" /> {t('cmp.projectcard.tasks')}
                     </button>
                 </div>

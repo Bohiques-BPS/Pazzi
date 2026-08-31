@@ -158,20 +158,20 @@ export const ProjectsListPage: React.FC = () => {
             {/* KPIs */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
-                    { icon: BriefcaseIcon, label: t('project.kpi.active'), value: kpis.active },
-                    { icon: ClipboardDocumentListIcon, label: t('project.kpi.pending_tasks'), value: kpis.pendingTasks },
-                    { icon: ChartBarIcon, label: t('project.kpi.completed'), value: kpis.completed },
-                    { icon: UserGroupIcon, label: t('project.kpi.collaborators'), value: kpis.collaborators },
+                    { icon: BriefcaseIcon, label: t('project.kpi.active'), value: kpis.active, onClick: () => setStatusFilter(ProjectStatus.ACTIVE) },
+                    { icon: ClipboardDocumentListIcon, label: t('project.kpi.pending_tasks'), value: kpis.pendingTasks, onClick: () => navigate('/pm/dashboard') },
+                    { icon: ChartBarIcon, label: t('project.kpi.completed'), value: kpis.completed, onClick: () => setStatusFilter(ProjectStatus.COMPLETED) },
+                    { icon: UserGroupIcon, label: t('project.kpi.collaborators'), value: kpis.collaborators, onClick: () => navigate('/tienda/employees') },
                 ].map((k, i) => {
                     const Icon = k.icon;
                     return (
-                        <div key={i} className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 shadow-sm">
+                        <button key={i} type="button" onClick={k.onClick} className="text-left bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 shadow-sm hover:shadow-md hover:border-primary/50 hover:-translate-y-0.5 transition-all">
                             <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
                                 <Icon className="w-4 h-4 flex-shrink-0" />
                                 <span className="truncate">{k.label}</span>
                             </div>
                             <div className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 mt-1">{k.value}</div>
-                        </div>
+                        </button>
                     );
                 })}
             </div>
