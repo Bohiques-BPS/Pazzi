@@ -105,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         <div key={`${item.name}-${index}`}>
           <button
             onClick={() => toggleGroup(item.name)}
-            className={`flex items-center justify-between gap-1 w-full py-2 px-2 rounded-md transition duration-200 font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white focus:outline-none text-base`}
+            className={`flex items-center justify-between gap-1 w-full py-2 px-2 rounded-md transition duration-200 font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white focus:outline-none text-lg`}
             aria-expanded={isGroupOpen}
             aria-controls={`group-content-${item.name}`}
           >
@@ -141,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         key={item.path}
         to={item.path}
         onClick={handleLinkClick}
-        className={`relative flex items-center py-2 px-2 rounded-md transition duration-200 text-base font-semibold ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
+        className={`relative flex items-center py-2 px-2 rounded-md transition duration-200 text-lg font-semibold ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
       >
         {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" aria-hidden="true" />}
         {Icon && <span className="mr-2 w-6 h-6 flex items-center justify-center flex-shrink-0"><Icon className="w-5 h-5" /></span>}
