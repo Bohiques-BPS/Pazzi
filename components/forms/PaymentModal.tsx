@@ -90,12 +90,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const showRefField = needsRef || isAth;
     const refLabel = selectedConfig?.referenceLabel || t('cmpx.payment.reference_default');
 
-    // Valores EN VIVO: incluyen el efectivo que se está tecleando (aún sin "Agregar Pago"),
-    // para que Total Recibido, Saldo Pendiente y Cambio a Devolver se actualicen al instante.
+    // Valores EN VIVO: incluyen el efectivo que se está tecleando (aún sin "Agregar Pago") Y el
+    // cambio ya calculado de un pago aplicado (changeDue). Así el "Cambio a Devolver" no se pone
+    // en 0 al Agregar Pago cuando el cliente pagó de más (el excedente se recorta al saldo y el
+    // cambio se guarda aparte).
     const typedCash = isCash ? (parseAmount(amountInput) || 0) : 0;
-    const liveReceived = round2(totalPaid + typedCash);
-    const liveChange = Math.max(0, round2(liveReceived - totalAmount));
-    const livePending = Math.max(0, round2(totalAmount - liveReceived));
+    const liveChange = round2(changeDue + Math.max(0, typedCash - balance));
+    const liveReceived = round2(totalPaid + changeDue + typedCash);
+    const livePending = Math.max(0, round2(balance - typedCash));
     // Métodos que se pueden confirmar con un solo Enter (sin referencia ni pasarela externa).
     const isDirectMethod = !needsRef && selectedConfig?.type !== 'agilpay' && selectedConfig?.type !== 'ath_movil';
 
