@@ -459,7 +459,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                 body: JSON.stringify(productPayload)
             });
 
-            const result = await response.json();
+            // El servidor puede responder con un cuerpo no-JSON (502/504 de proxy, error de red).
+            // Lo leemos como texto primero y sólo parseamos JSON si aplica, para no perder la causa real.
+            const rawBody = await response.text();
+            let result: any = {};
+            try { result = rawBody ? JSON.parse(rawBody) : {}; } catch { result = { error: rawBody }; }
 
             if (response.ok) {
                 // Normalizamos el producto guardado antes de actualizar el estado global
@@ -482,26 +486,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     onCreated?.(normalizedProduct as any);
                 }
                 onClose();
-            } else if (response.status === 400 && Array.isArray(result.error)) {
-                // Manejo de errores de validación de Zod del backend
+            } else if (response.status === 400 && (Array.isArray(result.error) || Array.isArray(result.errors))) {
+                // Manejo de errores de validación de Zod del backend (puede venir en .error o .errors)
+                const issues: any[] = Array.isArray(result.error) ? result.error : result.errors;
                 const backendErrors: Record<string, string> = {};
-                result.error.forEach((err: any) => {
-                    const path = err.path[0];
-                    backendErrors[path] = err.message;
+                issues.forEach((err: any) => {
+                    const path = Array.isArray(err.path) ? err.path[0] : err.path;
+                    if (path) backendErrors[path] = err.message;
                 });
                 setFieldErrors(backendErrors);
-                    
+
                     const firstErrorField = Object.keys(backendErrors)[0];
                     const targetTab = fieldToTabMap[firstErrorField];
                     if (targetTab) setActiveTab(targetTab);
 
-                    setGeneralError(`${t('pmx.product.server_error_prefix')}: ${Object.values(backendErrors).join('. ')}`);
+                    setGeneralError(`${t('pmx.product.server_error_prefix')}: ${Object.values(backendErrors).join('. ') || t('pmx.product.save_unexpected')}`);
             } else {
-                setGeneralError(result.error || result.msg || t('pmx.product.save_unexpected'));
+                // Surface la causa REAL: prueba varias claves y, si no hay, incluye el status HTTP.
+                const backendMsg =
+                    (typeof result?.error === 'string' && result.error) ||
+                    (typeof result?.message === 'string' && result.message) ||
+                    (typeof result?.msg === 'string' && result.msg) ||
+                    (Array.isArray(result?.errors) ? result.errors.map((e: any) => e?.message || e).join('. ') : '') ||
+                    (typeof result?.error === 'object' && result?.error ? JSON.stringify(result.error) : '');
+                setGeneralError(backendMsg || `${t('pmx.product.save_unexpected')} (HTTP ${response.status})`);
             }
         } catch (error) {
             console.error("Error submitting product:", error);
-            setGeneralError(t('pmx.product.conn_error_net'));
+            setGeneralError(error instanceof Error && error.message ? `${t('pmx.product.conn_error_net')} (${error.message})` : t('pmx.product.conn_error_net'));
         } finally {
             setIsSubmitting(false);
         }

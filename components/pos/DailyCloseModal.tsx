@@ -10,6 +10,8 @@ interface DailyCloseModalProps {
     onClose: () => void;
     cajaId: string;
     cajaName?: string;
+    /** Cajero que está realizando el cuadre (operador actual del POS, tras cambio de usuario). */
+    currentCashierName?: string;
     /** Umbral (valor absoluto) de diferencia de efectivo que exige confirmación. */
     differenceThreshold?: number;
     /** Se llama al cerrar el turno con éxito (para que el POS resetee/navegue). */
@@ -38,6 +40,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     onClose,
     cajaId,
     cajaName,
+    currentCashierName,
     differenceThreshold = 5,
     onClosed,
     onOpenHistory,
@@ -133,8 +136,13 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     };
 
     const openedAt = session ? new Date(session.openedAt) : null;
-    // Cajero: el que realmente hizo las ventas del turno; si no hubo ventas, quien abrió el turno.
-    const cajero = totals?.cashierName
+    // Fecha del cuadre = HOY (el día en que se realiza el cierre), no la fecha de apertura del turno
+    // (un turno puede haber quedado abierto desde ayer). El timestamp de apertura se ve en "Comentarios".
+    const cuadreDate = new Date();
+    // Cajero: el operador actual que está haciendo el cuadre (tras cambio de usuario). Si no se pasa,
+    // caemos al que hizo las ventas del turno, y por último a quien lo abrió.
+    const cajero = (currentCashierName || '').trim()
+        || totals?.cashierName
         || (session?.openedByUser ? `${session.openedByUser.name} ${session.openedByUser.lastName || ''}`.trim() : '—');
 
     const diffColor = (d: number) => d === 0 ? 'text-neutral-500' : d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
@@ -151,7 +159,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                 <div className="text-sm">
                     {/* Barra superior estilo legacy */}
                     <div className="flex items-center justify-between rounded-md bg-blue-600 text-white px-4 py-2 mb-3">
-                        <span className="font-semibold">{openedAt?.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        <span className="font-semibold">{cuadreDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
                         <span className="text-lg font-bold">Cuadre de tienda diario</span>
                         <span className="text-xs opacity-90">{cajaName || ''}</span>
                     </div>
@@ -166,7 +174,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
 
                     {/* Fila: Fecha / Cajero / Cuadre# */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-                        <Field label="Fecha" value={openedAt?.toLocaleDateString() || '—'} />
+                        <Field label="Fecha" value={cuadreDate.toLocaleDateString()} />
                         <Field label="Cajero" value={cajero} />
                         <Field label="Turno #" value={session.id.slice(0, 8)} />
                     </div>

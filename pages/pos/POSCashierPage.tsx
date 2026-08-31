@@ -285,8 +285,13 @@ export const POSCashierPage: React.FC = () => {
         const scopes = settings.paymentMethodScopes || { branchDisabled: {}, cajaDisabled: {} };
         const bDisabled = scopes.branchDisabled?.[selectedBranchId] || [];
         const cDisabled = scopes.cajaDisabled?.[selectedCajaId] || [];
+        // "Cuadre" (cierre de caja) NO es un método de pago: se hace desde la barra superior
+        // y con F7. Lo excluimos de la barra de pagos de abajo aunque venga en la config guardada.
+        const isCashUp = (m: any) =>
+            m.id === 'cuadre' || m.type === 'cash_up' || m.type === 'daily_close' ||
+            (m.name || '').trim().toLowerCase() === 'cuadre';
         return (settings.paymentMethods || []).filter(m =>
-            m.enabled && !bDisabled.includes(m.id) && !cDisabled.includes(m.id)
+            m.enabled && !isCashUp(m) && !bDisabled.includes(m.id) && !cDisabled.includes(m.id)
         );
     }, [settings.paymentMethods, settings.paymentMethodScopes, selectedBranchId, selectedCajaId]);
     // True once useEffect([branches, cajas]) has run with loaded data.
@@ -1769,7 +1774,7 @@ export const POSCashierPage: React.FC = () => {
             />
 
             {selectedCajaId && (
-                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} onClosed={() => handleEndShift()} onOpenHistory={() => setActiveModal('cajaHistory')} />
+                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} currentCashierName={operatorName} onClosed={() => handleEndShift()} onOpenHistory={() => setActiveModal('cajaHistory')} />
             )}
 
             {selectedCajaId && (
