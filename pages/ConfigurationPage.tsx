@@ -266,6 +266,16 @@ export const ConfigurationPage: React.FC = () => {
                                     onChange={(e) => updateSettings({ taxReducedRate: Math.max(0, (parseFloat(e.target.value) || 0) / 100) })}
                                     className={inputFormStyle} />
                             </div>
+                            <div className="sm:col-span-3 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => updateSettings({ taxStateRate: 0.105, taxMunicipalRate: 0.01, taxReducedRate: 0.06 })}
+                                    className="text-xs text-primary hover:underline"
+                                    title="Restablecer a las tasas estándar de Puerto Rico (10.5% / 1% / 6%)"
+                                >
+                                    ↺ Volver al default (PR: 10.5% / 1% / 6%)
+                                </button>
+                            </div>
                         </div>
                     )}
                     <p className="text-xs text-neutral-500 mt-2">
