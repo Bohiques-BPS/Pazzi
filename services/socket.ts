@@ -10,7 +10,9 @@ let socket: Socket | null = null;
 export function getSocket(): Socket {
     if (!socket) {
         socket = io(SOCKET_URL, {
-            auth: { token: localStorage.getItem('pazzi_token') || '' },
+            // `auth` como función: socket.io la reevalúa en CADA (re)conexión, así el socket
+            // siempre usa el token vigente (aunque se haya refrescado desde el último connect).
+            auth: (cb) => cb({ token: localStorage.getItem('pazzi_token') || '' }),
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: Infinity,

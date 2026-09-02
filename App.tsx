@@ -1,7 +1,12 @@
 
-import React, { useState, createContext, useContext, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, createContext, useContext, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, useParams, Outlet } from 'react-router-dom';
 import { Toaster, ToastBar, toast as hotToast } from 'react-hot-toast';
+
+// Code-splitting: carga diferida de páginas por ruta. Envuelve módulos con export por nombre.
+// (Debe declararse antes de las constantes `const X = lazyNamed(...)` de más abajo.)
+const lazyNamed = (factory: () => Promise<any>, name: string) =>
+  React.lazy(async () => ({ default: (await factory())[name] }));
 
 import { User, UserRole, Product, Client, Employee, Project, Sale, Order, AppModule, ProductFormData, ClientFormData, EmployeeFormData, ProjectFormData, ProjectStatus, CartItem, ProjectResource, Visit, VisitStatus, VisitFormData, ECommerceSettings, Category, CategoryFormData, Theme, ChatMessage, Caja } from './types';
 import { APP_MODULES_CONFIG, ADMIN_USER_ID, PROJECT_CLIENT_ID, ECOMMERCE_CLIENT_ID, inputFormStyle as sharedInputFormStyle } from './constants'; 
@@ -29,68 +34,68 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ActivateAccountPage } from './pages/auth/ActivateAccountPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
-import { ProfilePage } from './pages/ProfilePage';
+const ProfilePage = lazyNamed(() => import('./pages/ProfilePage'), 'ProfilePage');
 
 // General Pages
 import { LandingPage } from './pages/LandingPage';
-import { DashboardHomePage } from './pages/DashboardHomePage'; 
-import { ConfigurationPage } from './pages/ConfigurationPage'; // Imported
+const DashboardHomePage = lazyNamed(() => import('./pages/DashboardHomePage'), 'DashboardHomePage'); 
+const ConfigurationPage = lazyNamed(() => import('./pages/ConfigurationPage'), 'ConfigurationPage'); // Imported
 
 // PM Client Pages
-import { ProjectClientDashboardPage } from './pages/project_client/ProjectClientDashboardPage';
-import { ProjectClientCalendarPage } from './pages/project_client/ProjectClientCalendarPage';
-import { ProjectClientChatPage } from './pages/project_client/ProjectClientChatPage';
+const ProjectClientDashboardPage = lazyNamed(() => import('./pages/project_client/ProjectClientDashboardPage'), 'ProjectClientDashboardPage');
+const ProjectClientCalendarPage = lazyNamed(() => import('./pages/project_client/ProjectClientCalendarPage'), 'ProjectClientCalendarPage');
+const ProjectClientChatPage = lazyNamed(() => import('./pages/project_client/ProjectClientChatPage'), 'ProjectClientChatPage');
 
 // E-commerce Client (Shopper) specific view for their orders
-import { MyOrdersPage } from './pages/ecommerce/MyOrdersPage'; 
+const MyOrdersPage = lazyNamed(() => import('./pages/ecommerce/MyOrdersPage'), 'MyOrdersPage'); 
 
 
 // PM Pages (Manager & PM Employee)
-import { ProjectsDashboardPage } from './pages/pm/ProjectsDashboardPage';
-import { ProductsListPage } from './pages/pm/ProductsListPage';
-import { CategoriesListPage } from './pages/pm/CategoriesListPage';
-import { DepartmentsListPage } from './pages/pm/DepartmentsListPage';
-import { ClientsListPage } from './pages/pm/ClientsListPage';
-import { EmployeesListPage } from './pages/pm/EmployeesListPage';
-import { RolesListPage } from './pages/pm/RolesListPage';
-import { ProjectsListPage } from './pages/pm/ProjectsListPage';
-import { ProjectDetailPage } from './pages/pm/ProjectDetailPage';
-import { ProjectCalendarPage } from './pages/pm/ProjectCalendarPage';
-import { ProjectChatPage } from './pages/pm/ProjectChatPage';
-import { BranchesListPage } from './pages/admin/BranchesListPage'; 
-import { ProjectReportsPage } from './pages/pm/ProjectReportsPage';
+const ProjectsDashboardPage = lazyNamed(() => import('./pages/pm/ProjectsDashboardPage'), 'ProjectsDashboardPage');
+const ProductsListPage = lazyNamed(() => import('./pages/pm/ProductsListPage'), 'ProductsListPage');
+const CategoriesListPage = lazyNamed(() => import('./pages/pm/CategoriesListPage'), 'CategoriesListPage');
+const DepartmentsListPage = lazyNamed(() => import('./pages/pm/DepartmentsListPage'), 'DepartmentsListPage');
+const ClientsListPage = lazyNamed(() => import('./pages/pm/ClientsListPage'), 'ClientsListPage');
+const EmployeesListPage = lazyNamed(() => import('./pages/pm/EmployeesListPage'), 'EmployeesListPage');
+const RolesListPage = lazyNamed(() => import('./pages/pm/RolesListPage'), 'RolesListPage');
+const ProjectsListPage = lazyNamed(() => import('./pages/pm/ProjectsListPage'), 'ProjectsListPage');
+const ProjectDetailPage = lazyNamed(() => import('./pages/pm/ProjectDetailPage'), 'ProjectDetailPage');
+const ProjectCalendarPage = lazyNamed(() => import('./pages/pm/ProjectCalendarPage'), 'ProjectCalendarPage');
+const ProjectChatPage = lazyNamed(() => import('./pages/pm/ProjectChatPage'), 'ProjectChatPage');
+const BranchesListPage = lazyNamed(() => import('./pages/admin/BranchesListPage'), 'BranchesListPage'); 
+const ProjectReportsPage = lazyNamed(() => import('./pages/pm/ProjectReportsPage'), 'ProjectReportsPage');
 
 // POS Pages (Manager & POS Employee)
-import { POSCashierPage } from './pages/pos/POSCashierPage';
-import { POSReportsPage } from './pages/pos/POSReportsPage';
-import { ReceiptSettingsPage } from './pages/pos/ReceiptSettingsPage';
-import { PaymentMethodsPage } from './pages/pos/PaymentMethodsPage';
-import { RecurringPaymentsPage } from './pages/pos/RecurringPaymentsPage';
-import { InvoicesListPage } from './pages/pos/InvoicesListPage';
-import { AttendancePage } from './pages/pos/AttendancePage';
-import { POSSalesHistoryPage } from './pages/pos/POSSalesHistoryPage'; 
-import { POSInventoryPage } from './pages/pos/POSInventoryPage';
-import { EstimatesListPage } from './pages/pos/EstimatesListPage';
-import { AccountsPayablePage } from './pages/pos/AccountsPayablePage';
-import { AccountsReceivablePage } from './pages/pos/AccountsReceivablePage';
-import { POSCajasPage } from './pages/pos/POSCajasPage';
-import { LayawaysListPage } from './pages/pos/LayawaysListPage';
+const POSCashierPage = lazyNamed(() => import('./pages/pos/POSCashierPage'), 'POSCashierPage');
+const POSReportsPage = lazyNamed(() => import('./pages/pos/POSReportsPage'), 'POSReportsPage');
+const ReceiptSettingsPage = lazyNamed(() => import('./pages/pos/ReceiptSettingsPage'), 'ReceiptSettingsPage');
+const PaymentMethodsPage = lazyNamed(() => import('./pages/pos/PaymentMethodsPage'), 'PaymentMethodsPage');
+const RecurringPaymentsPage = lazyNamed(() => import('./pages/pos/RecurringPaymentsPage'), 'RecurringPaymentsPage');
+const InvoicesListPage = lazyNamed(() => import('./pages/pos/InvoicesListPage'), 'InvoicesListPage');
+const AttendancePage = lazyNamed(() => import('./pages/pos/AttendancePage'), 'AttendancePage');
+const POSSalesHistoryPage = lazyNamed(() => import('./pages/pos/POSSalesHistoryPage'), 'POSSalesHistoryPage'); 
+const POSInventoryPage = lazyNamed(() => import('./pages/pos/POSInventoryPage'), 'POSInventoryPage');
+const EstimatesListPage = lazyNamed(() => import('./pages/pos/EstimatesListPage'), 'EstimatesListPage');
+const AccountsPayablePage = lazyNamed(() => import('./pages/pos/AccountsPayablePage'), 'AccountsPayablePage');
+const AccountsReceivablePage = lazyNamed(() => import('./pages/pos/AccountsReceivablePage'), 'AccountsReceivablePage');
+const POSCajasPage = lazyNamed(() => import('./pages/pos/POSCajasPage'), 'POSCajasPage');
+const LayawaysListPage = lazyNamed(() => import('./pages/pos/LayawaysListPage'), 'LayawaysListPage');
 
 
 // Admin Ecommerce Pages
-import { ECommerceSettingsPage } from './pages/ecommerce/DashboardHomePage';
-import { ECommerceReportsPage } from './pages/ecommerce/ECommerceDashboardPage';
-import { EcommerceStorePage } from './pages/ecommerce/EcommerceStorePage';
-import { EcommerceOrdersPage } from './pages/ecommerce/EcommerceOrdersPage';
-import { SuppliersListPage } from './pages/ecommerce/SuppliersListPage';
-import { SupplierOrdersListPage } from './pages/ecommerce/SupplierOrdersListPage';
-import { CheckoutPage } from './pages/ecommerce/CheckoutPage'; 
-import { OrderConfirmationPage } from './pages/ecommerce/OrderConfirmationPage';
-import { PublicInvoicePage } from './pages/pos/PublicInvoicePage';
+const ECommerceSettingsPage = lazyNamed(() => import('./pages/ecommerce/DashboardHomePage'), 'ECommerceSettingsPage');
+const ECommerceReportsPage = lazyNamed(() => import('./pages/ecommerce/ECommerceDashboardPage'), 'ECommerceReportsPage');
+const EcommerceStorePage = lazyNamed(() => import('./pages/ecommerce/EcommerceStorePage'), 'EcommerceStorePage');
+const EcommerceOrdersPage = lazyNamed(() => import('./pages/ecommerce/EcommerceOrdersPage'), 'EcommerceOrdersPage');
+const SuppliersListPage = lazyNamed(() => import('./pages/ecommerce/SuppliersListPage'), 'SuppliersListPage');
+const SupplierOrdersListPage = lazyNamed(() => import('./pages/ecommerce/SupplierOrdersListPage'), 'SupplierOrdersListPage');
+const CheckoutPage = lazyNamed(() => import('./pages/ecommerce/CheckoutPage'), 'CheckoutPage'); 
+const OrderConfirmationPage = lazyNamed(() => import('./pages/ecommerce/OrderConfirmationPage'), 'OrderConfirmationPage');
+const PublicInvoicePage = lazyNamed(() => import('./pages/pos/PublicInvoicePage'), 'PublicInvoicePage');
 
 // Admin Pages
-import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
-import { SuperAdminUsersPage } from './pages/admin/SuperAdminUsersPage';
+const AdminDashboardPage = lazyNamed(() => import('./pages/admin/AdminDashboardPage'), 'AdminDashboardPage');
+const SuperAdminUsersPage = lazyNamed(() => import('./pages/admin/SuperAdminUsersPage'), 'SuperAdminUsersPage');
 
 
 // Icons
@@ -362,6 +367,7 @@ const AppContent: React.FC = () => {
     <ErrorBoundary>
       <KeyboardShortcutsModal isOpen={shortcutsModalOpen} onClose={() => setShortcutsModalOpen(false)} />
       <BusinessOnboardingModal />
+      <Suspense fallback={<div className="flex h-screen items-center justify-center text-neutral-500 dark:text-neutral-400">Cargando…</div>}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -455,6 +461,7 @@ const AppContent: React.FC = () => {
         {/* Catch-all for any other unmatched routes */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </ErrorBoundary>
   );
 }

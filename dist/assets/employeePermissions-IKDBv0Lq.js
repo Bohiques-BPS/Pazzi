@@ -1,0 +1,1 @@
+function r(t){var s,e;const i=(t==null?void 0:t.user)||{};return((s=i.permissionRole)==null?void 0:s.permissions)||((e=i.permissions)==null?void 0:e.permissions)||{}}function o(t){const i=r(t);return Object.keys(i).some(s=>i[s]&&(s.startsWith("projects.")||s.startsWith("tasks.")||s.startsWith("visits.")))}export{o as c};

@@ -333,7 +333,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const res = await fetch(`${API_URL}/projects`, {
+                const res = await fetch(`${API_URL}/projects?limit=300`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
@@ -363,7 +363,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchVisits = async () => {
             try {
-                const res = await fetch(`${API_URL}/visits`, {
+                const res = await fetch(`${API_URL}/visits?limit=300`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
@@ -386,7 +386,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchTasks = async () => {
             try {
-                const res = await fetch(`${API_URL}/tasks`, {
+                const res = await fetch(`${API_URL}/tasks?limit=500`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
@@ -411,7 +411,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchEstimates = async () => {
             try {
-                const res = await fetch(`${API_URL}/estimates`, {
+                const res = await fetch(`${API_URL}/estimates?limit=200`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
@@ -427,7 +427,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchLayaways = async () => {
             try {
-                const res = await fetch(`${API_URL}/layaways`, {
+                const res = await fetch(`${API_URL}/layaways?limit=200`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
@@ -443,7 +443,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchSupplierOrders = async () => {
             try {
-                const res = await fetch(`${API_URL}/supplier-orders`, {
+                const res = await fetch(`${API_URL}/supplier-orders?limit=300`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
@@ -498,7 +498,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const res = await fetch(`${API_URL}/orders`, {
+                const res = await fetch(`${API_URL}/orders?limit=200`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();

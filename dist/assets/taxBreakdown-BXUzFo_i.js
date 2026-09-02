@@ -1,0 +1,1 @@
+const r=e=>Math.round((Number(e)||0)*100)/100;function o(e,s,c){const t=Number(s)||0,u=Number(c)||0,n=t+u;return!(e>0)||n<=0?{state:r(e),municipal:0,reduced:0}:{state:r(e*t/n),municipal:r(e*u/n),reduced:0}}export{o as s};
