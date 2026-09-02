@@ -20,25 +20,12 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        // Separa las librerías pesadas en chunks propios: se descargan en paralelo, se cachean
-        // entre despliegues y no inflan el bundle principal. Junto con el lazy-loading por ruta,
-        // reduce mucho la carga inicial.
-        rollupOptions: {
-          output: {
-            manualChunks: (id: string) => {
-              if (!id.includes('node_modules')) return undefined;
-              if (id.includes('xlsx')) return 'vendor-xlsx';
-              if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('canvg') || id.includes('dompurify')) return 'vendor-pdf';
-              if (id.includes('qz-tray')) return 'vendor-qz';
-              if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) return 'vendor-charts';
-              if (id.includes('jsbarcode') || id.includes('qrcode')) return 'vendor-barcode';
-              if (id.includes('socket.io-client') || id.includes('engine.io')) return 'vendor-socket';
-              if (id.includes('react-router') || id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) return 'vendor-react';
-              return 'vendor';
-            },
-          },
-        },
-        chunkSizeWarningLimit: 900,
+        // NOTA: NO usar manualChunks para separar node_modules manualmente. Rompía el orden de
+        // evaluación entre chunks (una lib quedaba sin su clase base → "Class extends value
+        // undefined", p.ej. en el chunk de barcode) y la app no cargaba. El lazy-loading por ruta
+        // (React.lazy en App.tsx) ya da el mayor beneficio de carga inicial; dejamos que Rollup
+        // calcule el chunking de vendors automáticamente (orden correcto garantizado).
+        chunkSizeWarningLimit: 1500,
       },
     };
 });

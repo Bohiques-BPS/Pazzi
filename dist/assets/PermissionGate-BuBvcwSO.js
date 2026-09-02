@@ -1,0 +1,1 @@
+import{j as o}from"./index-4vxhjNBU.js";import{u as l}from"./usePermissions-CZFpFmAy.js";const y=({require:n,all:t,fallback:r=null,children:a})=>{const{can:c,canAll:m,canAny:e}=l(),s=Array.isArray(n)?n:[n],i=s.length===1?c(s[0]):t?m(...s):e(...s);return o.jsx(o.Fragment,{children:i?a:r})};export{y as P};
