@@ -8,6 +8,7 @@ import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { PlusIcon, DocumentTextIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { tasksService } from '../../services/tasks';
+import { projectsService } from '../../services/projects';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -17,14 +18,18 @@ interface ProjectTaskBoardProps {
 
 export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId }) => {
     const { t } = useTranslation();
-    const { tasks, setTasks, addTask, updateTask, taskComments, getAllEmployees } = useData();
+    const { tasks, setTasks, addTask, updateTask, taskComments, getAllEmployees, projects, setProjects } = useData();
     const [draggedTask, setDraggedTask] = useState<Task | null>(null);
     const [isCreatingInStatus, setIsCreatingInStatus] = useState<TaskStatus | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    // Sección/área activa ('' = Todas). extraSections: secciones creadas aún sin tareas.
+    // Sección/área activa ('' = Todas).
     const [activeSection, setActiveSection] = useState('');
-    const [extraSections, setExtraSections] = useState<string[]>([]);
+    // Secciones persistidas del proyecto (se guardan en la DB aunque no tengan tareas).
+    const persistedSections = useMemo(
+        () => (projects.find(p => p.id === projectId)?.sections) || [],
+        [projects, projectId]
+    );
     const [sectionModalOpen, setSectionModalOpen] = useState(false);
     const [extractOpen, setExtractOpen] = useState(false);
     const reloadTasks = () => { tasksService.getAll().then(d => setTasks(d as any)).catch(() => {}); };
@@ -35,10 +40,11 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         return tasks.filter(t => t.projectId === projectId && !t.archived).sort((a, b) => a.order - b.order);
     }, [tasks, projectId]);
 
-    // Secciones existentes (de las tareas) + las recién añadidas localmente.
+    // Secciones a mostrar: las persistidas en la DB + las derivadas de las tareas (por si alguna
+    // tarea tiene una sección que aún no está en la lista persistida).
     const sections = useMemo(
-        () => Array.from(new Set([...projectTasks.map(t => t.section).filter(Boolean) as string[], ...extraSections])),
-        [projectTasks, extraSections]
+        () => Array.from(new Set([...persistedSections, ...(projectTasks.map(t => t.section).filter(Boolean) as string[])])),
+        [persistedSections, projectTasks]
     );
 
     // Tareas visibles según la sección activa.
@@ -55,10 +61,21 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     }), [visibleTasks]);
 
     const addSection = () => setSectionModalOpen(true);
-    const confirmAddSection = (name: string) => {
-        if (!sections.includes(name)) setExtraSections(prev => [...prev, name]);
-        setActiveSection(name);
+    const confirmAddSection = async (name: string) => {
+        const clean = name.trim();
+        setActiveSection(clean);
         setSectionModalOpen(false);
+        if (!clean || persistedSections.includes(clean)) return;
+        const nextSections = [...persistedSections, clean];
+        // Optimista: refleja de inmediato en el estado global.
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, sections: nextSections } : p));
+        try {
+            await projectsService.update(projectId, { sections: nextSections });
+        } catch {
+            toast.error(t('cmpx.task.section_save_error') || 'No se pudo guardar la sección.');
+            // Revertir si falla.
+            setProjects(prev => prev.map(p => p.id === projectId ? { ...p, sections: persistedSections } : p));
+        }
     };
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, task: Task) => {

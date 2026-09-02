@@ -464,6 +464,8 @@ export interface Project {
     purchaseOrder?: string;
     projectKey?: string;
     priority?: ProjectPriority;
+    // Secciones/áreas del tablero de tareas (persisten aunque estén vacías)
+    sections?: string[];
     // For invoicing
     invoiceGenerated?: boolean;
     invoiceNumber?: string;
