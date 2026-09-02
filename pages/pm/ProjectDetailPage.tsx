@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { canAccessProjects } from '../../utils/employeePermissions';
@@ -20,6 +20,8 @@ import { ClientFormModal } from './ClientFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
 import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
+import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { ApiError } from '../../services/api';
 import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
 
 
@@ -524,31 +526,65 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
 
 
 // --- Chat Component (migrated from ProjectFormModal) ---
+const CHAT_POLLING_MS = 5000;
+
 const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
     const { t } = useTranslation();
-    const { getChatMessagesForProject, addChatMessage, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
-    
+
     const [newMessage, setNewMessage] = useState('');
+    const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
+    const [sending, setSending] = useState(false);
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
     const [callType, setCallType] = useState<'video' | 'audio'>('video');
     const [callParticipants, setCallParticipants] = useState<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-    const projectMessages = useMemo(() => getChatMessagesForProject(project.id), [project, getChatMessagesForProject]);
-    
-    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [projectMessages]);
+    // Carga + polling desde el backend (compartido entre todos los usuarios del proyecto).
+    const fetchMessages = useCallback(async () => {
+        try {
+            const msgs = await chatService.getMessages(project.id);
+            setMessages(msgs);
+        } catch (err) {
+            if (err instanceof ApiError) console.error('chat fetch:', err.message);
+        }
+    }, [project.id]);
 
-    const handleSendMessage = () => { if (newMessage.trim() && currentUser) { addChatMessage({ projectId: project.id, senderId: currentUser.id, text: newMessage.trim() }); setNewMessage(''); } };
-    const handleInitiateCall = (type: 'video' | 'audio') => { /* ... call logic ... */ setIsCallModalOpen(true); };
+    useEffect(() => {
+        fetchMessages();
+        const interval = setInterval(fetchMessages, CHAT_POLLING_MS);
+        return () => clearInterval(interval);
+    }, [fetchMessages]);
+
+    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+    const handleSendMessage = async () => {
+        if (!newMessage.trim() || !currentUser || sending) return;
+        const text = newMessage.trim();
+        setSending(true);
+        try {
+            const saved = await chatService.sendMessage({
+                projectId: project.id,
+                text,
+                senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
+            });
+            setMessages(prev => [...prev, saved]);
+            setNewMessage('');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : (t('pm2x.chat.send_error') || 'No se pudo enviar el mensaje.'));
+        } finally {
+            setSending(false);
+        }
+    };
+    const handleInitiateCall = (type: 'video' | 'audio') => { setCallType(type); setIsCallModalOpen(true); };
 
     if (!currentUser) return null;
 
     return (
         <div className="flex-1 flex flex-col h-[65vh]">
             <div className="flex-1 p-3 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin">
-                {projectMessages.length > 0 ? projectMessages.map(msg => (
-                    <ChatMessageItem key={msg.id} message={msg} isCurrentUser={currentUser.id === msg.senderId} />
+                {messages.length > 0 ? messages.map(msg => (
+                    <ChatMessageItem key={msg.id} message={msg as any} isCurrentUser={currentUser.id === msg.senderId} />
                 )) : <p className="text-center text-sm text-neutral-400 pt-10">{t('pm2x.project.no_messages')}</p>}
                 <div ref={messagesEndRef} />
             </div>
@@ -561,7 +597,7 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                             placeholder={t('pm2x.chat.message_placeholder')}
                         />
                     </div>
-                    <button type="submit" className={`${BUTTON_PRIMARY_SM_CLASSES} !py-2 !px-3 self-end`} disabled={!newMessage.trim()}><PaperAirplaneIcon /></button>
+                    <button type="submit" className={`${BUTTON_PRIMARY_SM_CLASSES} !py-2 !px-3 self-end`} disabled={!newMessage.trim() || sending}><PaperAirplaneIcon /></button>
                 </form>
             </div>
             <CallModal isOpen={isCallModalOpen} onClose={() => setIsCallModalOpen(false)} callType={callType} participants={callParticipants} />
