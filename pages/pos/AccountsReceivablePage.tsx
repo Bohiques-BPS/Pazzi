@@ -221,7 +221,7 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ isOpen, onC
 
 export const AccountsReceivablePage: React.FC = () => {
     const { t } = useTranslation();
-    const { sales, getClientById, clients, addSalePayment, setSales, salePayments, addNotification } = useData();
+    const { sales, getClientById, clients, setSales, salePayments, addNotification } = useData();
     const { getDefaultSettings } = useECommerceSettings();
 
     const [paymentModalSale, setPaymentModalSale] = useState<(Sale & { balance: number }) | null>(null);

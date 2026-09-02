@@ -38,7 +38,7 @@ const defaultToday = new Date().toISOString().split('T')[0];
 
 export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClose, project, initialTab = 'details', onGenerateInvoice, onViewInvoicePDF}) => {
     const { t } = useTranslation();
-    const { projects, setProjects, clients, products: allProductsHookData, employees: allEmployeesHook, getChatMessagesForProject, addChatMessage, getClientById, getEmployeeById, generateInvoiceForProject } = useData();
+    const { projects, setProjects, clients, products: allProductsHookData, employees: allEmployeesHook, getClientById, getEmployeeById, generateInvoiceForProject } = useData();
     const { currentUser } = useAuth();
     
     const projectRelevantProducts = useMemo(() => allProductsHookData.filter(p => p.storeOwnerId === ADMIN_USER_ID || !p.storeOwnerId), [allProductsHookData]);
