@@ -8,10 +8,12 @@ import { PaperAirplaneIcon, ArrowUturnLeftIcon } from '../../components/icons';
 import { BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { getSocket, joinProjectRoom } from '../../services/socket';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 
-const POLLING_INTERVAL_MS = 7000;
+// Con socket en tiempo real, el polling es solo respaldo lento.
+const POLLING_INTERVAL_MS = 20000;
 
 export const ProjectClientChatPage: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
@@ -34,12 +36,20 @@ export const ProjectClientChatPage: React.FC = () => {
         }
     }, []);
 
+    const appendMessage = useCallback((msg: ChatMessageRecord) => {
+        setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+    }, []);
+
     useEffect(() => {
         if (!projectId) return;
         fetchMessages(projectId);
         const interval = setInterval(() => fetchMessages(projectId), POLLING_INTERVAL_MS);
-        return () => clearInterval(interval);
-    }, [projectId, fetchMessages]);
+        const leave = joinProjectRoom(projectId);
+        const socket = getSocket();
+        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === projectId) appendMessage(msg); };
+        socket.on('chat:message', onMessage);
+        return () => { clearInterval(interval); socket.off('chat:message', onMessage); leave?.(); };
+    }, [projectId, fetchMessages, appendMessage]);
 
     useEffect(() => {
         if (projectId && currentUser && currentUser.role === UserRole.CLIENT_PROJECT) {
@@ -73,7 +83,7 @@ export const ProjectClientChatPage: React.FC = () => {
                 text: newMessage.trim(),
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
             });
-            setProjectMessages(prev => [...prev, message]);
+            appendMessage(message);
             setNewMessage('');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : 'Error al enviar mensaje');

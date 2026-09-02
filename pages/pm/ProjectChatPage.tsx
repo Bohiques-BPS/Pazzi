@@ -7,11 +7,13 @@ import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon } from '..
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { getSocket, joinProjectRoom } from '../../services/socket';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
-const POLLING_INTERVAL_MS = 7000;
+// Con socket en tiempo real, el polling es solo respaldo lento (por si el socket se cae).
+const POLLING_INTERVAL_MS = 20000;
 
 export const ProjectChatPage: React.FC = () => {
     const { t } = useTranslation();
@@ -55,6 +57,10 @@ export const ProjectChatPage: React.FC = () => {
         }
     }, []);
 
+    const appendMessage = useCallback((msg: ChatMessageRecord) => {
+        setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+    }, []);
+
     useEffect(() => {
         if (!selectedProjectId) {
             setProjectMessages([]);
@@ -62,8 +68,13 @@ export const ProjectChatPage: React.FC = () => {
         }
         fetchMessages(selectedProjectId);
         const interval = setInterval(() => fetchMessages(selectedProjectId), POLLING_INTERVAL_MS);
-        return () => clearInterval(interval);
-    }, [selectedProjectId, fetchMessages]);
+        // Tiempo real: unirse a la sala del proyecto y escuchar mensajes nuevos.
+        const leave = joinProjectRoom(selectedProjectId);
+        const socket = getSocket();
+        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === selectedProjectId) appendMessage(msg); };
+        socket.on('chat:message', onMessage);
+        return () => { clearInterval(interval); socket.off('chat:message', onMessage); leave?.(); };
+    }, [selectedProjectId, fetchMessages, appendMessage]);
 
      // Auto-select first project if list changes and current selection is invalid or none
     useEffect(() => {
@@ -85,7 +96,7 @@ export const ProjectChatPage: React.FC = () => {
                 text,
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
             });
-            setProjectMessages(prev => [...prev, message]);
+            appendMessage(message);
             setNewMessage('');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('pm2x.chat.send_error'));

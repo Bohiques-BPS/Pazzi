@@ -21,6 +21,7 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added 
 import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { getSocket, joinProjectRoom } from '../../services/socket';
 import { ApiError } from '../../services/api';
 import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
 
@@ -526,7 +527,8 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
 
 
 // --- Chat Component (migrated from ProjectFormModal) ---
-const CHAT_POLLING_MS = 5000;
+// Con socket en tiempo real, el polling es solo un respaldo lento (por si el socket se cae).
+const CHAT_POLLING_MS = 20000;
 
 const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
     const { t } = useTranslation();
@@ -550,11 +552,26 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
         }
     }, [project.id]);
 
+    // Añade un mensaje evitando duplicados (por id) — el emisor ya lo agregó localmente y también
+    // llega por socket; el polling de respaldo puede traerlo de nuevo.
+    const appendMessage = useCallback((msg: ChatMessageRecord) => {
+        setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+    }, []);
+
     useEffect(() => {
         fetchMessages();
         const interval = setInterval(fetchMessages, CHAT_POLLING_MS);
         return () => clearInterval(interval);
     }, [fetchMessages]);
+
+    // Tiempo real: unirse a la sala del proyecto y escuchar mensajes nuevos por socket.
+    useEffect(() => {
+        const leave = joinProjectRoom(project.id);
+        const socket = getSocket();
+        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === project.id) appendMessage(msg); };
+        socket.on('chat:message', onMessage);
+        return () => { socket.off('chat:message', onMessage); leave?.(); };
+    }, [project.id, appendMessage]);
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -568,7 +585,7 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                 text,
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
             });
-            setMessages(prev => [...prev, saved]);
+            appendMessage(saved);
             setNewMessage('');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : (t('pm2x.chat.send_error') || 'No se pudo enviar el mensaje.'));
