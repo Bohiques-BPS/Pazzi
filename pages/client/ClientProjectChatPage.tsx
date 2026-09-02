@@ -1,24 +1,49 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Project } from '../../types';
-import { ChatMessageItem } from '../pm/ChatMessageItem'; 
+import { ChatMessageItem } from '../pm/ChatMessageItem';
 import { PaperAirplaneIcon, ArrowUturnLeftIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
+import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { getSocket, joinProjectRoom } from '../../services/socket';
+import { ApiError } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+
+const CHAT_POLLING_MS = 20000;
 
 export const ClientProjectChatPage: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
-    const { getProjectById, getChatMessagesForProject, addChatMessage } = useData();
+    const { getProjectById } = useData();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
 
     const [project, setProject] = useState<Project | null>(null);
     const [newMessage, setNewMessage] = useState('');
+    const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const projectMessages = projectId ? getChatMessagesForProject(projectId) : [];
+    const appendMessage = useCallback((msg: ChatMessageRecord) => {
+        setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+    }, []);
+
+    // Historial por HTTP + polling de respaldo + mensajes nuevos por socket (compartido y persistente).
+    useEffect(() => {
+        if (!projectId) return;
+        const fetchMessages = async () => {
+            try { setProjectMessages(await chatService.getMessages(projectId)); }
+            catch (err) { if (err instanceof ApiError && err.status !== 403) console.error('chat fetch:', err.message); }
+        };
+        fetchMessages();
+        const interval = setInterval(fetchMessages, CHAT_POLLING_MS);
+        const leave = joinProjectRoom(projectId);
+        const socket = getSocket();
+        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === projectId) appendMessage(msg); };
+        socket.on('chat:message', onMessage);
+        return () => { clearInterval(interval); socket.off('chat:message', onMessage); leave?.(); };
+    }, [projectId, appendMessage]);
 
     useEffect(() => {
         if (projectId) {
@@ -42,14 +67,18 @@ export const ClientProjectChatPage: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [projectMessages]);
 
-    const handleSendMessage = () => {
-        if (newMessage.trim() && project && currentUser) {
-            addChatMessage({
+    const handleSendMessage = async () => {
+        if (!newMessage.trim() || !project || !currentUser) return;
+        try {
+            const saved = await chatService.sendMessage({
                 projectId: project.id,
-                senderId: currentUser.id,
                 text: newMessage.trim(),
+                senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
             });
+            appendMessage(saved);
             setNewMessage('');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo enviar el mensaje.');
         }
     };
 
@@ -75,10 +104,10 @@ export const ClientProjectChatPage: React.FC = () => {
             {/* Messages Area */}
             <div className="flex-1 p-3 sm:p-4 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
                 {projectMessages.length > 0 ? projectMessages.map(msg => (
-                    <ChatMessageItem 
-                        key={msg.id} 
-                        message={msg} 
-                        isCurrentUser={currentUser.id === msg.senderId} 
+                    <ChatMessageItem
+                        key={msg.id}
+                        message={msg as any}
+                        isCurrentUser={currentUser.id === msg.senderId}
                     />
                 )) : (
                     <p className="text-center text-sm text-neutral-400 dark:text-neutral-500 pt-10">No hay mensajes aún en este proyecto.</p>

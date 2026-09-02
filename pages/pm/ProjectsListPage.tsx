@@ -58,8 +58,8 @@ export const ProjectsListPage: React.FC = () => {
         });
     };
 
-    const handleGenerateInvoice = (project: Project) => {
-        const success = generateInvoiceForProject(project.id);
+    const handleGenerateInvoice = async (project: Project) => {
+        const success = await generateInvoiceForProject(project.id);
         if (success) {
             toast.success(t('pm2x.project.invoice_generated', { name: project.name }));
         } else {

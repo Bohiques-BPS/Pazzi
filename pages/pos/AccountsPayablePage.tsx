@@ -8,6 +8,8 @@ import { Modal, ConfirmationModal } from '../../components/Modal';
 import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon, PhotoIcon, DocumentArrowUpIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal';
+import { supplierOrdersService } from '../../services/supplierOrders';
+import { ApiError } from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -135,7 +137,18 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
 
 
 export const AccountsPayablePage: React.FC = () => {
-    const { supplierOrders, getSupplierById, suppliers, recordSupplierOrderPayment, updateSupplierOrderStatus } = useData();
+    const { supplierOrders, getSupplierById, suppliers, setSupplierOrders } = useData();
+
+    // Registrar pago al proveedor EN EL BACKEND (antes solo mutaba estado local y se perdía al recargar).
+    const handleRecordPayment = async (orderId: string, amount: number, ref?: string, _attachment?: string) => {
+        try {
+            const { order } = await supplierOrdersService.recordPayment(orderId, { amount, note: ref || undefined });
+            setSupplierOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...(order as any) } : o));
+            toast.success(t('posx.payable.paymentRecorded') || 'Pago registrado.');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo registrar el pago.');
+        }
+    };
     const { getDefaultSettings } = useECommerceSettings();
     const { t } = useTranslation();
 
@@ -272,7 +285,18 @@ export const AccountsPayablePage: React.FC = () => {
 
     const handleEditOrder = (order: SupplierOrder) => { setOrderToEdit(order); setShowEditOrderModal(true); };
     const handleCancelOrder = (orderId: string) => { setOrderToCancelId(orderId); setShowCancelConfirmModal(true); };
-    const confirmCancelOrder = () => { if (orderToCancelId) { updateSupplierOrderStatus(orderToCancelId, SupplierOrderStatus.CANCELADO); toast.success(t('posx.payable.orderCancelled')); } setOrderToCancelId(null); setShowCancelConfirmModal(false); };
+    const confirmCancelOrder = async () => {
+        const id = orderToCancelId;
+        setOrderToCancelId(null); setShowCancelConfirmModal(false);
+        if (!id) return;
+        try {
+            const updated = await supplierOrdersService.updateStatus(id, SupplierOrderStatus.CANCELADO as any);
+            setSupplierOrders(prev => prev.map(o => o.id === id ? { ...o, ...(updated as any) } : o));
+            toast.success(t('posx.payable.orderCancelled'));
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo cancelar la orden.');
+        }
+    };
 
     const generatePayablePDF = async (order: SupplierOrder) => {
         toast(t('posx.payable.generatingPdf', { id: order.id.slice(0,8) }), { icon: '🖨️' });
@@ -453,7 +477,7 @@ export const AccountsPayablePage: React.FC = () => {
                     onPage={ordersPage.setPage} onPageSize={ordersPage.setPageSize}
                 />
             </div>
-            <RecordPaymentModal isOpen={!!paymentModalOrder} onClose={() => setPaymentModalOrder(null)} order={paymentModalOrder} onRecordPayment={recordSupplierOrderPayment}/>
+            <RecordPaymentModal isOpen={!!paymentModalOrder} onClose={() => setPaymentModalOrder(null)} order={paymentModalOrder} onRecordPayment={handleRecordPayment}/>
             <SupplierOrderFormModal isOpen={showEditOrderModal} onClose={() => setShowEditOrderModal(false)} orderToEdit={orderToEdit} />
             {orderToCancelId && <ConfirmationModal isOpen={showCancelConfirmModal} onClose={() => setShowCancelConfirmModal(false)} onConfirm={confirmCancelOrder} title={t('posx.payable.confirmCancelTitle')} message={t('posx.payable.confirmCancelMessage', { po: orderToCancelId.slice(-6).toUpperCase() })} confirmButtonText={t('posx.payable.confirmCancelButton')} />}
         </div>

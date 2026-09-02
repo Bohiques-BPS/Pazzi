@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Project, ProjectFormData, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, UserRole, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { canAccessProjects } from '../../utils/employeePermissions';
@@ -17,6 +17,9 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
+import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { getSocket, joinProjectRoom } from '../../services/socket';
+import { ApiError } from '../../services/api';
 
 interface ProjectFormModalProps {
     isOpen: boolean;
@@ -92,7 +95,28 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
 
 
-    const projectMessages = useMemo(() => project ? getChatMessagesForProject(project.id) : [], [project, getChatMessagesForProject]);
+    // Chat del proyecto: historial por HTTP + polling de respaldo + push por socket (backend real,
+    // compartido y persistente). Antes usaba addChatMessage/getChatMessagesForProject (solo local).
+    const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
+    const appendChatMessage = useCallback((msg: ChatMessageRecord) => {
+        setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+    }, []);
+    useEffect(() => {
+        const pid = project?.id;
+        if (!pid || activeTab !== 'chat') return;
+        const fetchMessages = async () => {
+            try { setProjectMessages(await chatService.getMessages(pid)); }
+            catch (err) { if (err instanceof ApiError && err.status !== 403) console.error('chat fetch:', err.message); }
+        };
+        fetchMessages();
+        const interval = setInterval(fetchMessages, 20000);
+        const leave = joinProjectRoom(pid);
+        const socket = getSocket();
+        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === pid) appendChatMessage(msg); };
+        socket.on('chat:message', onMessage);
+        return () => { clearInterval(interval); socket.off('chat:message', onMessage); leave?.(); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [project?.id, activeTab, appendChatMessage]);
     const { can } = usePermissions();
     const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
     // Editar por PERMISO (projects.edit / projects.create), no por ser empleado.
@@ -415,9 +439,9 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
         }
     };
     
-    const handleGenerateInvoiceClick = () => {
+    const handleGenerateInvoiceClick = async () => {
         if (project && canEditDetails) {
-            const success = generateInvoiceForProject(project.id);
+            const success = await generateInvoiceForProject(project.id);
             if (success) {
                 toast.success('Factura generada exitosamente.');
             }
@@ -425,14 +449,18 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     };
 
 
-    const handleSendMessage = () => {
-        if (newMessage.trim() && project && currentUser) {
-            addChatMessage({
+    const handleSendMessage = async () => {
+        if (!newMessage.trim() || !project || !currentUser) return;
+        try {
+            const saved = await chatService.sendMessage({
                 projectId: project.id,
-                senderId: currentUser.id,
                 text: newMessage.trim(),
+                senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
             });
+            appendChatMessage(saved);
             setNewMessage('');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo enviar el mensaje.');
         }
     };
 
@@ -713,10 +741,10 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                     </div>
                     <div className="flex-1 p-3 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
                         {projectMessages.length > 0 ? projectMessages.map(msg => (
-                            <ChatMessageItem 
-                                key={msg.id} 
-                                message={msg} 
-                                isCurrentUser={currentUser.id === msg.senderId} 
+                            <ChatMessageItem
+                                key={msg.id}
+                                message={msg as any}
+                                isCurrentUser={currentUser.id === msg.senderId}
                             />
                         )) : (
                             <p className="text-center text-sm text-neutral-400 dark:text-neutral-500 pt-10">No hay mensajes aún. ¡Comienza la conversación!</p>

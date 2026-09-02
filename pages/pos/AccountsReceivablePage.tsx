@@ -15,7 +15,8 @@ import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ClientCreditPaymentModal } from '../../components/ui/ClientCreditPaymentModal';
 import { ReceiptModal, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
-import { API_URL } from '../../services/api';
+import { API_URL, ApiError } from '../../services/api';
+import { salesService } from '../../services/sales';
 import { toast } from 'react-hot-toast';
 
 /** Comprobante de abono a crédito (para imprimir via ReceiptModal). */
@@ -302,10 +303,14 @@ export const AccountsReceivablePage: React.FC = () => {
             !s.isReturn
         );
         
-        // Apply logic
+        // Apply logic. El saldo se deriva de los pagos REALES de la venta (sale.payments, que vienen
+        // del backend). Antes se usaba `salePayments` (estado local que nunca se llenaba) y por eso el
+        // "Monto Pagado" siempre salía $0.
         let filteredSales = creditSales.map(sale => {
-            const paymentsForSale = salePayments.filter(p => p.saleId === sale.id);
-            const totalPaid = paymentsForSale.reduce((sum, p) => sum + p.amountPaid, 0);
+            const paymentsForSale = ((sale as any).payments && Array.isArray((sale as any).payments))
+                ? (sale as any).payments
+                : salePayments.filter(p => p.saleId === sale.id);
+            const totalPaid = paymentsForSale.reduce((sum: number, p: any) => sum + (Number(p.amountPaid) || 0), 0);
             const balance = sale.totalAmount - totalPaid;
             const isPaid = balance < 0.01;
             return { ...sale, totalPaid, balance, effectiveStatus: isPaid ? 'Pagado' : 'Pendiente de Pago' };
@@ -380,19 +385,28 @@ export const AccountsReceivablePage: React.FC = () => {
 
     const [saleForReminder, setSaleForReminder] = useState<(typeof receivableData)[0] | null>(null);
 
-    const handleConfirmPayment = (saleId: string, amount: number, method: string, notes: string, attachment?: string) => {
-        addSalePayment({
-            saleId,
-            amountPaid: amount,
-            paymentMethodUsed: method,
-            paymentDate: new Date().toISOString(),
-            notes: `Abono a CxC. ${notes}`.trim(),
-            attachment: attachment
-        });
-        // Comprobante de abono (respeta el formato Recibo/Factura elegido).
-        const s = sales.find(x => x.id === saleId);
-        const cName = s?.clientId ? (getClientById(s.clientId)?.name || '') : '';
-        setReceiptToPrint(buildAbonoReceipt(cName || 'Cliente', amount, method, notes || undefined));
+    const handleConfirmPayment = async (saleId: string, amount: number, method: string, notes: string, attachment?: string) => {
+        try {
+            // Persistir el abono en el backend (antes solo se guardaba en memoria y se perdía al recargar).
+            await salesService.addPayment(saleId, {
+                amountPaid: amount,
+                paymentMethodUsed: method,
+                notes: `Abono a CxC. ${notes}`.trim(),
+                ...(attachment ? { attachment } : {}),
+            } as any);
+            // Refrescar la venta desde el servidor para que el saldo/estado se actualicen en pantalla.
+            try {
+                const updated = await salesService.getById(saleId);
+                setSales(prev => prev.map(s => s.id === saleId ? { ...s, ...updated } : s));
+            } catch { /* si falla el refresh, el polling/recarga lo corrige */ }
+            toast.success('Abono registrado.');
+            // Comprobante de abono (respeta el formato Recibo/Factura elegido).
+            const s = sales.find(x => x.id === saleId);
+            const cName = s?.clientId ? (getClientById(s.clientId)?.name || '') : '';
+            setReceiptToPrint(buildAbonoReceipt(cName || 'Cliente', amount, method, notes || undefined));
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo registrar el abono.');
+        }
     };
 
     const handleEditReceivable = (sale: Sale) => { setSaleToEdit(sale); setShowEditModal(true); };

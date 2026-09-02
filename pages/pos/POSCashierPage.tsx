@@ -64,6 +64,7 @@ import { authService } from '../../services/auth';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { DrawerOpenModal } from '../../components/pos/DrawerOpenModal';
 import { posService } from '../../services/pos';
+import { salesService } from '../../services/sales';
 import { timeclockService } from '../../services/timeclock';
 import { openCashDrawer, isCashDrawerEnabled } from '../../services/cashDrawer';
 import { toast } from '../../hooks/useToast';
@@ -1194,6 +1195,9 @@ export const POSCashierPage: React.FC = () => {
                 else toast.warning(`AgilPay: ${result.agilpayRefund.message}`);
             }
             setActiveModal(null);
+            // Refrescar ventas para que el estado/saldo de la venta original y la nota de devolución
+            // se reflejen sin recargar la página.
+            try { setSales(await salesService.getAll({ limit: 200 } as any)); } catch { /* el próximo refresh lo corrige */ }
         } catch (err: any) {
             toast.error(err?.message || t('posx.cashier.err_return_processing'));
         }

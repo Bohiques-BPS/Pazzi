@@ -4,6 +4,8 @@ import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { projectsService, normalizeProjectFromApi } from '../../services/projects';
+import { ApiError } from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -16,9 +18,10 @@ interface POSProjectFormModalProps {
 
 export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen, onClose, clientId, onProjectCreated }) => {
   const { t } = useTranslation();
-  const { addProject } = useData();
+  const { setProjects } = useData();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -27,7 +30,7 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
     }
   }, [isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       toast.error(t('posx.projectform.err_name'));
@@ -37,6 +40,7 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
       toast.error(t('posx.projectform.err_client'));
       return;
     }
+    if (saving) return;
 
     const projectData: ProjectFormData = {
       name: name.trim(),
@@ -50,9 +54,18 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
       workDayTimeRanges: [],
     };
 
-    const newProject = addProject(projectData);
-    toast.success(t('posx.projectform.created'));
-    onProjectCreated(newProject);
+    setSaving(true);
+    try {
+      // Persistir en el backend (antes se creaba solo en memoria con id proj-<ts> y se perdía al recargar).
+      const created = normalizeProjectFromApi(await projectsService.create(projectData));
+      setProjects(prev => [created, ...prev]);
+      toast.success(t('posx.projectform.created'));
+      onProjectCreated(created);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'No se pudo crear el proyecto.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -83,7 +96,7 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
             </div>
             <div className="flex justify-end space-x-2 pt-4">
                 <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.projectform.create_assign')}</button>
+                <button type="submit" disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('common.saving') : t('posx.projectform.create_assign')}</button>
             </div>
         </form>
     </Modal>

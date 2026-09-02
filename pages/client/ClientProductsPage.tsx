@@ -9,6 +9,8 @@ import { ProductCard } from '../../components/cards/ProductCard';
 import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon } from '../../components/icons';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { toast } from 'react-hot-toast';
+import { productsService } from '../../services/products';
+import { ApiError } from '../../services/api';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 
 export const ClientProductsPage: React.FC = () => {
@@ -68,15 +70,21 @@ export const ClientProductsPage: React.FC = () => {
         }
     };
 
-    const confirmDelete = () => {
-        if (itemToDeleteId && currentUser) {
-            const productToDelete = clientProducts.find(p => p.id === itemToDeleteId);
-            if (productToDelete && productToDelete.storeOwnerId === currentUser.id) {
-                 setProducts(prevGlobalProducts => prevGlobalProducts.filter(p => p.id !== itemToDeleteId));
-            }
-            setItemToDeleteId(null);
-        }
+    const confirmDelete = async () => {
+        const id = itemToDeleteId;
         setShowDeleteConfirmModal(false);
+        setItemToDeleteId(null);
+        if (!id || !currentUser) return;
+        const productToDelete = clientProducts.find(p => p.id === id);
+        if (!productToDelete || productToDelete.storeOwnerId !== currentUser.id) return;
+        try {
+            // Borrar en el backend (antes solo se quitaba del estado local y reaparecía al recargar).
+            await productsService.delete(id);
+            setProducts(prev => prev.filter(p => p.id !== id));
+            toast.success('Producto eliminado.');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo eliminar el producto.');
+        }
     };
 
     const filteredClientProducts = useMemo(() => {

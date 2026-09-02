@@ -31,7 +31,7 @@ export interface DataContextType {
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   addProject: (projectData: ProjectFormData) => Project;
-  generateInvoiceForProject: (projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }) => boolean;
+  generateInvoiceForProject: (projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }) => Promise<boolean>;
   
   sales: Sale[]; 
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>; // Added setSales
@@ -605,76 +605,82 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }, [setProjects, addNotification]);
 
 
-    const generateInvoiceForProject = useCallback((projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }): boolean => {
-        setProjects(prevProjects => {
-            const projectIndex = prevProjects.findIndex(p => p.id === projectId);
-            if (projectIndex === -1) {
-                console.error("Proyecto no encontrado para generar factura.");
-                return prevProjects;
-            }
+    const generateInvoiceForProject = useCallback(async (projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }): Promise<boolean> => {
+        const project = projects.find(p => p.id === projectId);
+        if (!project) { console.error("Proyecto no encontrado para generar factura."); return false; }
+        if (project.status !== ProjectStatus.COMPLETED) {
+            addNotification({ title: "Error de Facturación", message: `Proyecto "${project.name}" no está completado.`, type: 'generic' });
+            return false;
+        }
+        if (project.invoiceGenerated) {
+            addNotification({ title: "Factura Duplicada", message: `Factura ya generada para "${project.name}".`, type: 'generic' });
+            return false;
+        }
 
-            const projectToUpdate = { ...prevProjects[projectIndex] };
-
-            if (projectToUpdate.status !== ProjectStatus.COMPLETED) {
-                addNotification({ title: "Error de Facturación", message: `Proyecto "${projectToUpdate.name}" no está completado.`, type: 'generic' });
-                return prevProjects;
-            }
-            if (projectToUpdate.invoiceGenerated) {
-                addNotification({ title: "Factura Duplicada", message: `Factura ya generada para "${projectToUpdate.name}".`, type: 'generic' });
-                return prevProjects;
-            }
-
-            const today = new Date();
-            projectToUpdate.invoiceGenerated = true;
-            projectToUpdate.invoiceDate = today.toISOString().split('T')[0];
-            projectToUpdate.invoiceNumber = `INV-${projectToUpdate.id.slice(-4)}-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-            
-            if (invoiceDetails?.amount !== undefined) {
-                projectToUpdate.invoiceAmount = invoiceDetails.amount;
-            } else {
-                let calculatedAmount = 0;
-                projectToUpdate.assignedProducts.forEach(ap => {
-                    const productInfo = getProductById(ap.productId);
-                    if (productInfo) {
-                        calculatedAmount += productInfo.unitPrice * ap.quantity;
-                    }
-                });
-                const ivuRate = 0.16; 
-                projectToUpdate.invoiceAmount = calculatedAmount * (1 + ivuRate);
-            }
-
-            if (invoiceDetails?.dueDate) {
-                projectToUpdate.paymentDueDate = invoiceDetails.dueDate;
-            } else {
-                const dueDate = new Date(today);
-                dueDate.setDate(today.getDate() + 30); 
-                projectToUpdate.paymentDueDate = dueDate.toISOString().split('T')[0];
-            }
-            
-            const updatedProjects = [...prevProjects];
-            updatedProjects[projectIndex] = projectToUpdate;
-            addNotification({
-                title: `Factura Generada para ${projectToUpdate.name}`,
-                message: `Factura #${projectToUpdate.invoiceNumber} por $${projectToUpdate.invoiceAmount?.toFixed(2)}`,
-                type: 'generic', 
-                link: `/pm/projects` 
+        const today = new Date();
+        const invoiceNumber = `INV-${project.id.slice(-4)}-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+        let invoiceAmount: number;
+        if (invoiceDetails?.amount !== undefined) {
+            invoiceAmount = invoiceDetails.amount;
+        } else {
+            let calculatedAmount = 0;
+            project.assignedProducts.forEach(ap => {
+                const productInfo = getProductById(ap.productId);
+                if (productInfo) calculatedAmount += productInfo.unitPrice * ap.quantity;
             });
-            return updatedProjects;
-        });
-        return true; 
-    }, [getProductById, addNotification]);
+            invoiceAmount = calculatedAmount * (1 + 0.16);
+        }
+        let paymentDueDate = invoiceDetails?.dueDate;
+        if (!paymentDueDate) {
+            const d = new Date(today); d.setDate(today.getDate() + 30);
+            paymentDueDate = d.toISOString().split('T')[0];
+        }
+
+        try {
+            // Persistir en el backend (antes solo mutaba estado local: al recargar se perdía el
+            // número/estado de factura y se podía regenerar/duplicar).
+            const res = await fetch(`${API_URL}/projects/${projectId}/invoice`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceNumber, invoiceAmount, paymentDueDate }),
+            });
+            if (!res.ok) throw new Error('No se pudo generar la factura');
+            setProjects(prev => prev.map(p => p.id === projectId
+                ? { ...p, invoiceGenerated: true, invoiceDate: today.toISOString().split('T')[0], invoiceNumber, invoiceAmount, paymentDueDate }
+                : p));
+            addNotification({
+                title: `Factura Generada para ${project.name}`,
+                message: `Factura #${invoiceNumber} por $${invoiceAmount.toFixed(2)}`,
+                type: 'generic',
+                link: `/pm/projects`,
+            });
+            return true;
+        } catch (e) {
+            addNotification({ title: "Error de Facturación", message: `No se pudo generar la factura de "${project.name}".`, type: 'generic' });
+            return false;
+        }
+    }, [projects, getProductById, addNotification]);
 
 
     const markNotificationAsRead = useCallback((notificationId: string) => {
         setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
+        // Persistir en el backend; sin esto el polling (cada 60s) revertía la notificación a "no leída".
+        fetch(`${API_URL}/notifications/${notificationId}/read`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` },
+        }).catch(() => { /* si falla, el próximo poll la vuelve a mostrar como no leída */ });
     }, []);
-    
+
     const getUnreadNotificationsCount = useCallback(() => {
         return notifications.filter(n => !n.read).length;
     }, [notifications]);
-    
+
     const markAllNotificationsAsRead = useCallback(() => {
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        fetch(`${API_URL}/notifications/read-all`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` },
+        }).catch(() => { /* idem */ });
     }, []);
 
 
