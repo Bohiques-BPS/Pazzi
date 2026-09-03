@@ -130,9 +130,9 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                     <textarea
                         value={transcript}
                         onChange={e => setTranscript(e.target.value)}
-                        rows={7}
+                        rows={14}
                         placeholder="Pega aquí el documento o la transcripción (de una llamada, notas, requerimientos…). La IA sugerirá posibles tareas; tú decides cuáles crear."
-                        className={`${INPUT_SM_CLASSES} w-full font-mono text-xs`}
+                        className={`${INPUT_SM_CLASSES} w-full font-mono text-xs min-h-[340px] resize-y`}
                     />
                     <div className="flex justify-between items-center mt-2 gap-2 flex-wrap">
                         <div className="flex items-center gap-3">
