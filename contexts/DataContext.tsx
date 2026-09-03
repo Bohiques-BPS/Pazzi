@@ -11,6 +11,8 @@ import {
 import { ADMIN_USER_ID } from '../constants';
 import { useAuth } from './AuthContext'; 
 import { API_URL } from '../services/api';
+import { getSocket } from '../services/socket';
+import { toast } from 'react-hot-toast';
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons';
 import { posService } from '../services/pos';
 
@@ -456,25 +458,50 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }, [currentUser]);
 
     // Carga de notificaciones
+    const fetchNotifications = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_URL}/notifications`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
+            });
+            const data = await res.json();
+            if (Array.isArray(data)) setNotifications(data);
+        } catch (e) {
+            console.error("Error al cargar notificaciones del servidor:", e);
+        }
+    }, []);
+
     useEffect(() => {
-        const fetchNotifications = async () => {
-            try {
-                const res = await fetch(`${API_URL}/notifications`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
-                });
-                const data = await res.json();
-                if (Array.isArray(data)) setNotifications(data);
-            } catch (e) {
-                console.error("Error al cargar notificaciones del servidor:", e);
-            }
-        };
         if (!currentUser) return;
         fetchNotifications();
-        // Poll cada 60s para que lleguen avisos generados en el servidor (ej. pago de factura
-        // por AgilPay/ATH Móvil) sin tener que recargar la página.
+        // Poll cada 60s como respaldo (ej. avisos del servidor por AgilPay/ATH Móvil). El push por
+        // socket (abajo) da la actualización inmediata.
         const id = window.setInterval(fetchNotifications, 60000);
         return () => window.clearInterval(id);
-    }, [currentUser]);
+    }, [currentUser, fetchNotifications]);
+
+    // Push en vivo: al conectarse el socket, el servidor mete a este usuario en su sala `user:<id>`
+    // y le emite `notification:new`. Actualizamos la campanita al instante, mostramos un toast y,
+    // si el usuario dio permiso, un popup de escritorio (Notification API).
+    useEffect(() => {
+        if (!currentUser) return;
+        // `window.Notification` (no `Notification`) para no chocar con el tipo importado del dominio.
+        const Notif = typeof window !== 'undefined' ? window.Notification : undefined;
+        try { if (Notif && Notif.permission === 'default') Notif.requestPermission().catch(() => {}); } catch { /* noop */ }
+        const socket = getSocket();
+        const onNotif = (n: any) => {
+            fetchNotifications();
+            const body = String(n?.message || '').slice(0, 120);
+            try { toast(`${n?.title || 'Nueva notificación'}${body ? `\n${body}` : ''}`, { icon: '🔔' }); } catch { /* noop */ }
+            try {
+                if (Notif && Notif.permission === 'granted') {
+                    const dn = new Notif(n?.title || 'Pazzi', { body, tag: n?.link || undefined });
+                    dn.onclick = () => { try { window.focus(); if (n?.link) window.location.href = n.link; } catch { /* noop */ } };
+                }
+            } catch { /* noop */ }
+        };
+        socket.on('notification:new', onNotif);
+        return () => { socket.off('notification:new', onNotif); };
+    }, [currentUser, fetchNotifications]);
 
     // Carga de logs de inventario.
     // Desde M6, el endpoint devuelve { items, total } en vez de array plano.
