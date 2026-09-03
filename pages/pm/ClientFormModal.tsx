@@ -245,18 +245,28 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                         <PlusIcon className="w-3 h-3 mr-1"/> {t('pos.new_project')}
                     </button>
                 </div>
-                <select
-                    name="projectIds"
-                    multiple
-                    value={formData.projectIds || []}
-                    onChange={handleChange}
-                    className={inputFormStyle + " h-24"}
-                >
-                    {projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                </select>
-                <p className="text-xs text-neutral-500 mt-1">{t('client.field.projects_hint')}</p>
+                {/* Solo lectura: un proyecto pertenece a un cliente vía project.clientId (se define al
+                    crear/editar el proyecto). Aquí se listan SOLO los proyectos de ESTE cliente. */}
+                <div className={`${inputFormStyle} h-24 overflow-y-auto py-2`}>
+                    {(() => {
+                        const clientProjects = client ? projects.filter(p => p.clientId === client.id) : [];
+                        if (clientProjects.length === 0) {
+                            return <p className="text-sm text-neutral-400">{client ? 'Este cliente aún no tiene proyectos.' : 'Guarda el cliente para poder crearle proyectos.'}</p>;
+                        }
+                        return (
+                            <ul className="space-y-1">
+                                {clientProjects.map(p => (
+                                    <li key={p.id} className="text-sm text-neutral-700 dark:text-neutral-200 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                                        <span className="truncate">{p.name}</span>
+                                        <span className="text-xs text-neutral-400 flex-shrink-0">· {p.status}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        );
+                    })()}
+                </div>
+                <p className="text-xs text-neutral-500 mt-1">Los proyectos se asignan a un cliente al crearlos o editarlos. Usa “+ {t('pos.new_project')}” para crear uno para este cliente.</p>
             </div>
             <div><label className="block text-sm font-medium">{t('common.address')}</label><input type="text" name="address" value={formData.address} onChange={handleChange} className={inputFormStyle} /></div>
             <div className="grid grid-cols-3 gap-2">
