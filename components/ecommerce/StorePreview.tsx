@@ -69,9 +69,12 @@ export const StorePreview: React.FC<{ settings: ECommerceSettings }> = ({ settin
                 )}
                 {/* Hero (boutique) */}
                 {boutique && (
-                    <div style={{ background: primary }} className="text-white text-center px-3 py-5">
-                        <div className="text-base font-extrabold">{s.storeName || 'Mi Tienda'}</div>
-                        {s.tagline && <div className="text-[10px] opacity-90 mt-1">{s.tagline}</div>}
+                    <div style={{ background: primary }} className="relative overflow-hidden text-white text-center px-3 py-5">
+                        {s.bannerUrl && <img src={s.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />}
+                        <div className="relative">
+                            <div className="text-base font-extrabold drop-shadow">{s.storeName || 'Mi Tienda'}</div>
+                            {s.tagline && <div className="text-[10px] opacity-90 mt-1 drop-shadow">{s.tagline}</div>}
+                        </div>
                     </div>
                 )}
             </div>
@@ -105,10 +108,13 @@ export const StorePreview: React.FC<{ settings: ECommerceSettings }> = ({ settin
                     <CartBtn />
                 </div>
             </div>
-            <div style={{ background: primary }} className="text-white text-center px-3 py-6">
-                <div className="text-lg font-extrabold">{s.storeName || 'Mi Tienda'}</div>
-                {s.tagline && <div className="text-[10px] opacity-90 mt-1">{s.tagline}</div>}
-                <span className="inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-semibold" style={{ background: accent }}>{s.bannerCtaText || 'Ver productos'}</span>
+            <div style={{ background: primary }} className="relative overflow-hidden text-white text-center px-3 py-6">
+                {s.bannerUrl && <img src={s.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />}
+                <div className="relative">
+                    <div className="text-lg font-extrabold drop-shadow">{s.storeName || 'Mi Tienda'}</div>
+                    {s.tagline && <div className="text-[10px] opacity-90 mt-1 drop-shadow">{s.tagline}</div>}
+                    <span className="inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-semibold" style={{ background: accent }}>{s.bannerCtaText || 'Ver productos'}</span>
+                </div>
             </div>
         </>
     ) : (
@@ -126,9 +132,12 @@ export const StorePreview: React.FC<{ settings: ECommerceSettings }> = ({ settin
                 </div>
             </div>
             {(s.bannerUrl || s.tagline) && (
-                <div style={{ background: primary }} className="text-white text-center px-3 py-4">
-                    <div className="text-base font-bold">{s.storeName || 'Mi Tienda'}</div>
-                    {s.tagline && <div className="text-[10px] opacity-90 mt-1">{s.tagline}</div>}
+                <div style={{ background: primary }} className="relative overflow-hidden text-white text-center px-3 py-4">
+                    {s.bannerUrl && <img src={s.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />}
+                    <div className="relative">
+                        <div className="text-base font-bold drop-shadow">{s.storeName || 'Mi Tienda'}</div>
+                        {s.tagline && <div className="text-[10px] opacity-90 mt-1 drop-shadow">{s.tagline}</div>}
+                    </div>
                 </div>
             )}
         </>
