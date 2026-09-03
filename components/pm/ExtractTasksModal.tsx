@@ -7,6 +7,7 @@ import { tasksService } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { extractDocxText, isDocx } from '../../utils/docx';
+import { TaskStatus } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 
 interface SuggestionRow {
@@ -113,7 +114,9 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                     projectId,
                     title: r.title.trim(),
                     description: r.description.trim() || undefined,
-                    status: 'Tareas por Realizar',
+                    // Debe coincidir EXACTO con TaskStatus.TODO ('Tareas por realizar') o la tarea
+                    // se crea con un estado que no cae en ninguna columna del tablero y no se ve.
+                    status: TaskStatus.TODO as any,
                     section: section || null,
                     assignedEmployeeIds: r.assigneeId ? [r.assigneeId] : [],
                     dueDate: r.dueDate || null,

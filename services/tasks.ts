@@ -1,6 +1,7 @@
 import { api } from './api';
 
-export type TaskStatus = 'Tareas por Realizar' | 'En Progreso' | 'Para Aprobar' | 'Hecho';
+// OJO: deben coincidir EXACTO con el enum TaskStatus de types.ts (así los filtra el tablero).
+export type TaskStatus = 'Tareas por realizar' | 'En progreso' | 'Para aprobar' | 'Hecho';
 
 export interface TaskPayload {
   title: string;
