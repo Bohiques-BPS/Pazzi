@@ -666,6 +666,15 @@ export const POSCashierPage: React.FC = () => {
 
                 if (currentUser?.isEmergencyOrderActive && item.isEmergencyTaxExempt) return;
 
+                // Tasa propia del producto como FRACCIÓN. Fuente: ivaRate (0.115). `ivuRate` (percent)
+                // se mantiene como respaldo legacy. Si el producto es exento (tasa 0), NO cobra IVU en
+                // ningún modo (antes se ignoraba: item.ivuRate no existía y caía al default de la tienda).
+                let prodRateFrac = (item as any).ivaRate != null ? Number((item as any).ivaRate)
+                    : (item.ivuRate != null ? Number(item.ivuRate) / 100 : null);
+                // Salvaguarda: si algún producto legacy guardó la tasa como porcentaje (>1), la normalizamos.
+                if (prodRateFrac != null && prodRateFrac > 1) prodRateFrac = prodRateFrac / 100;
+                if (prodRateFrac === 0) return; // producto exento (No cobra IVU)
+
                 if (breakdown) {
                     if ((item as any).reducedTax) {
                         txReduced += taxableAmount * reducedRate;
@@ -674,12 +683,10 @@ export const POSCashierPage: React.FC = () => {
                         txMunicipal += taxableAmount * municipalRate;
                     }
                 } else {
-                    // Modo clásico: cliente exento total → sin IVU; si no, ivuRate del producto o el default global.
+                    // Modo clásico: cliente exento total → sin IVU; si no, la tasa del producto o el default.
                     if (clientFullyExempt) return;
-                    const fallbackPct = (Number(settings.defaultTaxRate) || 0) * 100;
-                    const rawRate = item.ivuRate != null ? Number(item.ivuRate) : fallbackPct;
-                    const rate = Number.isFinite(rawRate) ? rawRate : 0;
-                    tx += taxableAmount * (rate / 100);
+                    const rateFrac = (prodRateFrac != null && Number.isFinite(prodRateFrac)) ? prodRateFrac : (Number(settings.defaultTaxRate) || 0);
+                    tx += taxableAmount * rateFrac;
                 }
             });
             if (breakdown) tx = txState + txMunicipal + txReduced;

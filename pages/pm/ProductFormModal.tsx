@@ -178,6 +178,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     ...initialFormData, // Ensure all fields exist
                     ...productToEdit,
                     category: productToEdit.categoryId || '',
+                    // El backend usa `ivaRate`; el formulario usa `ivuRate`. Sin este mapeo, al reabrir
+                    // el producto la tasa volvía al default (0.115) y "No cobra IVU" salía desmarcado.
+                    ivuRate: (productToEdit as any).ivaRate != null ? Number((productToEdit as any).ivaRate) : ((productToEdit as any).ivuRate ?? initialFormData.ivuRate),
                     // Explicitly handle arrays and objects to avoid undefined references if checking properties
                     skus: Array.isArray(productToEdit.skus) 
                         ? productToEdit.skus.map((s: any) => typeof s === 'string' ? s : s.sku) 
