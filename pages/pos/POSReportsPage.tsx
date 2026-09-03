@@ -85,18 +85,18 @@ const ReportTable: React.FC<{ title: string; columns: Col[]; rows: any[]; empty?
         {rows.length === 0 ? (
             <p className="text-sm text-neutral-500">{empty || t('posx.reports.noDataPeriod')}</p>
         ) : (
-            <div className="overflow-x-auto border border-neutral-200 dark:border-neutral-700 rounded-md">
+            <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm">
                 <table className="min-w-full text-sm">
-                    <thead className="bg-neutral-100 dark:bg-neutral-900">
-                        <tr>{columns.map(c => <th key={c.key} className={`p-2 ${c.align === 'right' ? 'text-right' : 'text-left'}`}>{c.header}</th>)}</tr>
+                    <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700">
+                        <tr>{columns.map(c => <th key={c.key} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${c.align === 'right' ? 'text-right' : 'text-left'}`}>{c.header}</th>)}</tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
                         {rows.map((r, i) => (
-                            <tr key={r.id || i} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/40">
+                            <tr key={r.id || i} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
                                 {columns.map(c => {
                                     const v = r[c.key];
                                     const display = c.money ? money(Number(v)) : (v instanceof Date || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) ? new Date(v).toLocaleString() : v ?? '');
-                                    return <td key={c.key} className={`p-2 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>{display}</td>;
+                                    return <td key={c.key} className={`px-3 py-2 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>{display}</td>;
                                 })}
                             </tr>
                         ))}
@@ -303,21 +303,21 @@ const CortesTab: React.FC<{ data: any; onDetail: (id: string) => void }> = ({ da
                 <ExportButtons title={t('posx.reports.cashCuts')} columns={[{ header: t('posx.reports.colRegister'), key: 'cajaName' }, { header: t('posx.reports.colBranch'), key: 'branchName' }, { header: t('posx.reports.colClosedBy'), key: 'closedBy' }, { header: t('posx.reports.colClosing'), key: 'closedAt' }, { header: t('posx.reports.colFloat'), key: 'openingFloat', money: true }, { header: t('posx.reports.colExpected'), key: 'expectedCash', money: true }, { header: t('posx.reports.colCounted'), key: 'countedCash', money: true }, { header: t('posx.reports.colDifference'), key: 'difference', money: true }]} rows={rows} />
             </div>
             {rows.length === 0 ? <p className="text-sm text-neutral-500">{t('posx.reports.noClosures')}</p> : (
-                <div className="overflow-x-auto border border-neutral-200 dark:border-neutral-700 rounded-md">
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm">
                     <table className="min-w-full text-sm">
-                        <thead className="bg-neutral-100 dark:bg-neutral-900"><tr>
-                            {[t('posx.reports.colRegister'), t('posx.reports.colBranch'), t('posx.reports.colClosedBy'), t('posx.reports.colClosing'), t('posx.reports.colFloat'), t('posx.reports.colExpected'), t('posx.reports.colCounted'), t('posx.reports.colDifference'), ''].map((h, i) => <th key={i} className={`p-2 ${i >= 4 ? 'text-right' : 'text-left'}`}>{h}</th>)}
+                        <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700"><tr>
+                            {[t('posx.reports.colRegister'), t('posx.reports.colBranch'), t('posx.reports.colClosedBy'), t('posx.reports.colClosing'), t('posx.reports.colFloat'), t('posx.reports.colExpected'), t('posx.reports.colCounted'), t('posx.reports.colDifference'), ''].map((h, i) => <th key={i} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${i >= 4 ? 'text-right' : 'text-left'}`}>{h}</th>)}
                         </tr></thead>
-                        <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
                             {rows.map((r: any) => (
-                                <tr key={r.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/40">
-                                    <td className="p-2">{r.cajaName}</td><td className="p-2">{r.branchName}</td><td className="p-2">{r.closedBy}</td>
-                                    <td className="p-2">{r.closedAt ? new Date(r.closedAt).toLocaleString() : '—'}</td>
-                                    <td className="p-2 text-right tabular-nums">{money(r.openingFloat)}</td>
-                                    <td className="p-2 text-right tabular-nums">{money(r.expectedCash)}</td>
-                                    <td className="p-2 text-right tabular-nums">{money(r.countedCash)}</td>
-                                    <td className={`p-2 text-right tabular-nums font-semibold ${r.difference < 0 ? 'text-red-600' : r.difference > 0 ? 'text-amber-600' : 'text-green-600'}`}>{money(r.difference)}</td>
-                                    <td className="p-2 text-right"><button onClick={() => onDetail(r.id)} className="text-primary hover:underline text-xs">{t('posx.reports.viewPrint')}</button></td>
+                                <tr key={r.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
+                                    <td className="px-3 py-2">{r.cajaName}</td><td className="px-3 py-2">{r.branchName}</td><td className="px-3 py-2">{r.closedBy}</td>
+                                    <td className="px-3 py-2">{r.closedAt ? new Date(r.closedAt).toLocaleString() : '—'}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{money(r.openingFloat)}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{money(r.expectedCash)}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{money(r.countedCash)}</td>
+                                    <td className={`px-3 py-2 text-right tabular-nums font-semibold ${r.difference < 0 ? 'text-red-600 dark:text-red-400' : r.difference > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>{money(r.difference)}</td>
+                                    <td className="px-3 py-2 text-right"><button onClick={() => onDetail(r.id)} className="text-primary hover:underline text-xs">{t('posx.reports.viewPrint')}</button></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -417,10 +417,10 @@ const SessionDetailModal: React.FC<{ detail: any; onClose: () => void }> = ({ de
                 </div>
                 <div>
                     <h4 className="font-semibold text-sm mb-1">{tr('posx.reports.byPaymentMethod')}</h4>
-                    <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded">
-                        <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                    <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
                             {arr(detail?.byMethod).map((m: any) => (
-                                <tr key={m.paymentMethod}><td className="p-2">{m.paymentMethod}</td><td className="p-2 text-right">{m._count}</td><td className="p-2 text-right">{money(m._sum?.totalAmount || 0)}</td></tr>
+                                <tr key={m.paymentMethod} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30"><td className="px-3 py-2">{m.paymentMethod}</td><td className="px-3 py-2 text-right tabular-nums">{m._count}</td><td className="px-3 py-2 text-right tabular-nums">{money(m._sum?.totalAmount || 0)}</td></tr>
                             ))}
                         </tbody>
                     </table>
@@ -428,10 +428,10 @@ const SessionDetailModal: React.FC<{ detail: any; onClose: () => void }> = ({ de
                 {s.movements?.length > 0 && (
                     <div>
                         <h4 className="font-semibold text-sm mb-1">{tr('posx.reports.cashMovements')}</h4>
-                        <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded">
-                            <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                        <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+                            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
                                 {s.movements.map((m: any) => (
-                                    <tr key={m.id}><td className="p-2">{MOVEMENT_LABEL[m.type] ? tr('posx.reports.movement.' + m.type) : m.type}</td><td className="p-2">{m.reason}</td><td className="p-2 text-right">{money(m.amount)}</td></tr>
+                                    <tr key={m.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30"><td className="px-3 py-2">{MOVEMENT_LABEL[m.type] ? tr('posx.reports.movement.' + m.type) : m.type}</td><td className="px-3 py-2">{m.reason}</td><td className="px-3 py-2 text-right tabular-nums">{money(m.amount)}</td></tr>
                                 ))}
                             </tbody>
                         </table>

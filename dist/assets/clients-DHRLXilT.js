@@ -1,1 +1,0 @@
-import{af as t}from"./index-CHsDOTRQ.js";const c={getAll:e=>t.get("/clients",e),getById:e=>t.get(`/clients/${e}`),getSummary:(e,s)=>t.get(`/clients/${e}/summary`,s),create:e=>t.post("/clients",e),bulkImport:e=>t.post("/clients/import",{items:e}),update:(e,s)=>t.put(`/clients/${e}`,s),delete:e=>t.delete(`/clients/${e}`)};export{c};
