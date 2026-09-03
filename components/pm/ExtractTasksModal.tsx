@@ -40,9 +40,12 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
     const [analyzed, setAnalyzed] = useState(false);
     const [rows, setRows] = useState<SuggestionRow[]>([]);
     const [creating, setCreating] = useState(false);
+    // Controla si se muestra el bloque de entrada (textarea + subir archivo). Se colapsa al obtener
+    // tareas para dar espacio a la lista; el botón "Editar texto" lo vuelve a mostrar.
+    const [showInput, setShowInput] = useState(true);
 
     useEffect(() => {
-        if (isOpen) { setTranscript(initialTranscript || ''); setRows([]); setAnalyzed(false); }
+        if (isOpen) { setTranscript(initialTranscript || ''); setRows([]); setAnalyzed(false); setShowInput(true); }
     }, [isOpen, initialTranscript]);
 
     const matchEmp = (hint?: string): string => {
@@ -91,7 +94,9 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                 dueHint: s.dueDateHint,
             })));
             setAnalyzed(true);
-            if (!suggestions || suggestions.length === 0) toast.info('No se detectaron tareas claras en el texto.');
+            // Si hubo tareas, colapsamos el textarea para dar espacio a la lista.
+            if (suggestions && suggestions.length > 0) { setShowInput(false); }
+            else { setShowInput(true); toast.info('No se detectaron tareas claras en el texto.'); }
         } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo analizar el documento.'); }
         finally { setAnalyzing(false); }
     };
@@ -125,28 +130,39 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title || 'Analizar documento → tareas'} size="lg">
             <div className="space-y-4">
-                <div>
-                    <label className="block text-xs text-neutral-500 mb-1">Documento / transcripción</label>
-                    <textarea
-                        value={transcript}
-                        onChange={e => setTranscript(e.target.value)}
-                        rows={14}
-                        placeholder="Pega aquí el documento o la transcripción (de una llamada, notas, requerimientos…). La IA sugerirá posibles tareas; tú decides cuáles crear."
-                        className={`${INPUT_SM_CLASSES} w-full font-mono text-xs min-h-[340px] resize-y`}
-                    />
-                    <div className="flex justify-between items-center mt-2 gap-2 flex-wrap">
-                        <div className="flex items-center gap-3">
-                            <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer`}>
-                                Subir archivo
-                                <input type="file" accept=".txt,.vtt,.srt,.md,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFile} className="hidden" />
-                            </label>
-                            <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
+                {showInput ? (
+                    <div>
+                        <label className="block text-xs text-neutral-500 mb-1">Documento / transcripción</label>
+                        <textarea
+                            value={transcript}
+                            onChange={e => setTranscript(e.target.value)}
+                            rows={14}
+                            placeholder="Pega aquí el documento o la transcripción (de una llamada, notas, requerimientos…). La IA sugerirá posibles tareas; tú decides cuáles crear."
+                            className={`${INPUT_SM_CLASSES} w-full font-mono text-xs min-h-[340px] resize-y`}
+                        />
+                        <div className="flex justify-between items-center mt-2 gap-2 flex-wrap">
+                            <div className="flex items-center gap-3">
+                                <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer`}>
+                                    Subir archivo
+                                    <input type="file" accept=".txt,.vtt,.srt,.md,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFile} className="hidden" />
+                                </label>
+                                <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
+                                {analyzed && rows.length > 0 && (
+                                    <button onClick={() => setShowInput(false)} className="text-xs text-neutral-500 hover:underline">Ocultar</button>
+                                )}
+                            </div>
+                            <button onClick={analyze} disabled={analyzing || transcript.trim().length < 20} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
+                                {analyzing ? 'Analizando…' : (analyzed ? 'Volver a analizar' : 'Analizar y sugerir tareas')}
+                            </button>
                         </div>
-                        <button onClick={analyze} disabled={analyzing || transcript.trim().length < 20} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                            {analyzing ? 'Analizando…' : (analyzed ? 'Volver a analizar' : 'Analizar y sugerir tareas')}
-                        </button>
                     </div>
-                </div>
+                ) : (
+                    // Barra compacta cuando el textarea está colapsado (tras obtener tareas).
+                    <div className="flex items-center justify-between gap-2 rounded-md bg-neutral-50 dark:bg-neutral-700/40 border border-neutral-200 dark:border-neutral-700 px-3 py-2">
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400">Documento analizado · {transcript.trim().length} caracteres</span>
+                        <button onClick={() => setShowInput(true)} className="text-xs font-medium text-primary hover:underline flex items-center gap-1">← Editar texto / volver a analizar</button>
+                    </div>
+                )}
 
                 {analyzed && (
                     rows.length === 0 ? (
@@ -167,7 +183,10 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                                             <input type="checkbox" checked={r.accepted} onChange={e => patchRow(i, { accepted: e.target.checked })} className="mt-2 h-4 w-4 flex-shrink-0" />
                                             <div className="flex-1 space-y-2">
                                                 <input type="text" value={r.title} onChange={e => patchRow(i, { title: e.target.value })} className={`${INPUT_SM_CLASSES} w-full font-medium`} placeholder="Título de la tarea" />
-                                                {r.description && <p className="text-xs text-neutral-500 dark:text-neutral-400">{r.description}</p>}
+                                                <div>
+                                                    <label className="block text-[11px] text-neutral-400 mb-0.5">Descripción</label>
+                                                    <textarea value={r.description} onChange={e => patchRow(i, { description: e.target.value })} rows={3} placeholder="Descripción de la tarea" className={`${INPUT_SM_CLASSES} w-full text-xs resize-y min-h-[64px]`} />
+                                                </div>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                     <div>
                                                         <label className="block text-[11px] text-neutral-400 mb-0.5">Responsable</label>
