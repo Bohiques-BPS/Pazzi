@@ -8,6 +8,7 @@ import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
 import { getSocket, joinProjectRoom } from '../../services/socket';
+import { useChatUnread, markProjectChatRead } from '../../hooks/useChatUnread';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -19,6 +20,7 @@ export const ProjectChatPage: React.FC = () => {
     const { t } = useTranslation();
     const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
+    const { unreadByProject } = useChatUnread(true);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
     const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
@@ -32,7 +34,10 @@ export const ProjectChatPage: React.FC = () => {
     const isEmployeeView = currentUser?.role === UserRole.EMPLOYEE;
 
     const activeProjects = useMemo(() => {
-        const baseProjects = allProjectsContext.filter(p => p.status === ProjectStatus.ACTIVE || p.status === ProjectStatus.PENDING);
+        // Mostrar TODOS los proyectos accesibles (incluye Completados): un proyecto cerrado puede
+        // seguir teniendo conversación. Antes se filtraba a Activo/Pendiente y los completados
+        // desaparecían de la lista de chat aunque tuvieran mensajes.
+        const baseProjects = allProjectsContext;
         if (isEmployeeView && currentUser) {
             return baseProjects.filter(p => (p.assignedEmployeeIds ?? []).includes(currentUser.id));
         }
@@ -67,11 +72,12 @@ export const ProjectChatPage: React.FC = () => {
             return;
         }
         fetchMessages(selectedProjectId);
+        markProjectChatRead(selectedProjectId); // al abrir el chat, se considera leído
         const interval = setInterval(() => fetchMessages(selectedProjectId), POLLING_INTERVAL_MS);
         // Tiempo real: unirse a la sala del proyecto y escuchar mensajes nuevos.
         const leave = joinProjectRoom(selectedProjectId);
         const socket = getSocket();
-        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === selectedProjectId) appendMessage(msg); };
+        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === selectedProjectId) { appendMessage(msg); markProjectChatRead(selectedProjectId); } };
         socket.on('chat:message', onMessage);
         return () => { clearInterval(interval); socket.off('chat:message', onMessage); leave?.(); };
     }, [selectedProjectId, fetchMessages, appendMessage]);
@@ -145,14 +151,17 @@ export const ProjectChatPage: React.FC = () => {
                     {activeProjects.length > 0 ? activeProjects.map(project => (
                         <button
                             key={project.id}
-                            onClick={() => setSelectedProjectId(project.id)}
-                            className={`w-full text-left p-2.5 rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50
-                                ${selectedProjectId === project.id 
-                                    ? 'bg-primary text-white font-medium shadow-sm' 
+                            onClick={() => { setSelectedProjectId(project.id); markProjectChatRead(project.id); }}
+                            className={`w-full text-left p-2.5 rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center gap-2
+                                ${selectedProjectId === project.id
+                                    ? 'bg-primary text-white font-medium shadow-sm'
                                     : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
                         >
-                            {project.name}
-                             <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                            {unreadByProject[project.id] && selectedProjectId !== project.id && (
+                                <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500" aria-label="sin leer" />
+                            )}
+                            <span className="truncate">{project.name}</span>
+                             <span className={`ml-auto text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                                 project.status === ProjectStatus.ACTIVE ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-200' :
                                 project.status === ProjectStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200' : ''
                              }`}>

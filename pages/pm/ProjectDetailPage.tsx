@@ -22,6 +22,7 @@ import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
 import { getSocket, joinProjectRoom } from '../../services/socket';
+import { markProjectChatRead } from '../../hooks/useChatUnread';
 import { ApiError } from '../../services/api';
 import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
 
@@ -566,9 +567,10 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
 
     // Tiempo real: unirse a la sala del proyecto y escuchar mensajes nuevos por socket.
     useEffect(() => {
+        markProjectChatRead(project.id); // ver el chat del proyecto lo marca como leído
         const leave = joinProjectRoom(project.id);
         const socket = getSocket();
-        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === project.id) appendMessage(msg); };
+        const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === project.id) { appendMessage(msg); markProjectChatRead(project.id); } };
         socket.on('chat:message', onMessage);
         return () => { socket.off('chat:message', onMessage); leave?.(); };
     }, [project.id, appendMessage]);

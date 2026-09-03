@@ -1,1 +1,0 @@
-import{ac as e}from"./index-4vxhjNBU.js";const o={getProducts:t=>e.get("/public/products",t),getProduct:t=>e.get(`/public/products/${t}`),getStoreSettings:t=>e.get(`/public/store/${t}`),createOrder:t=>e.post("/public/orders",t),getOrder:(t,r)=>e.get(`/public/orders/${t}`,{email:r})};export{o as p};

@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AppModule, UserRole } from '../../types'; 
 import { APP_MODULES_CONFIG, SidebarItemConfig, SubModuleGroup, SubModuleLink } from '../../constants'; 
-import { useAuth } from '../../contexts/AuthContext'; 
+import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
+import { useChatUnread } from '../../hooks/useChatUnread';
 import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon } from '../icons'; 
 
 interface SidebarProps {
@@ -21,6 +22,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   // Por defecto TODOS los grupos CERRADOS; solo UNO abierto a la vez (acordeón).
   // null = ninguno abierto.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  // Badge de chats de proyecto sin leer (solo consulta estando en el módulo de Proyectos).
+  const { totalUnread: unreadChats } = useChatUnread(currentModule === AppModule.PROJECT_MANAGEMENT);
 
   let subModulesToDisplay: SidebarItemConfig[] = []; 
 
@@ -146,6 +149,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" aria-hidden="true" />}
         {Icon && <span className="mr-2 w-6 h-6 flex items-center justify-center flex-shrink-0"><Icon className="w-5 h-5" /></span>}
         <span className="truncate">{translatedName}</span>
+        {item.path === '/pm/chat' && unreadChats > 0 && (
+          <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center" aria-label={`${unreadChats} sin leer`}>
+            {unreadChats}
+          </span>
+        )}
       </Link>
     );
   };
