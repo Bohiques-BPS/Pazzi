@@ -4,7 +4,7 @@ import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { useNavigate } from 'react-router-dom';
 import { Project, ProjectStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
-import { ConfirmationModal } from '../../components/Modal';
+import { ConfirmationModal, Modal } from '../../components/Modal';
 import { ProjectCard } from '../../components/cards/ProjectCard';
 import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon, BriefcaseIcon, ClipboardDocumentListIcon, ChartBarIcon, UserGroupIcon } from '../../components/icons';
 import { DataTable, TableColumn } from '../../components/DataTable';
@@ -32,6 +32,16 @@ export const ProjectsListPage: React.FC = () => {
 
     const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>('Todos');
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+    const [showTasksModal, setShowTasksModal] = useState(false);
+    const [showCollabModal, setShowCollabModal] = useState(false);
+
+    // Tareas pendientes (todas las de proyectos, sin archivar y sin completar) con el nombre del proyecto.
+    const pendingTaskRows = useMemo(() => {
+        const projName = new Map(projects.map(p => [p.id, p.name]));
+        return tasks
+            .filter(tk => !tk.archived && tk.status !== 'Hecho')
+            .map(tk => ({ ...tk, projectName: projName.get(tk.projectId) || '—' }));
+    }, [tasks, projects]);
 
 
     const handleViewProject = (project: Project, initialTab: 'details' | 'chat' | 'tasks' = 'details') => {
@@ -159,9 +169,9 @@ export const ProjectsListPage: React.FC = () => {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
                     { icon: BriefcaseIcon, label: t('project.kpi.active'), value: kpis.active, onClick: () => setStatusFilter(ProjectStatus.ACTIVE) },
-                    { icon: ClipboardDocumentListIcon, label: t('project.kpi.pending_tasks'), value: kpis.pendingTasks, onClick: () => navigate('/pm/dashboard') },
+                    { icon: ClipboardDocumentListIcon, label: t('project.kpi.pending_tasks'), value: kpis.pendingTasks, onClick: () => setShowTasksModal(true) },
                     { icon: ChartBarIcon, label: t('project.kpi.completed'), value: kpis.completed, onClick: () => setStatusFilter(ProjectStatus.COMPLETED) },
-                    { icon: UserGroupIcon, label: t('project.kpi.collaborators'), value: kpis.collaborators, onClick: () => navigate('/tienda/employees') },
+                    { icon: UserGroupIcon, label: t('project.kpi.collaborators'), value: kpis.collaborators, onClick: () => setShowCollabModal(true) },
                 ].map((k, i) => {
                     const Icon = k.icon;
                     return (
@@ -249,6 +259,68 @@ export const ProjectsListPage: React.FC = () => {
                 })()}
                 confirmButtonText={t('pm2x.common.yes_delete')}
             />
+
+            {/* Tareas pendientes: tabla en la misma vista (antes navegaba al dashboard). */}
+            <Modal isOpen={showTasksModal} onClose={() => setShowTasksModal(false)} title={`${t('project.kpi.pending_tasks')} (${pendingTaskRows.length})`} size="3xl">
+                {pendingTaskRows.length === 0 ? (
+                    <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">{'Sin tareas pendientes.'}</p>
+                ) : (
+                    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700 max-h-[60vh]">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700 sticky top-0">
+                                <tr>
+                                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{'Tarea'}</th>
+                                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{'Proyecto'}</th>
+                                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{'Estado'}</th>
+                                    <th className="px-3 py-2.5"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
+                                {pendingTaskRows.map(tk => (
+                                    <tr key={tk.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30">
+                                        <td className="px-3 py-2">{tk.title}</td>
+                                        <td className="px-3 py-2">{(tk as any).projectName}</td>
+                                        <td className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700">{tk.status}</span></td>
+                                        <td className="px-3 py-2 text-right">
+                                            <button onClick={() => { setShowTasksModal(false); navigate(`/pm/projects/${tk.projectId}?tab=tasks`); }} className="text-primary hover:underline text-xs">{'Abrir'}</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Colaboradores: tabla en la misma vista (antes iba al módulo Tienda). */}
+            <Modal isOpen={showCollabModal} onClose={() => setShowCollabModal(false)} title={`${t('project.kpi.collaborators')} (${allEmployees.length})`} size="3xl">
+                {allEmployees.length === 0 ? (
+                    <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">{'Sin colaboradores.'}</p>
+                ) : (
+                    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700 max-h-[60vh]">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700 sticky top-0">
+                                <tr>
+                                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{'Nombre'}</th>
+                                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{'Email'}</th>
+                                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{'Rol'}</th>
+                                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{'Departamento'}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
+                                {allEmployees.map((e: any) => (
+                                    <tr key={e.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30">
+                                        <td className="px-3 py-2">{`${e.name || ''} ${e.lastName || ''}`.trim() || '—'}</td>
+                                        <td className="px-3 py-2">{e.email || '—'}</td>
+                                        <td className="px-3 py-2">{e.roleName || e.position || e.role || '—'}</td>
+                                        <td className="px-3 py-2">{e.department || e.departmentName || '—'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };
