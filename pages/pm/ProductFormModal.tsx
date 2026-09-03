@@ -500,7 +500,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     const targetTab = fieldToTabMap[firstErrorField];
                     if (targetTab) setActiveTab(targetTab);
 
-                    setGeneralError(`${t('pmx.product.server_error_prefix')}: ${Object.values(backendErrors).join('. ') || t('pmx.product.save_unexpected')}`);
+                    // El BE ahora manda un `error` con TODOS los campos ("campo: motivo · …"); si viene,
+                    // lo mostramos completo; si no, unimos lo de cada campo.
+                    const fullMsg = (typeof result.error === 'string' && result.error) || Object.values(backendErrors).join('. ') || t('pmx.product.save_unexpected');
+                    setGeneralError(`${t('pmx.product.server_error_prefix')}: ${fullMsg}`);
             } else {
                 // Surface la causa REAL: prueba varias claves y, si no hay, incluye el status HTTP.
                 const backendMsg =
