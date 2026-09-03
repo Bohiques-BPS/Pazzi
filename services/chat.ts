@@ -24,4 +24,7 @@ export const chatService = {
 
   /** Último mensaje + conteo por proyecto (para el indicador de no leídos). */
   getOverview: () => api.get<ChatOverviewRow[]>('/chat/overview'),
+
+  /** Marca leídas las notificaciones (campanita) de chat de un proyecto para el usuario actual. */
+  markRead: (projectId: string) => api.post<{ ok: boolean }>(`/chat/${encodeURIComponent(projectId)}/read`, {}),
 };

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { chatService } from '../services/chat';
 
+// Evita disparar el POST de "marcar leído" repetidamente para el mismo proyecto en poco tiempo.
+const recentlyMarked: Record<string, number> = {};
+
 // Indicador de mensajes de chat sin leer, por proyecto. "Leído" se guarda por navegador
 // (localStorage): al abrir/enviar en un chat se marca la marca de tiempo actual, y un proyecto
 // cuenta como no leído si su último mensaje es posterior a esa marca.
@@ -18,6 +21,13 @@ export const markProjectChatRead = (projectId: string) => {
     try { localStorage.setItem(LAST_READ_PREFIX + projectId, String(Date.now())); }
     catch { /* almacenamiento no disponible */ }
     try { window.dispatchEvent(new CustomEvent('chat-read', { detail: { projectId } })); } catch { /* noop */ }
+    // Limpia la notificación (campanita) de chat de ese proyecto en el backend. Throttle 5s para
+    // no spamear el endpoint cuando llegan varios mensajes con el chat abierto.
+    const now = Date.now();
+    if (now - (recentlyMarked[projectId] || 0) > 5000) {
+        recentlyMarked[projectId] = now;
+        chatService.markRead(projectId).catch(() => { /* fire-and-forget */ });
+    }
 };
 
 interface UnreadState {
