@@ -127,6 +127,9 @@ export const ClientsListPage: React.FC = () => {
     const columns: TableColumn<Client>[] = [
         {
             header: t('common.name'),
+            // Estas columnas renderizan JSX; sin filterValue/sortValue el buscador no ve su texto.
+            filterValue: (client) => client.name,
+            sortValue: (client) => client.name,
             accessor: (client) => (
                 <div className="flex items-center min-w-[120px]">
                     <span className="truncate sm:whitespace-normal">{client.name}</span>
@@ -141,8 +144,8 @@ export const ClientsListPage: React.FC = () => {
         { header: t('client.field.lastname'), accessor: 'lastName' },
         { header: t('common.email'), accessor: 'email', noWrap: false },
         { header: t('common.phone'), accessor: 'phone' },
-        { header: t('client.field.type'), accessor: (client) => client.clientType || 'N/A' },
-        { header: t('client.field.company'), accessor: (client) => client.companyName || 'N/A', noWrap: false },
+        { header: t('client.field.type'), filterValue: (client) => client.clientType || '', sortValue: (client) => client.clientType || '', accessor: (client) => client.clientType || 'N/A' },
+        { header: t('client.field.company'), filterValue: (client) => client.companyName || '', sortValue: (client) => client.companyName || '', accessor: (client) => client.companyName || 'N/A', noWrap: false },
     ];
 
     return (
