@@ -9,6 +9,7 @@ import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
 import { getSocket, joinProjectRoom } from '../../services/socket';
 import { useChatUnread, markProjectChatRead } from '../../hooks/useChatUnread';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -20,6 +21,7 @@ export const ProjectChatPage: React.FC = () => {
     const { t } = useTranslation();
     const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
+    const { can } = usePermissions();
     const { unreadByProject } = useChatUnread(true);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
@@ -38,11 +40,13 @@ export const ProjectChatPage: React.FC = () => {
         // seguir teniendo conversación. Antes se filtraba a Activo/Pendiente y los completados
         // desaparecían de la lista de chat aunque tuvieran mensajes.
         const baseProjects = allProjectsContext;
-        if (isEmployeeView && currentUser) {
+        // Un empleado con 'projects.viewAll' (encargado de proyectos) ve TODOS los chats; el resto,
+        // solo los de proyectos asignados.
+        if (isEmployeeView && currentUser && !can('projects.viewAll')) {
             return baseProjects.filter(p => (p.assignedEmployeeIds ?? []).includes(currentUser.id));
         }
         return baseProjects;
-    }, [allProjectsContext, currentUser, isEmployeeView]);
+    }, [allProjectsContext, currentUser, isEmployeeView, can]);
 
     const selectedProject = selectedProjectId ? allProjectsContext.find(p => p.id === selectedProjectId) : null;
 
