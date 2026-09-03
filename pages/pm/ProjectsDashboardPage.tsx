@@ -219,9 +219,12 @@ export const ProjectsDashboardPage: React.FC = () => {
                                             <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
                                                 <div className="h-full rounded-full" style={{ width: `${prog}%`, background: PRIMARY }} />
                                             </div>
-                                            <span className="text-xs text-neutral-500 w-9 text-right">{prog}%</span>
+                                            <span className="text-xs text-neutral-500 w-9 text-right tabular-nums">{prog}%</span>
                                         </div>
-                                        <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${badge.cls}`}>{badge.txt}</span>
+                                        {/* Columna de estado con ancho fijo: alinea barra/% aunque el texto del badge cambie. */}
+                                        <div className="w-28 flex justify-end flex-shrink-0">
+                                            <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full text-center ${badge.cls}`}>{badge.txt}</span>
+                                        </div>
                                     </button>
                                 );
                             })}
