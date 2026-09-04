@@ -30,7 +30,7 @@ const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete }) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
-    const { getAllEmployees } = useData();
+    const { getAllEmployees, projects } = useData();
     const [title, setTitle] = useState(task.title);
     const [description, setDescription] = useState(task.description || '');
     const [assignedIds, setAssignedIds] = useState<string[]>(task.assignedEmployeeIds || []);
@@ -48,7 +48,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [newCheckItem, setNewCheckItem] = useState('');
     const [addingCheck, setAddingCheck] = useState(false);
 
-    const allEmployees = useMemo(() => getAllEmployees(), [getAllEmployees]);
+    // Solo se pueden asignar tareas a personas ASIGNADAS al proyecto. La asignación del proyecto
+    // guarda User.id; los empleados enlazan con userId (o su propio id según el flujo), así que
+    // matcheamos por ambos. Si el proyecto no tuviera asignados, caemos a todos (para no bloquear).
+    const allEmployees = useMemo(() => {
+        const project = projects.find(p => p.id === (task as any).projectId);
+        const assigned = new Set(project?.assignedEmployeeIds || []);
+        if (assigned.size === 0) return getAllEmployees();
+        return getAllEmployees().filter((e: any) => assigned.has(e.userId) || assigned.has(e.id));
+    }, [getAllEmployees, projects, task]);
 
     useEffect(() => {
         setComments(((task as any).comments as TaskCommentRecord[]) || []);

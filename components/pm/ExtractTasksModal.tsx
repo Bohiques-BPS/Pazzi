@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Modal } from '../Modal';
 import { useData } from '../../contexts/DataContext';
 import { projectsService } from '../../services/projects';
@@ -35,7 +35,14 @@ interface Props {
 
 /** Analiza un documento/transcripción con IA y deja que el empleado elija qué tareas crear. */
 export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId, meetingId, initialTranscript, section, onCreated, title }) => {
-    const { employees } = useData();
+    const { employees: allEmps, projects } = useData();
+    // Solo colaboradores ASIGNADOS al proyecto (matcheando por userId o id). Si no hay asignados, todos.
+    const employees = useMemo(() => {
+        const project = projects.find(p => p.id === projectId);
+        const assigned = new Set(project?.assignedEmployeeIds || []);
+        if (assigned.size === 0) return allEmps;
+        return allEmps.filter((e: any) => assigned.has(e.userId) || assigned.has(e.id));
+    }, [allEmps, projects, projectId]);
     const [transcript, setTranscript] = useState('');
     const [analyzing, setAnalyzing] = useState(false);
     const [analyzed, setAnalyzed] = useState(false);
