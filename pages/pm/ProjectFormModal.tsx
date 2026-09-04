@@ -534,13 +534,14 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                                                 value={formData.clientId || ''}
                                                 onChange={(v) => setFormData(prev => ({ ...prev, clientId: v }))}
                                                 disabled={!canEditDetails}
+                                                className={inputFormStyle}
                                             />
                                         </div>
                                         <button
                                             type="button"
                                             onClick={() => setShowCreateClient(true)}
                                             disabled={!canEditDetails}
-                                            className="flex-shrink-0 h-9 px-3 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                             title={t('pm2x.project.create_client')}
                                         >+</button>
                                     </div>

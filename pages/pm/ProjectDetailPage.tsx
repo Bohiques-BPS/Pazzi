@@ -310,13 +310,14 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                         value={formData.clientId || ''}
                                         onChange={(id) => handleChange({ target: { name: 'clientId', value: id } } as any)}
                                         disabled={!canEditDetails}
+                                        className={inputFormStyle}
                                     />
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => setShowCreateClient(true)}
                                     disabled={!canEditDetails}
-                                    className="flex-shrink-0 p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
                                     title={t('pm2x.project.create_client')}
                                     aria-label={t('pm2x.project.create_client')}
                                 >
@@ -326,7 +327,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                     type="button"
                                     onClick={() => setIsClientDetailModalOpen(true)}
                                     disabled={!selectedClientDetails || !canEditDetails}
-                                    className="p-2 rounded-md bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-md bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     aria-label={t('pm2x.project.view_client')}
                                 >
                                     <EyeIcon className="w-5 h-5" />
