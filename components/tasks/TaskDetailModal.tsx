@@ -53,9 +53,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     // matcheamos por ambos. Si el proyecto no tuviera asignados, caemos a todos (para no bloquear).
     const allEmployees = useMemo(() => {
         const project = projects.find(p => p.id === (task as any).projectId);
-        const assigned = new Set(project?.assignedEmployeeIds || []);
-        if (assigned.size === 0) return getAllEmployees();
-        return getAllEmployees().filter((e: any) => assigned.has(e.userId) || assigned.has(e.id));
+        // Proyecto desconocido (no cargado): no bloqueamos. Proyecto encontrado: SOLO sus asignados
+        // (match por userId, id de empleado, o user.id anidado), aunque sean 0.
+        if (!project) return getAllEmployees();
+        const assigned = new Set((project.assignedEmployeeIds || []).map(String));
+        return getAllEmployees().filter((e: any) => assigned.has(String(e.userId)) || assigned.has(String(e.id)) || assigned.has(String(e.user?.id)));
     }, [getAllEmployees, projects, task]);
 
     useEffect(() => {

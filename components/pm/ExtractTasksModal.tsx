@@ -39,9 +39,9 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
     // Solo colaboradores ASIGNADOS al proyecto (matcheando por userId o id). Si no hay asignados, todos.
     const employees = useMemo(() => {
         const project = projects.find(p => p.id === projectId);
-        const assigned = new Set(project?.assignedEmployeeIds || []);
-        if (assigned.size === 0) return allEmps;
-        return allEmps.filter((e: any) => assigned.has(e.userId) || assigned.has(e.id));
+        if (!project) return allEmps; // proyecto desconocido: no bloquear
+        const assigned = new Set((project.assignedEmployeeIds || []).map(String));
+        return allEmps.filter((e: any) => assigned.has(String(e.userId)) || assigned.has(String(e.id)) || assigned.has(String(e.user?.id)));
     }, [allEmps, projects, projectId]);
     const [transcript, setTranscript] = useState('');
     const [analyzing, setAnalyzing] = useState(false);
