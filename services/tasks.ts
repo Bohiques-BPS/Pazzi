@@ -53,6 +53,10 @@ export const tasksService = {
 
   create: (data: TaskPayload) => api.post<TaskRecord>('/tasks', data),
 
+  /** Crea varias tareas en una sola llamada (ej. las sugeridas por la IA). */
+  createBulk: (data: { projectId: string; tasks: TaskPayload[] }) =>
+    api.post<{ created: number; tasks: TaskRecord[] }>('/tasks/bulk', data),
+
   update: (id: string, data: Partial<TaskPayload>) =>
     api.put<TaskRecord>(`/tasks/${id}`, data),
 

@@ -7,6 +7,7 @@ import { tasksService } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { extractDocxText, isDocx } from '../../utils/docx';
+import { extractPdfText, isPdf } from '../../utils/pdf';
 import { TaskStatus } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 
@@ -76,6 +77,9 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
             if (isDocx(file)) {
                 text = await extractDocxText(file);
                 if (!text.trim()) { toast.error('El documento no contiene texto legible.'); return; }
+            } else if (isPdf(file)) {
+                text = await extractPdfText(file);
+                if (!text.trim()) { toast.error('El PDF no contiene texto legible (¿es un escaneo/imagen?).'); return; }
             } else {
                 text = await file.text();
             }
@@ -116,22 +120,22 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
         if (chosen.length === 0) { toast.error('Selecciona al menos una tarea.'); return; }
         setCreating(true);
         try {
-            for (const r of chosen) {
-                await tasksService.create({
-                    projectId,
+            // Una sola llamada para todas (antes hacía un POST por tarea). El estado debe coincidir
+            // EXACTO con TaskStatus.TODO ('Tareas por realizar') o no cae en ninguna columna del tablero.
+            const res = await tasksService.createBulk({
+                projectId,
+                tasks: chosen.map(r => ({
                     title: r.title.trim(),
                     description: r.description.trim() || undefined,
-                    // Debe coincidir EXACTO con TaskStatus.TODO ('Tareas por realizar') o la tarea
-                    // se crea con un estado que no cae en ninguna columna del tablero y no se ve.
                     status: TaskStatus.TODO as any,
                     section: section || null,
                     assignedEmployeeIds: r.assigneeId ? [r.assigneeId] : [],
                     dueDate: r.dueDate || null,
                     priority: r.priority || null,
-                });
-            }
-            toast.success(`${chosen.length} tarea(s) creada(s).`);
-            onCreated?.(chosen.length);
+                })),
+            });
+            toast.success(`${res.created ?? chosen.length} tarea(s) creada(s).`);
+            onCreated?.(res.created ?? chosen.length);
             onClose();
         } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudieron crear las tareas.'); }
         finally { setCreating(false); }
@@ -154,7 +158,7 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                             <div className="flex items-center gap-3">
                                 <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer`}>
                                     Subir archivo
-                                    <input type="file" accept=".txt,.vtt,.srt,.md,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFile} className="hidden" />
+                                    <input type="file" accept=".txt,.vtt,.srt,.md,.docx,.pdf,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFile} className="hidden" />
                                 </label>
                                 <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
                                 {analyzed && rows.length > 0 && (
