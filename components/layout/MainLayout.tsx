@@ -25,6 +25,20 @@ export const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Confinamiento de clientes de portal: un CLIENT_PROJECT/CLIENT_ECOMMERCE solo puede estar
+  // en SU portal. Si navega (por URL) a una página de staff (POS, Tienda, Proyectos, etc.),
+  // se le redirige a su portal. Defensa en profundidad además del filtrado del backend.
+  useEffect(() => {
+    if (!currentUser) return;
+    const isPortalClient = currentUser.role === 'CLIENT_PROJECT' || currentUser.role === 'CLIENT_ECOMMERCE';
+    if (!isPortalClient) return;
+    const allowedPrefixes = ['/project-client', '/my-orders', '/profile'];
+    const allowed = allowedPrefixes.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
+    if (!allowed) {
+      navigate(currentUser.role === 'CLIENT_PROJECT' ? '/project-client/dashboard' : '/my-orders', { replace: true });
+    }
+  }, [location.pathname, currentUser, navigate]);
+
   // Interruptor maestro: si se accede por URL directa a un módulo apagado a nivel
   // negocio, redirigir al dashboard. Cubre el caso de un link/bookmark antiguo.
   useEffect(() => {

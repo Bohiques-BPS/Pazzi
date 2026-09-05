@@ -1,0 +1,1 @@
+import{af as o}from"./index-D7wnfGRg.js";const i={punchSelf:()=>o.post("/timeclock/punch/self",{}),punch:(c,t)=>o.post("/timeclock/punch",{identifier:c,pin:t}),identify:(c,t)=>o.post("/timeclock/identify",{pin:c,...t?{identifier:t}:{}}),list:c=>o.get("/timeclock",c)};export{i as t};

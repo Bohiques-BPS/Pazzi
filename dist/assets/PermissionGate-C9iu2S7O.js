@@ -1,1 +1,0 @@
-import{av as m,j as t}from"./index-B1g57oB5.js";const y=({require:n,all:a,fallback:o=null,children:r})=>{const{can:c,canAll:e,canAny:i}=m(),s=Array.isArray(n)?n:[n],l=s.length===1?c(s[0]):a?e(...s):i(...s);return t.jsx(t.Fragment,{children:l?r:o})};export{y as P};
