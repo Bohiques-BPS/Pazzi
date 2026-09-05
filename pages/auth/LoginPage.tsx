@@ -175,6 +175,11 @@ export const LoginPage: React.FC = () => {
               <Link to="/" className={`${authSecondaryLinkStyle} inline-flex items-center justify-center`}>
                 <ArrowUturnLeftIcon /> {t('auth.back_home')}
               </Link>
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
+                <Link to="/privacy" className="hover:text-primary transition-colors">{t('auth.privacy')}</Link>
+                <span aria-hidden="true">·</span>
+                <Link to="/terms" className="hover:text-primary transition-colors">{t('auth.terms')}</Link>
+              </div>
             </div>
         </div>
       </div>
