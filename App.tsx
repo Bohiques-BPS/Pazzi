@@ -34,6 +34,7 @@ import { RegisterPage } from './pages/auth/RegisterPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ActivateAccountPage } from './pages/auth/ActivateAccountPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
+import { LegalPage } from './pages/legal/LegalPage';
 const ProfilePage = lazyNamed(() => import('./pages/ProfilePage'), 'ProfilePage');
 
 // General Pages
@@ -380,6 +381,11 @@ const AppContent: React.FC = () => {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
         <Route path="/pay/:token" element={<PublicInvoicePage />} />
+        {/* Páginas legales públicas (para registro de app OAuth y pie de la tienda). */}
+        <Route path="/privacy" element={<LegalPage variant="privacy" />} />
+        <Route path="/privacidad" element={<LegalPage variant="privacy" />} />
+        <Route path="/terms" element={<LegalPage variant="terms" />} />
+        <Route path="/terminos" element={<LegalPage variant="terms" />} />
 
         {/* Super-administrador (sección propia, sin el layout de tienda) */}
         <Route element={<ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]} />}>
