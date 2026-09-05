@@ -36,6 +36,17 @@ export function normalizeProjectFromApi(p: any): Project {
     };
 }
 
+export interface ProjectActivityItem {
+    id: string;
+    /** PROJECT_CREATED | TASK_CREATED | TASK_MOVED | TASK_UPDATED | TASK_ASSIGNED | TASK_UNASSIGNED | TASK_DELETED | TASK_COMMENT | EMPLOYEE_ASSIGNED | EMPLOYEE_UNASSIGNED | VISIT_CREATED | MEETING_CREATED | INVOICE_GENERATED | CHAT_MESSAGE */
+    type: string;
+    at: string;
+    actorName?: string | null;
+    title: string;
+    description?: string;
+    meta?: any;
+}
+
 export const projectsService = {
   getAll: (filters?: { status?: string; clientId?: string; employeeId?: string }) =>
     api.get<any[]>('/projects', filters as any),
@@ -45,6 +56,9 @@ export const projectsService = {
   delete: (id: string) => api.delete<any>(`/projects/${id}`),
   generateInvoice: (id: string, data?: any) =>
     api.post<any>(`/projects/${id}/invoice`, data),
+  /** Histórico del proyecto (timeline combinado: derivado + bitácora). */
+  getActivity: (id: string) =>
+    api.get<ProjectActivityItem[]>(`/projects/${id}/activity`),
   /** Analiza un documento/transcripción y devuelve posibles tareas (no crea nada). */
   extractTasks: (id: string, transcript: string) =>
     api.post<{ suggestions: { title: string; description?: string; assigneeHint?: string; dueDateHint?: string; priority?: 'low' | 'medium' | 'high' | 'urgent' }[] }>(`/projects/${id}/extract-tasks`, { transcript }),

@@ -6,6 +6,7 @@ import { canAccessProjects } from '../../utils/employeePermissions';
 import { Project, ProjectFormData, UserRole, ProjectStatus, ChatMessage as ChatMessageType, Client, Employee, ProjectWorkMode, WorkDayTimeRange, Product as ProductType, ProjectResource, ProjectPriority, CustomProjectResource } from '../../types';
 import { ProjectTaskBoard } from '../../components/tasks/ProjectTaskBoard';
 import { ProjectMeetingsTab } from '../../components/pm/ProjectMeetingsTab';
+import { ProjectHistoryTab } from '../../components/pm/ProjectHistoryTab';
 import { ArrowUturnLeftIcon, PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon, ChevronDownIcon, EyeIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
@@ -27,7 +28,7 @@ import { ApiError } from '../../services/api';
 import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
 
 
-type ActiveTab = 'details' | 'chat' | 'tasks' | 'seguimiento';
+type ActiveTab = 'details' | 'chat' | 'tasks' | 'seguimiento' | 'historico';
 
 export const ProjectDetailPage: React.FC = () => {
     const { t } = useTranslation();
@@ -99,6 +100,9 @@ export const ProjectDetailPage: React.FC = () => {
                         <button onClick={() => handleTabChange('seguimiento')} className={`px-4 py-2 text-base font-medium ${activeTab === 'seguimiento' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
                             {t('pm2x.project.tab_seguimiento')}
                         </button>
+                        <button onClick={() => handleTabChange('historico')} className={`px-4 py-2 text-base font-medium ${activeTab === 'historico' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
+                            {t('pm2x.project.tab_historico')}
+                        </button>
                     </>
                 )}
             </div>
@@ -118,6 +122,9 @@ export const ProjectDetailPage: React.FC = () => {
                 )}
                  {!isNewProject && projectData && activeTab === 'seguimiento' && (
                     <ProjectMeetingsTab projectId={projectData.id} />
+                )}
+                 {!isNewProject && projectData && activeTab === 'historico' && (
+                    <ProjectHistoryTab projectId={projectData.id} />
                 )}
             </div>
         </div>
