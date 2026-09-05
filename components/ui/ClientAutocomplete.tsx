@@ -42,6 +42,7 @@ export const ClientAutocomplete: React.FC<ClientAutocompleteProps> = ({
         const base = q
             ? clients.filter(c =>
                 fullName(c).toLowerCase().includes(q) ||
+                (c.companyName || '').toLowerCase().includes(q) ||
                 (c.email || '').toLowerCase().includes(q) ||
                 (c.phone || '').toLowerCase().includes(q))
             : clients;
@@ -117,8 +118,8 @@ export const ClientAutocomplete: React.FC<ClientAutocompleteProps> = ({
                             className={`px-3 py-2 cursor-pointer text-sm ${activeIndex === idx ? 'bg-neutral-100 dark:bg-neutral-700' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'}`}
                         >
                             <div className="font-medium text-neutral-800 dark:text-neutral-100 truncate">{fullName(c) || t('cmpx.client_ac.unnamed')}</div>
-                            {(c.email || c.phone) && (
-                                <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{[c.email, c.phone].filter(Boolean).join(' · ')}</div>
+                            {(c.companyName || c.email || c.phone) && (
+                                <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{[c.companyName, c.email, c.phone].filter(Boolean).join(' · ')}</div>
                             )}
                         </li>
                     ))}
