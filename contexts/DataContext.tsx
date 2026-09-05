@@ -262,12 +262,21 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     // Carga de empleados desde el backend
     useEffect(() => {
         const fetchEmployees = async () => {
+            const auth = { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` };
             try {
-                const res = await fetch(`${API_URL}/employees`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
-                });
-                const data = await res.json();
-                if (Array.isArray(data)) setEmployees(data);
+                const res = await fetch(`${API_URL}/employees`, { headers: auth });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) setEmployees(data);
+                    return;
+                }
+                // Sin permiso de RRHH (employees.view): usar la lista mínima asignable a proyectos.
+                // Así un colaborador con "Asignar empleados a proyectos" sí puede verlos.
+                const fb = await fetch(`${API_URL}/employees/assignable`, { headers: auth });
+                if (fb.ok) {
+                    const data = await fb.json();
+                    if (Array.isArray(data)) setEmployees(data);
+                }
             } catch (e) {
                 console.error("Error al cargar empleados del servidor:", e);
             }

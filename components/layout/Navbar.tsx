@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useData } from '../../contexts/DataContext';
 import { useModules } from '../../hooks/useModules';
+import { SidebarItemConfig } from '../../constants';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext'; // Import hook
 import { AppModule, UserRole, Notification } from '../../types';
 import { APP_MODULES_CONFIG } from '../../constants';
@@ -38,6 +40,7 @@ const formatRelativeTime = (isoTimestamp: string) => {
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, setCurrentModule }) => {
   const { currentUser, logout } = useAuth();
+  const { canAny } = usePermissions();
   const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData();
   const { isModuleEnabled } = useModules();
   const { t } = useTranslation(); // Use hook
@@ -82,6 +85,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     navigate('/login');
   };
 
+  // Reúne todos los permisos declarados en los enlaces de un módulo (aplanando grupos).
+  const modulePermissionKeys = (mod: any): string[] => {
+    const lists: SidebarItemConfig[] = [
+      ...(mod.subModulesTienda || []),
+      ...(mod.subModulesProject || []),
+      ...(mod.subModulesPOS || []),
+      ...(mod.subModulesEcommerce || []),
+    ];
+    const keys: string[] = [];
+    for (const item of lists) {
+      const links = item.type === 'group' ? item.children : [item];
+      for (const l of links) {
+        if ((l as any).permission) {
+          const p = (l as any).permission;
+          keys.push(...(Array.isArray(p) ? p : [p]));
+        }
+      }
+    }
+    return keys;
+  };
+
   const availableModulesForSelector = APP_MODULES_CONFIG.filter(mod => {
     // Interruptor maestro por negocio: si el módulo está apagado, no aparece para nadie.
     if (!isModuleEnabled(mod.name)) return false;
@@ -89,7 +113,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
       return mod.name !== AppModule.PROJECT_CLIENT_DASHBOARD;
     }
     if (currentUser?.role === UserRole.EMPLOYEE) {
-      return mod.name === AppModule.POS || mod.name === AppModule.PROJECT_MANAGEMENT;
+      // El empleado ve un módulo si tiene AL MENOS un permiso de alguno de sus enlaces.
+      const keys = modulePermissionKeys(mod);
+      return keys.length > 0 && canAny(...keys);
     }
     return false;
   });
@@ -100,8 +126,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     if (!mod) return '/';
 
     if (currentUser?.role === UserRole.EMPLOYEE) {
-        if (moduleName === AppModule.POS) return '/pos/cashier';
-        if (moduleName === AppModule.PROJECT_MANAGEMENT) return '/pm/projects';
+        // Ir al PRIMER enlace del módulo que el empleado tenga permiso de ver.
+        const lists: SidebarItemConfig[] = [
+          ...((mod as any).subModulesTienda || []),
+          ...(mod.subModulesProject || []),
+          ...(mod.subModulesPOS || []),
+          ...(mod.subModulesEcommerce || []),
+        ];
+        for (const item of lists) {
+          const links = item.type === 'group' ? item.children : [item];
+          for (const l of links) {
+            const p = (l as any).permission;
+            const allowed = !p || canAny(...(Array.isArray(p) ? p : [p]));
+            if (allowed) return l.path;
+          }
+        }
+        return mod.path;
     }
      if (currentUser?.role === UserRole.MANAGER && moduleName === AppModule.POS) {
         return '/pos/reports'; 

@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { AppModule, UserRole } from '../../types'; 
 import { APP_MODULES_CONFIG, SidebarItemConfig, SubModuleGroup, SubModuleLink } from '../../constants'; 
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
 import { useChatUnread } from '../../hooks/useChatUnread';
 import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon } from '../icons'; 
@@ -25,36 +26,49 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   // Badge de chats de proyecto sin leer (solo consulta estando en el módulo de Proyectos).
   const { totalUnread: unreadChats } = useChatUnread(currentModule === AppModule.PROJECT_MANAGEMENT);
 
-  let subModulesToDisplay: SidebarItemConfig[] = []; 
+  const { can, canAny } = usePermissions();
 
-  if (currentUser?.role === UserRole.MANAGER) {
+  // ¿El empleado puede ver este enlace? (MANAGER pasa todo vía can()==true).
+  const linkAllowed = (item: SubModuleLink): boolean => {
+    if (!item.permission) return true;
+    return Array.isArray(item.permission) ? canAny(...item.permission) : can(item.permission);
+  };
+
+  // Filtra la lista por permisos: descarta enlaces sin permiso y grupos que se quedan vacíos.
+  const filterByPermission = (items: SidebarItemConfig[]): SidebarItemConfig[] =>
+    items
+      .map(item => {
+        if (item.type === 'group') {
+          const children = item.children.filter(linkAllowed);
+          return children.length ? { ...item, children } : null;
+        }
+        return linkAllowed(item) ? item : null;
+      })
+      .filter(Boolean) as SidebarItemConfig[];
+
+  let subModulesToDisplay: SidebarItemConfig[] = [];
+
+  if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.EMPLOYEE) {
+    // Ambos roles parten de la MISMA configuración; el filtro por permisos deja pasar
+    // todo al MANAGER (can()===true) y recorta para el EMPLEADO según sus permisos.
+    let base: SidebarItemConfig[] = [];
     if (moduleConfig) {
         switch(currentModule) {
             case AppModule.TIENDA:
-                subModulesToDisplay = (moduleConfig as any).subModulesTienda || [];
+                base = (moduleConfig as any).subModulesTienda || [];
                 break;
             case AppModule.PROJECT_MANAGEMENT:
-                subModulesToDisplay = moduleConfig.subModulesProject || [];
+                base = moduleConfig.subModulesProject || [];
                 break;
             case AppModule.POS:
-                subModulesToDisplay = moduleConfig.subModulesPOS || [];
+                base = moduleConfig.subModulesPOS || [];
                 break;
             case AppModule.ECOMMERCE:
-                subModulesToDisplay = moduleConfig.subModulesEcommerce || [];
+                base = moduleConfig.subModulesEcommerce || [];
                 break;
         }
     }
-  } else if (currentUser?.role === UserRole.EMPLOYEE) {
-    if (currentModule === AppModule.POS) {
-        subModulesToDisplay = [
-            { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: CashBillIcon }
-        ];
-    } else if (currentModule === AppModule.PROJECT_MANAGEMENT) {
-        subModulesToDisplay = [
-            { type: 'link', name: 'Mis Proyectos', path: '/pm/projects', icon: BriefcaseIcon },
-            { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon }
-        ];
-    }
+    subModulesToDisplay = filterByPermission(base);
   } else if (currentUser?.role === UserRole.CLIENT_PROJECT) {
     const projectClientModule = APP_MODULES_CONFIG.find(m => m.name === AppModule.PROJECT_CLIENT_DASHBOARD);
     subModulesToDisplay = projectClientModule?.subModulesProjectClient || [];

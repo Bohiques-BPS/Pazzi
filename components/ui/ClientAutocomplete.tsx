@@ -117,9 +117,9 @@ export const ClientAutocomplete: React.FC<ClientAutocompleteProps> = ({
                             onMouseEnter={() => setActiveIndex(idx)}
                             className={`px-3 py-2 cursor-pointer text-sm ${activeIndex === idx ? 'bg-neutral-100 dark:bg-neutral-700' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'}`}
                         >
-                            <div className="font-medium text-neutral-800 dark:text-neutral-100 truncate">{fullName(c) || t('cmpx.client_ac.unnamed')}</div>
+                            <div translate="no" className="font-medium text-neutral-800 dark:text-neutral-100 truncate">{fullName(c) || t('cmpx.client_ac.unnamed')}</div>
                             {(c.companyName || c.email || c.phone) && (
-                                <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{[c.companyName, c.email, c.phone].filter(Boolean).join(' · ')}</div>
+                                <div translate="no" className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{[c.companyName, c.email, c.phone].filter(Boolean).join(' · ')}</div>
                             )}
                         </li>
                     ))}

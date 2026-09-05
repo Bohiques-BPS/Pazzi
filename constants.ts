@@ -506,7 +506,14 @@ export interface SubModuleLink {
     type: 'link';
     name: string;
     path: string;
-    icon?: React.ComponentType<any>; 
+    icon?: React.ComponentType<any>;
+    /**
+     * Permiso(s) requeridos para que un EMPLEADO vea este enlace en la navegación.
+     * string = requiere ese permiso; array = requiere AL MENOS uno (canAny).
+     * Si se omite, el enlace es visible para cualquier empleado que tenga acceso al módulo.
+     * El MANAGER siempre lo ve.
+     */
+    permission?: string | string[];
 }
 export interface SubModuleGroup {
     type: 'group';
@@ -526,22 +533,22 @@ export const APP_MODULES_CONFIG = [
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [
       { type: 'group', name: 'Catálogo y Productos', icon: Squares2X2Icon, children: [
-        { type: 'link', name: 'Productos', path: '/tienda/products', icon: Squares2X2Icon },
-        { type: 'link', name: 'Inventario', path: '/tienda/inventory', icon: CubeIcon },
-        { type: 'link', name: 'Categorías', path: '/tienda/categories', icon: ListBulletIcon },
-        { type: 'link', name: 'Departamentos', path: '/tienda/departments', icon: FolderIcon },
+        { type: 'link', name: 'Productos', path: '/tienda/products', icon: Squares2X2Icon, permission: 'products.view' },
+        { type: 'link', name: 'Inventario', path: '/tienda/inventory', icon: CubeIcon, permission: 'inventory.view' },
+        { type: 'link', name: 'Categorías', path: '/tienda/categories', icon: ListBulletIcon, permission: 'categories.manage' },
+        { type: 'link', name: 'Departamentos', path: '/tienda/departments', icon: FolderIcon, permission: 'departments.manage' },
       ] },
       { type: 'group', name: 'Compras y Proveedores', icon: TruckIcon, children: [
-        { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon },
-        { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon },
+        { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon, permission: 'suppliers.manage' },
+        { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: 'supplierOrders.manage' },
       ] },
       { type: 'group', name: 'Usuarios y Permisos', icon: UserGroupIcon, children: [
-        { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon },
-        { type: 'link', name: 'Empleados', path: '/tienda/employees', icon: IdentificationIcon },
-        { type: 'link', name: 'Roles y permisos', path: '/tienda/roles', icon: LoginKeyIcon },
+        { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon, permission: 'clients.view' },
+        { type: 'link', name: 'Empleados', path: '/tienda/employees', icon: IdentificationIcon, permission: 'employees.view' },
+        { type: 'link', name: 'Roles y permisos', path: '/tienda/roles', icon: LoginKeyIcon, permission: 'employees.manage' },
       ] },
       { type: 'group', name: 'Configuración', icon: Cog6ToothIcon, children: [
-        { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: BuildingStorefrontIcon },
+        { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: BuildingStorefrontIcon, permission: 'branches.view' },
       ] },
     ] as SidebarItemConfig[],
     subModulesAdmin: [] as SidebarItemConfig[],
@@ -551,11 +558,11 @@ export const APP_MODULES_CONFIG = [
     path: '/pm/dashboard', 
     icon: BriefcaseIcon,
     subModulesProject: [
-        { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: Squares2X2Icon },
-        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: FoldersIcon },
-        { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon },
-        { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: CalendarDaysIcon },
-        { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: ChartBarIcon },
+        { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: Squares2X2Icon, permission: 'projects.view' },
+        { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: FoldersIcon, permission: 'projects.view' },
+        { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon, permission: 'projects.view' },
+        { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: CalendarDaysIcon, permission: ['visits.manage', 'projects.view'] },
+        { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: ChartBarIcon, permission: 'reports.viewProjects' },
     ] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
@@ -570,25 +577,25 @@ export const APP_MODULES_CONFIG = [
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [
         // "Abrir caja" siempre arriba, suelto.
-        { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: CashBillIcon },
+        { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: CashBillIcon, permission: 'pos.access' },
         { type: 'group', name: 'Ventas', icon: ListBulletIcon, children: [
-            { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon },
-            { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon },
-            { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon },
-            { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon },
+            { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon, permission: 'pos.viewHistory' },
+            { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon, permission: 'pos.viewHistory' },
+            { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon, permission: 'estimates.manage' },
+            { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon, permission: 'layaways.manage' },
         ] },
         { type: 'group', name: 'Cuentas', icon: BanknotesIcon, children: [
-            { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: DocumentArrowUpIcon },
-            { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: BanknotesIcon },
-            { type: 'link', name: 'Pagos Recurrentes', path: '/pos/recurring', icon: ArrowPathIcon },
+            { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: DocumentArrowUpIcon, permission: 'accounts.viewReceivable' },
+            { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: BanknotesIcon, permission: 'accounts.viewPayable' },
+            { type: 'link', name: 'Pagos Recurrentes', path: '/pos/recurring', icon: ArrowPathIcon, permission: 'accounts.viewReceivable' },
         ] },
         { type: 'group', name: 'Cajas', icon: CubeIcon, children: [
-            { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon },
-            { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: CubeIcon },
-            { type: 'link', name: 'Config. Factura', path: '/pos/receipt-settings', icon: ClipboardDocumentListIcon },
-            { type: 'link', name: 'Métodos de Pago', path: '/pos/payment-methods', icon: BanknotesIcon },
+            { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
+            { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: CubeIcon, permission: 'caja.open' },
+            { type: 'link', name: 'Config. Factura', path: '/pos/receipt-settings', icon: ClipboardDocumentListIcon, permission: 'settings.viewCompany' },
+            { type: 'link', name: 'Métodos de Pago', path: '/pos/payment-methods', icon: BanknotesIcon, permission: 'settings.viewCompany' },
         ] },
-        { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon },
+        { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon, permission: 'pos.access' },
     ] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
@@ -602,12 +609,12 @@ export const APP_MODULES_CONFIG = [
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [
-        { type: 'link', name: 'Reportes', path: '/ecommerce/dashboard', icon: HomeIcon },
-        { type: 'link', name: 'Diseño de la tienda', path: '/ecommerce/design', icon: Squares2X2Icon },
-        { type: 'link', name: 'Pedidos Online', path: '/ecommerce/orders', icon: TruckIcon },
-        { type: 'link', name: 'Proveedores', path: '/ecommerce/suppliers', icon: UserGroupIcon },
-        { type: 'link', name: 'Pedidos a Proveedor', path: '/ecommerce/supplier-orders', icon: DocumentArrowUpIcon },
-        { type: 'link', name: 'Mi Tienda (Vista Previa)', path: `/store/${ADMIN_USER_ID}`, icon: BuildingStorefrontIcon },
+        { type: 'link', name: 'Reportes', path: '/ecommerce/dashboard', icon: HomeIcon, permission: 'ecommerce.viewOrders' },
+        { type: 'link', name: 'Diseño de la tienda', path: '/ecommerce/design', icon: Squares2X2Icon, permission: 'ecommerce.manageStore' },
+        { type: 'link', name: 'Pedidos Online', path: '/ecommerce/orders', icon: TruckIcon, permission: 'ecommerce.viewOrders' },
+        { type: 'link', name: 'Proveedores', path: '/ecommerce/suppliers', icon: UserGroupIcon, permission: 'suppliers.manage' },
+        { type: 'link', name: 'Pedidos a Proveedor', path: '/ecommerce/supplier-orders', icon: DocumentArrowUpIcon, permission: 'supplierOrders.manage' },
+        { type: 'link', name: 'Mi Tienda (Vista Previa)', path: `/store/${ADMIN_USER_ID}`, icon: BuildingStorefrontIcon, permission: 'ecommerce.manageStore' },
     ] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [] as SidebarItemConfig[],
