@@ -8,6 +8,7 @@ import { PlusIcon, TrashIconMini, CameraIcon, ExclamationTriangleIcon } from '..
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { CategoryFormModal } from './CategoryFormModal';
+import { SupplierFormModal } from '../ecommerce/SupplierFormModal';
 import { DepartmentFormModal } from './DepartmentFormModal';
 import { BranchFormModal } from '../../components/forms/BranchFormModal';
 import { ADVANCED_PRODUCT_FIELDS, ADVANCED_PRODUCT_GROUPS } from '../../config/advancedProductFields';
@@ -167,6 +168,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
     const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false);
     const [showAddBranchModal, setShowAddBranchModal] = useState(false);
+    const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
     // Oferta: mostrar/ocultar el campo de fecha de finalización.
     const [saleHasEnd, setSaleHasEnd] = useState(false);
 
@@ -921,7 +923,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             <option value="">{t('pmx.product.select_supplier')}</option>
                                             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                         </select>
-                                        <button type="button" className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.search')}</button>
+                                        <button type="button" onClick={() => setShowAddSupplierModal(true)} className="p-2 bg-neutral-100 dark:bg-neutral-700 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors flex-shrink-0" title={t('pmx.product.new_supplier')}>
+                                            <PlusIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-300" />
+                                        </button>
                                     </div>
                                 </div>
                                 <div>
@@ -1266,6 +1270,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     setShowAddBranchModal(false);
                 }}
                 branchToEdit={null}
+            />
+            <SupplierFormModal
+                isOpen={showAddSupplierModal}
+                supplier={null}
+                storeOwnerId={formData.storeOwnerId || storeOwnerIdForNewProduct}
+                onClose={(createdSupplier) => {
+                    // Al crear un proveedor, se selecciona en el producto sin perder el formulario.
+                    if (createdSupplier) {
+                        setFormData(prev => ({ ...prev, supplierId: createdSupplier.id }));
+                    }
+                    setShowAddSupplierModal(false);
+                }}
             />
         </Modal>
     );
