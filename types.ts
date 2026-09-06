@@ -230,6 +230,12 @@ export interface Product {
     ivuRate?: number;
     storeOwnerId: string;
     isEmergencyTaxExempt: boolean;
+    /** Precio especial / oferta. Si está vigente, se usa en lugar de unitPrice. */
+    salePrice?: number | null;
+    /** Inicio de la oferta (opcional). Vacío = desde ya. */
+    saleStartDate?: string | null;
+    /** Fin de la oferta (opcional). Vacío = sin fecha de finalización (indefinida). */
+    saleEndDate?: string | null;
     material?: string;
     quality?: string;
     width?: number;

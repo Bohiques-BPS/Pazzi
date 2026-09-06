@@ -97,6 +97,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
         ivuRate: settings.defaultTaxRate || 0.115,
         storeOwnerId: storeOwnerIdForNewProduct,
         isEmergencyTaxExempt: false,
+        salePrice: null,
+        saleStartDate: null,
+        saleEndDate: null,
         costPrice: 0,
         profit: 0,
         supplierId: '',
@@ -164,7 +167,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
     const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false);
     const [showAddBranchModal, setShowAddBranchModal] = useState(false);
-    
+    // Oferta: mostrar/ocultar el campo de fecha de finalización.
+    const [saleHasEnd, setSaleHasEnd] = useState(false);
+
     const [newSpec, setNewSpec] = useState<CustomSpecification>({ name: '', value: '' });
     const [newPriceLevel, setNewPriceLevel] = useState<Partial<ProductPriceLevel>>({ levelName: '', price: 0 });
     // % de ganancia sobre el costo para el nuevo nivel de precio (precio = costo * (1 + %/100)).
@@ -190,9 +195,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     priceLevels: productToEdit.priceLevels || [],
                     variations: productToEdit.variations || [],
                     creationDate: productToEdit.creationDate ? productToEdit.creationDate.split('T')[0] : new Date().toISOString().split('T')[0],
+                    // Oferta: normalizar fechas ISO → yyyy-MM-dd para los <input type=date>.
+                    salePrice: (productToEdit as any).salePrice ?? null,
+                    saleStartDate: (productToEdit as any).saleStartDate ? String((productToEdit as any).saleStartDate).slice(0, 10) : null,
+                    saleEndDate: (productToEdit as any).saleEndDate ? String((productToEdit as any).saleEndDate).slice(0, 10) : null,
                 });
+                setSaleHasEnd(!!(productToEdit as any).saleEndDate);
             } else {
                 setFormData({ ...initialFormData, storeOwnerId: storeOwnerIdForNewProduct, name: initialName || '' });
+                setSaleHasEnd(false);
             }
             setActiveTab('Principal');
             setSkuInput('');
@@ -650,6 +661,62 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                     <input type="number" name="profit" value={formData.profit ?? ''} onChange={handleChange} className={inputFormStyle} step="0.01" />
                                 </div>
                             </div>
+
+                            {/* Precio especial / Oferta */}
+                            <div className="border border-neutral-200 dark:border-neutral-600 rounded-lg p-3 space-y-3">
+                                <label className="block text-sm font-semibold text-primary">{t('product.sale.title')}</label>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium">{t('product.sale.price')}</label>
+                                        <input
+                                            type="number" step="0.01" min="0"
+                                            value={formData.salePrice ?? ''}
+                                            onChange={e => setFormData(prev => ({ ...prev, salePrice: e.target.value === '' ? null : Number(e.target.value) }))}
+                                            className={inputFormStyle}
+                                            placeholder={t('product.sale.price_ph')}
+                                        />
+                                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('product.sale.hint')}</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium">{t('product.sale.start')}</label>
+                                        <input
+                                            type="date"
+                                            value={(formData.saleStartDate as string) || ''}
+                                            onChange={e => setFormData(prev => ({ ...prev, saleStartDate: e.target.value || null }))}
+                                            className={inputFormStyle}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-medium">
+                                            <input
+                                                type="checkbox"
+                                                checked={saleHasEnd}
+                                                onChange={e => {
+                                                    setSaleHasEnd(e.target.checked);
+                                                    if (!e.target.checked) setFormData(prev => ({ ...prev, saleEndDate: null }));
+                                                }}
+                                                className="h-4 w-4"
+                                            />
+                                            {t('product.sale.has_end')}
+                                        </label>
+                                        {saleHasEnd && (
+                                            <input
+                                                type="date"
+                                                value={(formData.saleEndDate as string) || ''}
+                                                onChange={e => setFormData(prev => ({ ...prev, saleEndDate: e.target.value || null }))}
+                                                className={`${inputFormStyle} mt-2`}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                                {formData.salePrice != null && Number(formData.salePrice) > 0 && Number(formData.salePrice) < Number(formData.unitPrice) && (
+                                    <p className="text-xs text-green-600 dark:text-green-400">
+                                        {t('product.sale.preview')}: ${Number(formData.salePrice).toFixed(2)} ({t('product.sale.before')} ${Number(formData.unitPrice).toFixed(2)})
+                                        {!saleHasEnd && ` · ${t('product.sale.no_end')}`}
+                                    </p>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.tax_rate')}</label>

@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext'; // Imported useTranslation
 import { Product, CartItem, Client, Branch, Caja, HeldCart, Estimate, LayawayStatus, User, UserRole, Employee, Project, EstimateStatus, Sale, ProductVariation } from '../../types';
 import { getCajaDesign } from '../../utils/cajaDesigns';
+import { getEffectiveUnitPrice } from '../../utils/pricing';
 import {
     XMarkIcon,
     ArchiveBoxIcon,
@@ -724,7 +725,9 @@ export const POSCashierPage: React.FC = () => {
             setManualPriceProduct(product);
             return;
         }
-        addResolvedToCart({ ...product, quantity: q });
+        // Si el producto está en oferta vigente, se cobra el precio especial.
+        const eff = getEffectiveUnitPrice(product);
+        addResolvedToCart({ ...product, unitPrice: eff, quantity: q });
     };
 
     // El cajero confirmó el precio manual → agrega la línea (producto o variante ya resuelta)

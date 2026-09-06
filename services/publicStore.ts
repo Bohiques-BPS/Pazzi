@@ -7,6 +7,9 @@ export interface PublicProduct {
   imageUrl?: string | null;
   unitPrice: number;
   ivuRate?: number | null;
+  salePrice?: number | null;
+  saleStartDate?: string | null;
+  saleEndDate?: string | null;
   category?: { id: string; name: string } | null;
   totalStock: number;
 }

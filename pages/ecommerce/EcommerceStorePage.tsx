@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
 import { Product, CartItem, ECommerceSettings as StoreSettingsType } from '../../types';
+import { isProductOnSale, getEffectiveUnitPrice } from '../../utils/pricing';
 import { ShoppingCartIcon, PlusIcon, TrashIconMini } from '../../components/icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ECOMMERCE_CLIENT_ID, DEFAULT_ECOMMERCE_SETTINGS, ADMIN_USER_ID } from '../../constants';
 import { publicStoreService, type PublicProduct } from '../../services/publicStore';
@@ -32,14 +33,17 @@ const PLACEHOLDER = 'https://picsum.photos/seed/defaultprod/400/300';
 const ProductStoreCard: React.FC<CardProps> = ({ product, onAddToCart, storePrimaryColor, accent, template = 'Moderno', showCart = true }) => {
     const t = usePublicT();
     const img = product.imageUrl || PLACEHOLDER;
-    const price = product.unitPrice;
+    const onSale = isProductOnSale(product);
+    const price = getEffectiveUnitPrice(product);   // precio a mostrar/cobrar (oferta si vigente)
+    const basePrice = product.unitPrice;            // precio "antes" (tachado si hay oferta)
     const acc = accent || storePrimaryColor;
     const h = hashId(product.id);
 
     // ── Ofertas (Temu): agresivo, precio grande, descuento, "vendidos", botón full ──
     if (template === 'Ofertas') {
-        const off = 15 + (h % 45);                       // 15%–59% off
-        const original = price / (1 - off / 100);
+        // Si hay oferta real, usar sus números; si no, mantener el look de marketing.
+        const off = onSale ? Math.round((1 - price / basePrice) * 100) : (15 + (h % 45));
+        const original = onSale ? basePrice : price / (1 - off / 100);
         const sold = 120 + (h % 4800);
         return (
             <div className="bg-white dark:bg-neutral-800 rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-lg transition-shadow border border-neutral-100 dark:border-neutral-700">
@@ -80,7 +84,7 @@ const ProductStoreCard: React.FC<CardProps> = ({ product, onAddToCart, storePrim
                         <span className="text-amber-400 text-[11px] leading-none">{'★'.repeat(Math.round(rating))}<span className="text-neutral-300">{'★'.repeat(5 - Math.round(rating))}</span></span>
                         <span className="text-[10px] text-neutral-400">({reviews})</span>
                     </div>
-                    <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50 mt-auto">${price.toFixed(2)}</p>
+                    <p className="text-lg font-bold text-neutral-900 dark:text-neutral-50 mt-auto">${price.toFixed(2)}{onSale && <span className="ml-1.5 text-[11px] font-normal text-neutral-400 line-through">${basePrice.toFixed(2)}</span>}</p>
                     {freeShip && <p className="text-[10px] font-semibold" style={{ color: '#16a34a' }}>{t('store.free_shipping') || 'Envío gratis'}</p>}
                     {showCart && (
                         <button onClick={() => onAddToCart(product)} className="mt-1.5 w-full text-neutral-900 text-xs font-semibold py-1.5 rounded-full border border-neutral-300 hover:brightness-95" style={{ backgroundColor: acc }}>
@@ -101,7 +105,7 @@ const ProductStoreCard: React.FC<CardProps> = ({ product, onAddToCart, storePrim
                 </div>
                 <div className="pt-4 pb-2 px-2 flex flex-col flex-grow">
                     <h3 className="text-sm font-medium tracking-wide uppercase text-neutral-800 dark:text-neutral-100 mb-1" title={product.name}>{product.name}</h3>
-                    <p className="text-base mt-auto mb-3" style={{ color: storePrimaryColor }}>${price.toFixed(2)}</p>
+                    <p className="text-base mt-auto mb-3" style={{ color: storePrimaryColor }}>${price.toFixed(2)}{onSale && <span className="ml-1.5 text-xs text-neutral-400 line-through">${basePrice.toFixed(2)}</span>}</p>
                     {showCart && (
                         <button onClick={() => onAddToCart(product)} className="mx-auto px-6 py-2 text-xs font-semibold tracking-widest uppercase border transition-colors hover:text-white" style={{ borderColor: storePrimaryColor, color: storePrimaryColor }}
                             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = storePrimaryColor; }}
@@ -122,7 +126,7 @@ const ProductStoreCard: React.FC<CardProps> = ({ product, onAddToCart, storePrim
                 <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                         <h3 className="text-sm text-neutral-800 dark:text-neutral-100 truncate" title={product.name}>{product.name}</h3>
-                        <p className="text-sm text-neutral-500 mt-0.5">${price.toFixed(2)}</p>
+                        <p className="text-sm text-neutral-500 mt-0.5">${price.toFixed(2)}{onSale && <span className="ml-1.5 text-xs text-neutral-400 line-through">${basePrice.toFixed(2)}</span>}</p>
                     </div>
                     {showCart && (
                         <button onClick={() => onAddToCart(product)} className="text-xs font-medium underline underline-offset-4 whitespace-nowrap flex-shrink-0" style={{ color: storePrimaryColor }}>
@@ -142,7 +146,7 @@ const ProductStoreCard: React.FC<CardProps> = ({ product, onAddToCart, storePrim
                 <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-1 truncate" title={product.name}>{product.name}</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-2 line-clamp-2 flex-grow">{product.description || t('store.no_description')}</p>
                 <div className="flex justify-between items-center mt-auto">
-                    <p className="text-xl font-bold" style={{ color: storePrimaryColor }}>${price.toFixed(2)}</p>
+                    <p className="text-xl font-bold" style={{ color: storePrimaryColor }}>${price.toFixed(2)}{onSale && <span className="ml-1.5 text-sm font-normal text-neutral-400 line-through">${basePrice.toFixed(2)}</span>}</p>
                     {showCart && (
                         <button
                             onClick={() => onAddToCart(product)}
@@ -221,7 +225,8 @@ export const EcommerceStorePage: React.FC = () => {
                 toast.error(t('store.out_of_stock'));
                 return prevCart;
             }
-            return [...prevCart, { ...(product as unknown as Product), quantity: 1 }];
+            // Se agrega con el precio efectivo (oferta vigente si aplica); el servidor lo revalida.
+            return [...prevCart, { ...(product as unknown as Product), unitPrice: getEffectiveUnitPrice(product), quantity: 1 }];
         });
     };
 
