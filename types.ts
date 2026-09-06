@@ -344,6 +344,11 @@ export interface Client {
     taxExemptState?: boolean;
     taxExemptMunicipal?: boolean;
     billingAddress?: string;
+    billingStreet?: string;
+    billingCity?: string;
+    billingState?: string;
+    billingZip?: string;
+    billingCountry?: string;
     showBalance?: boolean;
     salesperson?: string;
     priceLevel?: string;
@@ -358,6 +363,11 @@ export interface Client {
     images?: string[];
     loyaltyPoints?: number;
     shippingAddress?: string;
+    shippingStreet?: string;
+    shippingCity?: string;
+    shippingState?: string;
+    shippingZip?: string;
+    shippingCountry?: string;
     shippingContactName?: string;
     shippingContactPhone?: string;
     preferredCarrier?: string;

@@ -18,6 +18,14 @@ interface ClientFormModalProps {
     client: Client | null;
 }
 
+/** Quita etiquetas HTML de un texto (para migrar direcciones viejas de texto enriquecido). */
+const stripHtml = (html: string): string => {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || tmp.innerText || '').replace(/\s+\n/g, '\n').trim();
+};
+
 // Mock data for dropdowns based on screenshots
 const paymentTermsOptions = ['Neto', 'N-15 DIAS', 'N-30 DIAS', 'N-60 DIAS', 'Contado'];
 const clientCategoryOptions = ['Cliente General', 'Contratista', 'Cliente VIP', 'Gubernamental'];
@@ -54,6 +62,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         taxId: '', stateTaxRate: 0, municipalTaxRate: 0, municipalTaxExemptionUntil: '',
         taxExemptState: false, taxExemptMunicipal: false,
         billingAddress: '',
+        billingStreet: '', billingCity: '', billingState: '', billingZip: '', billingCountry: '',
         creditLimit: 0, paymentTerms: paymentTermsOptions[0], showBalance: false,
         category: clientCategoryOptions[0],
         salesperson: salespersonOptions[0],
@@ -71,6 +80,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         loyaltyPoints: 0,
         loyaltyLevel: '',
         shippingAddress: '',
+        shippingStreet: '', shippingCity: '', shippingState: '', shippingZip: '', shippingCountry: '',
         shippingContactName: '',
         shippingContactPhone: '',
         preferredCarrier: '',
@@ -96,6 +106,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                     chargeValue: client.chargeValue || 0,
                     images: client.images || [],
                     isLoss: client.isLoss || false,
+                    // Migración suave: si no hay dirección estructurada pero sí la vieja (texto libre),
+                    // se coloca ese texto en la línea de calle para no perder el dato existente.
+                    billingStreet: client.billingStreet || (client.billingAddress ? stripHtml(client.billingAddress) : ''),
+                    shippingStreet: client.shippingStreet || (client.shippingAddress ? stripHtml(client.shippingAddress) : ''),
                 });
             } else {
                 setFormData(initialFormState);
@@ -322,8 +336,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const renderFacturacionTab = () => (
         <div className="space-y-4 max-w-full">
             <div>
-                <label className="block text-sm font-medium">{t('client.billing.address')}</label>
-                <RichTextEditor value={formData.billingAddress || ''} onChange={(value) => setFormData(prev => ({...prev, billingAddress: value}))} />
+                <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium">{t('client.billing.address')}</label>
+                    <button type="button" onClick={() => setFormData(prev => ({ ...prev, billingStreet: prev.address || '', billingCity: prev.city || '', billingCountry: prev.country || '', billingZip: prev.zip || '' }))}
+                        className="text-xs text-primary hover:underline">{t('client.address.copy_main')}</button>
+                </div>
+                <input type="text" name="billingStreet" value={formData.billingStreet || ''} onChange={handleChange} className={inputFormStyle} placeholder={t('client.address.street_ph')} />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.field.city')}</label><input type="text" name="billingCity" value={formData.billingCity || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.address.state')}</label><input type="text" name="billingState" value={formData.billingState || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.field.zip')}</label><input type="text" name="billingZip" value={formData.billingZip || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.field.country')}</label><input type="text" name="billingCountry" value={formData.billingCountry || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                </div>
             </div>
 
             <label className="flex items-center text-sm font-medium pt-2">
@@ -380,8 +404,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const renderEnvioTab = () => (
          <div className="space-y-3 max-w-full">
             <div>
-                <label className="block text-sm font-medium">{t('client.shipping.address')}</label>
-                <RichTextEditor value={formData.shippingAddress || ''} onChange={(value) => setFormData(prev => ({...prev, shippingAddress: value}))} />
+                <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium">{t('client.shipping.address')}</label>
+                    <button type="button" onClick={() => setFormData(prev => ({ ...prev, shippingStreet: prev.address || '', shippingCity: prev.city || '', shippingCountry: prev.country || '', shippingZip: prev.zip || '' }))}
+                        className="text-xs text-primary hover:underline">{t('client.address.copy_main')}</button>
+                </div>
+                <input type="text" name="shippingStreet" value={formData.shippingStreet || ''} onChange={handleChange} className={inputFormStyle} placeholder={t('client.address.street_ph')} />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.field.city')}</label><input type="text" name="shippingCity" value={formData.shippingCity || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.address.state')}</label><input type="text" name="shippingState" value={formData.shippingState || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.field.zip')}</label><input type="text" name="shippingZip" value={formData.shippingZip || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                    <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{t('client.field.country')}</label><input type="text" name="shippingCountry" value={formData.shippingCountry || ''} onChange={handleChange} className={inputFormStyle} /></div>
+                </div>
             </div>
             <div><label className="block text-sm font-medium">{t('client.shipping.contact_name')}</label><input type="text" name="shippingContactName" value={formData.shippingContactName} onChange={handleChange} className={inputFormStyle}/></div>
             <div><label className="block text-sm font-medium">{t('client.shipping.contact_phone')}</label><PhoneInput name="shippingContactPhone" value={formData.shippingContactPhone || ''} onChange={(val) => handleChange({ target: { name: 'shippingContactPhone', value: val, type: 'tel' } } as any)} className="w-full"/></div>

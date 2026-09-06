@@ -56,7 +56,16 @@ export const ClientDetailViewModal: React.FC<ClientDetailViewModalProps> = ({ is
                         </div>
                          <div>
                             <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('cmpx.client_detail.billing_address')}</p>
-                            <p className="text-base text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap">{client.billingAddress || t('cmpx.client_detail.same_as_main')}</p>
+                            {(() => {
+                                const c = client as any;
+                                const parts = [
+                                    c.billingStreet,
+                                    [c.billingCity, c.billingState].filter(Boolean).join(', '),
+                                    [c.billingZip, c.billingCountry].filter(Boolean).join(' '),
+                                ].map(s => (s || '').trim()).filter(Boolean);
+                                const text = parts.length ? parts.join('\n') : (client.billingAddress || '');
+                                return <p className="text-base text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap">{text || t('cmpx.client_detail.same_as_main')}</p>;
+                            })()}
                         </div>
                     </div>
                 </section>
