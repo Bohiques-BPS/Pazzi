@@ -315,9 +315,10 @@ export const InvoicesListPage: React.FC = () => {
             const reduced = prod ? !!(prod as any).reducedTax : false;
             return reduced ? reducedR : (stateR + municipalR);
         }
-        // Clásico: cliente exento total → 0; si no, tasa del producto o el default global del server.
+        // Clásico: cliente exento total → 0; si no, tasa del producto o el default global del negocio
+        // (mismo fallback que aplica el servidor al crear, para que el IVU mostrado coincida).
         if (clientFullyExempt) return 0;
-        return explicit;
+        return explicit != null ? explicit : (Number((settings as any).defaultTaxRate) || 0);
     };
 
     // ── Preview en vivo del diseño de la factura ──
@@ -934,9 +935,19 @@ export const InvoicesListPage: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-700 pt-3">
-                        <span className="text-sm text-neutral-500">{t('posx.invoices.subtotal_note')}</span>
-                        <span className="font-semibold text-neutral-800 dark:text-neutral-100">{money(draftTotal)}</span>
+                    <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.subtotal')}</span>
+                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.tax_ivu')}</span>
+                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(previewTax)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-700">
+                            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.total')}</span>
+                            <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(draftTotal + previewTax)}</span>
+                        </div>
                     </div>
                     {!editId && abonosTotal > 0 && (
                         <div className="flex items-center justify-between text-sm">
