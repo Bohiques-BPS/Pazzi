@@ -1,0 +1,1 @@
+function t(){try{const r=localStorage.getItem("pazzi_currency");return r&&r.trim()||"$"}catch{return"$"}}function c(r){try{r&&r.trim()&&localStorage.setItem("pazzi_currency",r.trim())}catch{}}function e(){return t()}export{c as s,e as u};

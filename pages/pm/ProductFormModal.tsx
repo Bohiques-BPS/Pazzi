@@ -9,6 +9,7 @@ import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { CategoryFormModal } from './CategoryFormModal';
 import { SupplierFormModal } from '../ecommerce/SupplierFormModal';
+import { MoneyInput } from '../../components/ui/MoneyInput';
 import { DepartmentFormModal } from './DepartmentFormModal';
 import { BranchFormModal } from '../../components/forms/BranchFormModal';
 import { ADVANCED_PRODUCT_FIELDS, ADVANCED_PRODUCT_GROUPS } from '../../config/advancedProductFields';
@@ -647,16 +648,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.field.price')}</label>
-                                    <input 
-                                        type="number" name="unitPrice" value={formData.unitPrice ?? ''} onChange={handleChange} 
-                                        className={`${inputFormStyle} ${fieldErrors.unitPrice ? 'border-red-500 focus:ring-red-500' : ''}`} 
-                                        step="0.01" min="0" 
+                                    <MoneyInput
+                                        value={formData.unitPrice ?? ''}
+                                        onChange={v => setFormData(p => ({ ...p, unitPrice: v === '' ? 0 : Number(v) }))}
+                                        className={`${inputFormStyle} ${fieldErrors.unitPrice ? 'border-red-500 focus:ring-red-500' : ''}`}
                                     />
                                     {fieldErrors.unitPrice && <p className="mt-1 text-xs text-red-500">{fieldErrors.unitPrice}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.field.cost')}</label>
-                                    <input type="number" name="costPrice" value={formData.costPrice ?? ''} onChange={handleChange} className={inputFormStyle} step="0.01" min="0" />
+                                    <MoneyInput value={formData.costPrice ?? ''} onChange={v => setFormData(p => ({ ...p, costPrice: v === '' ? 0 : Number(v) }))} className={inputFormStyle} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">{t('product.field.profit')}</label>
@@ -670,10 +671,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium">{t('product.sale.price')}</label>
-                                        <input
-                                            type="number" step="0.01" min="0"
+                                        <MoneyInput
                                             value={formData.salePrice ?? ''}
-                                            onChange={e => setFormData(prev => ({ ...prev, salePrice: e.target.value === '' ? null : Number(e.target.value) }))}
+                                            onChange={v => setFormData(prev => ({ ...prev, salePrice: v === '' ? null : Number(v) }))}
                                             className={inputFormStyle}
                                             placeholder={t('product.sale.price_ph')}
                                         />

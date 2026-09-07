@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { MoneyInput } from '../ui/MoneyInput';
 import type { Product } from '../../types';
 
 interface ManualPriceModalProps {
@@ -37,17 +38,14 @@ export const ManualPriceModal: React.FC<ManualPriceModalProps> = ({ product, onC
             <div className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium mb-1">Precio de venta</label>
-                    <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-lg">$</span>
-                        <input
-                            ref={inputRef}
-                            type="number" min="0" step="0.01" inputMode="decimal"
-                            value={price} onChange={e => setPrice(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-                            placeholder="0.00"
-                            className="w-full text-2xl pl-8 pr-3 py-2.5 border-2 border-teal-400 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700"
-                        />
-                    </div>
+                    <MoneyInput
+                        value={price}
+                        onChange={setPrice}
+                        onEnter={submit}
+                        autoFocus
+                        placeholder="0.00"
+                        className="w-full text-2xl pr-3 py-2.5 border-2 border-teal-400 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-700"
+                    />
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">Descripción / comentario <span className="text-xs font-normal text-neutral-400">(opcional, sale en el recibo)</span></label>

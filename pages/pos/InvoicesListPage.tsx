@@ -14,6 +14,7 @@ import { Modal, ConfirmationModal } from '../../components/Modal';
 import { InputModal } from '../../components/InputModal';
 import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
 import { InvoiceTypeSelect } from '../../components/pos/InvoiceTypeSelect';
+import { MoneyInput } from '../../components/ui/MoneyInput';
 import { InvoiceDesignPreview } from '../../components/pos/InvoiceDesignPreview';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
@@ -830,7 +831,7 @@ export const InvoicesListPage: React.FC = () => {
                                     })()}
                                 </div>
                                 <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.invoices.qty_placeholder')} className={`${INPUT_SM_CLASSES} w-20`} />
-                                <input type="number" value={l.unitPrice} onChange={e => setLine(i, { unitPrice: e.target.value })} placeholder={t('posx.invoices.price_placeholder')} className={`${INPUT_SM_CLASSES} w-28`} />
+                                <div className="w-32"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={INPUT_SM_CLASSES} /></div>
                                 <span className="w-24 text-right text-sm text-neutral-500">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
                                 <button onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
                             </div>
@@ -859,7 +860,7 @@ export const InvoicesListPage: React.FC = () => {
                                     <select value={a.method} onChange={e => setAbono(i, { method: e.target.value })} className={`${INPUT_SM_CLASSES} w-40`}>
                                         {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
-                                    <input type="number" min="0" step="0.01" value={a.amount} onChange={e => setAbono(i, { amount: e.target.value })} placeholder={t('posx.invoices.price_placeholder')} className={`${INPUT_SM_CLASSES} w-28`} />
+                                    <div className="w-28"><MoneyInput value={a.amount} onChange={v => setAbono(i, { amount: v })} placeholder={t('posx.invoices.price_placeholder')} className={INPUT_SM_CLASSES} /></div>
                                     <input type="text" value={a.reference} onChange={e => setAbono(i, { reference: e.target.value })} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1`} />
                                     <button onClick={() => removeAbono(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
                                 </div>
@@ -888,7 +889,7 @@ export const InvoicesListPage: React.FC = () => {
                                                 <select value={payDraft.method} onChange={e => setPayDraft(d => ({ ...d, method: e.target.value }))} className={`${INPUT_SM_CLASSES} w-36`}>
                                                     {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </select>
-                                                <input type="number" min="0" step="0.01" value={payDraft.amount} onChange={e => setPayDraft(d => ({ ...d, amount: e.target.value }))} className={`${INPUT_SM_CLASSES} w-28`} />
+                                                <div className="w-28"><MoneyInput value={payDraft.amount} onChange={v => setPayDraft(d => ({ ...d, amount: v }))} className={INPUT_SM_CLASSES} /></div>
                                                 <input type="text" value={payDraft.reference} onChange={e => setPayDraft(d => ({ ...d, reference: e.target.value }))} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1 min-w-[120px]`} />
                                                 <button onClick={saveEditPay} className="text-sm text-primary font-medium hover:underline px-1">{t('common.save')}</button>
                                                 <button onClick={() => setEditingPayId(null)} className="text-sm text-neutral-500 hover:underline px-1">{t('common.cancel')}</button>

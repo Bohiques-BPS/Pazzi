@@ -9,6 +9,7 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { StorePreview } from '../../components/ecommerce/StorePreview';
+import { setCurrencySymbol } from '../../hooks/useCurrency';
 
 // ── Catálogo de templates disponibles ──
 const TEMPLATES: { id: ECommerceTemplate; name: string; desc: string; emoji: string }[] = [
@@ -104,6 +105,8 @@ export const ECommerceSettingsPage: React.FC = () => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [formData, setFormData] = useState<ECommerceSettings>(DEFAULT_ECOMMERCE_SETTINGS);
+    // Refleja la moneda seleccionada para que MoneyInput la use en toda la app.
+    useEffect(() => { setCurrencySymbol(formData.currency); }, [formData.currency]);
     const [storeOwnerId, setStoreOwnerId] = useState<string>(currentUser?.id || '');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

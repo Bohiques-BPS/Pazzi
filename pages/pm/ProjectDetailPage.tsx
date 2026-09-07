@@ -17,6 +17,7 @@ import { CallModal } from '../../components/CallModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { ClientDetailViewModal } from '../../components/ui/ClientDetailViewModal';
 import { ClientAutocomplete } from '../../components/ui/ClientAutocomplete';
+import { MoneyInput } from '../../components/ui/MoneyInput';
 import { ClientFormModal } from './ClientFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added import
 import { toast } from 'react-hot-toast';
@@ -486,7 +487,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
                             <div className="md:col-span-2"><label className="block text-xs">{t('project.resources.custom_name')}</label><input type="text" value={customProduct.name} onChange={e => setCustomProduct(p => ({...p, name: e.target.value}))} className={inputFormStyle + " !text-xs"}/></div>
                             <div><label className="block text-xs">{t('project.resources.quantity')}</label><input type="number" value={customProduct.quantity} onChange={e => setCustomProduct(p => ({...p, quantity: parseInt(e.target.value) || 1}))} className={inputFormStyle + " !text-xs"} min="1"/></div>
-                            <div><label className="block text-xs">{t('project.resources.unit_price_opt')}</label><input type="number" value={customProduct.unitPrice} onChange={e => setCustomProduct(p => ({...p, unitPrice: parseFloat(e.target.value) || 0}))} className={inputFormStyle + " !text-xs"} min="0" step="0.01"/></div>
+                            <div><label className="block text-xs">{t('project.resources.unit_price_opt')}</label><MoneyInput value={customProduct.unitPrice} onChange={v => setCustomProduct(p => ({...p, unitPrice: parseFloat(v) || 0}))} className={inputFormStyle + " !text-xs"} placeholder={t('pos.price') || 'Precio'} /></div>
                         </div>
                         <div className="mt-2 flex justify-end"><button type="button" onClick={handleAddCustomProduct} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>{t('project.resources.add_custom_btn')}</button></div>
                         {formData.customProducts && formData.customProducts.length > 0 && (
