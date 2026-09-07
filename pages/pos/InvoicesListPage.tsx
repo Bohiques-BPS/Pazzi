@@ -3,7 +3,8 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductFormModal } from '../pm/ProductFormModal';
 import { DataTable, type TableColumn } from '../../components/DataTable';
-import { invoicesService, type Invoice, type InvoiceItemInput } from '../../services/invoices';
+import { invoicesService, type Invoice, type InvoiceItemInput, type InvoicePaymentRecord } from '../../services/invoices';
+import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
@@ -175,6 +176,16 @@ export const InvoicesListPage: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [share, setShare] = useState<Invoice | null>(null);
     const [payFor, setPayFor] = useState<Invoice | null>(null);
+    // Edición de un abono existente (en el form de edición de factura).
+    const [editingPayId, setEditingPayId] = useState<string | null>(null);
+    const [payDraft, setPayDraft] = useState<{ amount: string; method: string; reference: string }>({ amount: '', method: '', reference: '' });
+    // Gate por PIN de supervisor para acciones sensibles (editar factura / editar o borrar abono).
+    const [pinAction, setPinAction] = useState<null | 'invoice' | 'payEdit' | 'payDelete'>(null);
+    const [pinValue, setPinValue] = useState('');
+    const [pinBusy, setPinBusy] = useState(false);
+    const [pinErr, setPinErr] = useState('');
+    const [pinParsed, setPinParsed] = useState<InvoiceItemInput[] | null>(null);
+    const [pinPayTarget, setPinPayTarget] = useState<InvoicePaymentRecord | null>(null);
     const [emailFor, setEmailFor] = useState<Invoice | null>(null);
     const [toDelete, setToDelete] = useState<Invoice | null>(null);
     const [deleting, setDeleting] = useState(false);
@@ -347,8 +358,19 @@ export const InvoicesListPage: React.FC = () => {
         await submitInvoice(parsed);
     };
 
-    // Envío real de la factura (crear/editar), una vez validados los productos.
+    // Editar una factura existente es dato sensible → pedir PIN de supervisor antes de guardar.
+    // Crear una factura nueva NO requiere PIN.
     const submitInvoice = async (parsed: InvoiceItemInput[]) => {
+        if (editId) {
+            setPinParsed(parsed);
+            setPinValue(''); setPinErr(''); setPinAction('invoice');
+            return;
+        }
+        await doSubmitInvoice(parsed);
+    };
+
+    // Envío real de la factura (crear/editar), una vez validados los productos (y con PIN si es edición).
+    const doSubmitInvoice = async (parsed: InvoiceItemInput[]) => {
         setSaving(true);
         try {
             if (editId) {
@@ -462,6 +484,59 @@ export const InvoicesListPage: React.FC = () => {
 
     // Abre el modal de abono (reemplaza los prompts nativos).
     const markPaid = (inv: Invoice) => setPayFor(inv);
+
+    // Factura en edición (para mostrar/editar sus abonos). Se recalcula tras cada load().
+    const editingInvoice = editId ? items.find(i => i.id === editId) || null : null;
+
+    const startEditPay = (p: InvoicePaymentRecord) => {
+        setEditingPayId(p.id);
+        setPayDraft({ amount: String(p.amount), method: p.method || '', reference: p.reference || '' });
+    };
+    // Guardar edición de abono → pide PIN antes.
+    const saveEditPay = () => {
+        if (!editId || !editingPayId) return;
+        if (!(Number(payDraft.amount) > 0)) { toast.error(t('posx.invoices.err_amount')); return; }
+        setPinValue(''); setPinErr(''); setPinAction('payEdit');
+    };
+    const doSaveEditPay = async () => {
+        if (!editId || !editingPayId) return;
+        try {
+            await invoicesService.updatePayment(editId, editingPayId, { amount: Number(payDraft.amount), method: payDraft.method || null, reference: payDraft.reference.trim() || null });
+            setEditingPayId(null);
+            await load();
+            toast.success(t('posx.invoices.payment_updated'));
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_payment')); }
+    };
+    // Eliminar abono → pide PIN antes.
+    const requestDeletePay = (p: InvoicePaymentRecord) => {
+        setPinPayTarget(p); setPinValue(''); setPinErr(''); setPinAction('payDelete');
+    };
+    const doDeletePay = async (p: InvoicePaymentRecord) => {
+        if (!editId) return;
+        try {
+            await invoicesService.deletePayment(editId, p.id);
+            await load();
+            toast.success(t('posx.invoices.payment_deleted'));
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_payment')); }
+    };
+
+    // Verifica el PIN de supervisor y ejecuta la acción sensible pendiente.
+    const submitPin = async () => {
+        if (!pinValue.trim()) { setPinErr(t('cmpx.discount.err_pin')); return; }
+        setPinBusy(true); setPinErr('');
+        try {
+            await authService.verifySupervisorPin(pinValue.trim());
+            const action = pinAction;
+            const parsed = pinParsed;
+            const payTarget = pinPayTarget;
+            setPinAction(null); setPinValue(''); setPinParsed(null); setPinPayTarget(null);
+            if (action === 'invoice' && parsed) await doSubmitInvoice(parsed);
+            else if (action === 'payEdit') await doSaveEditPay();
+            else if (action === 'payDelete' && payTarget) await doDeletePay(payTarget);
+        } catch (err) {
+            setPinErr(err instanceof ApiError ? err.message : t('cmpx.return.err_pin_incorrect'));
+        } finally { setPinBusy(false); }
+    };
 
     // Elimina la factura tras confirmar en el modal.
     const confirmDelete = async () => {
@@ -791,6 +866,48 @@ export const InvoicesListPage: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Pagos realizados (modo edición): ver, editar y eliminar los abonos ya registrados. */}
+                    {editId && editingInvoice && (
+                        <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('posx.invoices.payments_made') || 'Pagos realizados'}</span>
+                                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                                    {t('posx.invoices.paid_label')}: <span className="text-green-600 dark:text-green-400 font-semibold">{money(editingInvoice.amountPaid || 0)}</span>
+                                    {' · '}{t('pos.receivable.col.balance')}: <span className="text-red-600 dark:text-red-400 font-semibold">{money(Math.max(0, (editingInvoice.total || 0) - (editingInvoice.amountPaid || 0)))}</span>
+                                </span>
+                            </div>
+                            {(!editingInvoice.payments || editingInvoice.payments.length === 0) ? (
+                                <p className="text-xs text-neutral-400 dark:text-neutral-500">{t('posx.invoices.no_payments') || 'Sin abonos registrados.'}</p>
+                            ) : (
+                                <div className="space-y-1.5">
+                                    {editingInvoice.payments.map(p => (
+                                        editingPayId === p.id ? (
+                                            <div key={p.id} className="flex gap-2 items-center flex-wrap bg-neutral-50 dark:bg-neutral-900/40 p-2 rounded">
+                                                <select value={payDraft.method} onChange={e => setPayDraft(d => ({ ...d, method: e.target.value }))} className={`${INPUT_SM_CLASSES} w-36`}>
+                                                    {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                                                </select>
+                                                <input type="number" min="0" step="0.01" value={payDraft.amount} onChange={e => setPayDraft(d => ({ ...d, amount: e.target.value }))} className={`${INPUT_SM_CLASSES} w-28`} />
+                                                <input type="text" value={payDraft.reference} onChange={e => setPayDraft(d => ({ ...d, reference: e.target.value }))} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1 min-w-[120px]`} />
+                                                <button onClick={saveEditPay} className="text-sm text-primary font-medium hover:underline px-1">{t('common.save')}</button>
+                                                <button onClick={() => setEditingPayId(null)} className="text-sm text-neutral-500 hover:underline px-1">{t('common.cancel')}</button>
+                                            </div>
+                                        ) : (
+                                            <div key={p.id} className="flex gap-2 items-center text-sm">
+                                                <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums w-24 text-right">{money(p.amount)}</span>
+                                                <span className="text-neutral-500 dark:text-neutral-400 w-32 truncate">{p.method || '—'}</span>
+                                                <span className="text-neutral-400 dark:text-neutral-500 flex-1 truncate">{p.reference || ''}</span>
+                                                <span className="text-xs text-neutral-400 dark:text-neutral-500">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ''}</span>
+                                                <button onClick={() => startEditPay(p)} className="text-blue-600 dark:text-blue-400 hover:underline px-1">{t('common.edit')}</button>
+                                                <button onClick={() => requestDeletePay(p)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
+                                            </div>
+                                        )
+                                    ))}
+                                </div>
+                            )}
+                            <button onClick={() => editingInvoice && markPaid(editingInvoice)} className="text-sm text-primary hover:underline">{t('posx.invoices.abonos_add') || '+ Registrar abono'}</button>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-700 pt-3">
                         <span className="text-sm text-neutral-500">{t('posx.invoices.subtotal_note')}</span>
                         <span className="font-semibold text-neutral-800 dark:text-neutral-100">{money(draftTotal)}</span>
@@ -885,6 +1002,36 @@ export const InvoicesListPage: React.FC = () => {
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
             <PayModal invoice={payFor} onClose={() => setPayFor(null)} onDone={load} />
+
+            {/* PIN de supervisor para acciones sensibles (editar factura / editar o borrar abono) */}
+            <Modal isOpen={!!pinAction} onClose={() => { setPinAction(null); setPinValue(''); setPinErr(''); }} title={t('posx.invoices.pin_title')} size="sm">
+                <div className="space-y-3">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                        {pinAction === 'payDelete'
+                            ? t('posx.invoices.pin_delete_pay')
+                            : pinAction === 'payEdit'
+                                ? t('posx.invoices.pin_edit_pay')
+                                : t('posx.invoices.pin_edit_invoice')}
+                    </p>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">{t('cmpx.common.supervisor_pin')}</label>
+                        <input
+                            type="password" inputMode="numeric" autoFocus
+                            value={pinValue}
+                            onChange={e => { setPinValue(e.target.value); setPinErr(''); }}
+                            onKeyDown={e => { if (e.key === 'Enter') submitPin(); }}
+                            className={INPUT_SM_CLASSES + ' w-full'}
+                            placeholder="••••"
+                        />
+                        {pinErr && <p className="mt-1 text-xs text-red-500">{pinErr}</p>}
+                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('cmpx.return.pin_hint')}</p>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button onClick={() => { setPinAction(null); setPinValue(''); setPinErr(''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                        <button onClick={submitPin} disabled={pinBusy} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{pinBusy ? t('posx.invoices.verifying') : t('posx.invoices.authorize')}</button>
+                    </div>
+                </div>
+            </Modal>
             <InputModal
                 isOpen={!!emailFor}
                 title={t('posx.invoices.send_email_title') || 'Enviar factura por correo'}

@@ -32,6 +32,17 @@ export interface Invoice {
     deletedAt?: string | null;
     allowPartial?: boolean;
     createdAt: string;
+    /** Abonos individuales registrados en la factura. */
+    payments?: InvoicePaymentRecord[];
+}
+
+/** Un abono registrado (con id, para poder editarlo o eliminarlo). */
+export interface InvoicePaymentRecord {
+    id: string;
+    amount: number;
+    method?: string | null;
+    reference?: string | null;
+    paidAt?: string | null;
 }
 
 export interface CreateInvoiceInput {
@@ -112,6 +123,10 @@ export const invoicesService = {
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/invoices/${id}/restore`),
     markPaid: (id: string, body: { reference?: string; method?: string; amount?: number }) =>
         api.post<Invoice>(`/invoices/${id}/mark-paid`, body),
+    updatePayment: (id: string, paymentId: string, body: { amount?: number; method?: string | null; reference?: string | null }) =>
+        api.put<Invoice>(`/invoices/${id}/payments/${paymentId}`, body),
+    deletePayment: (id: string, paymentId: string) =>
+        api.delete<Invoice>(`/invoices/${id}/payments/${paymentId}`),
     send: (id: string, email?: string) =>
         api.post<{ sent: boolean; to: string }>(`/invoices/${id}/send`, email ? { email } : {}),
 
