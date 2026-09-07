@@ -70,6 +70,12 @@ const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = (
 
 /** Métodos de cobro para registrar un abono manualmente. */
 const PAY_METHODS = ['ATH Móvil', 'AgilPay / Tarjeta', 'Efectivo', 'Transferencia', 'Cheque', 'Otro'];
+/** Hoy en YYYY-MM-DD local (lo que usa <input type="date">). */
+const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+/** "YYYY-MM-DD" -> ISO al mediodía local, para que el día no se corra por zona horaria. */
+const fechaAIso = (v: string) => new Date(`${v}T12:00:00`).toISOString();
+/** Fecha guardada -> YYYY-MM-DD local (hoy si no hay). */
+const isoAFecha = (iso?: string | null) => { if (!iso) return hoyISO(); const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /** Modal con diseño de formulario para registrar un abono/pago a una factura. */
 const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone: () => void }> = ({ invoice, onClose, onDone }) => {
@@ -78,11 +84,13 @@ const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone:
     const [amount, setAmount] = useState('');
     const [method, setMethod] = useState(PAY_METHODS[0]);
     const [reference, setReference] = useState('');
+    // Fecha del abono: hoy por defecto; se cambia solo si el pago fue otro día.
+    const [date, setDate] = useState(hoyISO());
     const [saving, setSaving] = useState(false);
 
     // Al abrir, precargar el saldo pendiente y limpiar el resto.
     useEffect(() => {
-        if (invoice) { setAmount(balance.toFixed(2)); setMethod(PAY_METHODS[0]); setReference(''); }
+        if (invoice) { setAmount(balance.toFixed(2)); setMethod(PAY_METHODS[0]); setReference(''); setDate(hoyISO()); }
     }, [invoice]); // eslint-disable-line
 
     const submit = async () => {
@@ -92,7 +100,7 @@ const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone:
         if (amt > balance + 0.001) return toast.error(t('posx.invoices.err_amount_over', { balance: money(balance) }));
         setSaving(true);
         try {
-            await invoicesService.markPaid(invoice.id, { method, reference: reference.trim() || undefined, amount: amt });
+            await invoicesService.markPaid(invoice.id, { method, reference: reference.trim() || undefined, amount: amt, paidAt: date !== hoyISO() ? fechaAIso(date) : undefined });
             toast.success(t('posx.invoices.payment_recorded'));
             onDone(); onClose();
         } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_payment')); }
@@ -129,6 +137,10 @@ const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone:
                     </select>
                 </div>
 
+                <div>
+                    <label className={labelCls}>{t('posx.invoices.abonos_date')}</label>
+                    <input type="date" value={date} max={hoyISO()} onChange={e => setDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
+                </div>
                 <div>
                     <label className={labelCls}>{t('posx.invoices.pay_reference')} <span className="text-neutral-400 text-xs font-normal">{t('cmp.onb.optional')}</span></label>
                     <input
@@ -179,7 +191,7 @@ export const InvoicesListPage: React.FC = () => {
     const [payFor, setPayFor] = useState<Invoice | null>(null);
     // Edición de un abono existente (en el form de edición de factura).
     const [editingPayId, setEditingPayId] = useState<string | null>(null);
-    const [payDraft, setPayDraft] = useState<{ amount: string; method: string; reference: string }>({ amount: '', method: '', reference: '' });
+    const [payDraft, setPayDraft] = useState<{ amount: string; method: string; reference: string; date: string }>({ amount: '', method: '', reference: '', date: '' });
     // Gate por PIN de supervisor para acciones sensibles (editar factura / editar o borrar abono).
     const [pinAction, setPinAction] = useState<null | 'invoice' | 'payEdit' | 'payDelete'>(null);
     const [pinValue, setPinValue] = useState('');
@@ -206,15 +218,17 @@ export const InvoicesListPage: React.FC = () => {
     const [advOpen, setAdvOpen] = useState(false);
     const [design, setDesign] = useState<Record<string, any>>({});
     // Abonos ya realizados al crear la factura (efectivo u otro método).
-    const [abonos, setAbonos] = useState<{ method: string; amount: string; reference: string }[]>([]);
-    const addAbono = () => setAbonos(a => [...a, { method: PAY_METHODS[2], amount: '', reference: '' }]);
-    const setAbono = (i: number, patch: Partial<{ method: string; amount: string; reference: string }>) => setAbonos(a => a.map((x, idx) => idx === i ? { ...x, ...patch } : x));
+    const [abonos, setAbonos] = useState<{ method: string; amount: string; reference: string; date: string }[]>([]);
+    const addAbono = () => setAbonos(a => [...a, { method: PAY_METHODS[2], amount: '', reference: '', date: hoyISO() }]);
+    const setAbono = (i: number, patch: Partial<{ method: string; amount: string; reference: string; date: string }>) => setAbonos(a => a.map((x, idx) => idx === i ? { ...x, ...patch } : x));
     const removeAbono = (i: number) => setAbonos(a => a.filter((_, idx) => idx !== i));
     const abonosTotal = abonos.reduce((s, a) => s + (Number(a.amount) || 0), 0);
     const gDesign: any = (settings as any)?.receiptConfig?.invoiceDesign || {};
     const setD = (k: string, v: any) => setDesign(d => { const n = { ...d }; if (v === '' || v == null) delete n[k]; else n[k] = v; return n; });
     const setLbl = (k: string, v: string) => setDesign(d => { const labels = { ...(d.labels || {}) }; if (!v) delete labels[k]; else labels[k] = v; const n = { ...d }; if (Object.keys(labels).length) n.labels = labels; else delete n.labels; return n; });
     const [editId, setEditId] = useState<string | null>(null);
+    // Fecha de la factura: hoy por defecto; se puede poner una anterior si se registra tarde.
+    const [invDate, setInvDate] = useState(hoyISO());
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
     // Filtros extra
     const [cashierF, setCashierF] = useState('all');
@@ -241,7 +255,7 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); };
 
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
     const openEdit = (inv: Invoice) => {
@@ -252,6 +266,7 @@ export const InvoicesListPage: React.FC = () => {
         setDescription(inv.description || '');
         setInvType(inv.type || '');
         setAllowPartial(inv.allowPartial !== false);
+        setInvDate(isoAFecha(inv.createdAt));
         setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), taxRate: (it as any).taxRate ?? undefined })));
         setSendOnCreate(false);
         setShowForm(true);
@@ -385,6 +400,7 @@ export const InvoicesListPage: React.FC = () => {
                     description: description || null,
                     allowPartial,
                     type: invType.trim() || null,
+                    createdAt: editingInvoice && invDate !== isoAFecha(editingInvoice.createdAt) ? fechaAIso(invDate) : undefined,
                 });
                 toast.success(t('posx.invoices.updated'));
                 setShowForm(false); resetForm(); load();
@@ -398,7 +414,8 @@ export const InvoicesListPage: React.FC = () => {
                     allowPartial,
                     type: invType.trim() || null,
                     designOverride: Object.keys(design).length ? design : undefined,
-                    initialPayments: abonos.map(a => ({ method: a.method, amount: Number(a.amount) || 0, reference: a.reference.trim() || undefined })).filter(a => a.amount > 0),
+                    createdAt: invDate !== hoyISO() ? fechaAIso(invDate) : undefined,
+                    initialPayments: abonos.map(a => ({ method: a.method, amount: Number(a.amount) || 0, reference: a.reference.trim() || undefined, paidAt: a.date && a.date !== hoyISO() ? fechaAIso(a.date) : undefined })).filter(a => a.amount > 0),
                 });
                 toast.success(sendOnCreate && email.trim() ? t('posx.invoices.created_sent', { email: email.trim() }) : t('posx.invoices.created'));
                 setShowForm(false); resetForm(); load();
@@ -493,7 +510,7 @@ export const InvoicesListPage: React.FC = () => {
 
     const startEditPay = (p: InvoicePaymentRecord) => {
         setEditingPayId(p.id);
-        setPayDraft({ amount: String(p.amount), method: p.method || '', reference: p.reference || '' });
+        setPayDraft({ amount: String(p.amount), method: p.method || '', reference: p.reference || '', date: isoAFecha(p.paidAt) });
     };
     // Guardar edición de abono → pide PIN antes.
     const saveEditPay = () => {
@@ -504,7 +521,7 @@ export const InvoicesListPage: React.FC = () => {
     const doSaveEditPay = async () => {
         if (!editId || !editingPayId) return;
         try {
-            await invoicesService.updatePayment(editId, editingPayId, { amount: Number(payDraft.amount), method: payDraft.method || null, reference: payDraft.reference.trim() || null });
+            await invoicesService.updatePayment(editId, editingPayId, { amount: Number(payDraft.amount), method: payDraft.method || null, reference: payDraft.reference.trim() || null, paidAt: payDraft.date && payDraft.date !== isoAFecha(editingInvoice?.payments?.find(p => p.id === editingPayId)?.paidAt) ? fechaAIso(payDraft.date) : undefined });
             setEditingPayId(null);
             await load();
             toast.success(t('posx.invoices.payment_updated'));
@@ -674,6 +691,10 @@ export const InvoicesListPage: React.FC = () => {
                         <div>
                             <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.type_label')}</label>
                             <InvoiceTypeSelect value={invType} onChange={setInvType} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.invoice_date')}</label>
+                            <input type="date" value={invDate} max={hoyISO()} onChange={e => setInvDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} title={t('posx.invoices.invoice_date_hint')} />
                         </div>
                     </div>
 
@@ -861,6 +882,7 @@ export const InvoicesListPage: React.FC = () => {
                                         {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                     <div className="w-28"><MoneyInput value={a.amount} onChange={v => setAbono(i, { amount: v })} placeholder={t('posx.invoices.price_placeholder')} className={INPUT_SM_CLASSES} /></div>
+                                    <input type="date" value={a.date} max={hoyISO()} onChange={e => setAbono(i, { date: e.target.value })} className={`${INPUT_SM_CLASSES} w-36`} title={t('posx.invoices.abonos_date')} />
                                     <input type="text" value={a.reference} onChange={e => setAbono(i, { reference: e.target.value })} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1`} />
                                     <button onClick={() => removeAbono(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
                                 </div>
@@ -890,6 +912,7 @@ export const InvoicesListPage: React.FC = () => {
                                                     {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </select>
                                                 <div className="w-28"><MoneyInput value={payDraft.amount} onChange={v => setPayDraft(d => ({ ...d, amount: v }))} className={INPUT_SM_CLASSES} /></div>
+                                                <input type="date" value={payDraft.date} max={hoyISO()} onChange={e => setPayDraft(d => ({ ...d, date: e.target.value }))} className={`${INPUT_SM_CLASSES} w-36`} />
                                                 <input type="text" value={payDraft.reference} onChange={e => setPayDraft(d => ({ ...d, reference: e.target.value }))} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1 min-w-[120px]`} />
                                                 <button onClick={saveEditPay} className="text-sm text-primary font-medium hover:underline px-1">{t('common.save')}</button>
                                                 <button onClick={() => setEditingPayId(null)} className="text-sm text-neutral-500 hover:underline px-1">{t('common.cancel')}</button>

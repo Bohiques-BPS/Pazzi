@@ -56,10 +56,12 @@ export interface CreateInvoiceInput {
     allowPartial?: boolean;  // false = solo pago completo (sin abonos)
     type?: string | null;    // tipo de factura (etiqueta libre)
     designOverride?: Record<string, any> | null; // personalización de diseño solo para esta factura
-    initialPayments?: { method?: string | null; amount: number; reference?: string | null }[]; // abonos ya realizados
+    initialPayments?: { method?: string | null; amount: number; reference?: string | null; paidAt?: string | null }[]; // abonos ya realizados
+    createdAt?: string | null; // fecha de la factura, si no es hoy (solo hacia atras)
 }
 
 export interface UpdateInvoiceInput {
+    createdAt?: string | null; // fecha de la factura (solo hacia atras)
     clientId?: string | null;
     email?: string | null;
     items?: InvoiceItemInput[];
@@ -121,9 +123,9 @@ export const invoicesService = {
     update: (id: string, data: UpdateInvoiceInput) => api.put<Invoice>(`/invoices/${id}`, data),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/invoices/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/invoices/${id}/restore`),
-    markPaid: (id: string, body: { reference?: string; method?: string; amount?: number }) =>
+    markPaid: (id: string, body: { reference?: string; method?: string; amount?: number; paidAt?: string }) =>
         api.post<Invoice>(`/invoices/${id}/mark-paid`, body),
-    updatePayment: (id: string, paymentId: string, body: { amount?: number; method?: string | null; reference?: string | null }) =>
+    updatePayment: (id: string, paymentId: string, body: { amount?: number; method?: string | null; reference?: string | null; paidAt?: string | null }) =>
         api.put<Invoice>(`/invoices/${id}/payments/${paymentId}`, body),
     deletePayment: (id: string, paymentId: string) =>
         api.delete<Invoice>(`/invoices/${id}/payments/${paymentId}`),
