@@ -506,6 +506,26 @@ export const InvoicesListPage: React.FC = () => {
     // Abre el modal de abono (reemplaza los prompts nativos).
     const markPaid = (inv: Invoice) => setPayFor(inv);
 
+    // Descarga el PDF de la factura (baja el blob y fuerza la descarga, aunque el endpoint sea inline).
+    const downloadPdf = async (token: string, number?: number | null) => {
+        try {
+            const res = await fetch(`${API_URL}/public/invoices/${token}/pdf`);
+            if (!res.ok) throw new Error('pdf');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `factura-${number ?? token.slice(0, 6)}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+        } catch {
+            // Respaldo: abrir en pestaña nueva si la descarga directa falla.
+            window.open(`${API_URL}/public/invoices/${token}/pdf`, '_blank', 'noopener');
+        }
+    };
+
     // Factura en edición (para mostrar/editar sus abonos). Se recalcula tras cada load().
     const editingInvoice = editId ? items.find(i => i.id === editId) || null : null;
 
@@ -957,9 +977,14 @@ export const InvoicesListPage: React.FC = () => {
                     )}
                     <div className="flex justify-end gap-2">
                         {editId && editingInvoice?.publicToken && (
-                            <button type="button" onClick={() => setPdfToken(editingInvoice.publicToken)} className={BUTTON_SECONDARY_SM_CLASSES}>
-                                {t('posx.invoices.view_pdf')}
-                            </button>
+                            <>
+                                <button type="button" onClick={() => setPdfToken(editingInvoice.publicToken)} className={BUTTON_SECONDARY_SM_CLASSES}>
+                                    {t('posx.invoices.view_pdf')}
+                                </button>
+                                <button type="button" onClick={() => downloadPdf(editingInvoice.publicToken, editingInvoice.number)} className={BUTTON_SECONDARY_SM_CLASSES}>
+                                    {t('posx.invoices.download_pdf')}
+                                </button>
+                            </>
                         )}
                         <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.invoices.creating') : editId ? t('posx.invoices.save_changes') : t('posx.invoices.create_invoice')}</button>
@@ -1058,6 +1083,7 @@ export const InvoicesListPage: React.FC = () => {
                     )}
                     <div className="flex justify-end gap-2 pt-1">
                         <button onClick={() => pdfToken && window.open(`${API_URL}/public/invoices/${pdfToken}/pdf`, '_blank', 'noopener')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.open_new_tab')}</button>
+                        <button onClick={() => pdfToken && downloadPdf(pdfToken)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.download_pdf')}</button>
                         <button onClick={() => setPdfToken(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close')}</button>
                     </div>
                 </div>
