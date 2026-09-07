@@ -894,14 +894,16 @@ export const InvoicesListPage: React.FC = () => {
                                 {abonosTotal > 0 && <span className="text-xs text-green-600 dark:text-green-400">{t('posx.invoices.abonos_paid')}: {money(abonosTotal)}</span>}
                             </div>
                             {abonos.map((a, i) => (
-                                <div key={i} className="flex gap-2 items-center">
-                                    <select value={a.method} onChange={e => setAbono(i, { method: e.target.value })} className={`${INPUT_SM_CLASSES} w-40`}>
-                                        {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                    <div className="w-28"><MoneyInput value={a.amount} onChange={v => setAbono(i, { amount: v })} placeholder={t('posx.invoices.amount_placeholder')} className={INPUT_SM_CLASSES} /></div>
-                                    <input type="date" value={a.date} max={hoyISO()} onChange={e => setAbono(i, { date: e.target.value })} className={`${INPUT_SM_CLASSES} w-36`} title={t('posx.invoices.abonos_date')} />
-                                    <input type="text" value={a.reference} onChange={e => setAbono(i, { reference: e.target.value })} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1`} />
-                                    <button onClick={() => removeAbono(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
+                                <div key={i} className="flex gap-2 items-start">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
+                                        <select value={a.method} onChange={e => setAbono(i, { method: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
+                                            {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+                                        <MoneyInput value={a.amount} onChange={v => setAbono(i, { amount: v })} placeholder={t('posx.invoices.amount_placeholder')} className={`${INPUT_SM_CLASSES} w-full`} />
+                                        <input type="date" value={a.date} max={hoyISO()} onChange={e => setAbono(i, { date: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`} title={t('posx.invoices.abonos_date')} />
+                                        <input type="text" value={a.reference} onChange={e => setAbono(i, { reference: e.target.value })} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} w-full`} />
+                                    </div>
+                                    <button onClick={() => removeAbono(i)} className="text-red-500 hover:text-red-700 px-1 mt-1.5 flex-shrink-0" title={t('posx.invoices.remove')}>✕</button>
                                 </div>
                             ))}
                             <button onClick={addAbono} className="text-sm text-primary hover:underline">{t('posx.invoices.abonos_add')}</button>
@@ -924,15 +926,19 @@ export const InvoicesListPage: React.FC = () => {
                                 <div className="space-y-1.5">
                                     {editingInvoice.payments.map(p => (
                                         editingPayId === p.id ? (
-                                            <div key={p.id} className="flex gap-2 items-center flex-wrap bg-neutral-50 dark:bg-neutral-900/40 p-2 rounded">
-                                                <select value={payDraft.method} onChange={e => setPayDraft(d => ({ ...d, method: e.target.value }))} className={`${INPUT_SM_CLASSES} w-36`}>
-                                                    {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                                                </select>
-                                                <div className="w-28"><MoneyInput value={payDraft.amount} onChange={v => setPayDraft(d => ({ ...d, amount: v }))} placeholder={t('posx.invoices.amount_placeholder')} className={INPUT_SM_CLASSES} /></div>
-                                                <input type="date" value={payDraft.date} max={hoyISO()} onChange={e => setPayDraft(d => ({ ...d, date: e.target.value }))} className={`${INPUT_SM_CLASSES} w-36`} />
-                                                <input type="text" value={payDraft.reference} onChange={e => setPayDraft(d => ({ ...d, reference: e.target.value }))} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} flex-1 min-w-[120px]`} />
-                                                <button onClick={saveEditPay} className="text-sm text-primary font-medium hover:underline px-1">{t('common.save')}</button>
-                                                <button onClick={() => setEditingPayId(null)} className="text-sm text-neutral-500 hover:underline px-1">{t('common.cancel')}</button>
+                                            <div key={p.id} className="bg-neutral-50 dark:bg-neutral-900/40 p-2 rounded space-y-2">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                                    <select value={payDraft.method} onChange={e => setPayDraft(d => ({ ...d, method: e.target.value }))} className={`${INPUT_SM_CLASSES} w-full`}>
+                                                        {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                    <MoneyInput value={payDraft.amount} onChange={v => setPayDraft(d => ({ ...d, amount: v }))} placeholder={t('posx.invoices.amount_placeholder')} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                    <input type="date" value={payDraft.date} max={hoyISO()} onChange={e => setPayDraft(d => ({ ...d, date: e.target.value }))} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                    <input type="text" value={payDraft.reference} onChange={e => setPayDraft(d => ({ ...d, reference: e.target.value }))} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                </div>
+                                                <div className="flex justify-end gap-3">
+                                                    <button onClick={() => setEditingPayId(null)} className="text-sm text-neutral-500 hover:underline px-1">{t('common.cancel')}</button>
+                                                    <button onClick={saveEditPay} className="text-sm text-primary font-medium hover:underline px-1">{t('common.save')}</button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div key={p.id} className="flex gap-2 items-center text-sm">
