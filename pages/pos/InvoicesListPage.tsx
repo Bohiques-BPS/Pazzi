@@ -680,7 +680,7 @@ export const InvoicesListPage: React.FC = () => {
                                 {clientOpen && (
                                     <ul className="absolute z-30 w-full mt-1 bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg max-h-56 overflow-y-auto">
                                         <li onMouseDown={() => { onSelectClient(''); setClientQuery(''); setClientOpen(false); }} className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm text-neutral-500">{t('posx.invoices.no_client')}</li>
-                                        {clients.filter(c => !c.isDefault && `${c.name} ${c.lastName} ${c.email || ''}`.toLowerCase().includes(clientQuery.trim().toLowerCase())).slice(0, 50).map(c => (
+                                        {clients.filter(c => !c.isDefault && `${c.name} ${c.lastName} ${c.companyName || ''} ${c.email || ''}`.toLowerCase().includes(clientQuery.trim().toLowerCase())).slice(0, 50).map(c => (
                                             <li key={c.id} onMouseDown={() => { onSelectClient(c.id); setClientQuery(`${c.name} ${c.lastName || ''}`.trim()); setClientOpen(false); }} className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm">
                                                 {c.name} {c.lastName} {c.email ? <span className="text-neutral-400">· {c.email}</span> : ''}
                                             </li>

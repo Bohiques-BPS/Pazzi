@@ -78,7 +78,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
     
         // If not found by ID, search by client name
         const matchingClients = clients.filter(c =>
-            `${c.name} ${c.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
+            `${c.name} ${c.lastName} ${c.companyName || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
         );
     
         if (matchingClients.length > 0) {

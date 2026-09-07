@@ -257,7 +257,7 @@ export const AccountsReceivablePage: React.FC = () => {
     const clientSuggestions = useMemo(() => {
         if (!clientSearchInput) return clients.slice(0,10);
         const lower = clientSearchInput.toLowerCase();
-        return clients.filter(c => c.name.toLowerCase().includes(lower) || c.lastName.toLowerCase().includes(lower)).slice(0, 10);
+        return clients.filter(c => c.name.toLowerCase().includes(lower) || c.lastName.toLowerCase().includes(lower) || (c.companyName || '').toLowerCase().includes(lower)).slice(0, 10);
     }, [clients, clientSearchInput]);
 
     const handleSelectClient = (client: Client) => {
