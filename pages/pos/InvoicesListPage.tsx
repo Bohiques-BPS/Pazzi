@@ -5,7 +5,7 @@ import { ProductFormModal } from '../pm/ProductFormModal';
 import { DataTable, type TableColumn } from '../../components/DataTable';
 import { invoicesService, type Invoice, type InvoiceItemInput, type InvoicePaymentRecord } from '../../services/invoices';
 import { authService } from '../../services/auth';
-import { ApiError } from '../../services/api';
+import { ApiError, API_URL } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
@@ -186,6 +186,8 @@ export const InvoicesListPage: React.FC = () => {
     const [pinErr, setPinErr] = useState('');
     const [pinParsed, setPinParsed] = useState<InvoiceItemInput[] | null>(null);
     const [pinPayTarget, setPinPayTarget] = useState<InvoicePaymentRecord | null>(null);
+    // Preview del PDF real (endpoint público inline) de la factura en edición.
+    const [pdfToken, setPdfToken] = useState<string | null>(null);
     const [emailFor, setEmailFor] = useState<Invoice | null>(null);
     const [toDelete, setToDelete] = useState<Invoice | null>(null);
     const [deleting, setDeleting] = useState(false);
@@ -919,6 +921,11 @@ export const InvoicesListPage: React.FC = () => {
                         </div>
                     )}
                     <div className="flex justify-end gap-2">
+                        {editId && editingInvoice?.publicToken && (
+                            <button type="button" onClick={() => setPdfToken(editingInvoice.publicToken)} className={BUTTON_SECONDARY_SM_CLASSES}>
+                                {t('posx.invoices.view_pdf')}
+                            </button>
+                        )}
                         <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.invoices.creating') : editId ? t('posx.invoices.save_changes') : t('posx.invoices.create_invoice')}</button>
                     </div>
@@ -1002,6 +1009,24 @@ export const InvoicesListPage: React.FC = () => {
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
             <PayModal invoice={payFor} onClose={() => setPayFor(null)} onDone={load} />
+
+            {/* Preview del PDF real de la factura (versión guardada) */}
+            <Modal isOpen={!!pdfToken} onClose={() => setPdfToken(null)} title={t('posx.invoices.pdf_preview_title')} size="4xl">
+                <div className="space-y-2">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('posx.invoices.pdf_preview_hint')}</p>
+                    {pdfToken && (
+                        <iframe
+                            title="PDF"
+                            src={`${API_URL}/public/invoices/${pdfToken}/pdf`}
+                            className="w-full h-[70vh] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white"
+                        />
+                    )}
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button onClick={() => pdfToken && window.open(`${API_URL}/public/invoices/${pdfToken}/pdf`, '_blank', 'noopener')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.open_new_tab')}</button>
+                        <button onClick={() => setPdfToken(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close')}</button>
+                    </div>
+                </div>
+            </Modal>
 
             {/* PIN de supervisor para acciones sensibles (editar factura / editar o borrar abono) */}
             <Modal isOpen={!!pinAction} onClose={() => { setPinAction(null); setPinValue(''); setPinErr(''); }} title={t('posx.invoices.pin_title')} size="sm">
