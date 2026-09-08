@@ -28,6 +28,9 @@ export const authService = {
 
   me: () => api.get<User>('/auth/verify'),
 
+  /** Heartbeat: marca al usuario como activo (para la bitácora de accesos). */
+  ping: () => api.post<{ ok: boolean }>('/auth/ping', {}),
+
   updatePassword: (currentPassword: string, newPassword: string) =>
     api.post<{ message: string }>('/auth/update-password', { currentPassword, newPassword }),
 

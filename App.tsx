@@ -152,6 +152,18 @@ const AppContent: React.FC = () => {
     if (currentUser) loadSettings();
   }, [currentUser, loadSettings]);
 
+  // Heartbeat de actividad: marca al usuario como activo (bitácora de accesos).
+  // Al abrir, cada 5 min mientras usa la app, y al volver a la pestaña.
+  useEffect(() => {
+    if (!currentUser) return;
+    const ping = () => { authService.ping().catch(() => {}); };
+    ping();
+    const interval = setInterval(ping, 5 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === 'visible') ping(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
+  }, [currentUser]);
+
   // Toasts globales para errores del API (403/429/5xx)
   useApiErrorToasts();
 
