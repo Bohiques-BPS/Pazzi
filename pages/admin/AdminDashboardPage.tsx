@@ -3,6 +3,7 @@ import React from 'react';
 import { AlertsConfiguration } from '../../components/admin/AlertsConfiguration';
 import { ModulesConfiguration } from '../../components/admin/ModulesConfiguration';
 import { BusinessDataConfiguration } from '../../components/admin/BusinessDataConfiguration';
+import { LoginActivityLog } from '../../components/admin/LoginActivityLog';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -23,6 +24,8 @@ export const AdminDashboardPage: React.FC = () => {
             <ModulesConfiguration />
 
             <AlertsConfiguration />
+
+            <LoginActivityLog />
 
             {/* Future admin components can be added here */}
             {/* 
