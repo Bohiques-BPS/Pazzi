@@ -10,7 +10,9 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { AppModule, UserRole, Notification } from '../../types';
 import { APP_MODULES_CONFIG } from '../../constants';
 import { API_URL } from '../../services/api';
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon } from '../icons';
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon } from '../icons';
+import { timeclockService } from '../../services/timeclock';
+import { toast } from '../../hooks/useToast';
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
 
@@ -62,6 +64,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [punching, setPunching] = useState(false);
+
+  // Ponche rápido del usuario conectado (alterna Entrada/Salida en el backend).
+  const handlePunch = async () => {
+    if (punching) return;
+    setPunching(true);
+    try {
+      const res = await timeclockService.punchSelf();
+      const when = new Date(res.punchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (res.type === 'IN') toast.success(t('cmp.navbar.punch_in_ok', { time: when }));
+      else toast.success(t('cmp.navbar.punch_out_ok', { time: when }));
+    } catch (err: any) {
+      toast.error(err?.message || t('cmp.navbar.punch_err'));
+    } finally {
+      setPunching(false);
+    }
+  };
   // Cerrar los dropdowns al hacer clic fuera de su contenedor.
   const moduleRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -282,6 +301,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
         {/* Right side: Notifications & User Menu */}
         <div className="flex items-center space-x-1 sm:space-x-2">
+           {/* Ponche rápido (Entrada/Salida) — solo staff */}
+           {currentUser && (currentUser.role === UserRole.MANAGER || currentUser.role === UserRole.EMPLOYEE) && (
+             <button
+                onClick={handlePunch}
+                disabled={punching}
+                className="p-1.5 sm:p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                aria-label={t('cmp.navbar.punch')}
+                title={t('cmp.navbar.punch')}
+             >
+                <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
+             </button>
+           )}
            {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
             <div className="relative" ref={notifRef}>
