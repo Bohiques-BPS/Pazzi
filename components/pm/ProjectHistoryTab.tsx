@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { projectsService, ProjectActivityItem } from '../../services/projects';
 import { Squares2X2Icon, ListBulletIcon } from '../icons';
 
-interface Props { projectId: string; }
-
 /** Metadatos visuales por tipo de evento (color del punto + etiqueta legible). */
 const TYPE_META: Record<string, { label: string; dot: string; chip: string }> = {
     PROJECT_CREATED:     { label: 'Proyecto',     dot: 'bg-teal-500',    chip: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
@@ -32,24 +30,21 @@ const fmtDay = (iso: string) => {
     catch { return iso; }
 };
 
-export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
-    const [items, setItems] = useState<ProjectActivityItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+interface ViewProps {
+    items: ProjectActivityItem[];
+    loading?: boolean;
+    error?: string;
+    /** Muestra a qué proyecto pertenece cada evento (histórico global). */
+    showProject?: boolean;
+    /** Altura máxima del área con scroll. */
+    maxHeightClass?: string;
+}
+
+/** Vista reutilizable del histórico (timeline / tabla + filtros). */
+export const ActivityHistoryView: React.FC<ViewProps> = ({ items, loading, error, showProject, maxHeightClass = 'max-h-[60vh]' }) => {
     const [view, setView] = useState<'timeline' | 'table'>('timeline');
     const [filter, setFilter] = useState<string>('all');
 
-    useEffect(() => {
-        let active = true;
-        setLoading(true); setError('');
-        projectsService.getActivity(projectId)
-            .then(data => { if (active) setItems(Array.isArray(data) ? data : []); })
-            .catch(() => { if (active) setError('No se pudo cargar el histórico.'); })
-            .finally(() => { if (active) setLoading(false); });
-        return () => { active = false; };
-    }, [projectId]);
-
-    // Categorías presentes (para los chips de filtro), agrupando asignaciones.
     const filterGroups = useMemo(() => {
         const present = new Set(items.map(i => i.type));
         const groups: { key: string; label: string; match: (t: string) => boolean }[] = [
@@ -67,7 +62,6 @@ export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
     const activeGroup = filterGroups.find(g => g.key === filter) || filterGroups[0];
     const visible = useMemo(() => items.filter(i => activeGroup.match(i.type)), [items, activeGroup]);
 
-    // Agrupa por día para el timeline.
     const byDay = useMemo(() => {
         const map = new Map<string, ProjectActivityItem[]>();
         for (const it of visible) {
@@ -82,7 +76,6 @@ export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
 
     return (
         <div>
-            {/* Barra: filtros + toggle de vista */}
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div className="flex items-center gap-1.5 flex-wrap">
                     {filterGroups.map(g => (
@@ -101,7 +94,7 @@ export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
             {visible.length === 0 ? (
                 <div className="py-12 text-center text-neutral-500 dark:text-neutral-400">Sin actividad para mostrar.</div>
             ) : view === 'timeline' ? (
-                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-1">
+                <div className={`space-y-6 ${maxHeightClass} overflow-y-auto pr-1`}>
                     {byDay.map(([day, dayItems]) => (
                         <div key={day}>
                             <div className="sticky top-0 z-10 bg-white dark:bg-neutral-800 py-1 mb-2">
@@ -115,6 +108,7 @@ export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
                                             <span className={`absolute -left-[9px] mt-1.5 w-4 h-4 rounded-full border-2 border-white dark:border-neutral-800 ${m.dot}`} />
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${m.chip}`}>{m.label}</span>
+                                                {showProject && it.projectName && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200">{it.projectName}</span>}
                                                 <span className="text-xs text-neutral-400 dark:text-neutral-500">{fmtDateTime(it.at)}</span>
                                                 {it.actorName && <span translate="no" className="text-xs text-neutral-500 dark:text-neutral-400">· {it.actorName}</span>}
                                             </div>
@@ -128,12 +122,13 @@ export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
                     ))}
                 </div>
             ) : (
-                <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700 max-h-[60vh]">
+                <div className={`overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700 ${maxHeightClass}`}>
                     <table className="min-w-full text-sm">
                         <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700 sticky top-0">
                             <tr>
                                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Fecha</th>
                                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Tipo</th>
+                                {showProject && <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Proyecto</th>}
                                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Detalle</th>
                                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Quién</th>
                             </tr>
@@ -145,6 +140,7 @@ export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
                                     <tr key={it.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30">
                                         <td className="px-3 py-2 whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">{fmtDateTime(it.at)}</td>
                                         <td className="px-3 py-2 whitespace-nowrap"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${m.chip}`}>{m.label}</span></td>
+                                        {showProject && <td className="px-3 py-2 whitespace-nowrap text-xs text-neutral-600 dark:text-neutral-300">{it.projectName || '—'}</td>}
                                         <td className="px-3 py-2">
                                             <div>{it.title}</div>
                                             {it.description && <div className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 whitespace-pre-wrap">{it.description}</div>}
@@ -159,6 +155,25 @@ export const ProjectHistoryTab: React.FC<Props> = ({ projectId }) => {
             )}
         </div>
     );
+};
+
+/** Histórico de UN proyecto (pestaña dentro del detalle). */
+export const ProjectHistoryTab: React.FC<{ projectId: string }> = ({ projectId }) => {
+    const [items, setItems] = useState<ProjectActivityItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        let active = true;
+        setLoading(true); setError('');
+        projectsService.getActivity(projectId)
+            .then(data => { if (active) setItems(Array.isArray(data) ? data : []); })
+            .catch(() => { if (active) setError('No se pudo cargar el histórico.'); })
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, [projectId]);
+
+    return <ActivityHistoryView items={items} loading={loading} error={error} />;
 };
 
 export default ProjectHistoryTab;

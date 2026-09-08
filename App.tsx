@@ -65,6 +65,7 @@ const ProjectCalendarPage = lazyNamed(() => import('./pages/pm/ProjectCalendarPa
 const ProjectChatPage = lazyNamed(() => import('./pages/pm/ProjectChatPage'), 'ProjectChatPage');
 const BranchesListPage = lazyNamed(() => import('./pages/admin/BranchesListPage'), 'BranchesListPage'); 
 const ProjectReportsPage = lazyNamed(() => import('./pages/pm/ProjectReportsPage'), 'ProjectReportsPage');
+const ProjectsHistoryPage = lazyNamed(() => import('./pages/pm/ProjectsHistoryPage'), 'ProjectsHistoryPage');
 
 // POS Pages (Manager & POS Employee)
 const POSCashierPage = lazyNamed(() => import('./pages/pos/POSCashierPage'), 'POSCashierPage');
@@ -428,6 +429,7 @@ const AppContent: React.FC = () => {
                 <Route path="/tienda/supplier-orders" element={<SupplierOrdersListPage />} />
                 <Route path="/pm/calendar" element={<ProjectCalendarPage />} />
                 <Route path="/pm/reports" element={<ProjectReportsPage />} />
+                <Route path="/pm/history" element={<ProjectsHistoryPage />} />
 
                 <Route path="/pos/reports" element={<POSReportsPage />} />
                 <Route path="/pos/sales-history" element={<POSSalesHistoryPage />} />

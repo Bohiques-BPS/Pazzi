@@ -563,6 +563,7 @@ export const APP_MODULES_CONFIG = [
         { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon, permission: 'projects.view' },
         { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: CalendarDaysIcon, permission: ['visits.manage', 'projects.view'] },
         { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: ChartBarIcon, permission: 'reports.viewProjects' },
+        { type: 'link', name: 'Histórico', path: '/pm/history', icon: ClipboardDocumentListIcon, permission: 'projects.view' },
     ] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],

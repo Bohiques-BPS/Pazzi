@@ -45,6 +45,9 @@ export interface ProjectActivityItem {
     title: string;
     description?: string;
     meta?: any;
+    /** Solo en el histórico global: a qué proyecto pertenece el evento. */
+    projectId?: string;
+    projectName?: string;
 }
 
 export const projectsService = {
@@ -59,6 +62,9 @@ export const projectsService = {
   /** Histórico del proyecto (timeline combinado: derivado + bitácora). */
   getActivity: (id: string) =>
     api.get<ProjectActivityItem[]>(`/projects/${id}/activity`),
+  /** Histórico GLOBAL de todos los proyectos accesibles. */
+  getAllActivity: () =>
+    api.get<ProjectActivityItem[]>(`/projects/activity`),
   /** Analiza un documento/transcripción y devuelve posibles tareas (no crea nada). */
   extractTasks: (id: string, transcript: string) =>
     api.post<{ suggestions: { title: string; description?: string; assigneeHint?: string; dueDateHint?: string; priority?: 'low' | 'medium' | 'high' | 'urgent' }[] }>(`/projects/${id}/extract-tasks`, { transcript }),
