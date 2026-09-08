@@ -2,8 +2,10 @@
 import React from 'react'; 
 import { UserRole, Product, Client, Employee, Project, ProjectStatus, AppModule, User, Visit, VisitStatus, ECommerceSettings, Category, Sale, CartItem, ChatMessage, Order, Supplier, SupplierOrder, SupplierOrderStatus, Branch, Notification, NotificationType, Caja, Estimate, EstimateStatus, InventoryLog, Department, Task, TaskStatus, TaskComment, ProjectPriority, SalePayment } from './types'; // Added Caja, Notification, NotificationType, Estimate, EstimateStatus, InventoryLog, Department, SalePayment
 import { 
-    BriefcaseIcon, 
+    BriefcaseIcon,
     Squares2X2Icon,
+    BellIcon,
+    ClockIcon,
     FoldersIcon,
     ListBulletIcon, 
     UserGroupIcon,
@@ -632,6 +634,10 @@ export const APP_MODULES_CONFIG = [
     subModulesTienda: [] as SidebarItemConfig[],
     subModulesAdmin: [
       { type: 'link', name: 'Dashboard Admin', path: '/admin/dashboard', icon: HomeIcon },
+      { type: 'link', name: 'Datos del Negocio', path: '/admin/business', icon: BuildingStorefrontIcon },
+      { type: 'link', name: 'Módulos del Sistema', path: '/admin/modules', icon: Squares2X2Icon },
+      { type: 'link', name: 'Alertas por Correo', path: '/admin/alerts', icon: BellIcon },
+      { type: 'link', name: 'Bitácora de accesos', path: '/admin/access-log', icon: ClockIcon },
     ] as SidebarItemConfig[],
   },
   { 

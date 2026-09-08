@@ -66,6 +66,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
             case AppModule.ECOMMERCE:
                 base = moduleConfig.subModulesEcommerce || [];
                 break;
+            case AppModule.ADMINISTRACION:
+                base = (moduleConfig as any).subModulesAdmin || [];
+                break;
         }
     }
     subModulesToDisplay = filterByPermission(base);
