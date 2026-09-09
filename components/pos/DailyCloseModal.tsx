@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../Modal';
 import { cajasService, type CajaSession, type SessionTotals } from '../../services/cajas';
+import { timeclockService } from '../../services/timeclock';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
@@ -53,6 +54,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [confirmHighDiff, setConfirmHighDiff] = useState(false);
+    const [punchOnClose, setPunchOnClose] = useState(true);
 
     useEffect(() => {
         if (!isOpen || !cajaId) return;
@@ -126,6 +128,13 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                 forceWithDifference: isHighDiff,
             });
             toast.success(cashDiff === 0 ? 'Turno cerrado sin diferencia ✓' : `Turno cerrado con diferencia de ${money(Math.abs(cashDiff))}`);
+            // Ponche de salida al cerrar turno: registra la salida del cajero (best-effort).
+            if (punchOnClose) {
+                try {
+                    const r = await timeclockService.punchSelf();
+                    toast.success(r.type === 'OUT' ? 'Salida registrada (ponche) ✓' : 'Ponche registrado ✓');
+                } catch { /* no bloquea el cierre */ }
+            }
             onClosed?.();
             onClose();
         } catch (err) {
@@ -291,6 +300,11 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                             <span className="text-red-700 dark:text-red-300">Confirmo que verifiqué el conteo y autorizo el cierre con una diferencia de <strong>{money(Math.abs(cashDiff))}</strong>.</span>
                         </label>
                     )}
+
+                    <label className="flex items-center gap-2 mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                        <input type="checkbox" checked={punchOnClose} onChange={e => setPunchOnClose(e.target.checked)} className="h-4 w-4" />
+                        Registrar mi salida (ponche) al cerrar el turno
+                    </label>
 
                     {error && <div className="mt-2 p-2 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
 

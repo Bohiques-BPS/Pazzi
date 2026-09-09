@@ -7,7 +7,7 @@ import { Modal } from '../../components/Modal';
 import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ClientFormModal } from '../pm/ClientFormModal';
 import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
-import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
+import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ESTIMATE_STATUS_OPTIONS } from '../../constants';
 import { UserCircleIcon, TrashIconMini } from '../../components/icons';
 import { toast } from 'react-hot-toast';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
@@ -46,8 +46,11 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const productAutocompleteRef = useRef<HTMLInputElement>(null);
 
+    // El catálogo ya viene acotado a la tienda desde el backend (DataContext). El filtro anterior
+    // exigía storeOwnerId === ADMIN_USER_ID, así que en una tienda real NINGÚN producto aparecía
+    // (por eso "no reconocía productos"). Mostramos todos los del negocio, solo activos.
     const posRelevantProducts = useMemo(() => {
-        return products.filter(p => p.storeOwnerId === ADMIN_USER_ID || !p.storeOwnerId);
+        return products.filter(p => (p as any).isActive !== false);
     }, [products]);
 
     useEffect(() => {
