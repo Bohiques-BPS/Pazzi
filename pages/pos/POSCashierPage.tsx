@@ -38,6 +38,10 @@ import { ManualPriceModal } from '../../components/pos/ManualPriceModal';
 import { PunchModal } from '../../components/pos/PunchModal';
 import { productsService } from '../../services/products';
 
+// Precio manual (pedir el precio al agregar productos "Solo Precio") — desactivado por ahora.
+// Poner en true para reactivar el prompt de precio manual en la caja.
+const MANUAL_PRICE_ENABLED = false;
+
 // Lazy: ZXing solo se descarga al abrir la cámara (no infla el bundle inicial del POS).
 const CameraScanModal = lazy(() =>
     import('../../components/ui/CameraScanModal').then(m => ({ default: m.CameraScanModal }))
@@ -721,7 +725,8 @@ export const POSCashierPage: React.FC = () => {
             return;
         }
         // Precio manual (servicios / "Solo Precio"): pedir el precio antes de agregar.
-        if ((product as any).manualPrice) {
+        // Deshabilitado temporalmente (MANUAL_PRICE_ENABLED=false): se agrega con su precio base.
+        if (MANUAL_PRICE_ENABLED && (product as any).manualPrice) {
             setManualPriceProduct(product);
             return;
         }
@@ -756,9 +761,9 @@ export const POSCashierPage: React.FC = () => {
             quantity: pendingQtyRef.current,
         } as CartItem;
         setVariationProduct(null);
-        // Precio manual por variante: si la variante lo pide (o el producto base), abrir el modal.
+        // Precio manual por variante: deshabilitado temporalmente (MANUAL_PRICE_ENABLED=false).
         const wantsManual = variation.manualPrice != null ? variation.manualPrice : (p as any).manualPrice;
-        if (wantsManual) { setManualPriceProduct(resolved as any); return; }
+        if (MANUAL_PRICE_ENABLED && wantsManual) { setManualPriceProduct(resolved as any); return; }
         addResolvedToCart(resolved);
     };
 
