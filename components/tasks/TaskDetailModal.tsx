@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon, DeleteIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
+import { MicButton } from '../ui/MicButton';
 import { tasksService, type TaskCommentRecord, type ChecklistItem, type TaskSolution } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -259,12 +260,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
 
                 <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.title_label')}</label>
-                    <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className={inputFormStyle}
-                    />
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className={inputFormStyle + ' flex-1'}
+                        />
+                        <MicButton
+                            onText={(text) => setTitle(prev => (prev.trim() ? prev.trim() + ' ' : '') + text)}
+                            title="Dictar el título"
+                        />
+                    </div>
                 </div>
 
                 {/* Priority + Due date in a row */}
@@ -340,7 +347,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.description_label')}</label>
+                    <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.description_label')}</label>
+                        <MicButton
+                            onText={(text) => setDescription(prev => {
+                                const base = (prev || '').trim();
+                                // Añade el texto dictado al final del contenido existente.
+                                return base ? `${base} ${text}` : text;
+                            })}
+                            title="Dictar la descripción"
+                        />
+                    </div>
                     <RichTextEditor
                         value={description}
                         onChange={setDescription}

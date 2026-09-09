@@ -4,6 +4,7 @@ import { Task, TaskStatus, Employee } from '../../types';
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { InputModal } from '../InputModal';
+import { MicButton } from '../ui/MicButton';
 import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { PlusIcon, DocumentTextIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
@@ -235,8 +236,12 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     onBlur={() => {if(!newTaskTitle) setIsCreatingInStatus(null)}}
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status as TaskStatus); } }}
                                 />
-                                <div className="mt-2">
+                                <div className="mt-2 flex items-center gap-2">
                                     <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
+                                    <MicButton
+                                        onText={(text) => setNewTaskTitle(prev => (prev.trim() ? prev.trim() + ' ' : '') + text)}
+                                        title="Dictar el título de la tarea"
+                                    />
                                 </div>
                             </div>
                         ) : (
