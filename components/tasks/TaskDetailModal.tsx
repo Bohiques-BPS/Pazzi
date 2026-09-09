@@ -36,6 +36,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [assignedIds, setAssignedIds] = useState<string[]>(task.assignedEmployeeIds || []);
     const [dueDate, setDueDate] = useState<string>(task.dueDate ? task.dueDate.split('T')[0] : '');
     const [priority, setPriority] = useState<Task['priority']>(task.priority ?? null);
+    // Recordatorio (campana + correo a los asignados).
+    const isoToLocalInput = (iso?: string | null) => {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const p = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    };
+    const [reminderOn, setReminderOn] = useState<boolean>(!!task.remindAt);
+    const [remindAt, setRemindAt] = useState<string>(isoToLocalInput(task.remindAt));
     const [section, setSection] = useState<string>(task.section || '');
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<TaskCommentRecord[]>(((task as any).comments as TaskCommentRecord[]) || []);
@@ -74,6 +84,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             setError(t('cmpx.task.title_required'));
             return;
         }
+        // Recordatorio: si está activo requiere fecha/hora; si no, se envía null (desactivar).
+        if (reminderOn && !remindAt) {
+            setError('Elige la fecha y hora del recordatorio o desactívalo.');
+            return;
+        }
+        const remindAtIso = reminderOn && remindAt ? new Date(remindAt).toISOString() : null;
         setSubmitting(true);
         setError(null);
         try {
@@ -84,8 +100,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 dueDate: dueDate || null,
                 priority: priority || null,
                 section: section.trim() || null,
+                remindAt: remindAtIso,
             });
-            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null } as any);
+            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null, remindAt: remindAtIso } as any);
             toast.success(t('cmpx.task.updated_ok'));
             onClose();
         } catch (err) {
@@ -285,6 +302,41 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                         placeholder={t('cmpx.task.section_none')}
                         className={inputFormStyle}
                     />
+                </div>
+
+                {/* Recordatorio: avisa a los asignados (campana + correo) en la fecha/hora elegida. */}
+                <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={reminderOn}
+                            onChange={e => {
+                                const on = e.target.checked;
+                                setReminderOn(on);
+                                if (on && !remindAt) {
+                                    const base = dueDate
+                                        ? new Date(dueDate + 'T09:00:00')
+                                        : (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d; })();
+                                    setRemindAt(isoToLocalInput(base.toISOString()));
+                                }
+                            }}
+                            className="h-4 w-4"
+                        />
+                        🔔 Recordarme esta tarea
+                    </label>
+                    {reminderOn && (
+                        <div className="mt-2">
+                            <input
+                                type="datetime-local"
+                                value={remindAt}
+                                onChange={e => setRemindAt(e.target.value)}
+                                className={inputFormStyle}
+                            />
+                            <p className="text-xs text-neutral-500 mt-1">
+                                Se enviará un aviso (campana y correo) a los responsables de la tarea en ese momento. Si no hay responsables, se te enviará a ti.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 <div>

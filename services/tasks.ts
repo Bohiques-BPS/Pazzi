@@ -14,6 +14,8 @@ export interface TaskPayload {
   archived?: boolean;
   dueDate?: string | null;
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+  /** Recordatorio programado (ISO) o null para desactivarlo. */
+  remindAt?: string | null;
 }
 
 export interface TaskCommentRecord {
@@ -57,6 +59,10 @@ export interface TaskRecord {
 export const tasksService = {
   getAll: (filters?: { projectId?: string; status?: TaskStatus }) =>
     api.get<TaskRecord[]>('/tasks', filters as any),
+
+  /** Tareas asignadas al usuario conectado (todos los proyectos), ordenadas por vencimiento. */
+  getMine: (opts?: { includeDone?: boolean }) =>
+    api.get<any[]>('/tasks/mine', opts?.includeDone ? { includeDone: '1' } : undefined),
 
   create: (data: TaskPayload) => api.post<TaskRecord>('/tasks', data),
 

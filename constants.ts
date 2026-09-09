@@ -562,6 +562,7 @@ export const APP_MODULES_CONFIG = [
     subModulesProject: [
         { type: 'link', name: 'Dashboard PM', path: '/pm/dashboard', icon: Squares2X2Icon, permission: 'projects.view' },
         { type: 'link', name: 'Proyectos', path: '/pm/projects', icon: FoldersIcon, permission: 'projects.view' },
+        { type: 'link', name: 'Mis tareas', path: '/pm/my-tasks', icon: ListBulletIcon, permission: 'projects.view' },
         { type: 'link', name: 'Chat de Proyectos', path: '/pm/chat', icon: ChatBubbleLeftRightIcon, permission: 'projects.view' },
         { type: 'link', name: 'Calendario', path: '/pm/calendar', icon: CalendarDaysIcon, permission: ['visits.manage', 'projects.view'] },
         { type: 'link', name: 'Reportes PM', path: '/pm/reports', icon: ChartBarIcon, permission: 'reports.viewProjects' },

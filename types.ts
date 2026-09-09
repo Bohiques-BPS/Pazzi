@@ -814,6 +814,7 @@ export interface Task {
     assignedEmployeeIds?: string[];
     dueDate?: string | null;   // ISO date string (YYYY-MM-DD)
     priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+    remindAt?: string | null;  // ISO datetime del recordatorio (campana + correo)
 }
 
 export interface TaskComment {
