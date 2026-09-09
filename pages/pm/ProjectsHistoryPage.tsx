@@ -2,15 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { projectsService, ProjectActivityItem } from '../../services/projects';
 import { ActivityHistoryView } from '../../components/pm/ProjectHistoryTab';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { usePermissions } from '../../hooks/usePermissions';
 
 /** Histórico GLOBAL: actividad de todos los proyectos accesibles. */
 export const ProjectsHistoryPage: React.FC = () => {
     const { t } = useTranslation();
+    const { can } = usePermissions();
+    // Solo MANAGER (pasa todo) o quien tenga el permiso de ver histórico.
+    const canViewHistory = can('projects.viewHistory');
     const [items, setItems] = useState<ProjectActivityItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
+        if (!canViewHistory) { setLoading(false); return; }
         let active = true;
         setLoading(true); setError('');
         projectsService.getAllActivity()
@@ -18,7 +23,16 @@ export const ProjectsHistoryPage: React.FC = () => {
             .catch(() => { if (active) setError('No se pudo cargar el histórico.'); })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
-    }, []);
+    }, [canViewHistory]);
+
+    if (!canViewHistory) {
+        return (
+            <div className="text-center p-10 text-neutral-500 dark:text-neutral-400">
+                <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-1">Sin acceso</h2>
+                <p>No tienes permiso para ver el histórico de proyectos.</p>
+            </div>
+        );
+    }
 
     return (
         <div>

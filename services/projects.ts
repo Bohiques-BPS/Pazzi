@@ -50,6 +50,17 @@ export interface ProjectActivityItem {
     projectName?: string;
 }
 
+/** Reporte diario de acciones de PM del usuario conectado. */
+export interface DailyActivityReport {
+    user: { id: string; name: string };
+    start: string;
+    end: string;
+    generatedAt: string;
+    total: number;
+    counts: Record<string, number>;
+    items: { id: string; type: string; at: string; title: string; projectName: string; description?: string }[];
+}
+
 export const projectsService = {
   getAll: (filters?: { status?: string; clientId?: string; employeeId?: string }) =>
     api.get<any[]>('/projects', filters as any),
@@ -65,6 +76,9 @@ export const projectsService = {
   /** Histórico GLOBAL de todos los proyectos accesibles. */
   getAllActivity: () =>
     api.get<ProjectActivityItem[]>(`/projects/activity`),
+  /** Reporte diario: acciones de PM del usuario conectado en el rango [start, end) (ISO, hora local). */
+  getMyDailyActivity: (params?: { start?: string; end?: string }) =>
+    api.get<DailyActivityReport>(`/projects/my-daily-activity`, params as any),
   /** Analiza un documento/transcripción y devuelve posibles tareas (no crea nada). */
   extractTasks: (id: string, transcript: string) =>
     api.post<{ suggestions: { title: string; description?: string; assigneeHint?: string; dueDateHint?: string; priority?: 'low' | 'medium' | 'high' | 'urgent' }[] }>(`/projects/${id}/extract-tasks`, { transcript }),

@@ -37,6 +37,9 @@ export const ProjectDetailPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { getProjectById, projects } = useData();
+    const { can } = usePermissions();
+    // El Histórico solo lo ve el MANAGER (can()===true) o quien tenga el permiso de ver histórico.
+    const canViewHistory = can('projects.viewHistory');
 
     const [project, setProject] = useState<Project | null | 'new'>(null);
     const [activeTab, setActiveTab] = useState<ActiveTab>( (searchParams.get('tab') as ActiveTab) || 'details');
@@ -49,6 +52,11 @@ export const ProjectDetailPage: React.FC = () => {
             setProject(foundProject || null);
         }
     }, [projectId, getProjectById, projects]);
+
+    // Si llega a ?tab=historico sin permiso (URL directa), cae a Detalles.
+    useEffect(() => {
+        if (activeTab === 'historico' && !canViewHistory) setActiveTab('details');
+    }, [activeTab, canViewHistory]);
 
     const handleTabChange = (tab: ActiveTab) => {
         setActiveTab(tab);
@@ -101,9 +109,11 @@ export const ProjectDetailPage: React.FC = () => {
                         <button onClick={() => handleTabChange('seguimiento')} className={`px-4 py-2 text-base font-medium ${activeTab === 'seguimiento' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
                             {t('pm2x.project.tab_seguimiento')}
                         </button>
-                        <button onClick={() => handleTabChange('historico')} className={`px-4 py-2 text-base font-medium ${activeTab === 'historico' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
-                            {t('pm2x.project.tab_historico')}
-                        </button>
+                        {canViewHistory && (
+                            <button onClick={() => handleTabChange('historico')} className={`px-4 py-2 text-base font-medium ${activeTab === 'historico' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
+                                {t('pm2x.project.tab_historico')}
+                            </button>
+                        )}
                     </>
                 )}
             </div>
@@ -124,7 +134,7 @@ export const ProjectDetailPage: React.FC = () => {
                  {!isNewProject && projectData && activeTab === 'seguimiento' && (
                     <ProjectMeetingsTab projectId={projectData.id} />
                 )}
-                 {!isNewProject && projectData && activeTab === 'historico' && (
+                 {!isNewProject && projectData && activeTab === 'historico' && canViewHistory && (
                     <ProjectHistoryTab projectId={projectData.id} />
                 )}
             </div>
