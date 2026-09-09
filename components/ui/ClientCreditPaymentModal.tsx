@@ -34,6 +34,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     const [loading, setLoading] = useState(false);
     const [sales, setSales] = useState<PendingSale[]>([]);
     const [amounts, setAmounts] = useState<Record<string, string>>({});
+    const [selected, setSelected] = useState<Record<string, boolean>>({});
     const [method, setMethod] = useState('Efectivo');
     const [reference, setReference] = useState('');
     const [distribute, setDistribute] = useState('');
@@ -42,7 +43,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     useEffect(() => {
         if (!isOpen || !clientId) return;
         let cancelled = false;
-        setLoading(true); setAmounts({}); setMethod('Efectivo'); setReference(''); setDistribute('');
+        setLoading(true); setAmounts({}); setSelected({}); setMethod('Efectivo'); setReference(''); setDistribute('');
         // Mismo criterio que "Cuentas por Cobrar": pendiente = SALDO > 0 (total − pagos), no el
         // campo paymentStatus exacto (que puede diferir). Así siempre coincide con lo que ve el
         // usuario en CxC. Excluimos anuladas y devoluciones.
@@ -70,17 +71,36 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
 
     const setAmount = (id: string, v: string) => setAmounts(prev => ({ ...prev, [id]: v }));
 
-    // Reparte un total entre las facturas, más antiguas primero.
+    const anySelected = useMemo(() => sales.some(s => selected[s.id]), [sales, selected]);
+
+    // Marca/desmarca una factura: al marcarla, autocompleta su saldo (editable); al desmarcar, limpia.
+    const toggleSelect = (s: PendingSale, on: boolean) => {
+        setSelected(prev => ({ ...prev, [s.id]: on }));
+        setAmounts(prev => ({ ...prev, [s.id]: on ? s.balance.toFixed(2) : '' }));
+    };
+    const toggleAll = (on: boolean) => {
+        const nextSel: Record<string, boolean> = {};
+        const nextAmt: Record<string, string> = {};
+        for (const s of sales) { nextSel[s.id] = on; nextAmt[s.id] = on ? s.balance.toFixed(2) : ''; }
+        setSelected(nextSel); setAmounts(nextAmt);
+    };
+
+    // Reparte un total, más antiguas primero. Si hay facturas marcadas, reparte SOLO entre esas.
     const doDistribute = (total: number) => {
         let remaining = total;
-        const next: Record<string, string> = {};
-        for (const s of sales) {
+        const targets = anySelected ? sales.filter(s => selected[s.id]) : sales;
+        const next: Record<string, string> = { ...amounts };
+        // Limpia primero las que están en el set de destino para recalcular.
+        for (const s of targets) next[s.id] = '';
+        for (const s of targets) {
             const take = Math.min(r2(remaining), s.balance);
             next[s.id] = take > 0 ? take.toFixed(2) : '';
             remaining = r2(remaining - take);
         }
         setAmounts(next);
     };
+
+    const canSubmit = assigned > 0.001 && !saving;
 
     const submit = async () => {
         const allocations = sales
@@ -117,7 +137,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         <span className="text-sm text-neutral-500">{t('cmpx.credit.distribute')}</span>
                         <div className="relative">
                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
-                            <input type="number" min="0" step="0.01" value={distribute} onChange={e => setDistribute(e.target.value)} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-32 pl-5`} />
+                            <input type="number" min="0" step="0.01" value={distribute} onChange={e => setDistribute(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doDistribute(num(distribute)); } }} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-32 pl-5`} />
                         </div>
                         <button type="button" onClick={() => doDistribute(num(distribute))} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.distribute_oldest')}</button>
                         <button type="button" onClick={() => doDistribute(totalBalance)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.pay_all')}</button>
@@ -129,6 +149,11 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         <table className="w-full text-sm">
                             <thead className="bg-neutral-100 dark:bg-neutral-900 sticky top-0">
                                 <tr>
+                                    <th className="p-2 w-8 text-center">
+                                        <input type="checkbox" aria-label={t('cmpx.credit.select_all')} title={t('cmpx.credit.select_all')}
+                                            checked={sales.length > 0 && sales.every(s => selected[s.id])}
+                                            onChange={e => toggleAll(e.target.checked)} className="h-4 w-4" />
+                                    </th>
                                     <th className="text-left p-2">{t('cmpx.credit.col_invoice')}</th>
                                     <th className="text-left p-2">{t('common.date')}</th>
                                     <th className="text-right p-2">{t('cmpx.credit.col_balance')}</th>
@@ -137,7 +162,12 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700">
                                 {sales.map(s => (
-                                    <tr key={s.id}>
+                                    <tr key={s.id} className={selected[s.id] ? 'bg-primary/5 dark:bg-primary/10' : ''}>
+                                        <td className="p-2 text-center">
+                                            <input type="checkbox" aria-label={`#${s.saleNumber ?? s.id.slice(0, 6)}`}
+                                                checked={!!selected[s.id]}
+                                                onChange={e => toggleSelect(s, e.target.checked)} className="h-4 w-4" />
+                                        </td>
                                         <td className="p-2 font-medium">#{s.saleNumber ?? s.id.slice(0, 6)}</td>
                                         <td className="p-2 text-neutral-500">{new Date(s.date).toLocaleDateString()}</td>
                                         <td className="p-2 text-right tabular-nums">{money(s.balance)}</td>
@@ -146,6 +176,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                                                 type="number" min="0" max={s.balance} step="0.01"
                                                 value={amounts[s.id] ?? ''}
                                                 onChange={e => setAmount(s.id, e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (canSubmit) submit(); } }}
                                                 placeholder="0.00"
                                                 className={`${INPUT_SM_CLASSES} w-28 text-right tabular-nums`}
                                             />
@@ -173,7 +204,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         <span className="text-sm text-neutral-500">{t('cmpx.credit.assigned')} <b className="text-neutral-800 dark:text-neutral-100">{money(assigned)}</b></span>
                         <div className="flex gap-2">
                             <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                            <button type="button" onClick={submit} disabled={saving || assigned <= 0} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
+                            <button type="button" onClick={submit} disabled={!canSubmit} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
                                 {saving ? t('cmpx.credit.saving') : t('cmpx.credit.register_payment', { amount: money(assigned) })}
                             </button>
                         </div>
