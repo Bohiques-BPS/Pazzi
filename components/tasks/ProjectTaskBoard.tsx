@@ -99,31 +99,25 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         const targetId = dropTarget?.getAttribute('data-task-id');
         const targetTask = projectTasks.find(t => t.id === targetId);
 
+        // Orden destino calculado con el estado ACTUAL (fuera del setState) para poder
+        // persistirlo al backend. Antes `newOrder` vivía dentro del callback de setTasks
+        // y la línea de persistencia (fuera) lanzaba ReferenceError → el cambio de columna
+        // nunca se guardaba y al recargar volvía a su lugar.
+        const targetColBefore = projectTasks
+            .filter(t => t.projectId === projectId && t.status === targetStatus && t.id !== draggedTask.id)
+            .sort((a, b) => a.order - b.order);
+        const newOrder = (targetTask && targetTask.id !== draggedTask.id) ? targetTask.order : targetColBefore.length;
+
         setTasks(currentTasks => {
-            let tasksInTargetColumn = currentTasks
-                .filter(t => t.projectId === projectId && t.status === targetStatus)
-                .sort((a, b) => a.order - b.order);
-
-            let newOrder = tasksInTargetColumn.length;
-            
-            if (targetTask) {
-                newOrder = targetTask.order;
-                 // Shift subsequent tasks
-                tasksInTargetColumn = tasksInTargetColumn.map(t => t.order >= newOrder ? { ...t, order: t.order + 1 } : t);
-            }
-           
             const otherTasks = currentTasks.filter(t => t.id !== draggedTask.id);
-
             const updatedMovedTask = { ...draggedTask, status: targetStatus, order: newOrder };
-
             let finalTasks = [...otherTasks, updatedMovedTask];
 
-            // Re-order source and destination columns after the move
-             [sourceStatus, targetStatus].forEach(statusToReorder => {
+            // Re-indexa el orden en las columnas origen y destino tras el movimiento.
+            [sourceStatus, targetStatus].forEach(statusToReorder => {
                 const columnTasks = finalTasks
                     .filter(t => t.projectId === projectId && t.status === statusToReorder)
                     .sort((a, b) => a.order - b.order);
-
                 columnTasks.forEach((task, index) => {
                     const originalTaskIndex = finalTasks.findIndex(t => t.id === task.id);
                     if (originalTaskIndex !== -1 && finalTasks[originalTaskIndex].order !== index) {
@@ -135,9 +129,10 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             return finalTasks;
         });
 
-        // Persist status + new order to backend
+        // Persistir el cambio de estado/orden. Si falla, recargar desde el backend (revertir).
         tasksService.update(draggedTask.id, { status: targetStatus, order: newOrder }).catch(() => {
             toast.error(t('cmpx.task.sync_error'));
+            reloadTasks();
         });
 
         setDraggedTask(null);
