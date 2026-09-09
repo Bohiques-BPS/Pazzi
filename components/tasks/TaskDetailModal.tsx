@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon, DeleteIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
-import { tasksService, type TaskCommentRecord, type ChecklistItem } from '../../services/tasks';
+import { tasksService, type TaskCommentRecord, type ChecklistItem, type TaskSolution } from '../../services/tasks';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -47,6 +47,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [checklists, setChecklists] = useState<ChecklistItem[]>(((task as any).checklists as ChecklistItem[]) || []);
     const [newCheckItem, setNewCheckItem] = useState('');
     const [addingCheck, setAddingCheck] = useState(false);
+    // IA: "¿cómo resuelvo esta tarea?"
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiSolution, setAiSolution] = useState<TaskSolution | null>(null);
+    const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
+    const [aiAdding, setAiAdding] = useState(false);
 
     // Solo se pueden asignar tareas a personas ASIGNADAS al proyecto. La asignación del proyecto
     // guarda User.id; los empleados enlazan con userId (o su propio id según el flujo), así que
@@ -149,6 +154,57 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             setNewCheckItem('');
         } catch { toast.error(t('cmpx.task.check_add_error')); }
         finally { setAddingCheck(false); }
+    };
+
+    const handleAskAi = async () => {
+        setAiLoading(true);
+        setAiSolution(null);
+        setAiSelected(new Set());
+        try {
+            const sol = await tasksService.suggestSolution(task.id);
+            setAiSolution(sol);
+            // Preselecciona los pasos que no estén ya en el checklist.
+            const existing = new Set(checklists.map(c => c.text.trim().toLowerCase()));
+            setAiSelected(new Set((sol.steps || []).filter(s => !existing.has(s.trim().toLowerCase()))));
+        } catch (err) {
+            const msg = err instanceof ApiError
+                ? ((err as any).code === 'gemini_not_configured'
+                    ? 'La IA no está configurada en el servidor (falta GEMINI_API_KEY).'
+                    : err.message)
+                : 'No se pudo obtener la sugerencia de la IA.';
+            toast.error(msg);
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const toggleAiStep = (step: string) => {
+        setAiSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(step)) next.delete(step); else next.add(step);
+            return next;
+        });
+    };
+
+    const handleAddAiSteps = async () => {
+        if (!aiSolution) return;
+        const existing = new Set(checklists.map(c => c.text.trim().toLowerCase()));
+        const toAdd = aiSolution.steps.filter(s => aiSelected.has(s) && !existing.has(s.trim().toLowerCase()));
+        if (!toAdd.length) { toast.error('Selecciona al menos un paso nuevo.'); return; }
+        setAiAdding(true);
+        try {
+            for (const step of toAdd) {
+                const item = await tasksService.addChecklistItem(task.id, step);
+                setChecklists(prev => [...prev, item]);
+            }
+            toast.success(`${toAdd.length} paso(s) añadido(s) al checklist.`);
+            setAiSolution(null);
+            setAiSelected(new Set());
+        } catch {
+            toast.error('No se pudieron añadir algunos pasos.');
+        } finally {
+            setAiAdding(false);
+        }
     };
 
     const handleToggleCheck = async (item: ChecklistItem) => {
@@ -268,7 +324,65 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                 </span>
                             )}
                         </h4>
+                        <button
+                            type="button"
+                            onClick={handleAskAi}
+                            disabled={aiLoading}
+                            title="La IA te sugiere cómo resolver esta tarea y arma el checklist"
+                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50"
+                        >
+                            {aiLoading ? '✨ Pensando…' : '🤖 ¿Cómo resuelvo esta tarea?'}
+                        </button>
                     </div>
+
+                    {/* Sugerencia de la IA */}
+                    {aiSolution && (
+                        <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 dark:bg-primary/10 p-3">
+                            <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm text-neutral-700 dark:text-neutral-200"><span className="font-semibold">Enfoque:</span> {aiSolution.approach}</p>
+                                <button type="button" onClick={() => setAiSolution(null)} className="text-neutral-400 hover:text-neutral-600 text-sm flex-shrink-0" aria-label="Cerrar sugerencia">✕</button>
+                            </div>
+
+                            {aiSolution.steps.length > 0 && (
+                                <div className="mt-2">
+                                    <p className="text-xs font-semibold text-neutral-500 mb-1">Pasos sugeridos (marca los que quieras añadir al checklist):</p>
+                                    <ul className="space-y-1">
+                                        {aiSolution.steps.map((step, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-sm">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={aiSelected.has(step)}
+                                                    onChange={() => toggleAiStep(step)}
+                                                    className="mt-0.5 h-4 w-4 text-primary rounded border-neutral-300 dark:border-neutral-600 focus:ring-primary flex-shrink-0"
+                                                />
+                                                <span className="text-neutral-700 dark:text-neutral-200">{step}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {aiSolution.tips && aiSolution.tips.length > 0 && (
+                                <div className="mt-2">
+                                    <p className="text-xs font-semibold text-neutral-500 mb-1">💡 Consejos:</p>
+                                    <ul className="list-disc pl-5 space-y-0.5 text-xs text-neutral-600 dark:text-neutral-300">
+                                        {aiSolution.tips.map((tip, i) => <li key={i}>{tip}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {aiSolution.steps.length > 0 && (
+                                <div className="mt-3 flex items-center gap-2">
+                                    <button type="button" onClick={handleAddAiSteps} disabled={aiAdding || aiSelected.size === 0} className={BUTTON_PRIMARY_SM_CLASSES}>
+                                        {aiAdding ? t('common.saving') : `Añadir ${aiSelected.size || ''} al checklist`}
+                                    </button>
+                                    <button type="button" onClick={handleAskAi} disabled={aiLoading} className={BUTTON_SECONDARY_SM_CLASSES}>
+                                        🔄 Regenerar
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {checklists.length > 0 && (
                         <>
                             <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-600 rounded-full mb-2 overflow-hidden">

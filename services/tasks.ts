@@ -33,6 +33,13 @@ export interface ChecklistItem {
   order: number;
 }
 
+/** Sugerencia de la IA sobre cómo resolver una tarea. */
+export interface TaskSolution {
+  approach: string;
+  steps: string[];
+  tips?: string[];
+}
+
 export interface TaskRecord {
   id: string;
   title: string;
@@ -65,6 +72,10 @@ export const tasksService = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/tasks/${id}`),
+
+  /** Sugerencia de la IA sobre cómo resolver la tarea (enfoque + pasos + consejos). */
+  suggestSolution: (id: string) =>
+    api.post<TaskSolution>(`/tasks/${id}/ai-suggest`, {}),
 
   addChecklistItem: (taskId: string, text: string) =>
     api.post<ChecklistItem>(`/tasks/${taskId}/checklist`, { text }),

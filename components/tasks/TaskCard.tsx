@@ -34,7 +34,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
     return (
         <div
             {...props}
-            className="bg-white dark:bg-slate-700 p-3 rounded-lg shadow hover:shadow-lg cursor-grab border-b-2 border-transparent transition-all duration-150"
+            className={`bg-white dark:bg-slate-700 p-3 rounded-lg shadow hover:shadow-lg cursor-grab border-b-2 border-transparent transition-all duration-150 ${
+                isOverdue ? 'border-l-4 border-l-red-500' : isDueSoon ? 'border-l-4 border-l-amber-400' : ''
+            }`}
         >
             {/* Priority badge */}
             {priorityCfg && (
