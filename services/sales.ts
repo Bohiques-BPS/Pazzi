@@ -33,6 +33,10 @@ export const salesService = {
   sendReminder: (saleId: string, message?: string) =>
     api.post<{ sent: boolean; to: string }>(`/sales/${saleId}/send-reminder`, message ? { message } : {}),
 
+  /** Envía por correo al cliente el recibo de un abono recién registrado. */
+  sendReceipt: (saleId: string, data: { amountPaid: number; method: string; reference?: string }) =>
+    api.post<{ sent: boolean; to: string }>(`/sales/${saleId}/send-receipt`, data),
+
   voidSale: (saleId: string) =>
     api.post<any>(`/sales/${saleId}/void`),
   remove: (saleId: string) =>

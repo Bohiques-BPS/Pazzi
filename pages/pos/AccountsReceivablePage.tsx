@@ -54,16 +54,19 @@ interface RecordPaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
     sale: (Sale & { balance: number }) | null;
-    onConfirm: (saleId: string, amount: number, method: string, notes: string, attachment?: string) => void;
+    /** Email del cliente de la venta (si lo tiene): habilita "enviar recibo por correo". */
+    clientEmail?: string | null;
+    onConfirm: (saleId: string, amount: number, method: string, notes: string, attachment?: string, sendEmail?: boolean) => void;
 }
 
-const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, sale, onConfirm }) => {
+const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, sale, clientEmail, onConfirm }) => {
     const { t } = useTranslation();
     const [amount, setAmount] = useState('');
     const [method, setMethod] = useState('Efectivo');
     const [notes, setNotes] = useState('');
     const [attachment, setAttachment] = useState<string | undefined>(undefined);
     const [attachmentName, setAttachmentName] = useState<string | undefined>(undefined);
+    const [sendEmail, setSendEmail] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -73,8 +76,9 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
             setNotes('');
             setAttachment(undefined);
             setAttachmentName(undefined);
+            setSendEmail(!!clientEmail); // por defecto enviar si el cliente tiene correo
         }
-    }, [sale, isOpen]);
+    }, [sale, isOpen, clientEmail]);
 
     if (!isOpen || !sale) return null;
 
@@ -96,7 +100,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
             toast.error(t('posx.receivable.invalid_amount', { balance: sale.balance.toFixed(2) }));
             return;
         }
-        onConfirm(sale.id, paymentAmount, method, notes, attachment);
+        onConfirm(sale.id, paymentAmount, method, notes, attachment, sendEmail);
         onClose();
     };
 
@@ -145,6 +149,12 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                         )}
                     </div>
                 </div>
+                <label className={`flex items-center gap-2 text-sm ${clientEmail ? 'text-neutral-700 dark:text-neutral-300 cursor-pointer' : 'text-neutral-400 dark:text-neutral-600 cursor-not-allowed'}`}>
+                    <input type="checkbox" checked={sendEmail} disabled={!clientEmail} onChange={e => setSendEmail(e.target.checked)} className="h-4 w-4" />
+                    {clientEmail
+                        ? t('posx.receivable.email_receipt', { email: clientEmail }) || `Enviar recibo por correo a ${clientEmail}`
+                        : t('posx.receivable.email_receipt_no_email') || 'El cliente no tiene correo para enviarle el recibo'}
+                </label>
                 <div className="flex justify-end space-x-2 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="button" onClick={handleConfirm} className={BUTTON_PRIMARY_SM_CLASSES}>{t('pos.receivable.payment_modal.register')}</button>
@@ -385,7 +395,7 @@ export const AccountsReceivablePage: React.FC = () => {
 
     const [saleForReminder, setSaleForReminder] = useState<(typeof receivableData)[0] | null>(null);
 
-    const handleConfirmPayment = async (saleId: string, amount: number, method: string, notes: string, attachment?: string) => {
+    const handleConfirmPayment = async (saleId: string, amount: number, method: string, notes: string, attachment?: string, sendEmail?: boolean) => {
         try {
             // Persistir el abono en el backend (antes solo se guardaba en memoria y se perdía al recargar).
             await salesService.addPayment(saleId, {
@@ -404,6 +414,15 @@ export const AccountsReceivablePage: React.FC = () => {
             const s = sales.find(x => x.id === saleId);
             const cName = s?.clientId ? (getClientById(s.clientId)?.name || '') : '';
             setReceiptToPrint(buildAbonoReceipt(cName || 'Cliente', amount, method, notes || undefined));
+            // Enviar el recibo del abono por correo al cliente (best-effort; no bloquea el abono).
+            if (sendEmail) {
+                try {
+                    const res = await salesService.sendReceipt(saleId, { amountPaid: amount, method, reference: notes || undefined });
+                    toast.success(t('posx.receivable.receipt_sent', { email: res.to }) || `Recibo enviado a ${res.to}`);
+                } catch (e) {
+                    toast.error(e instanceof ApiError ? e.message : 'El abono se registró, pero no se pudo enviar el recibo por correo.');
+                }
+            }
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : 'No se pudo registrar el abono.');
         }
@@ -635,7 +654,7 @@ export const AccountsReceivablePage: React.FC = () => {
                 />
             </div>
 
-            <RecordPaymentModal isOpen={!!paymentModalSale} onClose={() => setPaymentModalSale(null)} sale={paymentModalSale} onConfirm={handleConfirmPayment} />
+            <RecordPaymentModal isOpen={!!paymentModalSale} onClose={() => setPaymentModalSale(null)} sale={paymentModalSale} clientEmail={paymentModalSale?.clientId ? getClientById(paymentModalSale.clientId)?.email : null} onConfirm={handleConfirmPayment} />
 
             {/* Abono multi-factura: elegir cliente (con balance) → repartir el pago. */}
             <ClientSearchModal

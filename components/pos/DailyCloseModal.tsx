@@ -27,6 +27,21 @@ const isCash = (m: string) => /efectivo|cash/i.test(m);
 // se muestran en el desglose como informativos, pero no se cuentan ni entran al total contado.
 const isNonCountable = (m: string) => /cr[ée]dito|credit|factura|invoice/i.test(m);
 
+// Denominaciones de USD (Puerto Rico) para el conteo asistido de la gaveta: billetes + monedas.
+// El cajero digita la CANTIDAD de cada una y el sistema suma automáticamente el efectivo contado.
+const DENOMINATIONS: { v: number; label: string }[] = [
+    { v: 100, label: '$100' },
+    { v: 50, label: '$50' },
+    { v: 20, label: '$20' },
+    { v: 10, label: '$10' },
+    { v: 5, label: '$5' },
+    { v: 1, label: '$1' },
+    { v: 0.25, label: '25¢' },
+    { v: 0.10, label: '10¢' },
+    { v: 0.05, label: '5¢' },
+    { v: 0.01, label: '1¢' },
+];
+
 /** Fila del cuadre: método, esperado por el POS, contado por el cajero. */
 interface CuadreRow {
     key: string;
@@ -55,6 +70,10 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     const [submitting, setSubmitting] = useState(false);
     const [confirmHighDiff, setConfirmHighDiff] = useState(false);
     const [punchOnClose, setPunchOnClose] = useState(true);
+    // Conteo asistido por denominación: cuando está activo, el efectivo de la gaveta se calcula
+    // sumando (denominación × cantidad) en vez de digitarse a mano.
+    const [denomMode, setDenomMode] = useState(false);
+    const [denomCounts, setDenomCounts] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (!isOpen || !cajaId) return;
@@ -66,6 +85,8 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         setCounted({});
         setNotes('');
         setConfirmHighDiff(false);
+        setDenomMode(false);
+        setDenomCounts({});
         cajasService.getCurrentSession(cajaId)
             .then(({ session, totals }) => {
                 if (cancelled) return;
@@ -95,15 +116,27 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         return isNaN(n) ? 0 : n;
     };
 
-    const cashCounted = num(counted['__cash__']);
+    // Total del conteo por denominación (Σ valor × cantidad), redondeado a centavos.
+    const denomInt = (v: string | undefined) => {
+        const n = parseInt(v ?? '', 10);
+        return isNaN(n) || n < 0 ? 0 : n;
+    };
+    const denomTotal = useMemo(
+        () => Math.round(DENOMINATIONS.reduce((s, d) => s + d.v * denomInt(denomCounts[String(d.v)]), 0) * 100) / 100,
+        [denomCounts],
+    );
+    const anyDenomEntered = DENOMINATIONS.some(d => (denomCounts[String(d.v)] ?? '') !== '');
+
+    // En modo denominación el efectivo contado = suma de billetes/monedas; si no, lo digitado.
+    const cashCounted = denomMode ? denomTotal : num(counted['__cash__']);
     const cashExpected = totals?.expectedCash ?? 0;
     const cashDiff = Math.round((cashCounted - cashExpected) * 100) / 100;
     const isHighDiff = Math.abs(cashDiff) >= differenceThreshold;
-    const cashEntered = (counted['__cash__'] ?? '') !== '';
+    const cashEntered = denomMode ? anyDenomEntered : (counted['__cash__'] ?? '') !== '';
 
     // El total contable excluye las filas informativas (crédito/factura): no se cuenta ese dinero.
     const totalExpected = rows.filter(r => r.countable).reduce((s, r) => s + r.expected, 0);
-    const totalCounted = rows.filter(r => r.countable).reduce((s, r) => s + num(counted[r.key]), 0);
+    const totalCounted = rows.filter(r => r.countable).reduce((s, r) => s + (r.cash ? cashCounted : num(counted[r.key])), 0);
 
     const handleClose = async () => {
         if (!session || !totals) return;
@@ -218,14 +251,23 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                             <div className={`col-span-5 px-3 py-1.5 ${r.cash ? 'font-semibold text-primary' : ''}`}>{r.label}</div>
                                             <div className="col-span-3 px-3 py-1.5 text-right tabular-nums">{money(r.expected)}</div>
                                             <div className="col-span-2 px-2 py-1 text-right">
-                                                <input
-                                                    type="number" min="0" step="0.01" inputMode="decimal"
-                                                    value={counted[r.key] ?? ''}
-                                                    onChange={e => setCounted(prev => ({ ...prev, [r.key]: e.target.value }))}
-                                                    placeholder="0.00"
-                                                    className="w-24 text-right px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
-                                                    autoFocus={r.cash}
-                                                />
+                                                {r.cash && denomMode ? (
+                                                    <span
+                                                        title="Calculado por denominación (abajo)"
+                                                        className="inline-block w-24 text-right px-2 py-1 rounded border border-dashed border-primary/50 bg-primary/5 dark:bg-primary/10 tabular-nums font-semibold"
+                                                    >
+                                                        {denomTotal.toFixed(2)}
+                                                    </span>
+                                                ) : (
+                                                    <input
+                                                        type="number" min="0" step="0.01" inputMode="decimal"
+                                                        value={counted[r.key] ?? ''}
+                                                        onChange={e => setCounted(prev => ({ ...prev, [r.key]: e.target.value }))}
+                                                        placeholder="0.00"
+                                                        className="w-24 text-right px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
+                                                        autoFocus={r.cash}
+                                                    />
+                                                )}
                                             </div>
                                             <div className={`col-span-2 px-3 py-1.5 text-right tabular-nums ${entered ? diffColor(d) : 'text-neutral-300 dark:text-neutral-600'}`}>
                                                 {entered ? `${d >= 0 ? '+' : '-'}${money(Math.abs(d))}` : '—'}
@@ -272,6 +314,43 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                 {session.openingNotes && <p className="text-xs text-neutral-500 mt-1">{session.openingNotes}</p>}
                             </div>
                         </div>
+                    </div>
+
+                    {/* Conteo asistido de la gaveta por denominación (billetes/monedas). */}
+                    <div className="mt-3 border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden">
+                        <label className="flex items-center gap-2 px-3 py-2 bg-neutral-50 dark:bg-neutral-800/60 text-sm font-semibold text-neutral-700 dark:text-neutral-200 cursor-pointer">
+                            <input type="checkbox" checked={denomMode} onChange={e => setDenomMode(e.target.checked)} className="h-4 w-4" />
+                            🧮 Contar efectivo por denominación
+                            <span className="text-xs font-normal text-neutral-500">(billetes y monedas — suma automática)</span>
+                        </label>
+                        {denomMode && (
+                            <div className="p-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                                    {DENOMINATIONS.map(d => {
+                                        const qty = denomInt(denomCounts[String(d.v)]);
+                                        const sub = Math.round(d.v * qty * 100) / 100;
+                                        return (
+                                            <div key={d.v} className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-700 rounded-md px-2 py-1.5">
+                                                <span className="w-12 text-sm font-semibold text-neutral-700 dark:text-neutral-200 tabular-nums">{d.label}</span>
+                                                <span className="text-neutral-400">×</span>
+                                                <input
+                                                    type="number" min="0" step="1" inputMode="numeric"
+                                                    value={denomCounts[String(d.v)] ?? ''}
+                                                    onChange={e => setDenomCounts(prev => ({ ...prev, [String(d.v)]: e.target.value }))}
+                                                    placeholder="0"
+                                                    className="w-14 text-right px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
+                                                />
+                                                <span className="ml-auto text-xs text-neutral-500 tabular-nums">{money(sub)}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                                    <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Total contado (gaveta)</span>
+                                    <span className="text-lg font-bold text-primary dark:text-accent tabular-nums">{money(denomTotal)}</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Diferencia de gaveta + notas */}
