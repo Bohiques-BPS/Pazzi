@@ -29,6 +29,10 @@ export const salesService = {
   bulkPayment: (data: { clientId: string; method: string; reference?: string; note?: string; allocations: { saleId: string; amount: number }[] }) =>
     api.post<{ ok: boolean; total: number; count: number }>('/sales/bulk-payment', data),
 
+  /** Envía por correo un recordatorio de pago de una venta a crédito. */
+  sendReminder: (saleId: string, message?: string) =>
+    api.post<{ sent: boolean; to: string }>(`/sales/${saleId}/send-reminder`, message ? { message } : {}),
+
   voidSale: (saleId: string) =>
     api.post<any>(`/sales/${saleId}/void`),
   remove: (saleId: string) =>

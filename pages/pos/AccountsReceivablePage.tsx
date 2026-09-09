@@ -429,19 +429,23 @@ export const AccountsReceivablePage: React.FC = () => {
         setSaleForReminder(sale);
     };
 
-    const handleConfirmSendReminder = (customMessage: string) => {
+    const handleConfirmSendReminder = async (customMessage: string) => {
         if (!saleForReminder) return;
-        const client = getClientById(saleForReminder.clientId);
-        
-        console.log(`Enviando recordatorio a ${client?.email}:`, customMessage);
-        
-        addNotification({
-            title: t('posx.receivable.reminder_sent_title'),
-            message: t('posx.receivable.reminder_sent_message', { name: client?.name || '' }),
-            type: 'generic',
-            link: '/pos/accounts-receivable'
-        });
+        const sale = saleForReminder;
+        const client = getClientById(sale.clientId);
         setSaleForReminder(null);
+        try {
+            const res = await salesService.sendReminder(sale.id, customMessage);
+            toast.success(t('posx.receivable.reminder_sent_message', { name: client?.name || res.to }));
+            addNotification({
+                title: t('posx.receivable.reminder_sent_title'),
+                message: t('posx.receivable.reminder_sent_message', { name: client?.name || '' }),
+                type: 'generic',
+                link: '/pos/accounts-receivable'
+            });
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : t('posx.receivable.no_email'));
+        }
     };
     
     return (
