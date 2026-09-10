@@ -650,6 +650,8 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
     const [newMessage, setNewMessage] = useState('');
     const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
     const [sending, setSending] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const chatFileInputRef = useRef<HTMLInputElement | null>(null);
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
     const [callType, setCallType] = useState<'video' | 'audio'>('video');
     const [callParticipants, setCallParticipants] = useState<string[]>([]);
@@ -709,6 +711,39 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
     };
     const handleInitiateCall = (type: 'video' | 'audio') => { setCallType(type); setIsCallModalOpen(true); };
 
+    // Adjuntar imagen/video: sube a Cloudinary (/upload) y envía el mensaje con el adjunto.
+    const handleAttachFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file || !currentUser) return;
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        const maxMb = isVideo ? 50 : 10;
+        if (file.size > maxMb * 1024 * 1024) { toast.error(`El archivo es muy grande (máx. ${maxMb} MB).`); return; }
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await fetch(`${API_URL}/upload`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('pazzi_token')}` }, body: fd });
+            if (!res.ok) throw new Error('No se pudo subir el archivo.');
+            const { url } = await res.json();
+            const saved = await chatService.sendMessage({
+                projectId: project.id,
+                text: newMessage.trim(),
+                senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
+                attachmentUrl: url,
+                attachmentType: isImage ? 'image' : isVideo ? 'video' : 'file',
+                attachmentName: file.name,
+            });
+            appendMessage(saved);
+            setNewMessage('');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : (err instanceof Error ? err.message : 'No se pudo enviar el adjunto.'));
+        } finally {
+            setUploading(false);
+        }
+    };
+
     if (!currentUser) return null;
 
     return (
@@ -721,6 +756,17 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
             </div>
             <div className="p-3 border-t bg-white dark:bg-neutral-800">
                 <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-start space-x-2">
+                    <input ref={chatFileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleAttachFile} />
+                    <button
+                        type="button"
+                        onClick={() => chatFileInputRef.current?.click()}
+                        disabled={uploading || sending}
+                        title="Adjuntar imagen o video"
+                        aria-label="Adjuntar imagen o video"
+                        className="p-2 self-end rounded-lg text-neutral-500 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex-shrink-0 disabled:opacity-50"
+                    >
+                        {uploading ? <span className="text-xs">Subiendo…</span> : <DocumentArrowUpIcon className="w-5 h-5" />}
+                    </button>
                     <div className="flex-grow">
                         <RichTextEditor
                             value={newMessage}
