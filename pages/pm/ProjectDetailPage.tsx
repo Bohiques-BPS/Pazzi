@@ -10,6 +10,8 @@ import { ProjectHistoryTab } from '../../components/pm/ProjectHistoryTab';
 import { ArrowUturnLeftIcon, PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon, ChevronDownIcon, EyeIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
+import { MicButton } from '../../components/ui/MicButton';
+import { PaperClipIcon } from '../../components/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { ChatMessageItem } from './ChatMessageItem';
@@ -755,26 +757,38 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                 <div ref={messagesEndRef} />
             </div>
             <div className="p-3 border-t bg-white dark:bg-neutral-800">
-                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-start space-x-2">
-                    <input ref={chatFileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleAttachFile} />
-                    <button
-                        type="button"
-                        onClick={() => chatFileInputRef.current?.click()}
-                        disabled={uploading || sending}
-                        title="Adjuntar imagen o video"
-                        aria-label="Adjuntar imagen o video"
-                        className="p-2 self-end rounded-lg text-neutral-500 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex-shrink-0 disabled:opacity-50"
-                    >
-                        {uploading ? <span className="text-xs">Subiendo…</span> : <DocumentArrowUpIcon className="w-5 h-5" />}
-                    </button>
-                    <div className="flex-grow">
-                        <RichTextEditor
+                <input ref={chatFileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleAttachFile} />
+                {/* Barra de mensaje estilo WhatsApp: clip + campo + micrófono en una píldora, enviar aparte. */}
+                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-end gap-2">
+                    <div className="flex-1 flex items-end gap-0.5 bg-neutral-100 dark:bg-neutral-700 rounded-3xl px-2 py-1">
+                        <button
+                            type="button"
+                            onClick={() => chatFileInputRef.current?.click()}
+                            disabled={uploading || sending}
+                            title="Adjuntar imagen o video"
+                            aria-label="Adjuntar imagen o video"
+                            className="p-2 rounded-full text-neutral-500 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 flex-shrink-0 disabled:opacity-50"
+                        >
+                            {uploading ? <span className="text-xs">Subiendo…</span> : <PaperClipIcon className="w-5 h-5" />}
+                        </button>
+                        <textarea
                             value={newMessage}
-                            onChange={setNewMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                             placeholder={t('pm2x.chat.message_placeholder')}
+                            rows={1}
+                            className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none resize-none max-h-32 py-2 px-1 text-sm text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400"
                         />
+                        <MicButton value={newMessage} onChange={setNewMessage} className="!border-0 !rounded-full !px-2" title="Dictar el mensaje" />
                     </div>
-                    <button type="submit" className={`${BUTTON_PRIMARY_SM_CLASSES} !py-2 !px-3 self-end`} disabled={!newMessage.trim() || sending}><PaperAirplaneIcon /></button>
+                    <button
+                        type="submit"
+                        disabled={!newMessage.trim() || sending}
+                        aria-label={t('pm2x.chat.send') || 'Enviar'}
+                        className="flex-shrink-0 w-11 h-11 rounded-full bg-primary hover:bg-primary/90 text-white flex items-center justify-center disabled:opacity-50"
+                    >
+                        <PaperAirplaneIcon className="w-5 h-5" />
+                    </button>
                 </form>
             </div>
             <CallModal isOpen={isCallModalOpen} onClose={() => setIsCallModalOpen(false)} callType={callType} participants={callParticipants} />
