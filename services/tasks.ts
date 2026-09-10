@@ -83,6 +83,10 @@ export const tasksService = {
   suggestSolution: (id: string) =>
     api.post<TaskSolution>(`/tasks/${id}/ai-suggest`, {}),
 
+  /** Notifica a los encargados del proyecto que la tarea necesita aprobación. */
+  requestApproval: (id: string) =>
+    api.post<{ notified: number }>(`/tasks/${id}/request-approval`, {}),
+
   addChecklistItem: (taskId: string, text: string) =>
     api.post<ChecklistItem>(`/tasks/${taskId}/checklist`, { text }),
 

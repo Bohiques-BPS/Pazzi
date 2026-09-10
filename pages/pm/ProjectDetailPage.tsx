@@ -162,7 +162,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const getInitialFormData = (): ProjectFormData => ({
         name: '', clientId: clients[0]?.id || '', status: ProjectStatus.PENDING, description: '', assignedProducts: [], customProducts: [], assignedEmployeeIds: [],
         visitDate: '', visitTime: '', workMode: 'daysOnly' as ProjectWorkMode, workDays: [], workDayTimeRanges: [], workStartDate: '', workEndDate: '',
-        purchaseOrder: '', projectKey: '', priority: ProjectPriority.LOW,
+        purchaseOrder: '', projectKey: '', priority: ProjectPriority.LOW, managerUserIds: [],
     });
     
     const [formData, setFormData] = useState<ProjectFormData>(getInitialFormData());
@@ -195,6 +195,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                 visitDate: project.visitDate || '', visitTime: project.visitTime || '', workMode: project.workMode || 'daysOnly', workDays: project.workDays || [], workDayTimeRanges: project.workDayTimeRanges || [],
                 workStartDate: project.workStartDate || '', workEndDate: project.workEndDate || '',
                 purchaseOrder: project.purchaseOrder || '', projectKey: project.projectKey || '', priority: project.priority || ProjectPriority.LOW,
+                imageUrl: project.imageUrl ?? null, sections: project.sections || [], managerUserIds: project.managerUserIds || [],
             });
         } else {
              setFormData(getInitialFormData());
@@ -249,6 +250,26 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const handleEmployeeToggle = (empId: string) => { if (!canEditDetails) return; const isAssigned = formData.assignedEmployeeIds.includes(empId); const action = () => { setFormData(p => ({...p, assignedEmployeeIds: isAssigned ? p.assignedEmployeeIds.filter(id => id !== empId) : [...p.assignedEmployeeIds, empId]})); }; const dates = [...new Set([...(formData.workDays || []), ...(formData.workDayTimeRanges?.map(r => r.date) || [])])]; if (!isAssigned && dates.length > 0) { checkForConflictsAndExecute(action, [empId], dates); } else { action(); } };
     const handleWorkModeChange = (mode: ProjectWorkMode) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, workMode: mode, workDays: mode === 'daysOnly' ? prev.workDays : [], workDayTimeRanges: mode === 'daysAndTimes' ? prev.workDayTimeRanges : [], workStartDate: mode === 'dateRange' ? (prev.workStartDate || defaultToday) : '', workEndDate: mode === 'dateRange' ? (prev.workEndDate || defaultToday) : '', })); };
     const handleSingleWorkDayChange = (e: React.ChangeEvent<HTMLInputElement>) => { setCurrentSingleWorkDay(e.target.value); };
+    // Opciones de "encargado del proyecto": colaboradores con acceso a proyectos + el gerente conectado.
+    const managerOptions = useMemo(() => {
+        const opts: { uid: string; label: string }[] = [];
+        allEmployeesHook.filter(emp => (emp as any).userId && canAccessProjects(emp)).forEach(emp => {
+            opts.push({ uid: (emp as any).userId as string, label: `${emp.name} ${emp.lastName || ''}`.trim() });
+        });
+        if (currentUser?.role === UserRole.MANAGER && !opts.some(o => o.uid === currentUser.id)) {
+            opts.unshift({ uid: currentUser.id, label: `${currentUser.name || 'Gerente'} ${currentUser.lastName || ''} (Gerente)`.trim() });
+        }
+        return opts;
+    }, [allEmployeesHook, currentUser]);
+
+    const handleManagerToggle = (uid: string) => {
+        if (!canEditDetails) return;
+        setFormData(p => {
+            const cur = p.managerUserIds || [];
+            return { ...p, managerUserIds: cur.includes(uid) ? cur.filter(id => id !== uid) : [...cur, uid] };
+        });
+    };
+
     const handleAddSingleWorkDay = () => { if (!canEditDetails || !currentSingleWorkDay) return; const action = () => { if (!formData.workDays.includes(currentSingleWorkDay)) { setFormData(prev => ({ ...prev, workDays: [...prev.workDays, currentSingleWorkDay].sort() })); } }; checkForConflictsAndExecute(action, formData.assignedEmployeeIds, [currentSingleWorkDay]); };
     const handleRemoveSingleWorkDay = (dateToRemove: string) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, workDays: prev.workDays.filter(d => d !== dateToRemove) })); };
     const handleWorkDayRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => { const { name, value } = e.target; setCurrentWorkDayRange(prev => ({...prev, [name]: value })); };
@@ -565,6 +586,21 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                     <div>
                         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('project.resources.assign_employees')}</label>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.filter(emp => (emp as any).userId && canAccessProjects(emp)).map(emp => { const uid = (emp as any).userId as string; return (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(uid)} onChange={() => handleEmployeeToggle(uid)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>); })}</div>
+                    </div>
+
+                    {/* Encargado(s) del proyecto: reciben la notificación cuando una tarea "necesita aprobación". */}
+                    <div>
+                        <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Encargado(s) del proyecto <span className="font-normal text-neutral-400">(opcional · reciben las aprobaciones)</span></label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">
+                            {managerOptions.length === 0
+                                ? <span className="text-xs text-neutral-400 col-span-full">No hay colaboradores con acceso a proyectos.</span>
+                                : managerOptions.map(opt => (
+                                    <label key={opt.uid} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer">
+                                        <input type="checkbox" checked={(formData.managerUserIds || []).includes(opt.uid)} onChange={() => handleManagerToggle(opt.uid)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" />
+                                        <span>{opt.label}</span>
+                                    </label>
+                                ))}
+                        </div>
                     </div>
                  </fieldset>
                  {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}>

@@ -483,6 +483,8 @@ export interface Project {
     priority?: ProjectPriority;
     // Secciones/áreas del tablero de tareas (persisten aunque estén vacías)
     sections?: string[];
+    // Encargado(s) del proyecto (User.id): reciben la notificación de aprobación. Opcional.
+    managerUserIds?: string[];
     // For invoicing
     invoiceGenerated?: boolean;
     invoiceNumber?: string;

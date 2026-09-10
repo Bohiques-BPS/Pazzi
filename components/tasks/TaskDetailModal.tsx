@@ -63,6 +63,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [aiSolution, setAiSolution] = useState<TaskSolution | null>(null);
     const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
     const [aiAdding, setAiAdding] = useState(false);
+    const [requestingApproval, setRequestingApproval] = useState(false);
 
     // Solo se pueden asignar tareas a personas ASIGNADAS al proyecto. La asignación del proyecto
     // guarda User.id; los empleados enlazan con userId (o su propio id según el flujo), así que
@@ -117,6 +118,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         setAssignedIds(prev =>
             prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
         );
+    };
+
+    const handleRequestApproval = async () => {
+        setRequestingApproval(true);
+        try {
+            const res = await tasksService.requestApproval(task.id);
+            toast.success(res.notified > 0 ? `Se notificó a ${res.notified} encargado(s) que la tarea necesita aprobación.` : 'Solicitud de aprobación enviada.');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo solicitar la aprobación.');
+        } finally {
+            setRequestingApproval(false);
+        }
     };
 
     const handleArchive = async () => {
@@ -537,7 +550,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 </div>
 
                 <div className="flex justify-between items-center pt-4 border-t dark:border-neutral-700">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                        <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Notifica a los encargados del proyecto que esta tarea necesita aprobación">
+                            🔔 {requestingApproval ? 'Enviando…' : 'Solicitar aprobación'}
+                        </button>
                         <button onClick={handleArchive} className={`${BUTTON_SECONDARY_SM_CLASSES} text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center`}>
                             <ArchiveBoxIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.archive')}
                         </button>
