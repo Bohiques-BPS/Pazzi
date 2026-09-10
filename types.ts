@@ -485,6 +485,8 @@ export interface Project {
     sections?: string[];
     // Encargado(s) del proyecto (User.id): reciben la notificación de aprobación. Opcional.
     managerUserIds?: string[];
+    // Columnas personalizadas del tablero (estados). Vacío = las 4 por defecto.
+    taskColumns?: string[];
     // For invoicing
     invoiceGenerated?: boolean;
     invoiceNumber?: string;

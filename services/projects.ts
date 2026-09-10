@@ -26,6 +26,7 @@ export function normalizeProjectFromApi(p: any): Project {
             : (Array.isArray(p.workDayTimeRanges) ? p.workDayTimeRanges : []),
         imageUrl: p.imageUrl ?? null,
         managerUserIds: Array.isArray(p.managerUserIds) ? p.managerUserIds : [],
+        taskColumns: Array.isArray(p.taskColumns) ? p.taskColumns : [],
         visitDate: p.visitDate
             ? (typeof p.visitDate === 'string' ? p.visitDate.split('T')[0] : new Date(p.visitDate).toISOString().split('T')[0])
             : '',
@@ -81,6 +82,9 @@ export const projectsService = {
   /** Reporte diario: acciones de PM del usuario conectado en el rango [start, end) (ISO, hora local). */
   getMyDailyActivity: (params?: { start?: string; end?: string }) =>
     api.get<DailyActivityReport>(`/projects/my-daily-activity`, params as any),
+  /** Gestiona columnas del tablero: add | rename | delete. Devuelve la lista final de columnas. */
+  manageTaskColumn: (id: string, body: { op: 'add' | 'rename' | 'delete'; name: string; newName?: string; moveTo?: string }) =>
+    api.post<{ taskColumns: string[] }>(`/projects/${id}/task-column`, body),
   /** Analiza un documento/transcripción y devuelve posibles tareas (no crea nada). */
   extractTasks: (id: string, transcript: string) =>
     api.post<{ suggestions: { title: string; description?: string; assigneeHint?: string; dueDateHint?: string; priority?: 'low' | 'medium' | 'high' | 'urgent' }[] }>(`/projects/${id}/extract-tasks`, { transcript }),

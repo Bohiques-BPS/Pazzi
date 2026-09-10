@@ -4,6 +4,7 @@ import { Task, TaskStatus, Employee } from '../../types';
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { InputModal } from '../InputModal';
+import { ConfirmationModal } from '../Modal';
 import { MicButton } from '../ui/MicButton';
 import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { PlusIcon, DocumentTextIcon } from '../icons';
@@ -17,11 +18,17 @@ interface ProjectTaskBoardProps {
     projectId: string;
 }
 
+const DEFAULT_COLUMNS = [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.FOR_APPROVAL, TaskStatus.DONE] as string[];
+
 export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId }) => {
     const { t } = useTranslation();
     const { tasks, setTasks, addTask, updateTask, taskComments, getAllEmployees, projects, setProjects } = useData();
     const [draggedTask, setDraggedTask] = useState<Task | null>(null);
-    const [isCreatingInStatus, setIsCreatingInStatus] = useState<TaskStatus | null>(null);
+    const [isCreatingInStatus, setIsCreatingInStatus] = useState<string | null>(null);
+    // Gestión de columnas del tablero.
+    const [colModal, setColModal] = useState<{ mode: 'add' | 'rename'; name?: string } | null>(null);
+    const [colMenuFor, setColMenuFor] = useState<string | null>(null);
+    const [deleteCol, setDeleteCol] = useState<string | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     // Sección/área activa ('' = Todas).
@@ -70,12 +77,24 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         [projectTasks, activeSection]
     );
 
-    const columns = useMemo(() => ({
-        [TaskStatus.TODO]: visibleTasks.filter(t => t.status === TaskStatus.TODO),
-        [TaskStatus.IN_PROGRESS]: visibleTasks.filter(t => t.status === TaskStatus.IN_PROGRESS),
-        [TaskStatus.FOR_APPROVAL]: visibleTasks.filter(t => t.status === TaskStatus.FOR_APPROVAL),
-        [TaskStatus.DONE]: visibleTasks.filter(t => t.status === TaskStatus.DONE),
-    }), [visibleTasks]);
+    // Columnas del tablero: personalizadas del proyecto o las 4 por defecto.
+    const columnNames = useMemo(() => {
+        const custom = projects.find(p => p.id === projectId)?.taskColumns;
+        return (custom && custom.length) ? custom : DEFAULT_COLUMNS;
+    }, [projects, projectId]);
+
+    // Agrupa las tareas visibles por columna; las que quedaron sin columna válida
+    // (p. ej. tras borrar una columna) caen en la primera.
+    const columns = useMemo(() => {
+        const map: Record<string, Task[]> = {};
+        columnNames.forEach(c => { map[c] = []; });
+        const fallback = columnNames[0];
+        for (const t of visibleTasks) {
+            (map[t.status] ? map[t.status] : map[fallback]).push(t);
+        }
+        Object.keys(map).forEach(k => map[k].sort((a, b) => a.order - b.order));
+        return map;
+    }, [visibleTasks, columnNames]);
 
     const addSection = () => setSectionModalOpen(true);
     const confirmAddSection = async (name: string) => {
@@ -95,6 +114,42 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         }
     };
 
+    // ── Gestión de columnas del tablero (renombrar / crear / eliminar) ──
+    const applyColumns = (cols: string[]) => setProjects(prev => prev.map(p => p.id === projectId ? { ...p, taskColumns: cols } : p));
+
+    const handleAddColumn = async (name: string) => {
+        setColModal(null);
+        const clean = name.trim();
+        if (!clean) return;
+        if (columnNames.includes(clean)) { toast.error('Ya existe una columna con ese nombre.'); return; }
+        const prev = columnNames;
+        applyColumns([...columnNames, clean]);
+        try { const r = await projectsService.manageTaskColumn(projectId, { op: 'add', name: clean }); applyColumns(r.taskColumns); }
+        catch { toast.error('No se pudo crear la columna.'); applyColumns(prev); }
+    };
+
+    const handleRenameColumn = async (from: string, to: string) => {
+        setColModal(null);
+        const clean = to.trim();
+        if (!clean || clean === from) return;
+        if (columnNames.includes(clean)) { toast.error('Ya existe una columna con ese nombre.'); return; }
+        applyColumns(columnNames.map(c => c === from ? clean : c));
+        setTasks(prev => prev.map(t => t.projectId === projectId && t.status === from ? { ...t, status: clean as any } : t));
+        try { const r = await projectsService.manageTaskColumn(projectId, { op: 'rename', name: from, newName: clean }); applyColumns(r.taskColumns); }
+        catch { toast.error('No se pudo renombrar la columna.'); reloadTasks(); }
+    };
+
+    const handleDeleteColumn = async (name: string) => {
+        setDeleteCol(null);
+        if (columnNames.length <= 1) { toast.error('Debe quedar al menos una columna.'); return; }
+        const remaining = columnNames.filter(c => c !== name);
+        const moveTo = remaining[0];
+        applyColumns(remaining);
+        setTasks(prev => prev.map(t => t.projectId === projectId && t.status === name ? { ...t, status: moveTo as any } : t));
+        try { const r = await projectsService.manageTaskColumn(projectId, { op: 'delete', name, moveTo }); applyColumns(r.taskColumns); }
+        catch { toast.error('No se pudo eliminar la columna.'); reloadTasks(); }
+    };
+
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, task: Task) => {
         setDraggedTask(task);
         e.dataTransfer.effectAllowed = 'move';
@@ -105,7 +160,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         e.dataTransfer.dropEffect = 'move';
     };
 
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStatus: TaskStatus) => {
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStatus: string) => {
         e.preventDefault();
         if (!draggedTask) return;
 
@@ -127,7 +182,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
 
         setTasks(currentTasks => {
             const otherTasks = currentTasks.filter(t => t.id !== draggedTask.id);
-            const updatedMovedTask = { ...draggedTask, status: targetStatus, order: newOrder };
+            const updatedMovedTask = { ...draggedTask, status: targetStatus as any, order: newOrder };
             let finalTasks = [...otherTasks, updatedMovedTask];
 
             // Re-indexa el orden en las columnas origen y destino tras el movimiento.
@@ -147,7 +202,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         });
 
         // Persistir el cambio de estado/orden. Si falla, recargar desde el backend (revertir).
-        tasksService.update(draggedTask.id, { status: targetStatus, order: newOrder }).catch(() => {
+        tasksService.update(draggedTask.id, { status: targetStatus as any, order: newOrder }).catch(() => {
             toast.error(t('cmpx.task.sync_error'));
             reloadTasks();
         });
@@ -155,13 +210,13 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         setDraggedTask(null);
     };
 
-    const handleCreateTask = async (status: TaskStatus) => {
+    const handleCreateTask = async (status: string) => {
         if (!newTaskTitle.trim()) {
             setIsCreatingInStatus(null);
             return;
         }
         try {
-            const saved = await tasksService.create({ projectId, title: newTaskTitle, status, section: activeSection || undefined });
+            const saved = await tasksService.create({ projectId, title: newTaskTitle, status: status as any, section: activeSection || undefined });
             setTasks(prev => [...prev, {
                 ...saved,
                 assignedEmployeeIds: saved.assignedEmployeeIds || [],
@@ -202,17 +257,28 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                     <DocumentTextIcon className="w-4 h-4" /> {t('cmpx.task.analyze_doc') || 'Analizar documento'}
                 </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {Object.entries(columns).map(([status, tasksInColumn]: [string, Task[]]) => (
+            <div className="flex gap-4 overflow-x-auto pb-2 items-start">
+                {columnNames.map((status) => { const tasksInColumn = columns[status] || []; return (
                     <div
                         key={status}
                         onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, status as TaskStatus)}
-                        className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col"
+                        onDrop={(e) => handleDrop(e, status)}
+                        className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0"
                     >
-                        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg">
-                           <span>{status}</span>
-                           <span className="text-sm text-gray-500">{tasksInColumn.length}</span>
+                        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg gap-1">
+                           <span className="truncate" title={status}>{status}</span>
+                           <span className="flex items-center gap-1 flex-shrink-0">
+                               <span className="text-sm text-gray-500">{tasksInColumn.length}</span>
+                               <div className="relative">
+                                   <button type="button" onClick={() => setColMenuFor(colMenuFor === status ? null : status)} onBlur={() => setTimeout(() => setColMenuFor(f => f === status ? null : f), 150)} className="p-1 rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700" aria-label="Opciones de la columna">⋯</button>
+                                   {colMenuFor === status && (
+                                       <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600 text-sm font-normal">
+                                           <button onMouseDown={() => { setColMenuFor(null); setColModal({ mode: 'rename', name: status }); }} className="block w-full text-left px-3 py-1.5 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">✏️ Renombrar</button>
+                                           <button onMouseDown={() => { setColMenuFor(null); setDeleteCol(status); }} className="block w-full text-left px-3 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40">🗑 Eliminar</button>
+                                       </div>
+                                   )}
+                               </div>
+                           </span>
                         </h3>
                         {/* Crear tarea SIEMPRE arriba de la columna (no hay que hacer scroll hasta el final). */}
                         {isCreatingInStatus === status ? (
@@ -225,10 +291,10 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     rows={3}
                                     autoFocus
                                     onBlur={() => {if(!newTaskTitle) setIsCreatingInStatus(null)}}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status as TaskStatus); } }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status); } }}
                                 />
                                 <div className="mt-2 flex items-center gap-2">
-                                    <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
+                                    <button onClick={() => handleCreateTask(status)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
                                     <MicButton
                                         value={newTaskTitle}
                                         onChange={setNewTaskTitle}
@@ -237,7 +303,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                 </div>
                             </div>
                         ) : (
-                            <button onClick={() => setIsCreatingInStatus(status as TaskStatus)} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
+                            <button onClick={() => setIsCreatingInStatus(status)} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
                                 <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
                             </button>
                         )}
@@ -269,7 +335,15 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                             )})}
                         </div>
                     </div>
-                ))}
+                ); })}
+                {/* Añadir columna */}
+                <button
+                    type="button"
+                    onClick={() => setColModal({ mode: 'add' })}
+                    className="w-56 flex-shrink-0 self-start rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-600 text-neutral-500 dark:text-neutral-400 hover:border-primary hover:text-primary p-3 flex items-center justify-center gap-1 text-sm font-medium"
+                >
+                    <PlusIcon className="w-4 h-4" /> Añadir columna
+                </button>
             </div>
             {selectedTask && (
                 <TaskDetailModal
@@ -297,6 +371,26 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 projectId={projectId}
                 section={activeSection || undefined}
                 onCreated={reloadTasks}
+            />
+            {/* Crear / renombrar columna */}
+            <InputModal
+                isOpen={!!colModal}
+                title={colModal?.mode === 'rename' ? 'Renombrar columna' : 'Nueva columna'}
+                label="Nombre de la columna:"
+                placeholder="Ej. En revisión"
+                initialValue={colModal?.mode === 'rename' ? (colModal?.name || '') : ''}
+                confirmText={colModal?.mode === 'rename' ? 'Guardar' : 'Añadir'}
+                cancelText={t('common.cancel') || 'Cancelar'}
+                onConfirm={(val) => { if (colModal?.mode === 'rename' && colModal.name) handleRenameColumn(colModal.name, val); else handleAddColumn(val); }}
+                onClose={() => setColModal(null)}
+            />
+            <ConfirmationModal
+                isOpen={!!deleteCol}
+                onClose={() => setDeleteCol(null)}
+                onConfirm={() => deleteCol && handleDeleteColumn(deleteCol)}
+                title="Eliminar columna"
+                message={`¿Eliminar la columna "${deleteCol}"? Las tareas que tenga se moverán a la primera columna.`}
+                confirmButtonText="Eliminar"
             />
         </>
     );
