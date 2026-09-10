@@ -198,6 +198,32 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                            <span>{status}</span>
                            <span className="text-sm text-gray-500">{tasksInColumn.length}</span>
                         </h3>
+                        {/* Crear tarea SIEMPRE arriba de la columna (no hay que hacer scroll hasta el final). */}
+                        {isCreatingInStatus === status ? (
+                             <div className="mb-2 p-1">
+                                <textarea
+                                    value={newTaskTitle}
+                                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                                    placeholder={t('cmpx.task.title_ph')}
+                                    className="w-full p-2 text-sm border-neutral-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-neutral-600 dark:border-neutral-500"
+                                    rows={3}
+                                    autoFocus
+                                    onBlur={() => {if(!newTaskTitle) setIsCreatingInStatus(null)}}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status as TaskStatus); } }}
+                                />
+                                <div className="mt-2 flex items-center gap-2">
+                                    <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
+                                    <MicButton
+                                        onText={(text) => setNewTaskTitle(prev => (prev.trim() ? prev.trim() + ' ' : '') + text)}
+                                        title="Dictar el título de la tarea"
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <button onClick={() => setIsCreatingInStatus(status as TaskStatus)} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
+                                <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
+                            </button>
+                        )}
                         <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
                             {tasksInColumn.map(task => {
                                 const commentCount = taskComments.filter(c => c.taskId === task.id).length;
@@ -224,31 +250,6 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                 />
                             )})}
                         </div>
-                        {isCreatingInStatus === status ? (
-                             <div className="mt-2 p-1">
-                                <textarea
-                                    value={newTaskTitle}
-                                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                                    placeholder={t('cmpx.task.title_ph')}
-                                    className="w-full p-2 text-sm border-neutral-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-neutral-600 dark:border-neutral-500"
-                                    rows={3}
-                                    autoFocus
-                                    onBlur={() => {if(!newTaskTitle) setIsCreatingInStatus(null)}}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status as TaskStatus); } }}
-                                />
-                                <div className="mt-2 flex items-center gap-2">
-                                    <button onClick={() => handleCreateTask(status as TaskStatus)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
-                                    <MicButton
-                                        onText={(text) => setNewTaskTitle(prev => (prev.trim() ? prev.trim() + ' ' : '') + text)}
-                                        title="Dictar el título de la tarea"
-                                    />
-                                </div>
-                            </div>
-                        ) : (
-                            <button onClick={() => setIsCreatingInStatus(status as TaskStatus)} className="mt-2 w-full text-left p-2 rounded-lg text-base text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center transition-colors">
-                                <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
-                            </button>
-                        )}
                     </div>
                 ))}
             </div>

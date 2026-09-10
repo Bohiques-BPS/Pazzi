@@ -1,5 +1,5 @@
 import React from 'react';
-import { MicrophoneIcon, MicrophoneSlashIcon } from '../icons';
+import { MicrophoneIcon } from '../icons';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 
 interface MicButtonProps {
@@ -28,17 +28,21 @@ export const MicButton: React.FC<MicButtonProps> = ({ onText, onInterim, title, 
     return (
         <button
             type="button"
+            // preventDefault en mousedown: evita que el botón le quite el foco al input/textarea
+            // (ese blur cerraba el formulario de "crear tarea" antes de que empezara el dictado).
+            onMouseDown={(e) => e.preventDefault()}
             onClick={toggle}
             title={title || (listening ? 'Detener dictado' : 'Dictar por voz')}
             aria-label={title || 'Dictar por voz'}
             aria-pressed={listening}
-            className={`inline-flex items-center justify-center rounded-md p-1.5 transition-colors ${
+            className={`inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-sm font-medium transition-colors flex-shrink-0 ${
                 listening
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : 'text-neutral-500 hover:text-primary hover:bg-primary/10 dark:text-neutral-400'
+                    ? 'bg-red-500 border-red-500 text-white animate-pulse'
+                    : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:text-primary hover:border-primary hover:bg-primary/10'
             } ${className || ''}`}
         >
-            {listening ? <MicrophoneSlashIcon className="w-5 h-5" /> : <MicrophoneIcon className="w-5 h-5" />}
+            <MicrophoneIcon className="w-5 h-5" />
+            {listening && <span className="text-xs">Grabando…</span>}
         </button>
     );
 };
