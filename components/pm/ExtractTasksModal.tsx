@@ -10,6 +10,7 @@ import { extractDocxText, isDocx } from '../../utils/docx';
 import { extractPdfText, isPdf } from '../../utils/pdf';
 import { TaskStatus } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { MicButton } from '../ui/MicButton';
 
 interface SuggestionRow {
     accepted: boolean;
@@ -146,13 +147,13 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
             <div className="space-y-4">
                 {showInput ? (
                     <div>
-                        <label className="block text-xs text-neutral-500 mb-1">Documento / transcripción</label>
+                        <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">Documento / transcripción</label>
                         <textarea
                             value={transcript}
                             onChange={e => setTranscript(e.target.value)}
                             rows={14}
-                            placeholder="Pega aquí el documento o la transcripción (de una llamada, notas, requerimientos…). La IA sugerirá posibles tareas; tú decides cuáles crear."
-                            className={`${INPUT_SM_CLASSES} w-full font-mono text-xs min-h-[340px] resize-y`}
+                            placeholder="Pega aquí el documento o la transcripción (de una llamada, notas, requerimientos…), o dicta con el micrófono. La IA sugerirá posibles tareas; tú decides cuáles crear."
+                            className={`${INPUT_SM_CLASSES} w-full text-base leading-relaxed min-h-[340px] resize-y`}
                         />
                         <div className="flex justify-between items-center mt-2 gap-2 flex-wrap">
                             <div className="flex items-center gap-3">
@@ -160,7 +161,8 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                                     Subir archivo
                                     <input type="file" accept=".txt,.vtt,.srt,.md,.docx,.pdf,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFile} className="hidden" />
                                 </label>
-                                <span className="text-xs text-neutral-400">{transcript.trim().length} caracteres</span>
+                                <MicButton value={transcript} onChange={setTranscript} title="Dictar el documento por voz" />
+                                <span className="text-sm text-neutral-400">{transcript.trim().length} caracteres</span>
                                 {analyzed && rows.length > 0 && (
                                     <button onClick={() => setShowInput(false)} className="text-xs text-neutral-500 hover:underline">Ocultar</button>
                                 )}
@@ -199,7 +201,7 @@ export const ExtractTasksModal: React.FC<Props> = ({ isOpen, onClose, projectId,
                                                 <input type="text" value={r.title} onChange={e => patchRow(i, { title: e.target.value })} className={`${INPUT_SM_CLASSES} w-full font-medium`} placeholder="Título de la tarea" />
                                                 <div>
                                                     <label className="block text-[11px] text-neutral-400 mb-0.5">Descripción</label>
-                                                    <textarea value={r.description} onChange={e => patchRow(i, { description: e.target.value })} rows={3} placeholder="Descripción de la tarea" className={`${INPUT_SM_CLASSES} w-full text-xs resize-y min-h-[64px]`} />
+                                                    <textarea value={r.description} onChange={e => patchRow(i, { description: e.target.value })} rows={3} placeholder="Descripción de la tarea" className={`${INPUT_SM_CLASSES} w-full text-sm resize-y min-h-[64px]`} />
                                                 </div>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                     <div>
