@@ -10,6 +10,7 @@ interface TaskCardProps extends React.HTMLAttributes<HTMLDivElement> {
     commentCount: number;
     assignedEmployees: Employee[];
     checklistSummary?: ChecklistSummary;
+    subtaskSummary?: { total: number; done: number };
 }
 
 const PRIORITY_CONFIG = {
@@ -19,7 +20,7 @@ const PRIORITY_CONFIG = {
     low:    { labelKey: 'cmpx.priority.low',    cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
 };
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assignedEmployees, checklistSummary, ...props }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assignedEmployees, checklistSummary, subtaskSummary, ...props }) => {
     const { t } = useTranslation();
     const priorityCfg = task.priority ? PRIORITY_CONFIG[task.priority] : null;
 
@@ -29,7 +30,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
     const isOverdue = dueDate && dueDate < today && task.status !== 'Hecho';
     const isDueSoon = dueDate && !isOverdue && dueDate <= new Date(today.getTime() + 2 * 86400000);
 
-    const hasFooter = commentCount > 0 || assignedEmployees.length > 0 || dueDateStr || (checklistSummary && checklistSummary.total > 0);
+    const hasFooter = commentCount > 0 || assignedEmployees.length > 0 || dueDateStr || (checklistSummary && checklistSummary.total > 0) || (subtaskSummary && subtaskSummary.total > 0);
 
     return (
         <div
@@ -82,6 +83,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
                                     : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-300'}`}
                             >
                                 ☑ {checklistSummary.done}/{checklistSummary.total}
+                            </span>
+                        )}
+
+                        {/* Subtareas */}
+                        {subtaskSummary && subtaskSummary.total > 0 && (
+                            <span className={`flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded gap-0.5
+                                ${subtaskSummary.done === subtaskSummary.total
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-300'}`}
+                                title="Subtareas"
+                            >
+                                ↳ {subtaskSummary.done}/{subtaskSummary.total}
                             </span>
                         )}
 

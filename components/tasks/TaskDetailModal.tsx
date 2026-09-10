@@ -18,6 +18,8 @@ interface TaskDetailModalProps {
     onSave: (taskId: string, updates: Partial<Omit<Task, 'id'>>) => void;
     onArchive: (taskId: string) => void;
     onDelete?: (taskId: string) => void;
+    /** Abrir otra tarea (subtarea) en el mismo modal. */
+    onOpenTask?: (task: Task) => void;
 }
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string }[] = [
@@ -28,10 +30,10 @@ const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string
     { value: 'urgent', labelKey: 'cmpx.task.prio.urgent', cls: 'text-red-600' },
 ];
 
-export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete }) => {
+export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onOpenTask }) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
-    const { getAllEmployees, projects } = useData();
+    const { getAllEmployees, projects, tasks: allTasks, setTasks } = useData();
     const [title, setTitle] = useState(task.title);
     const [description, setDescription] = useState(task.description || '');
     const [assignedIds, setAssignedIds] = useState<string[]>(task.assignedEmployeeIds || []);
@@ -64,6 +66,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
     const [aiAdding, setAiAdding] = useState(false);
     const [requestingApproval, setRequestingApproval] = useState(false);
+    const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+    const [addingSubtask, setAddingSubtask] = useState(false);
 
     // Solo se pueden asignar tareas a personas ASIGNADAS al proyecto. La asignación del proyecto
     // guarda User.id; los empleados enlazan con userId (o su propio id según el flujo), así que
@@ -76,6 +80,22 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         const assigned = new Set((project.assignedEmployeeIds || []).map(String));
         return getAllEmployees().filter((e: any) => assigned.has(String(e.userId)) || assigned.has(String(e.id)) || assigned.has(String(e.user?.id)));
     }, [getAllEmployees, projects, task]);
+
+    // Subtareas (hijas de esta tarea) desde el DataContext.
+    const subtasks = useMemo(
+        () => allTasks.filter(x => (x as any).parentTaskId === task.id && !x.archived),
+        [allTasks, task.id],
+    );
+    const subtaskDone = subtasks.filter(s => s.status === 'Hecho').length;
+
+    // Candidatos a responsable de ítem del checklist: asignados a la tarea (o el equipo del proyecto).
+    const assigneeOptions = useMemo(() => {
+        const pool = assignedIds.length
+            ? allEmployees.filter((e: any) => assignedIds.includes(e.userId) || assignedIds.includes(e.id))
+            : allEmployees;
+        return pool.map((e: any) => ({ uid: (e.userId || e.id) as string, name: `${e.name} ${e.lastName || ''}`.trim() }));
+    }, [allEmployees, assignedIds]);
+    const assigneeName = (uid?: string | null) => uid ? (assigneeOptions.find(o => o.uid === uid)?.name || 'Responsable') : '';
 
     useEffect(() => {
         setComments(((task as any).comments as TaskCommentRecord[]) || []);
@@ -238,6 +258,32 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         }
     };
 
+    const handleAssignChecklist = async (item: ChecklistItem, uid: string) => {
+        const val = uid || null;
+        setChecklists(prev => prev.map(c => c.id === item.id ? { ...c, assignedUserId: val } : c));
+        try { await tasksService.updateChecklistItem(task.id, item.id, { assignedUserId: val }); }
+        catch { setChecklists(prev => prev.map(c => c.id === item.id ? { ...c, assignedUserId: item.assignedUserId } : c)); toast.error(t('cmpx.task.check_add_error')); }
+    };
+
+    const handleAddSubtask = async () => {
+        const title = newSubtaskTitle.trim();
+        if (!title) return;
+        setAddingSubtask(true);
+        try {
+            const created = await tasksService.create({ projectId: (task as any).projectId, title, parentTaskId: task.id, status: 'Tareas por realizar' as any });
+            setTasks(prev => [...prev, { ...created, assignedEmployeeIds: (created as any).assignedEmployeeIds || [] } as any]);
+            setNewSubtaskTitle('');
+        } catch { toast.error('No se pudo crear la subtarea.'); }
+        finally { setAddingSubtask(false); }
+    };
+
+    const handleToggleSubtask = async (sub: Task) => {
+        const next = sub.status === 'Hecho' ? 'Tareas por realizar' : 'Hecho';
+        setTasks(prev => prev.map(t => t.id === sub.id ? { ...t, status: next as any } : t));
+        try { await tasksService.update(sub.id, { status: next as any }); }
+        catch { setTasks(prev => prev.map(t => t.id === sub.id ? { ...t, status: sub.status } : t)); toast.error('No se pudo actualizar la subtarea.'); }
+    };
+
     const handleToggleCheck = async (item: ChecklistItem) => {
         const updated = { ...item, checked: !item.checked };
         setChecklists(prev => prev.map(c => c.id === item.id ? updated : c));
@@ -396,6 +442,52 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                     </div>
                 </fieldset>
 
+                {/* Subtareas (árbol de tareas) */}
+                <div className="border-t dark:border-neutral-700 pt-4">
+                    <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 mb-2">
+                        ↳ Subtareas
+                        {subtasks.length > 0 && <span className="ml-2 text-xs font-normal text-neutral-500">{subtaskDone}/{subtasks.length}</span>}
+                    </h4>
+                    {subtasks.length > 0 && (
+                        <ul className="space-y-1 mb-2">
+                            {subtasks.map(sub => (
+                                <li key={sub.id} className="flex items-center gap-2 group p-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-700/50">
+                                    <input
+                                        type="checkbox"
+                                        checked={sub.status === 'Hecho'}
+                                        onChange={() => handleToggleSubtask(sub)}
+                                        className="h-4 w-4 text-primary rounded border-neutral-300 dark:border-neutral-600 focus:ring-primary flex-shrink-0"
+                                        title="Marcar subtarea como hecha"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => onOpenTask?.(sub)}
+                                        disabled={!onOpenTask}
+                                        className={`flex-1 text-left text-sm ${sub.status === 'Hecho' ? 'line-through text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'} ${onOpenTask ? 'hover:text-primary' : ''}`}
+                                    >
+                                        {sub.title}
+                                    </button>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{sub.status}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={newSubtaskTitle}
+                            onChange={e => setNewSubtaskTitle(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubtask(); } }}
+                            placeholder="Añadir subtarea…"
+                            className={inputFormStyle + ' flex-1 !py-1.5 text-sm'}
+                            disabled={addingSubtask}
+                        />
+                        <button type="button" onClick={handleAddSubtask} disabled={addingSubtask || !newSubtaskTitle.trim()} className={BUTTON_SECONDARY_SM_CLASSES}>
+                            {t('common.add')}
+                        </button>
+                    </div>
+                </div>
+
                 {/* Checklist */}
                 <div className="border-t dark:border-neutral-700 pt-4">
                     <div className="flex items-center justify-between mb-2">
@@ -486,6 +578,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                         <span className={`flex-1 text-sm ${item.checked ? 'line-through text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'}`}>
                                             {item.text}
                                         </span>
+                                        {/* Responsable del ítem */}
+                                        <select
+                                            value={item.assignedUserId || ''}
+                                            onChange={e => handleAssignChecklist(item, e.target.value)}
+                                            title={item.assignedUserId ? `Responsable: ${assigneeName(item.assignedUserId)}` : 'Asignar responsable'}
+                                            className="text-xs max-w-[120px] rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 py-0.5 px-1 text-neutral-600 dark:text-neutral-200"
+                                        >
+                                            <option value="">Sin responsable</option>
+                                            {assigneeOptions.map(o => <option key={o.uid} value={o.uid}>{o.name}</option>)}
+                                            {/* Si el responsable actual ya no está en la lista, mostrarlo igual. */}
+                                            {item.assignedUserId && !assigneeOptions.some(o => o.uid === item.assignedUserId) && (
+                                                <option value={item.assignedUserId}>{assigneeName(item.assignedUserId)}</option>
+                                            )}
+                                        </select>
                                         <button
                                             type="button"
                                             onClick={() => handleDeleteCheckItem(item.id)}

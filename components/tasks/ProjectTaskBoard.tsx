@@ -37,9 +37,25 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
 
     const allEmployees = getAllEmployees();
 
+    // Todas las tareas del proyecto (incluye subtareas) — para contar hijas por tarea.
+    const allProjectTasks = useMemo(() => tasks.filter(t => t.projectId === projectId && !t.archived), [tasks, projectId]);
+    // El tablero muestra solo tareas de nivel superior (las subtareas se gestionan dentro del padre).
     const projectTasks = useMemo(() => {
-        return tasks.filter(t => t.projectId === projectId && !t.archived).sort((a, b) => a.order - b.order);
-    }, [tasks, projectId]);
+        return allProjectTasks.filter(t => !(t as any).parentTaskId).sort((a, b) => a.order - b.order);
+    }, [allProjectTasks]);
+    // Resumen de subtareas por tarea padre: { total, done }.
+    const subtaskSummaryByParent = useMemo(() => {
+        const m = new Map<string, { total: number; done: number }>();
+        for (const t of allProjectTasks) {
+            const pid = (t as any).parentTaskId as string | undefined;
+            if (!pid) continue;
+            const s = m.get(pid) || { total: 0, done: 0 };
+            s.total += 1;
+            if (t.status === 'Hecho') s.done += 1;
+            m.set(pid, s);
+        }
+        return m;
+    }, [allProjectTasks]);
 
     // Secciones a mostrar: las persistidas en la DB + las derivadas de las tareas (por si alguna
     // tarea tiene una sección que aún no está en la lista persistida).
@@ -247,6 +263,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     commentCount={commentCount}
                                     assignedEmployees={assignedEmployees}
                                     checklistSummary={checklistSummary}
+                                    subtaskSummary={subtaskSummaryByParent.get(task.id)}
                                     data-task-id={task.id}
                                 />
                             )})}
@@ -261,6 +278,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                     onSave={(taskId, updates) => { updateTask(taskId, updates); setSelectedTask(null); }}
                     onArchive={(taskId) => { updateTask(taskId, { archived: true }); setSelectedTask(null); }}
                     onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setSelectedTask(null); }}
+                    onOpenTask={(tk) => setSelectedTask(tk)}
                 />
             )}
             <InputModal

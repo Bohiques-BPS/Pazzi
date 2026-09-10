@@ -16,6 +16,8 @@ export interface TaskPayload {
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
   /** Recordatorio programado (ISO) o null para desactivarlo. */
   remindAt?: string | null;
+  /** Subtarea: id de la tarea padre. */
+  parentTaskId?: string | null;
 }
 
 export interface TaskCommentRecord {
@@ -33,6 +35,7 @@ export interface ChecklistItem {
   text: string;
   checked: boolean;
   order: number;
+  assignedUserId?: string | null;
 }
 
 /** Sugerencia de la IA sobre cómo resolver una tarea. */
@@ -87,10 +90,10 @@ export const tasksService = {
   requestApproval: (id: string) =>
     api.post<{ notified: number }>(`/tasks/${id}/request-approval`, {}),
 
-  addChecklistItem: (taskId: string, text: string) =>
-    api.post<ChecklistItem>(`/tasks/${taskId}/checklist`, { text }),
+  addChecklistItem: (taskId: string, text: string, assignedUserId?: string | null) =>
+    api.post<ChecklistItem>(`/tasks/${taskId}/checklist`, assignedUserId ? { text, assignedUserId } : { text }),
 
-  updateChecklistItem: (taskId: string, itemId: string, data: Partial<Pick<ChecklistItem, 'text' | 'checked'>>) =>
+  updateChecklistItem: (taskId: string, itemId: string, data: Partial<Pick<ChecklistItem, 'text' | 'checked' | 'assignedUserId'>>) =>
     api.put<ChecklistItem>(`/tasks/${taskId}/checklist/${itemId}`, data),
 
   deleteChecklistItem: (taskId: string, itemId: string) =>
