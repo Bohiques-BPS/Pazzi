@@ -619,6 +619,9 @@ export interface ChatMessage {
     senderName: string;
     timestamp: string;
     text: string;
+    attachmentUrl?: string | null;
+    attachmentType?: 'image' | 'video' | 'file' | null;
+    attachmentName?: string | null;
 }
 
 export type ECommerceTemplate = 'Moderno' | 'Catalogo' | 'Clasico' | 'Minimalista' | 'Marketplace' | 'Boutique' | 'Ofertas' | 'Mayorista' | 'Autopartes';

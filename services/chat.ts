@@ -7,6 +7,9 @@ export interface ChatMessageRecord {
   senderName: string;
   text: string;
   timestamp: string;
+  attachmentUrl?: string | null;
+  attachmentType?: 'image' | 'video' | 'file' | null;
+  attachmentName?: string | null;
 }
 
 export interface ChatOverviewRow {
@@ -19,7 +22,7 @@ export const chatService = {
   getMessages: (projectId: string) =>
     api.get<ChatMessageRecord[]>(`/chat/${encodeURIComponent(projectId)}`),
 
-  sendMessage: (data: { projectId: string; text: string; senderName: string }) =>
+  sendMessage: (data: { projectId: string; text: string; senderName: string; attachmentUrl?: string | null; attachmentType?: 'image' | 'video' | 'file' | null; attachmentName?: string | null }) =>
     api.post<ChatMessageRecord>('/chat', data),
 
   /** Último mensaje + conteo por proyecto (para el indicador de no leídos). */

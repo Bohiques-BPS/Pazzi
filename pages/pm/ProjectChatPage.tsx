@@ -3,14 +3,14 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProjectStatus, Employee, UserRole } from '../../types';
 import { ChatMessageItem } from './ChatMessageItem';
-import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon } from '../../components/icons';
+import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon, DocumentArrowUpIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
 import { getSocket, joinProjectRoom } from '../../services/socket';
 import { useChatUnread, markProjectChatRead } from '../../hooks/useChatUnread';
 import { usePermissions } from '../../hooks/usePermissions';
-import { ApiError } from '../../services/api';
+import { ApiError, API_URL } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -27,6 +27,8 @@ export const ProjectChatPage: React.FC = () => {
     const [newMessage, setNewMessage] = useState('');
     const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
     const [sending, setSending] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
@@ -112,6 +114,44 @@ export const ProjectChatPage: React.FC = () => {
             toast.error(err instanceof ApiError ? err.message : t('pm2x.chat.send_error'));
         } finally {
             setSending(false);
+        }
+    };
+
+    // Adjuntar imagen/video: sube a Cloudinary (vía /upload) y envía el mensaje con el adjunto.
+    const handleAttachFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file || !selectedProjectId || !currentUser) return;
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        // Límite razonable (Render/Cloudinary): 10 MB imágenes, 50 MB video.
+        const maxMb = isVideo ? 50 : 10;
+        if (file.size > maxMb * 1024 * 1024) { toast.error(`El archivo es muy grande (máx. ${maxMb} MB).`); return; }
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await fetch(`${API_URL}/upload`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${localStorage.getItem('pazzi_token')}` },
+                body: fd,
+            });
+            if (!res.ok) throw new Error('No se pudo subir el archivo.');
+            const { url } = await res.json();
+            const message = await chatService.sendMessage({
+                projectId: selectedProjectId,
+                text: newMessage.trim(),
+                senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
+                attachmentUrl: url,
+                attachmentType: isImage ? 'image' : isVideo ? 'video' : 'file',
+                attachmentName: file.name,
+            });
+            appendMessage(message);
+            setNewMessage('');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : (err instanceof Error ? err.message : 'No se pudo enviar el adjunto.'));
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -245,6 +285,23 @@ export const ProjectChatPage: React.FC = () => {
                         {/* Message Input */}
                         <div className="p-3 sm:p-4 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2 sm:space-x-3">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*,video/*"
+                                    className="hidden"
+                                    onChange={handleAttachFile}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading || sending}
+                                    title="Adjuntar imagen o video"
+                                    aria-label="Adjuntar imagen o video"
+                                    className="p-2 rounded-lg text-neutral-500 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex-shrink-0 disabled:opacity-50"
+                                >
+                                    {uploading ? <span className="text-xs">Subiendo…</span> : <DocumentArrowUpIcon className="w-5 h-5" />}
+                                </button>
                                 <textarea
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
