@@ -25,7 +25,7 @@ import { projectsService, normalizeProjectFromApi } from '../../services/project
 import { chatService, type ChatMessageRecord } from '../../services/chat';
 import { getSocket, joinProjectRoom } from '../../services/socket';
 import { markProjectChatRead } from '../../hooks/useChatUnread';
-import { ApiError } from '../../services/api';
+import { ApiError, API_URL } from '../../services/api';
 import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
 
 
@@ -167,6 +167,8 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     
     const [formData, setFormData] = useState<ProjectFormData>(getInitialFormData());
     const [submitting, setSubmitting] = useState(false);
+    // Imagen/portada del proyecto: archivo pendiente de subir (se sube en el submit vía /upload).
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [customProduct, setCustomProduct] = useState({ name: '', quantity: 1, unitPrice: 0 });
     const [currentProduct, setCurrentProduct] = useState<string>('');
     const [currentQuantity, setCurrentQuantity] = useState<number>(1);
@@ -256,6 +258,18 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const handleAddCustomProduct = () => { if (!canEditDetails || !customProduct.name.trim() || customProduct.quantity <= 0) { toast.error(t('pm2x.project.name_qty_required')); return; } const newCustom: CustomProjectResource = { id: `custom-${Date.now()}`, ...customProduct }; setFormData(prev => ({ ...prev, customProducts: [...(prev.customProducts || []), newCustom] })); setCustomProduct({ name: '', quantity: 1, unitPrice: 0 }); };
     const handleRemoveCustomProduct = (id: string) => { if (!canEditDetails) return; setFormData(prev => ({ ...prev, customProducts: prev.customProducts?.filter(p => p.id !== id) })); };
 
+    // Imagen del proyecto: vista previa inmediata (data URL) y archivo para subir en el submit.
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { toast.error('La imagen es muy grande (máx. 5 MB).'); return; }
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+        reader.readAsDataURL(file);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name.trim()) {
@@ -272,16 +286,37 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
         }
         setSubmitting(true);
         try {
+            // Si hay una imagen nueva seleccionada, se sube primero y se usa la URL resultante.
+            let payload: ProjectFormData = formData;
+            if (imageFile) {
+                try {
+                    const up = new FormData();
+                    up.append('file', imageFile);
+                    const res = await fetch(`${API_URL}/upload`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${localStorage.getItem('pazzi_token')}` },
+                        body: up,
+                    });
+                    if (res.ok) { const j = await res.json(); payload = { ...formData, imageUrl: j.url }; }
+                    else throw new Error('upload failed');
+                } catch {
+                    toast.error('No se pudo subir la imagen; se guardó el resto del proyecto.');
+                    // Evita persistir un data URL enorme si la subida falla.
+                    payload = { ...formData, imageUrl: project ? (project as any).imageUrl ?? null : null };
+                }
+            }
             if (project) {
-                const saved = await projectsService.update(project.id, formData);
+                const saved = await projectsService.update(project.id, payload);
                 const normalized = normalizeProjectFromApi(saved);
                 setProjects(prev => prev.map(p => p.id === project.id ? normalized : p));
+                setImageFile(null);
                 toast.success(t('pm2x.project.updated'));
                 onSuccess(normalized);
             } else {
-                const saved = await projectsService.create(formData);
+                const saved = await projectsService.create(payload);
                 const normalized = normalizeProjectFromApi(saved);
                 setProjects(prev => [...prev, normalized]);
+                setImageFile(null);
                 toast.success(t('pm2x.project.created'));
                 onSuccess(normalized);
             }
@@ -314,6 +349,28 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
             </div>
             <div className="max-h-[65vh] overflow-y-auto pr-2 space-y-4">
                  <fieldset className={activeDetailsTab === 'Detalles' ? 'space-y-4' : 'hidden'} disabled={!canEditDetails}>
+                    {/* Imagen / portada del proyecto (se muestra en las listas y en el chat). */}
+                    <div>
+                        <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">Imagen del proyecto</label>
+                        <div className="flex items-center gap-3">
+                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 flex items-center justify-center flex-shrink-0">
+                                {formData.imageUrl
+                                    ? <img src={formData.imageUrl} alt="Proyecto" className="w-full h-full object-cover" />
+                                    : <span className="text-2xl">🗂️</span>}
+                            </div>
+                            {canEditDetails && (
+                                <div className="flex items-center gap-2">
+                                    <label className={`${BUTTON_SECONDARY_SM_CLASSES} cursor-pointer`}>
+                                        {formData.imageUrl ? 'Cambiar imagen' : 'Subir imagen'}
+                                        <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                                    </label>
+                                    {formData.imageUrl && (
+                                        <button type="button" onClick={() => { setImageFile(null); setFormData(prev => ({ ...prev, imageUrl: null })); }} className="text-xs text-red-500 hover:underline">Quitar</button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label htmlFor="projectName" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.name')}</label>

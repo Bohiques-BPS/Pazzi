@@ -479,6 +479,7 @@ export interface Project {
     // New fields
     purchaseOrder?: string;
     projectKey?: string;
+    imageUrl?: string | null;   // imagen/portada del proyecto (se muestra en listas y chat)
     priority?: ProjectPriority;
     // Secciones/áreas del tablero de tareas (persisten aunque estén vacías)
     sections?: string[];

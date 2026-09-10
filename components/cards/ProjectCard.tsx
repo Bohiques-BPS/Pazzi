@@ -66,8 +66,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             <div className="p-8 flex flex-col flex-grow">
                 {/* Título + menú */}
                 <div className="flex justify-between items-start gap-2">
-                    <button onClick={() => onViewProject(project, 'details')} className="text-left min-w-0 flex-1">
-                        <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary transition-colors line-clamp-1" title={project.name}>{project.name}</h3>
+                    <button onClick={() => onViewProject(project, 'details')} className="text-left min-w-0 flex-1 flex items-center gap-2.5">
+                        {project.imageUrl
+                            ? <img src={project.imageUrl} alt={project.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-neutral-200 dark:border-neutral-700" />
+                            : <span className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-lg flex-shrink-0">🗂️</span>}
+                        <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary transition-colors line-clamp-2" title={project.name}>{project.name}</h3>
                     </button>
                     {showManagementActions && (
                         <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>

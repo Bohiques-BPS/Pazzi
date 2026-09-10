@@ -24,6 +24,7 @@ export function normalizeProjectFromApi(p: any): Project {
                 endTime: r.endTime,
             }))
             : (Array.isArray(p.workDayTimeRanges) ? p.workDayTimeRanges : []),
+        imageUrl: p.imageUrl ?? null,
         visitDate: p.visitDate
             ? (typeof p.visitDate === 'string' ? p.visitDate.split('T')[0] : new Date(p.visitDate).toISOString().split('T')[0])
             : '',

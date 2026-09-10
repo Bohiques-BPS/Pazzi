@@ -164,6 +164,9 @@ export const ProjectChatPage: React.FC = () => {
                             {unreadByProject[project.id] && selectedProjectId !== project.id && (
                                 <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500" aria-label="sin leer" />
                             )}
+                            {project.imageUrl
+                                ? <img src={project.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover flex-shrink-0" />
+                                : <span className="w-7 h-7 rounded-md bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center text-sm flex-shrink-0">🗂️</span>}
                             <span className="truncate">{project.name}</span>
                              <span className={`ml-auto text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                                 project.status === ProjectStatus.ACTIVE ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-200' :
@@ -188,7 +191,11 @@ export const ProjectChatPage: React.FC = () => {
                     <>
                         {/* Chat Header */}
                         <div className="p-3 sm:p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-                            <div>
+                            <div className="flex items-center gap-3 min-w-0">
+                                {selectedProject.imageUrl
+                                    ? <img src={selectedProject.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-neutral-200 dark:border-neutral-700" />
+                                    : <span className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-lg flex-shrink-0">🗂️</span>}
+                                <div className="min-w-0">
                                 <h3 className="text-base sm:text-lg font-semibold text-neutral-800 dark:text-neutral-100 truncate max-w-xs sm:max-w-md md:max-w-lg">{selectedProject.name}</h3>
                                 <div className="flex items-center text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                                     <UserGroupIcon />
@@ -199,10 +206,11 @@ export const ProjectChatPage: React.FC = () => {
                                         {(!projectClient && projectAssignedEmployees.length === 0) && t('pm2x.chat.no_participants')}
                                     </span>
                                 </div>
+                                </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <button 
-                                    onClick={() => handleInitiateCall('audio')} 
+                                <button
+                                    onClick={() => handleInitiateCall('audio')}
                                     className="p-1.5 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full"
                                     title={t('pm2x.chat.start_audio_call')}
                                     aria-label={t('pm2x.chat.start_audio_call')}
