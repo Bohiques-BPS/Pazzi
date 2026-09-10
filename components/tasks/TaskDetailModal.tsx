@@ -268,7 +268,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             className={inputFormStyle + ' flex-1'}
                         />
                         <MicButton
-                            onText={(text) => setTitle(prev => (prev.trim() ? prev.trim() + ' ' : '') + text)}
+                            value={title}
+                            onChange={setTitle}
                             title="Dictar el título"
                         />
                     </div>
