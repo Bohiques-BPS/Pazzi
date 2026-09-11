@@ -131,6 +131,10 @@ export const clientsService = {
   getSummary: (id: string, params?: { period?: number }) =>
     api.get<ClientSummary>(`/clients/${id}/summary`, params as any),
 
+  /** Asigna el límite de crédito del cliente. Exige PIN de supervisor (gerente). */
+  setCreditLimit: (id: string, creditLimit: number, pin: string) =>
+    api.put<{ id: string; creditLimit: number }>(`/clients/${id}/credit-limit`, { creditLimit, pin }),
+
   create: (data: Partial<ClientRecord>) => api.post<ClientRecord>('/clients', data),
 
   bulkImport: (items: any[]) =>

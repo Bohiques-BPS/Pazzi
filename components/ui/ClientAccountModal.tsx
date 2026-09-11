@@ -7,6 +7,7 @@ import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { EmptyState } from './EmptyState';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -167,9 +168,17 @@ type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products
 
 export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client }) => {
     const { t } = useTranslation();
+    const { can } = usePermissions();
+    const canAssignCredit = can('clients.assignCredit');
     const [data, setData] = useState<ClientSummary | null>(null);
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<TabKey>('ar');
+    // Asignar crédito (requiere PIN de supervisor).
+    const [creditLimit, setCreditLimit] = useState<number>(0);
+    const [creditOpen, setCreditOpen] = useState(false);
+    const [creditValue, setCreditValue] = useState('');
+    const [creditPin, setCreditPin] = useState('');
+    const [savingCredit, setSavingCredit] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !client) return;
@@ -178,11 +187,30 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         setData(null);
         // period amplio (~10 años) para ver historial completo, no solo 90 días.
         clientsService.getSummary(client.id, { period: 3650 })
-            .then(res => { if (!cancelled) { setData(res); setTab(res.accountsReceivable.length ? 'ar' : 'sales'); } })
+            .then(res => { if (!cancelled) { setData(res); setTab(res.accountsReceivable.length ? 'ar' : 'sales'); setCreditLimit(Number((res.client as any)?.creditLimit ?? (client as any)?.creditLimit ?? 0)); } })
             .catch(err => { if (!cancelled && err instanceof ApiError) toast.error(err.message); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, [isOpen, client]);
+
+    const openCreditModal = () => { setCreditValue(creditLimit ? String(creditLimit) : ''); setCreditPin(''); setCreditOpen(true); };
+    const saveCredit = async () => {
+        if (!client) return;
+        const val = creditValue === '' ? 0 : Number(creditValue);
+        if (!Number.isFinite(val) || val < 0) { toast.error('Monto inválido.'); return; }
+        if (!creditPin.trim()) { toast.error('Ingresa el PIN de supervisor.'); return; }
+        setSavingCredit(true);
+        try {
+            const r = await clientsService.setCreditLimit(client.id, val, creditPin.trim());
+            setCreditLimit(Number(r.creditLimit) || 0);
+            toast.success('Crédito asignado.');
+            setCreditOpen(false);
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo asignar el crédito.');
+        } finally {
+            setSavingCredit(false);
+        }
+    };
 
     if (!isOpen || !client) return null;
 
@@ -200,6 +228,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
     ] : [];
 
     return (
+      <>
         <Modal isOpen={isOpen} onClose={onClose} title={`Estado de cuenta — ${client.name} ${client.lastName || ''}${client.companyName ? ` (${client.companyName})` : ''}`} size="screen">
             {loading && <LoadingSkeleton variant="form" rows={8} />}
 
@@ -215,6 +244,15 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                         <SummaryCard label="Apartados" value={String(s.totalLayaways)} />
                         <SummaryCard label="Proyectos" value={String(s.totalProjects)} />
                         <SummaryCard label="C×C pendientes" value={`${s.accountsReceivableCount} (${money(s.accountsReceivableTotal)})`} tone={s.accountsReceivableCount > 0 ? 'negative' : 'default'} />
+                        <div className="p-2.5 rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-700/50 min-w-[150px]">
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Límite de crédito</div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-base font-bold text-neutral-800 dark:text-neutral-100">{money(creditLimit)}</span>
+                                {canAssignCredit && (
+                                    <button type="button" onClick={openCreditModal} className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20">Asignar</button>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Tabs */}
@@ -333,5 +371,25 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                 <EmptyState title={t('cmpx.account.no_data_title')} description={t('cmpx.account.no_data_desc')} />
             )}
         </Modal>
+
+        {/* Asignar crédito (requiere PIN de supervisor) */}
+        <Modal isOpen={creditOpen} onClose={() => setCreditOpen(false)} title={`Asignar crédito — ${client.name} ${client.lastName || ''}`} size="sm">
+            <div className="space-y-3">
+                <div>
+                    <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">Límite de crédito</label>
+                    <input type="number" min="0" step="0.01" inputMode="decimal" value={creditValue} onChange={e => setCreditValue(e.target.value)} placeholder="0.00" autoFocus className="w-full px-3 py-2 rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-sm" />
+                    <p className="text-[11px] text-neutral-400 mt-1">Deja 0 para quitar el crédito.</p>
+                </div>
+                <div>
+                    <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">PIN de supervisor (gerente)</label>
+                    <input type="password" value={creditPin} onChange={e => setCreditPin(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveCredit(); }} placeholder="••••" className="w-full px-3 py-2 rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-sm tracking-widest" />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                    <button type="button" onClick={() => setCreditOpen(false)} className="px-4 py-2 rounded-md bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 text-sm font-semibold">Cancelar</button>
+                    <button type="button" onClick={saveCredit} disabled={savingCredit || !creditPin.trim()} className="px-4 py-2 rounded-md bg-primary hover:bg-primary/90 text-white text-sm font-semibold disabled:opacity-50">{savingCredit ? 'Guardando…' : 'Asignar crédito'}</button>
+                </div>
+            </div>
+        </Modal>
+      </>
     );
 };
