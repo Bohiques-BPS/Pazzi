@@ -74,6 +74,7 @@ import { timeclockService } from '../../services/timeclock';
 import { openCashDrawer, isCashDrawerEnabled } from '../../services/cashDrawer';
 import { toast } from '../../hooks/useToast';
 import { PasswordInput } from '../../components/ui/PasswordInput';
+import { QuickSettingsButton } from '../../components/ui/QuickSettingsButton';
 
 
 // Helper component for the live clock in the header
@@ -1353,6 +1354,9 @@ export const POSCashierPage: React.FC = () => {
                         <span className="hidden sm:inline">{t('posx.cashier.punch')}</span>
                         <span className="border border-white/60 rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold leading-none">F9</span>
                     </button>
+
+                    {/* Configuración rápida: tema (claro/oscuro) e idioma. */}
+                    <QuickSettingsButton buttonClassName="bg-[#455A64] hover:bg-[#37474F] text-white p-1.5 sm:p-2 rounded-md shadow-sm transition-all active:scale-95 flex items-center" />
 
                     <div className="flex items-center space-x-2 sm:space-x-3 border-l border-white/20 pl-2 sm:pl-6">
                         <div className="text-right hidden lg:block">

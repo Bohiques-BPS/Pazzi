@@ -12,6 +12,7 @@ import { APP_MODULES_CONFIG } from '../../constants';
 import { API_URL } from '../../services/api';
 import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon } from '../icons';
 import { timeclockService } from '../../services/timeclock';
+import { QuickSettingsButton } from '../ui/QuickSettingsButton';
 import { toast } from '../../hooks/useToast';
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
@@ -312,6 +313,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
              >
                 <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
              </button>
+           )}
+           {/* Configuración rápida: tema e idioma */}
+           {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
+             <QuickSettingsButton buttonClassName="p-1.5 sm:p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-600 dark:text-slate-300" />
            )}
            {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
