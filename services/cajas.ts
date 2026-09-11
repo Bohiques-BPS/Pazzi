@@ -1,4 +1,5 @@
 import { api } from './api';
+import { getDeviceId } from '../utils/device';
 
 export type CajaSessionStatus = 'OPEN' | 'CLOSED';
 export type CashMovementType = 'PAYOUT' | 'CASH_DROP' | 'CASH_IN' | 'REFUND' | 'DRAWER_OPEN';
@@ -21,6 +22,8 @@ export interface CajaWithSession {
   applyIVA: boolean;
   isExternal: boolean;
   branch?: { id: string; name: string };
+  assignedDeviceId?: string | null;
+  assignedDeviceName?: string | null;
   currentSession: CajaSession | null;
   createdAt: string;
   updatedAt: string;
@@ -99,7 +102,15 @@ export const cajasService = {
     api.put<CajaWithSession>(`/cajas/${id}`, data),
 
   openSession: (cajaId: string, data: { openingFloat: number; openingNotes?: string }) =>
-    api.post<CajaSession>(`/cajas/${cajaId}/open`, data),
+    api.post<CajaSession>(`/cajas/${cajaId}/open`, { ...data, deviceId: getDeviceId() }),
+
+  /** Amarra esta caja a la terminal (PC) actual. Requiere PIN de gerente. */
+  assignDevice: (cajaId: string, deviceName: string, pin: string) =>
+    api.post<{ ok: boolean; assignedDeviceId: string; assignedDeviceName: string }>(`/cajas/${cajaId}/assign-device`, { deviceId: getDeviceId(), deviceName, pin }),
+
+  /** Quita el amarre de terminal de la caja. Requiere PIN de gerente. */
+  unassignDevice: (cajaId: string, pin: string) =>
+    api.post<{ ok: boolean }>(`/cajas/${cajaId}/unassign-device`, { pin }),
 
   closeSession: (
     cajaId: string,
