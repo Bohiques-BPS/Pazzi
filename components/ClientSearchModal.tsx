@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Client } from '../types';
 import { Modal } from './Modal';
-import { MagnifyingGlassIcon, UserPlusIcon } from './icons';
+import { MagnifyingGlassIcon, UserPlusIcon, EyeIcon } from './icons';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
 import { clientsService } from '../services/clients';
 import { useTranslation } from '../contexts/GlobalSettingsContext';
+import { ClientAccountModal } from './ui/ClientAccountModal';
 
 interface ClientSearchModalProps {
     isOpen: boolean;
@@ -27,6 +28,8 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [onlyBalance, setOnlyBalance] = useState(false);
     const [onlyLayaway, setOnlyLayaway] = useState(false);
+    // Cliente cuyo estado de cuenta (vista grande) se está viendo, sin seleccionarlo para la venta.
+    const [viewClient, setViewClient] = useState<Client | null>(null);
     // Lista enriquecida con balance/layaway por cliente (se pide al abrir).
     const [enriched, setEnriched] = useState<Client[] | null>(null);
 
@@ -66,6 +69,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
     };
 
     return (
+      <>
         <Modal isOpen={isOpen} onClose={onClose} title={t('cmp.clientsearch.title')} size="lg">
             <div className="space-y-4">
                 <div className="flex items-stretch space-x-2">
@@ -124,6 +128,14 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                                             </p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setViewClient(client); }}
+                                                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap"
+                                                title="Ver estado de cuenta del cliente"
+                                            >
+                                                <EyeIcon className="w-4 h-4" /> Ver cliente
+                                            </button>
                                             {bal > 0.001 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 whitespace-nowrap">{t('cmp.clientsearch.balance', { amount: money(bal) })}</span>}
                                             {lay > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 whitespace-nowrap">{t('cmp.clientsearch.layaway_count', { count: lay })}</span>}
                                         </div>
@@ -139,5 +151,8 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                 )}
             </div>
         </Modal>
+        {/* Vista grande del estado de cuenta del cliente (sin seleccionarlo para la venta). */}
+        <ClientAccountModal isOpen={!!viewClient} onClose={() => setViewClient(null)} client={viewClient} />
+      </>
     );
 };
