@@ -13,6 +13,7 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { ClientSearchModal } from '../../components/ClientSearchModal';
 import { ClientCreditPaymentModal } from '../../components/ui/ClientCreditPaymentModal';
+import { printPaymentReceipt } from '../../utils/printPaymentReceipt';
 import { ReceiptModal, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { API_URL, ApiError } from '../../services/api';
@@ -672,7 +673,12 @@ export const AccountsReceivablePage: React.FC = () => {
                 onPaid={(info) => {
                     const name = creditClient ? `${creditClient.name} ${creditClient.lastName || ''}`.trim() : 'Cliente';
                     reloadSales();
-                    setReceiptToPrint(buildAbonoReceipt(name, info.total, info.method, info.reference));
+                    // Recibo de pago con folio + balance (inmutable). Si no vino, cae al comprobante simple.
+                    if (info.receipt) {
+                        printPaymentReceipt(info.receipt, { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone });
+                    } else {
+                        setReceiptToPrint(buildAbonoReceipt(name, info.total, info.method, info.reference));
+                    }
                 }}
             />
 

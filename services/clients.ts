@@ -122,6 +122,21 @@ export interface ClientSummary {
   topProducts: ClientTopProduct[];
 }
 
+export interface PaymentReceiptAllocation { saleId: string; saleNumber: number | null; amount: number; balanceAfter: number; }
+export interface PaymentReceipt {
+  id: string;
+  receiptNumber: number;
+  clientId: string;
+  clientName?: string | null;
+  date: string;
+  method: string;
+  reference?: string | null;
+  totalPaid: number;
+  balanceAfter: number;
+  cashierName?: string | null;
+  allocations: PaymentReceiptAllocation[];
+}
+
 export const clientsService = {
   getAll: (filters?: { search?: string; clientType?: string; isActive?: boolean; withBalance?: boolean; withLayaway?: boolean; includeCredit?: boolean }) =>
     api.get<ClientRecord[]>('/clients', filters as any),
@@ -134,6 +149,10 @@ export const clientsService = {
   /** Asigna el límite de crédito del cliente. Exige PIN de supervisor (gerente). */
   setCreditLimit: (id: string, creditLimit: number, pin: string) =>
     api.put<{ id: string; creditLimit: number }>(`/clients/${id}/credit-limit`, { creditLimit, pin }),
+
+  /** Histórico de recibos de pago (abonos) del cliente. */
+  getPaymentReceipts: (id: string) =>
+    api.get<PaymentReceipt[]>(`/clients/${id}/payment-receipts`),
 
   create: (data: Partial<ClientRecord>) => api.post<ClientRecord>('/clients', data),
 

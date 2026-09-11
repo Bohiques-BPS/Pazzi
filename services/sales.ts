@@ -25,9 +25,9 @@ export const salesService = {
   addPayment: (saleId: string, data: { amountPaid: number; paymentMethodUsed: string; notes?: string }) =>
     api.post<any>(`/sales/${saleId}/payment`, data),
 
-  /** Abono a múltiples facturas de un cliente (allocation). */
-  bulkPayment: (data: { clientId: string; method: string; reference?: string; note?: string; allocations: { saleId: string; amount: number }[] }) =>
-    api.post<{ ok: boolean; total: number; count: number }>('/sales/bulk-payment', data),
+  /** Abono a múltiples facturas de un cliente (allocation). Devuelve el recibo generado. */
+  bulkPayment: (data: { clientId: string; method: string; reference?: string; note?: string; cashierName?: string; allocations: { saleId: string; amount: number }[] }) =>
+    api.post<{ ok: boolean; total: number; count: number; receipt?: any }>('/sales/bulk-payment', data),
 
   /** Envía por correo un recordatorio de pago de una venta a crédito. */
   sendReminder: (saleId: string, message?: string) =>

@@ -25,7 +25,7 @@ interface ClientCreditPaymentModalProps {
     clientId: string;
     clientName?: string;
     /** Se llama tras registrar el abono (para refrescar y/o imprimir comprobante). */
-    onPaid?: (info: { total: number; method: string; reference?: string }) => void;
+    onPaid?: (info: { total: number; method: string; reference?: string; receipt?: any }) => void;
 }
 
 /** "Pagos y Créditos a Clientes": abona a varias facturas pendientes distribuyendo el pago. */
@@ -112,7 +112,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
         try {
             const res = await salesService.bulkPayment({ clientId, method, reference: reference.trim() || undefined, allocations });
             toast.success(t('cmpx.credit.payment_ok', { amount: money(res.total), count: res.count }));
-            onPaid?.({ total: res.total, method, reference: reference.trim() || undefined });
+            onPaid?.({ total: res.total, method, reference: reference.trim() || undefined, receipt: (res as any).receipt });
             onClose();
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('cmpx.credit.payment_error'));

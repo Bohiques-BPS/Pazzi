@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../Modal';
 import { Client } from '../../types';
-import { clientsService, type ClientSummary } from '../../services/clients';
+import { clientsService, type ClientSummary, type PaymentReceipt } from '../../services/clients';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { EmptyState } from './EmptyState';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { ClientCreditPaymentModal } from './ClientCreditPaymentModal';
+import { printPaymentReceipt } from '../../utils/printPaymentReceipt';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -164,15 +166,21 @@ function SmartTable<T>({ rows, columns, selectFilters = [], initialSortKey, init
     );
 }
 
-type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products';
+type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products' | 'receipts';
 
 export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client }) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
     const { can } = usePermissions();
     const canAssignCredit = can('clients.assignCredit');
+    const canRecordPayment = can('accounts.recordPayment');
     const [data, setData] = useState<ClientSummary | null>(null);
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<TabKey>('ar');
+    // Abono (Pagos y Créditos) + recibos.
+    const [payOpen, setPayOpen] = useState(false);
+    const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
+    const [reloadKey, setReloadKey] = useState(0);
     // Asignar crédito (requiere PIN de supervisor).
     const [creditLimit, setCreditLimit] = useState<number>(0);
     const [creditOpen, setCreditOpen] = useState(false);
@@ -187,11 +195,12 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         setData(null);
         // period amplio (~10 años) para ver historial completo, no solo 90 días.
         clientsService.getSummary(client.id, { period: 3650 })
-            .then(res => { if (!cancelled) { setData(res); setTab(res.accountsReceivable.length ? 'ar' : 'sales'); setCreditLimit(Number((res.client as any)?.creditLimit ?? (client as any)?.creditLimit ?? 0)); } })
+            .then(res => { if (!cancelled) { setData(res); setTab(prev => prev && prev !== 'ar' ? prev : (res.accountsReceivable.length ? 'ar' : 'sales')); setCreditLimit(Number((res.client as any)?.creditLimit ?? (client as any)?.creditLimit ?? 0)); } })
             .catch(err => { if (!cancelled && err instanceof ApiError) toast.error(err.message); })
             .finally(() => { if (!cancelled) setLoading(false); });
+        clientsService.getPaymentReceipts(client.id).then(r => { if (!cancelled) setReceipts(Array.isArray(r) ? r : []); }).catch(() => {});
         return () => { cancelled = true; };
-    }, [isOpen, client]);
+    }, [isOpen, client, reloadKey]);
 
     const openCreditModal = () => { setCreditValue(creditLimit ? String(creditLimit) : ''); setCreditPin(''); setCreditOpen(true); };
     const saveCredit = async () => {
@@ -225,6 +234,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         { key: 'layaways', label: 'Apartados', count: data.recentLayaways.length },
         { key: 'projects', label: 'Proyectos', count: data.projects.length },
         { key: 'products', label: 'Top productos', count: data.topProducts.length },
+        { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
     ] : [];
 
     return (
@@ -253,6 +263,11 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                 )}
                             </div>
                         </div>
+                        {canRecordPayment && s.accountsReceivableCount > 0 && (
+                            <button type="button" onClick={() => setPayOpen(true)} className="self-stretch px-4 rounded-md bg-primary hover:bg-primary/90 text-white text-sm font-semibold flex items-center gap-1">
+                                💵 Registrar abono
+                            </button>
+                        )}
                     </div>
 
                     {/* Tabs */}
@@ -363,6 +378,23 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                 ]}
                             />
                         )}
+                        {tab === 'receipts' && (
+                            <SmartTable
+                                rows={receipts}
+                                emptyText="Sin recibos de pago."
+                                initialSortKey="num" initialSortDir="desc"
+                                selectFilters={[{ key: 'm', label: 'Método', get: r => r.method || '' }]}
+                                columns={[
+                                    { key: 'num', label: 'Recibo #', text: r => String(r.receiptNumber), sort: r => r.receiptNumber, render: r => <span className="font-mono">{r.receiptNumber}</span> },
+                                    { key: 'date', label: 'Fecha', text: r => new Date(r.date).toLocaleString(), sort: r => new Date(r.date).getTime(), render: r => new Date(r.date).toLocaleString() },
+                                    { key: 'm', label: 'Método', text: r => r.method || '', render: r => r.method },
+                                    { key: 'facturas', label: 'Facturas', text: r => (r.allocations || []).map(a => a.saleNumber != null ? `#${a.saleNumber}` : '').join(' '), render: r => <span className="text-xs text-neutral-500">{(r.allocations || []).map(a => a.saleNumber != null ? `#${a.saleNumber}` : a.saleId.slice(-6)).join(', ')}</span> },
+                                    { key: 'total', label: 'Total pagado', align: 'right', text: r => String(r.totalPaid), sort: r => r.totalPaid, render: r => <span className="font-bold text-green-600 dark:text-green-400">{money(r.totalPaid)}</span> },
+                                    { key: 'bal', label: 'Balance después', align: 'right', text: r => String(r.balanceAfter), sort: r => r.balanceAfter, render: r => money(r.balanceAfter) },
+                                    { key: 'print', label: '', sortable: false, align: 'center', text: () => '', render: r => <button type="button" onClick={() => printPaymentReceipt(r, { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone })} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20">🖨️ Imprimir</button> },
+                                ]}
+                            />
+                        )}
                     </div>
                 </div>
             )}
@@ -390,6 +422,21 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                 </div>
             </div>
         </Modal>
+
+        {/* Registrar abono (Pagos y Créditos) desde el estado de cuenta */}
+        <ClientCreditPaymentModal
+            isOpen={payOpen}
+            onClose={() => setPayOpen(false)}
+            clientId={client.id}
+            clientName={`${client.name} ${client.lastName || ''}`.trim()}
+            onPaid={(info) => {
+                setPayOpen(false);
+                if (info.receipt) {
+                    printPaymentReceipt(info.receipt, { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone });
+                }
+                setReloadKey(k => k + 1); // refresca resumen + recibos
+            }}
+        />
       </>
     );
 };
