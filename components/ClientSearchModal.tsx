@@ -131,10 +131,10 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={(e) => { e.stopPropagation(); setViewClient(client); }}
-                                                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap"
+                                                className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap"
                                                 title="Ver estado de cuenta del cliente"
                                             >
-                                                <EyeIcon className="w-4 h-4" /> Ver cliente
+                                                <EyeIcon className="w-5 h-5" /> Ver cliente
                                             </button>
                                             {bal > 0.001 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 whitespace-nowrap">{t('cmp.clientsearch.balance', { amount: money(bal) })}</span>}
                                             {lay > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 whitespace-nowrap">{t('cmp.clientsearch.layaway_count', { count: lay })}</span>}
