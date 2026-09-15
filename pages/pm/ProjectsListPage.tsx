@@ -16,7 +16,9 @@ import { projectsService } from '../../services/projects';
 
 export const ProjectsListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { projects, setProjects, employees: allEmployees, tasks, generateInvoiceForProject, getClientById } = useData();
+    const { projects: _allProjects, setProjects, employees: allEmployees, tasks, generateInvoiceForProject, getClientById } = useData();
+    // Gestión NO muestra los proyectos "solo factura" (creados en caja para agrupar ventas).
+    const projects = useMemo(() => _allProjects.filter(p => !p.billingOnly), [_allProjects]);
     const navigate = useNavigate();
 
     // KPIs de la cabecera.

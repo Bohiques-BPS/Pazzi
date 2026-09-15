@@ -52,7 +52,8 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
       workMode: 'daysOnly',
       workDays: [],
       workDayTimeRanges: [],
-    };
+      billingOnly: true, // creado en caja → solo para la factura, no aparece en Gestión
+    } as any;
 
     setSaving(true);
     try {

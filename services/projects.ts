@@ -27,6 +27,7 @@ export function normalizeProjectFromApi(p: any): Project {
         imageUrl: p.imageUrl ?? null,
         managerUserIds: Array.isArray(p.managerUserIds) ? p.managerUserIds : [],
         taskColumns: Array.isArray(p.taskColumns) ? p.taskColumns : [],
+        billingOnly: !!p.billingOnly,
         visitDate: p.visitDate
             ? (typeof p.visitDate === 'string' ? p.visitDate.split('T')[0] : new Date(p.visitDate).toISOString().split('T')[0])
             : '',

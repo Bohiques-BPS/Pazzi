@@ -24,7 +24,9 @@ const PRIMARY_LIGHT = '#5EEAD4';
 
 export const ProjectsDashboardPage: React.FC = () => {
     const { t } = useTranslation();
-    const { projects, visits, sales, tasks, getClientById, getEmployeeById } = useData();
+    const { projects: _allProjects, visits, sales, tasks, getClientById, getEmployeeById } = useData();
+    // Excluye los proyectos "solo factura" del dashboard de Gestión.
+    const projects = useMemo(() => _allProjects.filter(p => !p.billingOnly), [_allProjects]);
     const navigate = useNavigate();
 
     const [meetings, setMeetings] = useState<ProjectMeeting[]>([]);

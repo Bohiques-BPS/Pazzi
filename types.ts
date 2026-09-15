@@ -487,6 +487,8 @@ export interface Project {
     managerUserIds?: string[];
     // Columnas personalizadas del tablero (estados). Vacío = las 4 por defecto.
     taskColumns?: string[];
+    // true = proyecto "solo factura" (creado en caja); no aparece en el módulo de Gestión.
+    billingOnly?: boolean;
     // For invoicing
     invoiceGenerated?: boolean;
     invoiceNumber?: string;

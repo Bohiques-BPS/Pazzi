@@ -41,7 +41,8 @@ export const ProjectChatPage: React.FC = () => {
         // Mostrar TODOS los proyectos accesibles (incluye Completados): un proyecto cerrado puede
         // seguir teniendo conversación. Antes se filtraba a Activo/Pendiente y los completados
         // desaparecían de la lista de chat aunque tuvieran mensajes.
-        const baseProjects = allProjectsContext;
+        // Excluye los proyectos "solo factura" (creados en caja) del chat de Gestión.
+        const baseProjects = allProjectsContext.filter(p => !(p as any).billingOnly);
         // Un empleado con 'projects.viewAll' (encargado de proyectos) ve TODOS los chats; el resto,
         // solo los de proyectos asignados.
         if (isEmployeeView && currentUser && !can('projects.viewAll')) {
