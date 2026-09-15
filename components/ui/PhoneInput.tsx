@@ -77,6 +77,23 @@ export const COUNTRIES: Country[] = [
 
 const DEFAULT_ISO = 'PR';
 
+/**
+ * Formatea el número NACIONAL para mostrarlo mientras se escribe. Para códigos NANP (+1:
+ * PR/US/DO/CA) usa (XXX) XXX-XXXX progresivo. Para otros países deja los dígitos tal cual
+ * (evita formatear mal números con reglas distintas). El valor GUARDADO siempre son dígitos.
+ */
+export function formatNationalDisplay(digits: string, dial: string): string {
+  const d = (digits || '').replace(/\D/g, '');
+  if (dial === '1') {
+    const x = d.slice(0, 10);
+    if (x.length === 0) return '';
+    if (x.length <= 3) return `(${x}`;
+    if (x.length <= 6) return `(${x.slice(0, 3)}) ${x.slice(3)}`;
+    return `(${x.slice(0, 3)}) ${x.slice(3, 6)}-${x.slice(6)}`;
+  }
+  return d;
+}
+
 // Ordena por longitud de dial desc para hallar el prefijo más largo que coincida.
 const BY_DIAL_LEN = [...COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
 
@@ -153,7 +170,9 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   };
 
   const handleNational = (e: React.ChangeEvent<HTMLInputElement>) => {
-    emit(country, e.target.value);
+    let digits = e.target.value.replace(/\D/g, '');
+    if (country.dial === '1') digits = digits.slice(0, 10); // NANP: 10 dígitos
+    emit(country, digits);
   };
 
   const selectCountry = (c: Country) => {
@@ -196,7 +215,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
         type="tel"
         id={id}
         name={name}
-        value={national}
+        value={formatNationalDisplay(national, country.dial)}
         onChange={handleNational}
         placeholder={placeholder || '(787) 555-1234'}
         disabled={disabled}
