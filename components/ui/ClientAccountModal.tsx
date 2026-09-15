@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../Modal';
 import { Client } from '../../types';
 import { clientsService, type ClientSummary, type PaymentReceipt } from '../../services/clients';
+import { salesService } from '../../services/sales';
+import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -10,6 +13,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { usePermissions } from '../../hooks/usePermissions';
 import { ClientCreditPaymentModal } from './ClientCreditPaymentModal';
 import { printPaymentReceipt } from '../../utils/printPaymentReceipt';
+import { printSaleReceipt } from '../../utils/printSaleReceipt';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -170,10 +174,41 @@ type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products
 
 export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client }) => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const { settings } = useGlobalSettings();
     const { can } = usePermissions();
     const canAssignCredit = can('clients.assignCredit');
     const canRecordPayment = can('accounts.recordPayment');
+    const storeInfo = { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone };
+
+    // Acción con permiso o, si no lo tiene, con PIN de supervisor.
+    const [pin, setPin] = useState('');
+    const [pinBusy, setPinBusy] = useState(false);
+    const [pinAction, setPinAction] = useState<{ run: () => void | Promise<void>; label: string } | null>(null);
+    const runGated = (perm: string, run: () => void | Promise<void>, label = 'esta acción') => {
+        if (can(perm)) { void run(); return; }
+        setPin(''); setPinAction({ run, label });
+    };
+    const confirmPin = async () => {
+        if (!pinAction) return;
+        if (!pin.trim()) { toast.error('Ingresa el PIN del supervisor.'); return; }
+        setPinBusy(true);
+        try {
+            await authService.verifySupervisorPin(pin.trim());
+            const act = pinAction; setPinAction(null); setPin('');
+            await act.run();
+        } catch (e) { toast.error(e instanceof ApiError ? e.message : 'PIN incorrecto.'); }
+        finally { setPinBusy(false); }
+    };
+
+    // Acciones reutilizables (cada una gated por su permiso / PIN).
+    const actPrintSale = (saleId: string) => runGated('pos.viewHistory', async () => {
+        try { const sale = await salesService.getById(saleId); printSaleReceipt(sale, storeInfo); }
+        catch (e) { toast.error(e instanceof ApiError ? e.message : 'No se pudo cargar la venta.'); }
+    }, 'imprimir el recibo/factura');
+    const actAbonar = () => runGated('accounts.recordPayment', () => setPayOpen(true), 'registrar abono');
+    const actOpenProject = (projectId: string) => runGated('projects.view', () => { onClose(); navigate(`/pm/projects/${projectId}`); }, 'abrir el proyecto');
+    const actPrintReceipt = (r: PaymentReceipt) => runGated('pos.viewHistory', () => printPaymentReceipt(r, storeInfo), 'imprimir el recibo');
     const [data, setData] = useState<ClientSummary | null>(null);
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<TabKey>('ar');
@@ -300,6 +335,12 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'balance', label: 'Balance', align: 'right', text: r => String(r.balance), sort: r => r.balance, render: r => <span className="font-bold text-red-600 dark:text-red-400">{money(r.balance)}</span> },
                                     { key: 'days', label: 'Atraso', align: 'center', text: r => String(r.daysOverdue), sort: r => r.daysOverdue, render: r => r.daysOverdue > 0 ? `${r.daysOverdue} d` : '—' },
                                     { key: 'st', label: 'Estado', text: r => r.paymentStatus || '', render: r => <span className="text-xs">{r.paymentStatus}</span> },
+                                    { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => (
+                                        <div className="flex gap-1 justify-center whitespace-nowrap">
+                                            <button type="button" onClick={() => actAbonar()} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20">Abonar</button>
+                                            <button type="button" onClick={() => actPrintSale(r.saleId)} title="Recibo / Factura" className="text-xs px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600">🖨️</button>
+                                        </div>
+                                    ) },
                                 ]}
                             />
                         )}
@@ -319,6 +360,9 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'st', label: 'Estado', text: r => r.paymentStatus || '', render: r => <span className="text-xs">{r.paymentStatus}</span> },
                                     { key: 'items', label: 'Productos', text: r => itemsText(r.items), render: r => <span className="text-xs text-neutral-500 line-clamp-1 max-w-[320px] inline-block align-bottom" title={itemsText(r.items)}>{itemsText(r.items) || '—'}</span> },
                                     { key: 'total', label: 'Total', align: 'right', text: r => String(r.totalAmount), sort: r => r.totalAmount, render: r => <span className={`font-bold ${r.isReturn ? 'text-orange-600' : 'text-primary'}`}>{r.isReturn ? '−' : ''}{money(r.totalAmount)}</span> },
+                                    { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => (
+                                        <button type="button" onClick={() => actPrintSale(r.id)} title="Recibo / Factura" className="text-xs font-semibold px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 whitespace-nowrap">🖨️ Recibo/Factura</button>
+                                    ) },
                                 ]}
                             />
                         )}
@@ -363,6 +407,9 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'name', label: 'Proyecto', text: r => r.name, render: r => r.name },
                                     { key: 'st', label: 'Estado', text: r => r.status || '', render: r => <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700">{r.status}</span> },
                                     { key: 'createdAt', label: 'Creado', text: r => dateStr(r.createdAt), sort: r => new Date(r.createdAt).getTime(), render: r => dateStr(r.createdAt) },
+                                    { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => (
+                                        <button type="button" onClick={() => actOpenProject(r.id)} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap">Abrir</button>
+                                    ) },
                                 ]}
                             />
                         )}
@@ -391,7 +438,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'facturas', label: 'Facturas', text: r => (r.allocations || []).map(a => a.saleNumber != null ? `#${a.saleNumber}` : '').join(' '), render: r => <span className="text-xs text-neutral-500">{(r.allocations || []).map(a => a.saleNumber != null ? `#${a.saleNumber}` : a.saleId.slice(-6)).join(', ')}</span> },
                                     { key: 'total', label: 'Total pagado', align: 'right', text: r => String(r.totalPaid), sort: r => r.totalPaid, render: r => <span className="font-bold text-green-600 dark:text-green-400">{money(r.totalPaid)}</span> },
                                     { key: 'bal', label: 'Balance después', align: 'right', text: r => String(r.balanceAfter), sort: r => r.balanceAfter, render: r => money(r.balanceAfter) },
-                                    { key: 'print', label: '', sortable: false, align: 'center', text: () => '', render: r => <button type="button" onClick={() => printPaymentReceipt(r, { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone })} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20">🖨️ Imprimir</button> },
+                                    { key: 'print', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => <button type="button" onClick={() => actPrintReceipt(r)} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20">🖨️ Imprimir</button> },
                                 ]}
                             />
                         )}
@@ -437,6 +484,18 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                 setReloadKey(k => k + 1); // refresca resumen + recibos
             }}
         />
+
+        {/* Autorización con PIN de supervisor cuando el usuario no tiene el permiso de la acción */}
+        <Modal isOpen={!!pinAction} onClose={() => setPinAction(null)} title="Autorización requerida" size="sm">
+            <div className="space-y-3">
+                <p className="text-sm text-neutral-600 dark:text-neutral-300">No tienes permiso para <b>{pinAction?.label}</b>. Ingresa el <b>PIN del supervisor</b> para autorizarlo.</p>
+                <input type="password" value={pin} onChange={e => setPin(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') confirmPin(); }} placeholder="PIN del supervisor" autoFocus className="w-full px-3 py-2 rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-sm tracking-widest" />
+                <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setPinAction(null)} className="px-4 py-2 rounded-md bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 text-sm font-semibold">Cancelar</button>
+                    <button type="button" onClick={confirmPin} disabled={pinBusy || !pin.trim()} className="px-4 py-2 rounded-md bg-primary hover:bg-primary/90 text-white text-sm font-semibold disabled:opacity-50">{pinBusy ? 'Verificando…' : 'Autorizar'}</button>
+                </div>
+            </div>
+        </Modal>
       </>
     );
 };
