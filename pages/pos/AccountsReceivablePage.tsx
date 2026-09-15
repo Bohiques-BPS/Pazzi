@@ -249,6 +249,9 @@ export const AccountsReceivablePage: React.FC = () => {
             if (Array.isArray(data)) setSales(data);
         } catch { /* noop */ }
     };
+    // Refresca los saldos al abrir la página (evita ver montos viejos si se abonó desde otra
+    // pantalla, p. ej. el estado de cuenta del cliente en el POS, que no toca el caché global).
+    useEffect(() => { reloadSales(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
     const [showEditModal, setShowEditModal] = useState(false);
     const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
     const [showVoidConfirmModal, setShowVoidConfirmModal] = useState(false);
