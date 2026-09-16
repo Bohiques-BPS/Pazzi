@@ -1,5 +1,6 @@
 import { api } from './api';
 import { getDeviceId } from '../utils/device';
+import { signChallenge } from '../utils/deviceKey';
 
 export type CajaSessionStatus = 'OPEN' | 'CLOSED';
 export type CashMovementType = 'PAYOUT' | 'CASH_DROP' | 'CASH_IN' | 'REFUND' | 'DRAWER_OPEN';
@@ -101,12 +102,24 @@ export const cajasService = {
   update: (id: string, data: Partial<CajaPayload>) =>
     api.put<CajaWithSession>(`/cajas/${id}`, data),
 
-  openSession: (cajaId: string, data: { openingFloat: number; openingNotes?: string }) =>
-    api.post<CajaSession>(`/cajas/${cajaId}/open`, { ...data, deviceId: getDeviceId() }),
+  openSession: async (cajaId: string, data: { openingFloat: number; openingNotes?: string }) => {
+    // Amarre por firma: si esta terminal tiene llave para la caja, pedimos un challenge y lo firmamos.
+    let signed: { deviceChallenge: string; deviceSignature: string } | null = null;
+    try {
+      const { challenge } = await api.get<{ challenge: string }>(`/cajas/${cajaId}/device-challenge`);
+      const sig = await signChallenge(cajaId, challenge);
+      if (sig) signed = { deviceChallenge: challenge, deviceSignature: sig };
+    } catch { /* sin firma → cae al amarre legado por deviceId */ }
+    return api.post<CajaSession>(`/cajas/${cajaId}/open`, { ...data, deviceId: getDeviceId(), ...(signed || {}) });
+  },
 
-  /** Amarra esta caja a la terminal (PC) actual. Requiere PIN de gerente. */
-  assignDevice: (cajaId: string, deviceName: string, pin: string) =>
-    api.post<{ ok: boolean; assignedDeviceId: string; assignedDeviceName: string }>(`/cajas/${cajaId}/assign-device`, { deviceId: getDeviceId(), deviceName, pin }),
+  /** Genera el challenge para firmar (usado internamente por openSession). */
+  getDeviceChallenge: (cajaId: string) =>
+    api.get<{ challenge: string }>(`/cajas/${cajaId}/device-challenge`),
+
+  /** Amarra esta caja a la terminal (PC) actual. Requiere PIN de gerente. `devicePublicKey` = JWK de la llave de firma. */
+  assignDevice: (cajaId: string, deviceName: string, pin: string, devicePublicKey?: JsonWebKey | null) =>
+    api.post<{ ok: boolean; assignedDeviceId: string; assignedDeviceName: string; secured?: boolean }>(`/cajas/${cajaId}/assign-device`, { deviceId: getDeviceId(), deviceName, pin, devicePublicKey: devicePublicKey ?? undefined }),
 
   /** Quita el amarre de terminal de la caja. Requiere PIN de gerente. */
   unassignDevice: (cajaId: string, pin: string) =>

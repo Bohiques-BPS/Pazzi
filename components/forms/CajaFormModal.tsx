@@ -12,6 +12,7 @@ import { BranchFormModal } from './BranchFormModal';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { CAJA_DESIGNS } from '../../utils/cajaDesigns';
 import { getDeviceId, suggestDeviceName } from '../../utils/device';
+import { generateDeviceKey, clearDeviceKey, isDeviceKeySupported } from '../../utils/deviceKey';
 
 interface CajaFormModalProps {
     isOpen: boolean;
@@ -95,10 +96,14 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         if (!devicePin.trim()) { toast.error('Ingresa el PIN del gerente.'); return; }
         setDeviceBusy(true);
         try {
-            const r = await cajasService.assignDevice(cajaToEdit.id, deviceName.trim() || suggestDeviceName(), devicePin.trim());
+            // Genera el par de llaves de firma de ESTA terminal (privada no exportable en IndexedDB).
+            // Si el navegador no lo soporta, cae al amarre legado (solo id).
+            let publicJwk: JsonWebKey | null = null;
+            try { publicJwk = await generateDeviceKey(cajaToEdit.id); } catch { publicJwk = null; }
+            const r = await cajasService.assignDevice(cajaToEdit.id, deviceName.trim() || suggestDeviceName(), devicePin.trim(), publicJwk);
             setAssignedId(r.assignedDeviceId); setAssignedName(r.assignedDeviceName); setDevicePin('');
             setCajas(prev => prev.map(c => c.id === cajaToEdit.id ? ({ ...c, assignedDeviceId: r.assignedDeviceId, assignedDeviceName: r.assignedDeviceName } as any) : c));
-            toast.success('Terminal asignada a esta caja.');
+            toast.success(r.secured ? 'Terminal asignada con firma segura a esta caja.' : 'Terminal asignada a esta caja.');
         } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo asignar la terminal.'); }
         finally { setDeviceBusy(false); }
     };
@@ -109,6 +114,7 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         setDeviceBusy(true);
         try {
             await cajasService.unassignDevice(cajaToEdit.id, devicePin.trim());
+            try { await clearDeviceKey(cajaToEdit.id); } catch { /* noop */ }
             setAssignedId(null); setAssignedName(null); setDevicePin('');
             setCajas(prev => prev.map(c => c.id === cajaToEdit.id ? ({ ...c, assignedDeviceId: null, assignedDeviceName: null } as any) : c));
             toast.success('Se quitó el amarre de terminal.');
@@ -276,7 +282,12 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                                     <button type="button" onClick={handleUnassignDevice} disabled={deviceBusy} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-red-600`}>Quitar amarre</button>
                                 )}
                             </div>
-                            <p className="text-[11px] text-neutral-400">La caja solo abrirá turno en la terminal asignada. Reasignar/quitar requiere PIN del gerente.</p>
+                            <p className="text-[11px] text-neutral-400">
+                                La caja solo abrirá turno en la terminal asignada. Reasignar/quitar requiere PIN del gerente.
+                                {isDeviceKeySupported()
+                                    ? ' Se usa una llave de firma (Web Crypto) que no se puede copiar a otra PC.'
+                                    : ' ⚠️ Este navegador no soporta la llave de firma; el amarre es básico (solo identificador).'}
+                            </p>
                         </div>
                     )}
                 </div>
