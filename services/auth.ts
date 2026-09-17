@@ -67,4 +67,7 @@ export const authService = {
 
   updateAlertSettings: (settings: Record<string, unknown>) =>
     api.put<{ message: string }>('/auth/alert-settings', settings),
+
+  /** Activa/desactiva el Modo Emergencia (huracán) de toda la tienda. Devuelve el usuario actualizado. */
+  toggleEmergencyOrder: () => api.post<User>('/auth/emergency-order/toggle', {}),
 };

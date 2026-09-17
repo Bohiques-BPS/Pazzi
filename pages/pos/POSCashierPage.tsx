@@ -221,7 +221,7 @@ export const POSCashierPage: React.FC = () => {
         products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
         heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales, employees, getBranchById
     } = useData();
-    const { currentUser, login, logout } = useAuth();
+    const { currentUser, login, logout, toggleUserEmergencyOrderMode } = useAuth();
     const productSearchRef = useRef<HTMLInputElement>(null);
     // Cantidad pre-escrita: se teclea ANTES de elegir el producto y este entra con esa cantidad.
     // Por defecto 1 (nunca 0/vacío).
@@ -1377,11 +1377,26 @@ export const POSCashierPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <button className="bg-[#F9A825] hover:bg-amber-600 text-white font-bold py-1 px-1.5 sm:py-2 sm:px-4 rounded-md flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-sm shadow-sm transition-all active:scale-95">
-                        <ExclamationTriangleIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                        <span className="hidden sm:inline">{t('pos.emergency_mode')}: OFF</span>
-                        <span className="sm:hidden">OFF</span>
-                    </button>
+                    {(() => {
+                        const on = !!currentUser?.isEmergencyOrderActive;
+                        const isMgr = currentUser?.role === UserRole.MANAGER;
+                        return (
+                            <button
+                                onClick={isMgr ? async () => {
+                                    const ok = await toggleUserEmergencyOrderMode(currentUser?.id || '');
+                                    if (ok) toast.success(on ? 'Modo Emergencia desactivado.' : 'Modo Emergencia activado.');
+                                    else toast.error('No se pudo cambiar el Modo Emergencia.');
+                                } : undefined}
+                                disabled={!isMgr}
+                                title={isMgr ? 'Activar/desactivar Modo Emergencia (exención de IVU)' : `Modo Emergencia ${on ? 'ACTIVO' : 'apagado'} (lo cambia el gerente)`}
+                                className={`${on ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-[#F9A825] hover:bg-amber-600'} text-white font-bold py-1 px-1.5 sm:py-2 sm:px-4 rounded-md flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-sm shadow-sm transition-all active:scale-95 ${!isMgr ? 'cursor-default' : ''}`}
+                            >
+                                <ExclamationTriangleIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                                <span className="hidden sm:inline">{t('pos.emergency_mode')}: {on ? 'ON' : 'OFF'}</span>
+                                <span className="sm:hidden">{on ? 'ON' : 'OFF'}</span>
+                            </button>
+                        );
+                    })()}
 
                     {/* Salir / Cerrar turno: a la derecha del Modo Emergencia. */}
                     <button

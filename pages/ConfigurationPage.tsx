@@ -1,15 +1,31 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useGlobalSettings, useTranslation } from '../contexts/GlobalSettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import { Theme } from '../types';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
-import { ClockIcon, WrenchScrewdriverIcon, EyeIcon, ArrowPathIcon, SunIcon, MoonIcon } from '../components/icons';
+import { ClockIcon, WrenchScrewdriverIcon, EyeIcon, ArrowPathIcon, SunIcon, MoonIcon, ExclamationTriangleIcon } from '../components/icons';
+import { toast } from '../hooks/useToast';
 
 export const ConfigurationPage: React.FC = () => {
     const { settings, updateSettings } = useGlobalSettings();
     const { theme, setTheme } = useTheme();
     const { t } = useTranslation();
+    const { isManager } = usePermissions();
+    const { currentUser, toggleUserEmergencyOrderMode } = useAuth();
+    const emergencyActive = !!currentUser?.isEmergencyOrderActive;
+    const [emergencyBusy, setEmergencyBusy] = useState(false);
+
+    const handleToggleEmergency = async () => {
+        if (emergencyBusy) return;
+        setEmergencyBusy(true);
+        const ok = await toggleUserEmergencyOrderMode(currentUser?.id || '');
+        if (ok) toast.success(emergencyActive ? 'Modo Emergencia desactivado.' : 'Modo Emergencia activado.');
+        else toast.error('No se pudo cambiar el Modo Emergencia.');
+        setEmergencyBusy(false);
+    };
 
     const handleFontSizeChange = (size: 'sm' | 'md' | 'lg') => {
         updateSettings({ fontSize: size });
@@ -47,6 +63,7 @@ export const ConfigurationPage: React.FC = () => {
                         {t('config.regional')}
                     </h2>
                     <div className="space-y-5">
+                        {isManager && (
                         <div>
                             <label htmlFor="timezone" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('config.timezone')}</label>
                             <select
@@ -61,6 +78,7 @@ export const ConfigurationPage: React.FC = () => {
                             </select>
                             <p className="text-xs text-neutral-500 mt-1">{t('config.timezone_help')}</p>
                         </div>
+                        )}
 
                         <div>
                             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('config.language')}</label>
@@ -88,6 +106,7 @@ export const ConfigurationPage: React.FC = () => {
                             </div>
                         </div>
 
+                        {isManager && (
                         <div>
                              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('config.number_format')}</label>
                              <div className="flex space-x-3">
@@ -113,6 +132,7 @@ export const ConfigurationPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+                        )}
                     </div>
                 </section>
 
@@ -186,6 +206,37 @@ export const ConfigurationPage: React.FC = () => {
                             </p>
                         </div>
                     </div>
+                </section>
+
+                {isManager && (
+                <>
+                {/* Modo Emergencia (huracán) */}
+                <section className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4 flex items-center border-b pb-2 dark:border-neutral-700">
+                        <ExclamationTriangleIcon className="w-5 h-5 mr-2 text-amber-500" />
+                        <span>Modo Emergencia (huracán)</span>
+                    </h2>
+                    <div className={`flex items-center justify-between gap-4 p-4 rounded-lg border ${emergencyActive ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700' : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'}`}>
+                        <div>
+                            <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                                {emergencyActive ? '🟠 Modo Emergencia ACTIVO' : 'Modo Emergencia apagado'}
+                            </p>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                                Con el modo activo, los productos marcados como <strong>“Exención de impuestos en emergencia”</strong> se venden <strong>sin IVU</strong> en toda la tienda (aplica a todas las cajas y colaboradores). Úsalo en periodos de emergencia declarada (ej. huracán).
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleToggleEmergency}
+                            disabled={emergencyBusy}
+                            className={`shrink-0 py-2 px-4 rounded-md text-sm font-bold text-white transition-all disabled:opacity-50 ${emergencyActive ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-500 hover:bg-amber-600'}`}
+                        >
+                            {emergencyBusy ? '...' : (emergencyActive ? 'Desactivar' : 'Activar')}
+                        </button>
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-2">
+                        Marca qué productos aplican para la exención desde <strong>Productos → editar producto → “Aplicar Exención de Impuestos en Modo Emergencia”</strong>.
+                    </p>
                 </section>
 
                 {/* Programa de lealtad */}
@@ -319,6 +370,8 @@ export const ConfigurationPage: React.FC = () => {
                         Se envía un correo al cliente con el detalle de sus facturas a crédito vencidas y el saldo total. El envío corre automáticamente en segundo plano. <strong>WhatsApp</strong> requiere conectar un proveedor de mensajería (pendiente).
                     </p>
                 </section>
+                </>
+                )}
             </div>
         </div>
     );
