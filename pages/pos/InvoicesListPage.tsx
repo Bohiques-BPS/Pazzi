@@ -68,6 +68,85 @@ const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = (
     );
 };
 
+/** Modal de SOLO LECTURA: historial de abonos/pagos de una factura. */
+const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = ({ invoice, onClose }) => {
+    const { t } = useTranslation();
+    if (!invoice) return null;
+    const payments = [...(invoice.payments || [])].sort((a, b) => new Date(a.paidAt || 0).getTime() - new Date(b.paidAt || 0).getTime());
+    const paid = invoice.amountPaid ?? payments.reduce((s, p) => s + (p.amount || 0), 0);
+    const balance = Math.max(0, (invoice.total || 0) - paid);
+    const st = STATUS[invoice.status];
+    return (
+        <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="lg">
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm text-neutral-600 dark:text-neutral-300">
+                        {invoice.clientName ? <span className="font-medium">{invoice.clientName}</span> : <span className="text-neutral-400">Sin cliente</span>}
+                    </div>
+                    {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>}
+                </div>
+
+                {/* Resumen */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-700">
+                        <p className="text-[11px] uppercase tracking-wide text-neutral-400">Total</p>
+                        <p className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(invoice.total || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                        <p className="text-[11px] uppercase tracking-wide text-green-600 dark:text-green-400">Pagado</p>
+                        <p className="text-lg font-bold text-green-600 dark:text-green-400 tabular-nums">{money(paid)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                        <p className="text-[11px] uppercase tracking-wide text-red-600 dark:text-red-400">Saldo</p>
+                        <p className="text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">{money(balance)}</p>
+                    </div>
+                </div>
+
+                {/* Lista de abonos */}
+                {payments.length === 0 ? (
+                    <p className="text-sm text-neutral-400 dark:text-neutral-500 text-center py-6">Esta factura aún no tiene abonos registrados.</p>
+                ) : (
+                    <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead className="bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
+                                <tr>
+                                    <th className="text-left font-medium px-3 py-2">#</th>
+                                    <th className="text-left font-medium px-3 py-2">Fecha</th>
+                                    <th className="text-left font-medium px-3 py-2">Método</th>
+                                    <th className="text-left font-medium px-3 py-2">Referencia</th>
+                                    <th className="text-right font-medium px-3 py-2">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {payments.map((p, i) => (
+                                    <tr key={p.id} className="border-t border-neutral-100 dark:border-neutral-700/60">
+                                        <td className="px-3 py-2 text-neutral-400 tabular-nums">{i + 1}</td>
+                                        <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}</td>
+                                        <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.method || '—'}</td>
+                                        <td className="px-3 py-2 text-neutral-400 dark:text-neutral-500 truncate max-w-[220px]">{p.reference || ''}</td>
+                                        <td className="px-3 py-2 text-right font-semibold text-green-600 dark:text-green-400 tabular-nums">{money(p.amount)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-neutral-50 dark:bg-neutral-900/40">
+                                <tr className="border-t border-neutral-200 dark:border-neutral-700">
+                                    <td colSpan={4} className="px-3 py-2 text-right font-medium text-neutral-500 dark:text-neutral-400">Total pagado</td>
+                                    <td className="px-3 py-2 text-right font-bold text-green-600 dark:text-green-400 tabular-nums">{money(paid)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
+
+                <p className="text-xs text-neutral-400">Vista de solo lectura. Para registrar, editar o eliminar un abono usa <strong>Editar</strong> en la factura (pide PIN de supervisor).</p>
+                <div className="flex justify-end pt-1">
+                    <button onClick={onClose} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close') || 'Cerrar'}</button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 /** Métodos de cobro para registrar un abono manualmente. */
 const PAY_METHODS = ['ATH Móvil', 'AgilPay / Tarjeta', 'Efectivo', 'Transferencia', 'Cheque', 'Otro'];
 /** Hoy en YYYY-MM-DD local (lo que usa <input type="date">). */
@@ -184,6 +263,7 @@ export const InvoicesListPage: React.FC = () => {
     const [showDeleted, setShowDeleted] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [share, setShare] = useState<Invoice | null>(null);
+    const [viewPayments, setViewPayments] = useState<Invoice | null>(null);
     const [payFor, setPayFor] = useState<Invoice | null>(null);
     // Edición de un abono existente (en el form de edición de factura).
     const [editingPayId, setEditingPayId] = useState<string | null>(null);
@@ -1057,6 +1137,7 @@ export const InvoicesListPage: React.FC = () => {
                             <button onClick={() => restore(inv)} className="text-xs text-green-600 hover:underline whitespace-nowrap">{t('common.restore')}</button>
                         ) : (
                             <RowActionsMenu items={[
+                                { label: 'Ver pagos', onClick: () => setViewPayments(inv), className: 'text-green-600 dark:text-green-400' },
                                 { label: t('posx.invoices.view_link_qr'), onClick: () => setShare(inv), className: 'text-primary' },
                                 { label: t('posx.invoices.copy_link'), onClick: () => copyLink(inv) },
                                 { label: t('posx.invoices.send_email'), onClick: () => sendByEmail(inv), className: 'text-blue-600 dark:text-blue-400' },
@@ -1070,6 +1151,7 @@ export const InvoicesListPage: React.FC = () => {
             )}
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
+            <PaymentsModal invoice={viewPayments} onClose={() => setViewPayments(null)} />
             <PayModal invoice={payFor} onClose={() => setPayFor(null)} onDone={load} />
 
             {/* Preview del PDF real de la factura (versión guardada) */}
