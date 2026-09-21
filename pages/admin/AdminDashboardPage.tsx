@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
 import { useCurrency } from '../../hooks/useCurrency';
-import { CashBillIcon, DocumentArrowUpIcon, BriefcaseIcon, ClipboardDocumentListIcon, ShoppingCartIcon, CubeIcon, UserGroupIcon, IdentificationIcon, BuildingStorefrontIcon, Squares2X2Icon, BellIcon, ClockIcon } from '../../components/icons';
+import { CashBillIcon, DocumentArrowUpIcon, BriefcaseIcon, ClipboardDocumentListIcon, ShoppingCartIcon, CubeIcon, UserGroupIcon, IdentificationIcon, BuildingStorefrontIcon, Squares2X2Icon, BellIcon, ClockIcon, ChatBubbleLeftRightIcon } from '../../components/icons';
 
 interface Overview {
     sales: { today: { total: number; count: number }; month: { total: number; count: number } };
@@ -45,6 +45,7 @@ export const AdminDashboardPage: React.FC = () => {
         { to: '/admin/modules', label: t('adminx.nav.modules') || 'Módulos del Sistema', icon: Squares2X2Icon },
         { to: '/admin/alerts', label: t('adminx.nav.alerts') || 'Alertas por Correo', icon: BellIcon },
         { to: '/admin/access-log', label: t('adminx.nav.access_log') || 'Bitácora de accesos', icon: ClockIcon },
+        { to: '/admin/whatsapp', label: 'WhatsApp', icon: ChatBubbleLeftRightIcon },
     ];
 
     return (

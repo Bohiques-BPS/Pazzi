@@ -7,6 +7,7 @@ import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon, DocumentA
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { whatsappService } from '../../services/whatsapp';
 import { getSocket, joinProjectRoom } from '../../services/socket';
 import { useChatUnread, markProjectChatRead } from '../../hooks/useChatUnread';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -28,6 +29,9 @@ export const ProjectChatPage: React.FC = () => {
     const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
     const [sending, setSending] = useState(false);
     const [uploading, setUploading] = useState(false);
+    // WhatsApp: envío OPT-IN. Solo se muestra el toggle si la tienda tiene WhatsApp activo.
+    const [waEnabled, setWaEnabled] = useState(false);
+    const [sendToWa, setSendToWa] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -99,6 +103,27 @@ export const ProjectChatPage: React.FC = () => {
     }, [activeProjects, selectedProjectId]);
 
 
+    // ¿La tienda tiene WhatsApp activo? (para mostrar el toggle de envío).
+    useEffect(() => {
+        let alive = true;
+        whatsappService.getEnabled().then(r => { if (alive) setWaEnabled(!!r.enabled); }).catch(() => {});
+        return () => { alive = false; };
+    }, []);
+
+    /** Avisa al usuario si pidió enviar por WhatsApp pero no se pudo. */
+    const notifyWaResult = (message: ChatMessageRecord) => {
+        const w = message.whatsapp;
+        if (!w || !w.requested) return;
+        if (w.sent) { toast.success('También enviado por WhatsApp.'); return; }
+        const reasons: Record<string, string> = {
+            not_configured: 'WhatsApp no está configurado.',
+            no_thread: 'No se envió por WhatsApp: el cliente no ha escrito por WhatsApp aún.',
+            outside_window: 'No se envió por WhatsApp: pasaron más de 24h desde el último mensaje del cliente (se requiere plantilla).',
+            error: 'No se pudo enviar por WhatsApp.',
+        };
+        toast.error(reasons[w.reason || 'error'] || 'No se pudo enviar por WhatsApp.');
+    };
+
     const handleSendMessage = async () => {
         if (!newMessage.trim() || !selectedProjectId || !currentUser) return;
         const text = newMessage.trim();
@@ -108,8 +133,10 @@ export const ProjectChatPage: React.FC = () => {
                 projectId: selectedProjectId,
                 text,
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
+                sendWhatsapp: sendToWa,
             });
             appendMessage(message);
+            notifyWaResult(message);
             setNewMessage('');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('pm2x.chat.send_error'));
@@ -146,8 +173,10 @@ export const ProjectChatPage: React.FC = () => {
                 attachmentUrl: url,
                 attachmentType: isImage ? 'image' : isVideo ? 'video' : 'file',
                 attachmentName: file.name,
+                sendWhatsapp: sendToWa,
             });
             appendMessage(message);
+            notifyWaResult(message);
             setNewMessage('');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : (err instanceof Error ? err.message : 'No se pudo enviar el adjunto.'));
@@ -285,6 +314,13 @@ export const ProjectChatPage: React.FC = () => {
 
                         {/* Message Input */}
                         <div className="p-3 sm:p-4 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+                            {waEnabled && (
+                                <label className="flex items-center gap-2 mb-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                                    <input type="checkbox" checked={sendToWa} onChange={e => setSendToWa(e.target.checked)} className="h-4 w-4 rounded accent-green-600" />
+                                    <span>📲 Enviar también por WhatsApp al cliente</span>
+                                    {sendToWa && <span className="text-[11px] text-green-600 dark:text-green-400">(este mensaje irá al chat y a WhatsApp)</span>}
+                                </label>
+                            )}
                             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2 sm:space-x-3">
                                 <input
                                     ref={fileInputRef}

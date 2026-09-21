@@ -103,6 +103,7 @@ const AdminBusinessPage = lazyNamed(() => import('./pages/admin/AdminSections'),
 const AdminModulesPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminModulesPage');
 const AdminAlertsPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminAlertsPage');
 const AdminAccessLogPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminAccessLogPage');
+const AdminWhatsappPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminWhatsappPage');
 const SuperAdminUsersPage = lazyNamed(() => import('./pages/admin/SuperAdminUsersPage'), 'SuperAdminUsersPage');
 
 
@@ -475,6 +476,7 @@ const AppContent: React.FC = () => {
                 <Route path="/admin/modules" element={<AdminModulesPage />} />
                 <Route path="/admin/alerts" element={<AdminAlertsPage />} />
                 <Route path="/admin/access-log" element={<AdminAccessLogPage />} />
+                <Route path="/admin/whatsapp" element={<AdminWhatsappPage />} />
 
                 {/* Default module redirects */}
                 <Route path="/tienda" element={<Navigate to="/tienda/products" replace />} />

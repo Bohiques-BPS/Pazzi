@@ -10,6 +10,8 @@ export interface ChatMessageRecord {
   attachmentUrl?: string | null;
   attachmentType?: 'image' | 'video' | 'file' | null;
   attachmentName?: string | null;
+  /** Presente solo en la respuesta de envío: resultado del reenvío opcional a WhatsApp. */
+  whatsapp?: { requested: boolean; sent: boolean; reason?: string };
 }
 
 export interface ChatOverviewRow {
@@ -22,7 +24,7 @@ export const chatService = {
   getMessages: (projectId: string) =>
     api.get<ChatMessageRecord[]>(`/chat/${encodeURIComponent(projectId)}`),
 
-  sendMessage: (data: { projectId: string; text: string; senderName: string; attachmentUrl?: string | null; attachmentType?: 'image' | 'video' | 'file' | null; attachmentName?: string | null }) =>
+  sendMessage: (data: { projectId: string; text: string; senderName: string; attachmentUrl?: string | null; attachmentType?: 'image' | 'video' | 'file' | null; attachmentName?: string | null; sendWhatsapp?: boolean }) =>
     api.post<ChatMessageRecord>('/chat', data),
 
   /** Último mensaje + conteo por proyecto (para el indicador de no leídos). */

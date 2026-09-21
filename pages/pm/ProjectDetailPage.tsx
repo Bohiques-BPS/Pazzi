@@ -25,6 +25,7 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Added 
 import { toast } from 'react-hot-toast';
 import { projectsService, normalizeProjectFromApi } from '../../services/projects';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { whatsappService } from '../../services/whatsapp';
 import { getSocket, joinProjectRoom } from '../../services/socket';
 import { markProjectChatRead } from '../../hooks/useChatUnread';
 import { ApiError, API_URL } from '../../services/api';
@@ -656,6 +657,9 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
     const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
     const [sending, setSending] = useState(false);
     const [uploading, setUploading] = useState(false);
+    // WhatsApp: envío OPT-IN (solo si la tienda tiene WhatsApp activo).
+    const [waEnabled, setWaEnabled] = useState(false);
+    const [sendToWa, setSendToWa] = useState(false);
     const chatFileInputRef = useRef<HTMLInputElement | null>(null);
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
     const [callType, setCallType] = useState<'video' | 'audio'>('video');
@@ -696,6 +700,27 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
+    // ¿La tienda tiene WhatsApp activo? (para mostrar el toggle de envío).
+    useEffect(() => {
+        let alive = true;
+        whatsappService.getEnabled().then(r => { if (alive) setWaEnabled(!!r.enabled); }).catch(() => {});
+        return () => { alive = false; };
+    }, []);
+
+    /** Avisa al usuario si pidió enviar por WhatsApp pero no se pudo. */
+    const notifyWaResult = (message: ChatMessageRecord) => {
+        const w = message.whatsapp;
+        if (!w || !w.requested) return;
+        if (w.sent) { toast.success('También enviado por WhatsApp.'); return; }
+        const reasons: Record<string, string> = {
+            not_configured: 'WhatsApp no está configurado.',
+            no_thread: 'No se envió por WhatsApp: el cliente no ha escrito por WhatsApp aún.',
+            outside_window: 'No se envió por WhatsApp: pasaron más de 24h desde el último mensaje del cliente (se requiere plantilla).',
+            error: 'No se pudo enviar por WhatsApp.',
+        };
+        toast.error(reasons[w.reason || 'error'] || 'No se pudo enviar por WhatsApp.');
+    };
+
     const handleSendMessage = async () => {
         if (!newMessage.trim() || !currentUser || sending) return;
         const text = newMessage.trim();
@@ -705,8 +730,10 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                 projectId: project.id,
                 text,
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
+                sendWhatsapp: sendToWa,
             });
             appendMessage(saved);
+            notifyWaResult(saved);
             setNewMessage('');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : (t('pm2x.chat.send_error') || 'No se pudo enviar el mensaje.'));
@@ -739,8 +766,10 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                 attachmentUrl: url,
                 attachmentType: isImage ? 'image' : isVideo ? 'video' : 'file',
                 attachmentName: file.name,
+                sendWhatsapp: sendToWa,
             });
             appendMessage(saved);
+            notifyWaResult(saved);
             setNewMessage('');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : (err instanceof Error ? err.message : 'No se pudo enviar el adjunto.'));
@@ -761,6 +790,13 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
             </div>
             <div className="p-3 border-t bg-white dark:bg-neutral-800">
                 <input ref={chatFileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleAttachFile} />
+                {waEnabled && (
+                    <label className="flex items-center gap-2 mb-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                        <input type="checkbox" checked={sendToWa} onChange={e => setSendToWa(e.target.checked)} className="h-4 w-4 rounded accent-green-600" />
+                        <span>📲 Enviar también por WhatsApp al cliente</span>
+                        {sendToWa && <span className="text-[11px] text-green-600 dark:text-green-400">(irá al chat y a WhatsApp)</span>}
+                    </label>
+                )}
                 {/* Barra de mensaje estilo WhatsApp: clip + campo + micrófono en una píldora, enviar aparte. */}
                 <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-end gap-2">
                     <div className="flex-1 flex items-end gap-0.5 bg-neutral-100 dark:bg-neutral-700 rounded-3xl px-2 py-1">
