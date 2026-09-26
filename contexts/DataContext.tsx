@@ -15,6 +15,7 @@ import { getSocket } from '../services/socket';
 import { toast } from 'react-hot-toast';
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons';
 import { posService } from '../services/pos';
+import { normalizeTaskFromApi } from '../services/tasks';
 
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
 
@@ -401,7 +402,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data)) setTasks(data);
+                if (Array.isArray(data)) setTasks(data.map(normalizeTaskFromApi) as any);
             } catch (e) {
                 console.error("Error al cargar tareas del servidor:", e);
             }

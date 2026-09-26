@@ -59,22 +59,37 @@ export interface TaskRecord {
   updatedAt: string;
 }
 
+/**
+ * Normaliza una tarea del backend: deriva `assignedEmployeeIds` desde la relación `employees`
+ * (TaskEmployee.userId). El backend NO devuelve `assignedEmployeeIds`; sin esto, el tablero y el
+ * editor no muestran a nadie asignado.
+ */
+export function normalizeTaskFromApi<T extends Record<string, any>>(t: T): T {
+  const employees = (t as any).employees;
+  return {
+    ...t,
+    assignedEmployeeIds: Array.isArray(employees)
+      ? employees.map((e: any) => e.userId)
+      : (Array.isArray((t as any).assignedEmployeeIds) ? (t as any).assignedEmployeeIds : []),
+  };
+}
+
 export const tasksService = {
   getAll: (filters?: { projectId?: string; status?: TaskStatus }) =>
-    api.get<TaskRecord[]>('/tasks', filters as any),
+    api.get<any[]>('/tasks', filters as any).then(rows => rows.map(normalizeTaskFromApi)) as Promise<TaskRecord[]>,
 
   /** Tareas asignadas al usuario conectado (todos los proyectos), ordenadas por vencimiento. */
   getMine: (opts?: { includeDone?: boolean }) =>
     api.get<any[]>('/tasks/mine', opts?.includeDone ? { includeDone: '1' } : undefined),
 
-  create: (data: TaskPayload) => api.post<TaskRecord>('/tasks', data),
+  create: (data: TaskPayload) => api.post<any>('/tasks', data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
   /** Crea varias tareas en una sola llamada (ej. las sugeridas por la IA). */
   createBulk: (data: { projectId: string; tasks: TaskPayload[] }) =>
     api.post<{ created: number; tasks: TaskRecord[] }>('/tasks/bulk', data),
 
   update: (id: string, data: Partial<TaskPayload>) =>
-    api.put<TaskRecord>(`/tasks/${id}`, data),
+    api.put<any>(`/tasks/${id}`, data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
   addComment: (id: string, text: string) =>
     api.post<TaskCommentRecord>(`/tasks/${id}/comments`, { text }),
