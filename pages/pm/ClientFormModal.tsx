@@ -473,7 +473,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                        <div className={activeTab === 'Foto' ? '' : 'hidden'}>{renderFotoTab()}</div>
                     </div>
 
-                    <div className="flex justify-end space-x-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4 flex-shrink-0">
+                    <div className="sticky bottom-0 z-10 flex justify-end space-x-2 mt-4 -mx-6 -mb-6 px-6 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         <button type="button" onClick={() => onClose()} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
                             {isSubmitting ? (
