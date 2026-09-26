@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Task, TaskStatus, Employee } from '../../types';
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { InputModal } from '../InputModal';
-import { ConfirmationModal } from '../Modal';
+import { ConfirmationModal, Modal } from '../Modal';
 import { MicButton } from '../ui/MicButton';
 import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { AiTaskAssistant } from '../ai/AiTaskAssistant';
 import { PlusIcon, DocumentTextIcon } from '../icons';
-import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { tasksService } from '../../services/tasks';
 import { projectsService } from '../../services/projects';
 import { toast } from 'react-hot-toast';
@@ -31,6 +32,14 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [colMenuFor, setColMenuFor] = useState<string | null>(null);
     const [deleteCol, setDeleteCol] = useState<string | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
+    const { currentUser } = useAuth();
+    // "Asignármelas a mí": al crear tareas rápidas, auto-asignarlas al usuario. Preferencia por dispositivo.
+    const [assignSelf, setAssignSelf] = useState<boolean>(() => { try { return localStorage.getItem('pazzi_assign_self') === '1'; } catch { return false; } });
+    const toggleAssignSelf = (v: boolean) => { setAssignSelf(v); try { localStorage.setItem('pazzi_assign_self', v ? '1' : '0'); } catch { /* noop */ } };
+    // Al mover una tarea SIN responsable, preguntar si asignársela al usuario conectado.
+    const [assignPrompt, setAssignPrompt] = useState<{ taskId: string; title: string } | null>(null);
+    const [neverAskCheck, setNeverAskCheck] = useState(false);
+    const neverAskAssign = () => { try { return localStorage.getItem('pazzi_never_ask_assign') === '1'; } catch { return false; } };
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     // Sección/área activa ('' = Todas).
     const [activeSection, setActiveSection] = useState('');
@@ -202,6 +211,12 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             return finalTasks;
         });
 
+        // ¿La tarea movida no tiene a nadie asignado? (para ofrecer auto-asignación tras mover de columna)
+        const movedNoAssignee = (draggedTask.assignedEmployeeIds || []).length === 0;
+        const movedId = draggedTask.id;
+        const movedTitle = draggedTask.title;
+        const changedColumn = sourceStatus !== targetStatus;
+
         // Persistir el cambio de estado/orden. Si falla, recargar desde el backend (revertir).
         tasksService.update(draggedTask.id, { status: targetStatus as any, order: newOrder }).catch(() => {
             toast.error(t('cmpx.task.sync_error'));
@@ -209,6 +224,33 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         });
 
         setDraggedTask(null);
+
+        // Ofrecer asignársela al usuario conectado si cambió de columna y estaba sin responsable
+        // (salvo que el usuario haya marcado "no volver a preguntar" — pensado para gerentes).
+        if (changedColumn && movedNoAssignee && currentUser && !neverAskAssign()) {
+            setNeverAskCheck(false);
+            setAssignPrompt({ taskId: movedId, title: movedTitle });
+        }
+    };
+
+    /** Cierra el prompt de asignación; persiste "no volver a preguntar" si se marcó. */
+    const closeAssignPrompt = () => {
+        if (neverAskCheck) { try { localStorage.setItem('pazzi_never_ask_assign', '1'); } catch { /* noop */ } }
+        setAssignPrompt(null);
+    };
+
+    /** Sí: asigna la tarea al usuario conectado. */
+    const confirmAssignSelf = async () => {
+        const p = assignPrompt;
+        closeAssignPrompt();
+        if (!p || !currentUser) return;
+        try {
+            await tasksService.update(p.taskId, { assignedEmployeeIds: [currentUser.id] });
+            reloadTasks();
+            toast.success('Tarea asignada a ti.');
+        } catch {
+            toast.error('No se pudo asignar la tarea.');
+        }
     };
 
     const handleCreateTask = async (status: string) => {
@@ -217,7 +259,10 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             return;
         }
         try {
-            const saved = await tasksService.create({ projectId, title: newTaskTitle, status: status as any, section: activeSection || undefined });
+            const saved = await tasksService.create({
+                projectId, title: newTaskTitle, status: status as any, section: activeSection || undefined,
+                ...(assignSelf && currentUser ? { assignedEmployeeIds: [currentUser.id] } : {}),
+            });
             setTasks(prev => [...prev, {
                 ...saved,
                 assignedEmployeeIds: saved.assignedEmployeeIds || [],
@@ -302,6 +347,10 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                         title="Dictar el título de la tarea"
                                     />
                                 </div>
+                                <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                                    <input type="checkbox" checked={assignSelf} onChange={e => toggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
+                                    Asignármelas a mí automáticamente
+                                </label>
                             </div>
                         ) : (
                             <button onClick={() => setIsCreatingInStatus(status)} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
@@ -393,6 +442,23 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 message={`¿Eliminar la columna "${deleteCol}"? Las tareas que tenga se moverán a la primera columna.`}
                 confirmButtonText="Eliminar"
             />
+            {/* ¿Asignar la tarea recién movida (sin responsable) al usuario conectado? */}
+            <Modal isOpen={!!assignPrompt} onClose={closeAssignPrompt} title="Asignar tarea" size="sm">
+                <div className="space-y-4">
+                    <p className="text-sm text-neutral-700 dark:text-neutral-200">
+                        La tarea <strong>“{assignPrompt?.title}”</strong> no tiene a nadie asignado. ¿Quieres asignártela a ti?
+                    </p>
+                    <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer select-none">
+                        <input type="checkbox" checked={neverAskCheck} onChange={e => setNeverAskCheck(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
+                        No volver a preguntar en este dispositivo
+                    </label>
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button type="button" onClick={closeAssignPrompt} className={BUTTON_SECONDARY_SM_CLASSES}>No</button>
+                        <button type="button" onClick={confirmAssignSelf} className={BUTTON_PRIMARY_SM_CLASSES}>Sí, asignármela</button>
+                    </div>
+                </div>
+            </Modal>
+
             {/* Asistente IA acotado a este proyecto: crear/mover/eliminar tareas por voz o texto. */}
             <AiTaskAssistant projectId={projectId} onApplied={reloadTasks} />
         </>
