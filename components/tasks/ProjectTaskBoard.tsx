@@ -53,6 +53,17 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const reloadTasks = () => { tasksService.getAll().then(d => setTasks(d as any)).catch(() => {}); };
 
     const allEmployees = getAllEmployees();
+    // Id con el que se asigna al USUARIO CONECTADO en las tareas. Las asignaciones usan
+    // (employee.userId || employee.id); resolvemos el empleado del usuario para que la
+    // asignación coincida y se muestre en la tarjeta y en el editor. Fallback: su User.id.
+    const myAssigneeId = useMemo(() => {
+        const me = (allEmployees as any[]).find(e =>
+            String(e.userId) === currentUser?.id || String(e.id) === currentUser?.id ||
+            (currentUser?.email && String(e.email || '').toLowerCase() === currentUser.email.toLowerCase())
+        );
+        // Las tareas guardan el ASSIGNEE como Employee.id (el selector usa emp.id). Preferimos ese.
+        return (me ? me.id : currentUser?.id) as string | undefined;
+    }, [allEmployees, currentUser]);
 
     // Todas las tareas del proyecto (incluye subtareas) — para contar hijas por tarea.
     const allProjectTasks = useMemo(() => tasks.filter(t => t.projectId === projectId && !t.archived), [tasks, projectId]);
@@ -243,9 +254,9 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const confirmAssignSelf = async () => {
         const p = assignPrompt;
         closeAssignPrompt();
-        if (!p || !currentUser) return;
+        if (!p || !myAssigneeId) return;
         try {
-            await tasksService.update(p.taskId, { assignedEmployeeIds: [currentUser.id] });
+            await tasksService.update(p.taskId, { assignedEmployeeIds: [myAssigneeId] });
             reloadTasks();
             toast.success('Tarea asignada a ti.');
         } catch {
@@ -261,7 +272,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         try {
             const saved = await tasksService.create({
                 projectId, title: newTaskTitle, status: status as any, section: activeSection || undefined,
-                ...(assignSelf && currentUser ? { assignedEmployeeIds: [currentUser.id] } : {}),
+                ...(assignSelf && myAssigneeId ? { assignedEmployeeIds: [myAssigneeId] } : {}),
             });
             setTasks(prev => [...prev, {
                 ...saved,
@@ -362,9 +373,17 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                         <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
                             {tasksInColumn.map(task => {
                                 const commentCount = taskComments.filter(c => c.taskId === task.id).length;
-                                const assignedEmployees = task.assignedEmployeeIds
-                                    ?.map(id => allEmployees.find(e => e.id === id))
-                                    .filter((e): e is Employee => !!e) || [];
+                                const assignedEmployees = (task.assignedEmployeeIds || [])
+                                    .map(id => {
+                                        const emp = allEmployees.find(e => e.id === id || (e as any).userId === id);
+                                        if (emp) return emp;
+                                        // El usuario conectado (p.ej. gerente) puede no ser "colaborador": lo mostramos igual.
+                                        if (currentUser && (id === currentUser.id || id === myAssigneeId)) {
+                                            return { id: currentUser.id, name: currentUser.name, lastName: (currentUser as any).lastName, profilePictureUrl: (currentUser as any).profilePictureUrl } as any as Employee;
+                                        }
+                                        return undefined;
+                                    })
+                                    .filter((e): e is Employee => !!e);
 
                                 const taskChecklists = ((task as any).checklists as any[]) || [];
                                 const checklistSummary = taskChecklists.length > 0

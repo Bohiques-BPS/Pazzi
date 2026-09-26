@@ -76,10 +76,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         const project = projects.find(p => p.id === (task as any).projectId);
         // Proyecto desconocido (no cargado): no bloqueamos. Proyecto encontrado: SOLO sus asignados
         // (match por userId, id de empleado, o user.id anidado), aunque sean 0.
-        if (!project) return getAllEmployees();
-        const assigned = new Set((project.assignedEmployeeIds || []).map(String));
-        return getAllEmployees().filter((e: any) => assigned.has(String(e.userId)) || assigned.has(String(e.id)) || assigned.has(String(e.user?.id)));
-    }, [getAllEmployees, projects, task]);
+        const base = !project
+            ? [...getAllEmployees()]
+            : getAllEmployees().filter((e: any) => {
+                const assigned = new Set((project.assignedEmployeeIds || []).map(String));
+                return assigned.has(String(e.userId)) || assigned.has(String(e.id)) || assigned.has(String(e.user?.id));
+            });
+        // Incluir al USUARIO CONECTADO aunque no sea "colaborador" (p.ej. el gerente), para que pueda
+        // asignarse/verse. Se agrega solo si no está ya en el pool.
+        if (currentUser && !base.some((e: any) => String(e.id) === currentUser.id || String(e.userId) === currentUser.id)) {
+            base.push({ id: currentUser.id, userId: currentUser.id, name: currentUser.name, lastName: (currentUser as any).lastName, profilePictureUrl: (currentUser as any).profilePictureUrl } as any);
+        }
+        return base;
+    }, [getAllEmployees, projects, task, currentUser]);
 
     // Subtareas (hijas de esta tarea) desde el DataContext.
     const subtasks = useMemo(
