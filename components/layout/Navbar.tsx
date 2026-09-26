@@ -10,7 +10,8 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { AppModule, UserRole, Notification } from '../../types';
 import { APP_MODULES_CONFIG } from '../../constants';
 import { API_URL } from '../../services/api';
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon } from '../icons';
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon, PlusIcon } from '../icons';
+import { AddAccountModal } from '../AddAccountModal';
 import { timeclockService } from '../../services/timeclock';
 import { QuickSettingsButton } from '../ui/QuickSettingsButton';
 import { toast } from '../../hooks/useToast';
@@ -42,7 +43,7 @@ const formatRelativeTime = (isoTimestamp: string) => {
 
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, setCurrentModule }) => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, accounts, activeAccountId, switchAccount } = useAuth();
   const { canAny } = usePermissions();
   const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData();
   const { isModuleEnabled } = useModules();
@@ -63,6 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     && currentUser
     && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [showAddAccount, setShowAddAccount] = useState(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [punching, setPunching] = useState(false);
@@ -391,7 +393,41 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                 <ChevronDownIcon className="w-4 h-4 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             </button>
             {userDropdownOpen && (
-                <div id="user-menu" className="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600">
+                <div id="user-menu" className="absolute right-0 mt-2 w-64 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600">
+                {/* Multi-cuenta: cuentas conectadas en este dispositivo + cambiar/agregar. */}
+                {accounts.length > 0 && (
+                    <div className="border-b border-neutral-200 dark:border-neutral-600 pb-1 mb-1">
+                        <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-400">Cuentas</p>
+                        {accounts.map(acc => {
+                            const active = acc.id === activeAccountId;
+                            return (
+                                <button
+                                    key={acc.id}
+                                    onClick={() => { if (!active) switchAccount(acc.id); setUserDropdownOpen(false); }}
+                                    className={`flex items-center gap-2 w-full text-left px-4 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 ${active ? 'bg-primary/5' : ''}`}
+                                    role="menuitem"
+                                    title={active ? 'Cuenta activa' : 'Cambiar a esta cuenta'}
+                                >
+                                    {acc.profilePictureUrl
+                                        ? <img src={acc.profilePictureUrl} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" />
+                                        : <span className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">{(acc.name || acc.email || '?').charAt(0).toUpperCase()}</span>}
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{`${acc.name || ''} ${acc.lastName || ''}`.trim() || acc.email}</span>
+                                        <span className="block text-xs text-neutral-500 dark:text-neutral-400 truncate">{acc.email}</span>
+                                    </span>
+                                    {active && <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="Activa" />}
+                                </button>
+                            );
+                        })}
+                        <button
+                            onClick={() => { setShowAddAccount(true); setUserDropdownOpen(false); }}
+                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-primary hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                            role="menuitem"
+                        >
+                            <PlusIcon className="w-5 h-5" /> Agregar otra cuenta
+                        </button>
+                    </div>
+                )}
                 {currentUser?.role === UserRole.CLIENT_ECOMMERCE && (
                     <Link 
                         to="/my-orders" 
@@ -430,6 +466,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           </div>
         </div>
       </div>
+      <AddAccountModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} />
     </nav>
   );
 };

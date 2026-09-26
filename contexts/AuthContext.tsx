@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { User, UserRole } from '../types';
 import { authService, type InvitationInfo } from '../services/auth';
 import { ApiError } from '../services/api';
+import { listAccounts, upsertAccount, removeAccount, activateAccount, activeAccountId, type AccountInfo } from '../utils/accounts';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -15,6 +16,13 @@ interface AuthContextType {
   updateUserEmail: (currentPassword: string, newEmail: string) => Promise<{ success: boolean; message: string }>;
   toggleUserEmergencyOrderMode: (userId: string) => Promise<boolean>;
   updateUserAlertSettings: (userId: string, settings: Record<string, unknown>) => Promise<boolean>;
+  // Multi-cuenta (estilo Google): cuentas conectadas en este dispositivo + cambiar/agregar.
+  accounts: AccountInfo[];
+  activeAccountId: string | null;
+  /** Conecta OTRA cuenta sin cerrar la actual y cambia a ella (recarga la app). */
+  addAccount: (email: string, password: string) => Promise<{ success: true } | { success: false; error: string; code?: string }>;
+  /** Cambia a una cuenta ya conectada (recarga la app). */
+  switchAccount: (userId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,11 +42,14 @@ function clearSession() {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accounts, setAccounts] = useState<AccountInfo[]>(listAccounts());
+  const refreshAccounts = useCallback(() => setAccounts(listAccounts()), []);
 
   // Verificación de sesión al cargar la app
   useEffect(() => {
     const verifySession = async () => {
       const token = localStorage.getItem('pazzi_token');
+      const refreshToken = localStorage.getItem('pazzi_refresh_token');
       if (!token) {
         setLoading(false);
         return;
@@ -47,6 +58,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const user = await authService.me();
         setCurrentUser(user);
         localStorage.setItem('pazzi_user', JSON.stringify(user));
+        // Asegura que la sesión activa esté en la lista multi-cuenta.
+        if (refreshToken) upsertAccount(user, localStorage.getItem('pazzi_token') || token, refreshToken);
+        refreshAccounts();
       } catch (error) {
         // El refresh-token automático ya se intentó en services/api;
         // si llegamos aquí es porque tampoco se pudo refrescar.
@@ -56,19 +70,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
     verifySession();
-  }, []);
+  }, [refreshAccounts]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
       const { user, token, refreshToken } = await authService.login(email, password);
       persistSession(user, token, refreshToken);
+      upsertAccount(user, token, refreshToken);
       setCurrentUser(user);
+      refreshAccounts();
       return { success: true as const };
     } catch (err) {
       if (err instanceof ApiError) {
         return { success: false as const, error: err.message, code: err.code };
       }
       return { success: false as const, error: 'Error de conexión con el servidor' };
+    }
+  }, [refreshAccounts]);
+
+  /**
+   * Conecta OTRA cuenta sin cerrar la sesión actual: hace login, la guarda en la lista,
+   * la deja activa y recarga la app para reinicializar todos los contextos con el nuevo usuario.
+   */
+  const addAccount = useCallback(async (email: string, password: string) => {
+    try {
+      const { user, token, refreshToken } = await authService.login(email, password);
+      upsertAccount(user, token, refreshToken);
+      // Activar la nueva cuenta y recargar limpio.
+      persistSession(user, token, refreshToken);
+      window.location.href = '/';
+      return { success: true as const };
+    } catch (err) {
+      if (err instanceof ApiError) {
+        return { success: false as const, error: err.message, code: err.code };
+      }
+      return { success: false as const, error: 'Error de conexión con el servidor' };
+    }
+  }, []);
+
+  /** Cambia a una cuenta ya conectada y recarga la app. */
+  const switchAccount = useCallback((userId: string) => {
+    if (userId === activeAccountId()) return;
+    if (activateAccount(userId)) {
+      window.location.href = '/';
     }
   }, []);
 
@@ -97,9 +141,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {
       // Ignorar errores de logout del server — limpiamos local de todas formas
     }
+    // Multi-cuenta: quitar SOLO la cuenta activa; si queda otra conectada, cambiar a ella.
+    const activeId = activeAccountId();
+    const next = activeId ? removeAccount(activeId) : null;
+    if (next && activateAccount(next.id)) {
+      window.location.href = '/';
+      return;
+    }
     clearSession();
     setCurrentUser(null);
-  }, []);
+    refreshAccounts();
+  }, [refreshAccounts]);
 
   const getInvitation = useCallback((token: string) => authService.getInvitation(token), []);
 
@@ -107,7 +159,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { user, token: accessToken, refreshToken } = await authService.activate(token, password, pin);
       persistSession(user, accessToken, refreshToken);
+      upsertAccount(user, accessToken, refreshToken);
       setCurrentUser(user);
+      refreshAccounts();
       return { success: true as const };
     } catch (err) {
       if (err instanceof ApiError) {
@@ -115,7 +169,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       return { success: false as const, error: 'Error de conexión con el servidor' };
     }
-  }, []);
+  }, [refreshAccounts]);
 
   const updateUserPassword = useCallback(async (_userId: string, currentPassword: string, newPassword: string) => {
     try {
@@ -163,7 +217,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentUser]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate, updateUserPassword, updateUserEmail, toggleUserEmergencyOrderMode, updateUserAlertSettings }}>
+    <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate, updateUserPassword, updateUserEmail, toggleUserEmergencyOrderMode, updateUserAlertSettings, accounts, activeAccountId: activeAccountId(), addAccount, switchAccount }}>
       {children}
     </AuthContext.Provider>
   );

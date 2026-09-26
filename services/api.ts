@@ -69,6 +69,11 @@ async function refreshAuthToken(): Promise<string | null> {
     if (data.user) {
       localStorage.setItem('pazzi_user', JSON.stringify(data.user));
     }
+    // Mantener sincronizada la cuenta en el switcher multi-cuenta (tokens rotados).
+    try {
+      const { syncStoredFromActive } = await import('../utils/accounts');
+      syncStoredFromActive();
+    } catch { /* noop */ }
     return data.token;
   } catch {
     return null;

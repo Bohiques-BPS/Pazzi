@@ -382,7 +382,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         <div className="flex items-center gap-3">
                             <div className="w-16 h-16 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 flex items-center justify-center flex-shrink-0">
                                 {formData.imageUrl
-                                    ? <img src={formData.imageUrl} alt="Proyecto" className="w-full h-full object-cover" />
+                                    ? <img src={formData.imageUrl} alt="Proyecto" className="w-full h-full object-contain bg-white dark:bg-neutral-900" />
                                     : <span className="text-2xl">🗂️</span>}
                             </div>
                             {canEditDetails && (
