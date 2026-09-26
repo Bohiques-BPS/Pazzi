@@ -328,7 +328,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                         </h3>
                         {/* Crear tarea SIEMPRE arriba de la columna (no hay que hacer scroll hasta el final). */}
                         {isCreatingInStatus === status ? (
-                             <div className="mb-2 p-1">
+                             <div className="mb-2 p-1" data-create-block>
                                 <textarea
                                     value={newTaskTitle}
                                     onChange={(e) => setNewTaskTitle(e.target.value)}
@@ -336,10 +336,16 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     className="w-full p-2 text-sm border-neutral-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-neutral-600 dark:border-neutral-500"
                                     rows={3}
                                     autoFocus
-                                    onBlur={() => {if(!newTaskTitle) setIsCreatingInStatus(null)}}
+                                    // Solo cerrar si el título está vacío Y el foco sale del bloque de creación
+                                    // (así hacer clic en el check o el micrófono NO cierra el formulario).
+                                    onBlur={(e) => { if (!newTaskTitle.trim() && !(e.currentTarget.closest('[data-create-block]')?.contains(e.relatedTarget as Node))) setIsCreatingInStatus(null); }}
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status); } }}
                                 />
-                                <div className="mt-2 flex items-center gap-2">
+                                <label className="mt-2 mb-3 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                                    <input type="checkbox" checked={assignSelf} onChange={e => toggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary flex-shrink-0" />
+                                    Asignármelas a mí automáticamente
+                                </label>
+                                <div className="flex items-center gap-2">
                                     <button onClick={() => handleCreateTask(status)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
                                     <MicButton
                                         value={newTaskTitle}
@@ -347,10 +353,6 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                         title="Dictar el título de la tarea"
                                     />
                                 </div>
-                                <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
-                                    <input type="checkbox" checked={assignSelf} onChange={e => toggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
-                                    Asignármelas a mí automáticamente
-                                </label>
                             </div>
                         ) : (
                             <button onClick={() => setIsCreatingInStatus(status)} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
