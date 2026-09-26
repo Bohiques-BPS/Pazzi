@@ -50,8 +50,11 @@ export const AiTaskAssistant: React.FC<Props> = ({ projectId, onApplied }) => {
     };
 
     const runExecute = async () => {
-        const chosen = actions.filter((_, i) => selected[i]);
-        if (!chosen.length) { toast.error('Selecciona al menos una acción.'); return; }
+        const chosen = actions
+            .filter((_, i) => selected[i])
+            .filter(a => a.type !== 'create_task' || (a.title || '').trim())
+            .map(a => a.type === 'create_task' ? { ...a, title: (a.title || '').trim() } : a);
+        if (!chosen.length) { toast.error('Selecciona al menos una acción (y ponle título a las tareas nuevas).'); return; }
         setBusy(true);
         try {
             const r = await assistantService.execute(chosen);
@@ -88,20 +91,18 @@ export const AiTaskAssistant: React.FC<Props> = ({ projectId, onApplied }) => {
                     </p>
 
                     {/* Entrada */}
-                    <div className="flex items-end gap-2">
-                        <textarea
-                            value={text}
-                            onChange={e => setText(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); interpret(); } }}
-                            placeholder='Ej: "crea la tarea Llamar al cliente para el viernes", "mueve Diseño de menú a Hecho", "elimina la tarea de prueba"'
-                            rows={2}
-                            className={`${inputFormStyle} flex-1 resize-none`}
-                            autoFocus
-                        />
-                        <MicButton value={text} onChange={setText} className="!rounded-lg" title="Dictar la orden" />
-                    </div>
+                    <textarea
+                        value={text}
+                        onChange={e => setText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); interpret(); } }}
+                        placeholder='Ej: crea la tarea Llamar al cliente'
+                        rows={3}
+                        className={`${inputFormStyle} w-full resize-none min-h-[84px] overflow-auto`}
+                        autoFocus
+                    />
                     {phase === 'input' && (
-                        <div className="flex justify-end">
+                        <div className="flex items-center justify-between gap-2">
+                            <MicButton value={text} onChange={setText} title="Dictar la orden" />
                             <button type="button" onClick={interpret} disabled={busy || !text.trim()} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
                                 {busy ? 'Interpretando…' : 'Interpretar'}
                             </button>
@@ -115,12 +116,27 @@ export const AiTaskAssistant: React.FC<Props> = ({ projectId, onApplied }) => {
                             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Voy a hacer esto — revisa y confirma:</p>
                             <div className="space-y-1.5 max-h-64 overflow-y-auto">
                                 {actions.map((a, i) => (
-                                    <label key={i} className="flex items-start gap-2 p-2 rounded-md bg-neutral-50 dark:bg-neutral-900/40 cursor-pointer">
-                                        <input type="checkbox" checked={selected[i]} onChange={e => setSelected(s => s.map((v, idx) => idx === i ? e.target.checked : v))} className="mt-0.5 h-4 w-4" />
-                                        <span className={`text-sm ${typeStyle[a.type] || ''}`}>
-                                            <span className="mr-1">{typeIcon[a.type] || '•'}</span>{a.label}
-                                        </span>
-                                    </label>
+                                    <div key={i} className="flex items-start gap-2 p-2 rounded-md bg-neutral-50 dark:bg-neutral-900/40">
+                                        <input type="checkbox" checked={selected[i]} onChange={e => setSelected(s => s.map((v, idx) => idx === i ? e.target.checked : v))} className="mt-1 h-4 w-4 flex-shrink-0" />
+                                        {a.type === 'create_task' ? (
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400 mb-1">
+                                                    <span>➕ Crear tarea en {a.projectName} · {a.status}</span>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={a.title || ''}
+                                                    onChange={e => setActions(prev => prev.map((x, idx) => idx === i ? { ...x, title: e.target.value } : x))}
+                                                    className={`${inputFormStyle} !py-1.5 text-sm w-full`}
+                                                    placeholder="Título de la tarea"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className={`text-sm ${typeStyle[a.type] || ''}`}>
+                                                <span className="mr-1">{typeIcon[a.type] || '•'}</span>{a.label}
+                                            </span>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                             <div className="flex justify-end gap-2 pt-1">
