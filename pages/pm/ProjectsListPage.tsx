@@ -97,6 +97,12 @@ export const ProjectsListPage: React.FC = () => {
     }, [projects, statusFilter]);
     
     const tableColumns: TableColumn<Project>[] = useMemo(() => [
+        {
+            header: '',
+            accessor: (project) => project.imageUrl
+                ? <img src={project.imageUrl} alt="" className="w-12 h-8 rounded object-contain bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex-shrink-0" />
+                : <span className="w-9 h-8 rounded bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-sm flex-shrink-0">🗂️</span>,
+        },
         { header: t('project.field.name'), accessor: 'name' },
         {
             header: t('project.field.client'),
@@ -213,7 +219,7 @@ export const ProjectsListPage: React.FC = () => {
             {viewMode === 'card' ? (
                 <>
                     {filteredProjects.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
                             {filteredProjects.map(project => (
                                 <ProjectCard
                                     key={project.id}
