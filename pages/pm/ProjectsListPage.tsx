@@ -13,9 +13,12 @@ import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityName
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { projectsService } from '../../services/projects';
+import { AiTaskAssistant } from '../../components/ai/AiTaskAssistant';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const ProjectsListPage: React.FC = () => {
     const { t } = useTranslation();
+    const { can } = usePermissions();
     const { projects: _allProjects, setProjects, employees: allEmployees, tasks, generateInvoiceForProject, getClientById } = useData();
     // Gestión NO muestra los proyectos "solo factura" (creados en caja para agrupar ventas).
     const projects = useMemo(() => _allProjects.filter(p => !p.billingOnly), [_allProjects]);
@@ -329,6 +332,9 @@ export const ProjectsListPage: React.FC = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* Asistente IA de tareas (global): crear/mover/eliminar por voz o texto, con confirmación. */}
+            {can('tasks.manage') && <AiTaskAssistant onApplied={() => window.location.reload()} />}
         </div>
     );
 };

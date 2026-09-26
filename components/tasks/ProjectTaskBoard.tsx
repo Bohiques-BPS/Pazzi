@@ -7,6 +7,7 @@ import { InputModal } from '../InputModal';
 import { ConfirmationModal } from '../Modal';
 import { MicButton } from '../ui/MicButton';
 import { ExtractTasksModal } from '../pm/ExtractTasksModal';
+import { AiTaskAssistant } from '../ai/AiTaskAssistant';
 import { PlusIcon, DocumentTextIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { tasksService } from '../../services/tasks';
@@ -392,6 +393,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 message={`¿Eliminar la columna "${deleteCol}"? Las tareas que tenga se moverán a la primera columna.`}
                 confirmButtonText="Eliminar"
             />
+            {/* Asistente IA acotado a este proyecto: crear/mover/eliminar tareas por voz o texto. */}
+            <AiTaskAssistant projectId={projectId} onApplied={reloadTasks} />
         </>
     );
 };
