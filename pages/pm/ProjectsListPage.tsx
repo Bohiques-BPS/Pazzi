@@ -37,6 +37,9 @@ export const ProjectsListPage: React.FC = () => {
 
     const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>('Todos');
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+    // Densidad de la cuadrícula en pantallas grandes (4 por defecto; el usuario puede elegir 5). Por dispositivo.
+    const [gridCols, setGridCols] = useState<4 | 5>(() => { try { return localStorage.getItem('pazzi_pm_cols') === '5' ? 5 : 4; } catch { return 4; } });
+    const chooseCols = (n: 4 | 5) => { setGridCols(n); try { localStorage.setItem('pazzi_pm_cols', String(n)); } catch { /* noop */ } };
     const [showTasksModal, setShowTasksModal] = useState(false);
     const [showCollabModal, setShowCollabModal] = useState(false);
 
@@ -213,16 +216,26 @@ export const ProjectsListPage: React.FC = () => {
                         );
                     })}
                 </div>
-                <div className="flex items-center bg-neutral-100 dark:bg-neutral-700 p-0.5 rounded-md flex-shrink-0">
-                    <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.card_view')}><Squares2X2Icon className="w-5 h-5"/></button>
-                    <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.table_view')}><ListBulletIcon className="w-5 h-5"/></button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Densidad (solo en tarjetas y pantallas grandes): 4 o 5 por fila. */}
+                    {viewMode === 'card' && (
+                        <div className="hidden xl:flex items-center bg-neutral-100 dark:bg-neutral-700 p-0.5 rounded-md" title="Tarjetas por fila (pantallas grandes)">
+                            {([4, 5] as const).map(n => (
+                                <button key={n} onClick={() => chooseCols(n)} className={`px-2.5 py-1 text-sm font-semibold rounded-md ${gridCols === n ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} aria-label={`${n} por fila`}>{n}</button>
+                            ))}
+                        </div>
+                    )}
+                    <div className="flex items-center bg-neutral-100 dark:bg-neutral-700 p-0.5 rounded-md">
+                        <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-md ${viewMode === 'card' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.card_view')}><Squares2X2Icon className="w-5 h-5"/></button>
+                        <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md ${viewMode === 'table' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} aria-label={t('pm2x.project.table_view')}><ListBulletIcon className="w-5 h-5"/></button>
+                    </div>
                 </div>
             </div>
 
             {viewMode === 'card' ? (
                 <>
                     {filteredProjects.length > 0 ? (
-                        <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
+                        <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${gridCols === 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
                             {filteredProjects.map(project => (
                                 <ProjectCard
                                     key={project.id}
