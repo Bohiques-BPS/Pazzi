@@ -250,8 +250,8 @@ export const ProjectCalendarPage: React.FC = () => {
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)] text-sm">
             <div className="flex-grow bg-white dark:bg-neutral-800 p-3 sm:p-4 rounded-lg shadow-lg flex flex-col overflow-hidden">
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-3 gap-2">
-                    <div className="flex items-center gap-1 sm:gap-2">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap justify-between items-start sm:items-center mb-3 gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                         <button onClick={goToToday} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.today')}</button>
                         <button onClick={() => changeDate(-1, viewMode)} className={BUTTON_SECONDARY_SM_CLASSES}><ChevronLeftIcon /></button>
                         <button onClick={() => changeDate(1, viewMode)} className={BUTTON_SECONDARY_SM_CLASSES}><ChevronRightIcon /></button>
@@ -259,8 +259,8 @@ export const ProjectCalendarPage: React.FC = () => {
                             {isValidDate(currentDate) ? currentDate.toLocaleString(locale, { month: 'long', year: 'numeric' }) : t('calendar.invalid_date')}
                         </h2>
                     </div>
-                     <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-x-3 text-xs">
+                     <div className="flex items-center flex-wrap gap-2 justify-start sm:justify-end">
+                        <div className="hidden md:flex items-center gap-x-3 text-xs">
                             <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-teal-500 mr-1.5"></span>{t('calendar.visit')}</span>
                             <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>{t('calendar.project')}</span>
                             <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-purple-500 mr-1.5"></span>{t('calendar.followup') || 'Seguimiento'}</span>
