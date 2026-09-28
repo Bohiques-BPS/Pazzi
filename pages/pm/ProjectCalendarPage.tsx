@@ -296,9 +296,8 @@ export const ProjectCalendarPage: React.FC = () => {
                         <div key={di} className="relative border-l border-neutral-200 dark:border-neutral-700" style={{ height: gridH }}>
                             {hours.map((h, i) => (
                                 <div key={h}
-                                    onClick={() => setSelectedDate(dayObj.date)}
-                                    onDoubleClick={() => setChooser({ date: dayObj.date, time: hh(h) })}
-                                    title={`Doble clic para agendar · ${dayObj.date.toLocaleDateString(locale)} ${hh(h)}`}
+                                    onClick={() => { setSelectedDate(dayObj.date); setChooser({ date: dayObj.date, time: hh(h) }); }}
+                                    title={`Agendar · ${dayObj.date.toLocaleDateString(locale)} ${hh(h)}`}
                                     className="absolute left-0 right-0 border-b border-neutral-100 dark:border-neutral-700/50 hover:bg-primary/5 cursor-pointer"
                                     style={{ top: i * HOUR_PX, height: HOUR_PX }}
                                 />
