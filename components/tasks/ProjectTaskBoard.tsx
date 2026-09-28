@@ -352,7 +352,12 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     onBlur={(e) => { if (!newTaskTitle.trim() && !(e.currentTarget.closest('[data-create-block]')?.contains(e.relatedTarget as Node))) setIsCreatingInStatus(null); }}
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status); } }}
                                 />
-                                <label className="mt-2 mb-3 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                                <label
+                                    // Evita que el clic en el check/texto le quite el foco al textarea (eso cerraba el
+                                    // formulario cuando el título estaba vacío). El toggle del checkbox igual ocurre.
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className="mt-2 mb-3 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none"
+                                >
                                     <input type="checkbox" checked={assignSelf} onChange={e => toggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary flex-shrink-0" />
                                     Asignármelas a mí automáticamente
                                 </label>
