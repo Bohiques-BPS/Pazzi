@@ -368,7 +368,7 @@ export const ProjectCalendarPage: React.FC = () => {
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setSelectedDate(dayObj.date); setCurrentDate(dayObj.date); setViewMode('day'); }}
                                     title="Ver el día"
-                                    className={`self-start text-xs font-semibold rounded-full w-7 h-7 flex items-center justify-center transition-colors ${dayObj.isToday ? 'bg-primary text-white' : 'hover:bg-primary/10 hover:text-primary'}`}
+                                    className={`self-start text-xs font-semibold rounded-full w-7 h-7 flex items-center justify-center transition-colors ${dayObj.isToday ? 'bg-primary text-white' : 'bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 hover:bg-primary hover:text-white'}`}
                                 >{dayObj.date.getDate()}</button>
                                 <div className="mt-1 space-y-1 overflow-y-auto flex-grow max-h-[calc(100%-20px)]">
                                     {dayObj.events.slice(0, 3).map(event => (
