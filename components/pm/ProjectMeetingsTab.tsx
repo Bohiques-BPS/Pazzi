@@ -10,11 +10,31 @@ import { LoadingSkeleton } from '../ui/LoadingSkeleton';
 import { EmptyState } from '../ui/EmptyState';
 import { Modal } from '../Modal';
 import { extractDocxText, isDocx } from '../../utils/docx';
-import { DeleteIcon, CalendarDaysIcon, PlusIcon, ClipboardDocumentListIcon } from '../icons';
+import { DeleteIcon, CalendarDaysIcon, PlusIcon, ClipboardDocumentListIcon, EditIcon } from '../icons';
 
 interface Props { projectId: string; }
 
 const todayISO = () => new Date().toISOString().split('T')[0];
+/** Formatea una fecha guardada (ISO/UTC) por su parte de día, sin corrimiento por zona horaria. */
+const fmtDate = (d: string) => {
+    const [y, mo, da] = String(d || '').slice(0, 10).split('-').map(Number);
+    if (!y) return '';
+    return new Date(y, (mo || 1) - 1, da || 1).toLocaleDateString();
+};
+/** Horas entre dos "HH:mm" (default 1h si no calcula). */
+const hoursBetween = (s: string, e: string) => {
+    const toMin = (x: string) => { const [h, m] = (x || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+    const a = toMin(s), b = toMin(e);
+    return b > a ? (b - a) / 60 : 1;
+};
+/** "HH:mm" de fin a partir de inicio + duración en horas. */
+const endFromDuration = (start: string, dur: number) => {
+    const [h, m] = (start || '09:00').split(':').map(Number);
+    const tot = Math.min(23 * 60 + 59, (h || 0) * 60 + (m || 0) + Math.round((dur || 1) * 60));
+    return `${String(Math.floor(tot / 60)).padStart(2, '0')}:${String(tot % 60).padStart(2, '0')}`;
+};
+/** Abre el selector nativo de fecha al hacer clic en cualquier parte del input. */
+const openPicker = (e: React.MouseEvent<HTMLInputElement>) => { try { (e.currentTarget as any).showPicker?.(); } catch { /* no soportado */ } };
 
 // Fila editable de tarea sugerida por la IA (el empleado decide si la acepta).
 interface SuggestionRow {
@@ -37,12 +57,13 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
     const [gstatus, setGstatus] = useState<GoogleStatus | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form
     const [title, setTitle] = useState('');
     const [date, setDate] = useState(todayISO());
     const [startTime, setStartTime] = useState('09:00');
-    const [durationHours, setDurationHours] = useState('1');
+    const [endTime, setEndTime] = useState('10:00');
     const [employeeIds, setEmployeeIds] = useState<string[]>([]);
     const [inviteClient, setInviteClient] = useState(false);
     const [meetLink, setMeetLink] = useState('');
@@ -122,7 +143,7 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                     projectId: reviewFor.projectId,
                     title: r.title.trim(),
                     description: r.description.trim() || undefined,
-                    status: 'Tareas por Realizar',
+                    status: 'Tareas por realizar',
                     assignedEmployeeIds: r.assigneeId ? [r.assigneeId] : [],
                     dueDate: r.dueDate || null,
                     priority: r.priority || null,
@@ -153,8 +174,21 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
     };
 
     const resetForm = () => {
-        setTitle(''); setDate(todayISO()); setStartTime('09:00'); setDurationHours('1');
-        setEmployeeIds([]); setInviteClient(false); setMeetLink(''); setNotes('');
+        setTitle(''); setDate(todayISO()); setStartTime('09:00'); setEndTime('10:00');
+        setEmployeeIds([]); setInviteClient(false); setMeetLink(''); setNotes(''); setEditingId(null);
+    };
+
+    const startEdit = (m: ProjectMeeting) => {
+        setEditingId(m.id);
+        setTitle(m.title);
+        setDate(String(m.date).slice(0, 10));
+        setStartTime(m.startTime || '09:00');
+        setEndTime(endFromDuration(m.startTime || '09:00', m.durationHours ?? 1));
+        setEmployeeIds(m.employeeIds || []);
+        setInviteClient(!!m.inviteClient);
+        setMeetLink(m.meetLink || '');
+        setNotes(m.notes || '');
+        setShowForm(true);
     };
 
     const toggleEmp = (id: string) => setEmployeeIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -169,22 +203,28 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
         return googleCalendarLink({ title: m.title, date: m.date, startTime: m.startTime, durationHours: m.durationHours, details, guests });
     };
 
-    const create = async () => {
+    const save = async () => {
         if (!title.trim()) return toast.error('Escribe un título para la reunión.');
-        const dur = parseFloat(durationHours.replace(',', '.'));
+        if (hoursBetween(startTime, endTime) <= 0) return toast.error('La hora de fin debe ser después de la de inicio.');
+        const dur = hoursBetween(startTime, endTime);
         setSaving(true);
         try {
-            const created = await projectMeetingsService.create({
+            const payload = {
                 projectId, title: title.trim(), date, startTime,
-                durationHours: dur > 0 ? dur : 1, employeeIds, inviteClient,
+                durationHours: dur, employeeIds, inviteClient,
                 meetLink: meetLink.trim() || null, notes: notes.trim() || null,
-            });
-            setItems(prev => [created, ...prev]);
-            toast.success('Reunión creada.');
-            // Abrir el link de Google Calendar para que la guarde (y Google agregue el Meet).
-            window.open(gcalFor(created), '_blank', 'noopener');
+            };
+            if (editingId) {
+                const updated = await projectMeetingsService.update(editingId, payload);
+                setItems(prev => prev.map(x => x.id === editingId ? updated : x));
+                toast.success('Reunión actualizada.');
+            } else {
+                const created = await projectMeetingsService.create(payload);
+                setItems(prev => [created, ...prev]);
+                toast.success('Reunión agendada.');
+            }
             resetForm(); setShowForm(false);
-        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo crear la reunión.'); }
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo guardar la reunión.'); }
         finally { setSaving(false); }
     };
 
@@ -202,7 +242,7 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                     <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">Seguimiento — Reuniones</h2>
                     <p className="text-sm text-neutral-500 dark:text-neutral-400">Agenda reuniones y añádelas a Google Calendar (con Google Meet).</p>
                 </div>
-                <button onClick={() => setShowForm(s => !s)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center gap-1`}>
+                <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center gap-1`}>
                     <PlusIcon className="w-4 h-4" /> {showForm ? 'Cerrar' : 'Nueva reunión'}
                 </button>
             </div>
@@ -232,9 +272,9 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                         <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Ej. Reunión de seguimiento" className={`${INPUT_SM_CLASSES} w-full`} />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div><label className="block text-xs text-neutral-500 mb-1">Fecha</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
-                        <div><label className="block text-xs text-neutral-500 mb-1">Hora</label><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
-                        <div><label className="block text-xs text-neutral-500 mb-1">Duración (horas)</label><input type="number" step="0.5" min="0.5" value={durationHours} onChange={e => setDurationHours(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
+                        <div><label className="block text-xs text-neutral-500 mb-1">Fecha</label><input type="date" value={date} onClick={openPicker} onChange={e => setDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
+                        <div><label className="block text-xs text-neutral-500 mb-1">Hora inicio</label><input type="time" value={startTime} onClick={openPicker} onChange={e => setStartTime(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
+                        <div><label className="block text-xs text-neutral-500 mb-1">Hora fin</label><input type="time" value={endTime} onClick={openPicker} onChange={e => setEndTime(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
                     </div>
                     <div>
                         <label className="block text-xs text-neutral-500 mb-1">Empleados en la reunión</label>
@@ -262,7 +302,7 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                     </div>
                     <div className="flex justify-end gap-2">
                         <button onClick={() => { resetForm(); setShowForm(false); }} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-                        <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Creando...' : 'Crear y añadir a Google Calendar'}</button>
+                        <button onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Agendar seguimiento')}</button>
                     </div>
                 </div>
             )}
@@ -275,9 +315,10 @@ export const ProjectMeetingsTab: React.FC<Props> = ({ projectId }) => {
                         <div key={m.id} className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3">
                             <div className="flex items-center gap-3 flex-wrap">
                                 <span className="font-semibold text-neutral-800 dark:text-neutral-100">{m.title}</span>
-                                <span className="text-sm text-neutral-500">· {new Date(m.date).toLocaleDateString()} {m.startTime} · {m.durationHours}h</span>
+                                <span className="text-sm text-neutral-500">· {fmtDate(m.date)} {m.startTime}–{endFromDuration(m.startTime, m.durationHours)}</span>
                                 {m.inviteClient && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Cliente invitado</span>}
                                 <div className="ml-auto flex items-center gap-3">
+                                    <button onClick={() => startEdit(m)} className="text-xs text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1"><EditIcon className="w-4 h-4" /> Editar</button>
                                     <a href={gcalFor(m)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1"><CalendarDaysIcon className="w-4 h-4" /> Google Calendar</a>
                                     {m.meetLink && <a href={m.meetLink} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 hover:underline">Meet</a>}
                                     <button onClick={() => openReview(m)} className="text-xs text-primary hover:underline inline-flex items-center gap-1" title="Revisar transcripción y sacar tareas">

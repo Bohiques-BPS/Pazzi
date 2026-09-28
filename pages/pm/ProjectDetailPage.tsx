@@ -91,9 +91,21 @@ export const ProjectDetailPage: React.FC = () => {
                         <ArrowUturnLeftIcon className="w-4 h-4 mr-1" />
                         {t('pm2x.project.back_to_projects')}
                     </Link>
-                    <h1 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">
-                        {isNewProject ? t('pm2x.project.create_new') : (projectData && projectData.name)}
-                    </h1>
+                    {isNewProject ? (
+                        <h1 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">{t('pm2x.project.create_new')}</h1>
+                    ) : (
+                        // Nombre del proyecto como selector: permite saltar a otro proyecto sin volver a la lista.
+                        <select
+                            value={projectData?.id || ''}
+                            onChange={e => { const id = e.target.value; if (id && id !== projectData?.id) navigate(`/pm/projects/${id}?tab=${activeTab}`); }}
+                            title="Cambiar de proyecto"
+                            className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100 bg-transparent border-0 border-b-2 border-transparent hover:border-neutral-300 focus:border-primary focus:outline-none cursor-pointer max-w-full truncate -ml-1 pr-6"
+                        >
+                            {projects.filter(p => !(p as any).billingOnly).sort((a, b) => a.name.localeCompare(b.name)).map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
             </div>
 
