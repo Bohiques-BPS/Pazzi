@@ -183,6 +183,12 @@ export const ProjectCalendarPage: React.FC = () => {
 
     const allCalendarEvents = useMemo(() => getEventsForRange(projects, visits, meetings), [projects, visits, meetings]);
     const calendarDays = useMemo(() => getDaysForMonthView(currentDate, allCalendarEvents), [currentDate, allCalendarEvents]);
+    // Vista semanal: los 7 días de la semana de `currentDate` con sus eventos.
+    const weekDays = useMemo(() => getWeekDays(currentDate).map(date => ({
+        date,
+        isToday: isSameDate(date, new Date()),
+        events: allCalendarEvents.filter(e => isSameDate(e.start, date)).sort((a, b) => a.start.getTime() - b.start.getTime()),
+    })), [currentDate, allCalendarEvents]);
     // Dynamic Day Names based on Locale
     const daysOfWeekNamesMonth = useMemo(() => {
         const days = [];
@@ -302,7 +308,31 @@ export const ProjectCalendarPage: React.FC = () => {
                         ))}
                     </div>
                 )}
-                {/* Week View to be implemented similarly */}
+                {viewMode === 'week' && (
+                    <div className="grid grid-cols-7 flex-grow overflow-auto pos-reports-scrollbar">
+                        {weekDays.map((dayObj, index) => (
+                            <div key={index} onClick={() => setSelectedDate(dayObj.date)}
+                                className={`flex flex-col border-t border-l border-neutral-200 dark:border-neutral-700 last:border-r cursor-pointer min-h-[200px]
+                                ${isSameDate(dayObj.date, selectedDate) ? 'ring-2 ring-inset ring-primary' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/30'}`}>
+                                <div className={`py-2 text-center border-b border-neutral-200 dark:border-neutral-700 ${dayObj.isToday ? 'bg-primary/10' : 'bg-neutral-50 dark:bg-neutral-700/50'}`}>
+                                    <div className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">{dayObj.date.toLocaleDateString(locale, { weekday: 'short' })}</div>
+                                    <div className={`text-sm font-semibold ${dayObj.isToday ? 'text-primary' : 'text-neutral-700 dark:text-neutral-200'}`}>{dayObj.date.getDate()}</div>
+                                </div>
+                                <div className="p-1 space-y-1 overflow-y-auto flex-grow">
+                                    {dayObj.events.length === 0
+                                        ? <div className="text-[9px] text-neutral-300 dark:text-neutral-600 text-center pt-2">—</div>
+                                        : dayObj.events.map(event => (
+                                            <div key={event.id} onClick={e => { e.stopPropagation(); handleEventClick(event); }}
+                                                className={`block w-full p-1 text-left text-[10px] rounded shadow-sm ${event.type === 'visit' ? 'bg-teal-100 dark:bg-teal-700/50 text-teal-700 dark:text-teal-200 hover:bg-teal-200' : event.type === 'meeting' ? 'bg-purple-100 dark:bg-purple-700/50 text-purple-700 dark:text-purple-200 hover:bg-purple-200' : 'bg-blue-100 dark:bg-blue-700/50 text-blue-700 dark:text-blue-200 hover:bg-blue-200'}`}>
+                                                {!event.isAllDay && <span className="font-semibold mr-1">{event.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</span>}
+                                                <span className="truncate">{event.title}</span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="w-full lg:w-80 bg-white dark:bg-neutral-800 p-3 sm:p-4 rounded-lg shadow-lg flex-shrink-0 overflow-y-auto h-full pos-reports-scrollbar">
