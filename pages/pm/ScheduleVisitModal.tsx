@@ -17,9 +17,18 @@ interface ScheduleVisitModalProps {
     onClose: () => void;
     visitToEdit?: Visit | null;
     initialDate?: Date | null;
+    /** Hora inicial "HH:mm" (ej. al hacer clic en una franja del calendario semanal). */
+    initialTime?: string | null;
 }
 
-export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, onClose, visitToEdit, initialDate }) => {
+/** Suma 1 hora a un "HH:mm" (tope 23:59). */
+const addOneHour = (hhmm: string): string => {
+    const [h, m] = (hhmm || '09:00').split(':').map(Number);
+    const end = Math.min(23 * 60 + 59, (h * 60 + (m || 0)) + 60);
+    return `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+};
+
+export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, onClose, visitToEdit, initialDate, initialTime }) => {
     const { t } = useTranslation();
     const { projects, employees: allEmployees, setVisits } = useData();
     const [formData, setFormData] = useState<VisitFormData>({
@@ -46,7 +55,8 @@ export const ScheduleVisitModal: React.FC<ScheduleVisitModalProps> = ({ isOpen, 
                 status: visitToEdit.status,
             });
         } else if (initialDate) {
-            setFormData({ projectId: '', title: '', date: initialDate.toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', assignedEmployeeIds: [], notes: '', status: VisitStatus.PROGRAMADO });
+            const st = initialTime || '09:00';
+            setFormData({ projectId: '', title: '', date: initialDate.toISOString().split('T')[0], startTime: st, endTime: addOneHour(st), assignedEmployeeIds: [], notes: '', status: VisitStatus.PROGRAMADO });
         } else {
             setFormData({ projectId: '', title: '', date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', assignedEmployeeIds: [], notes: '', status: VisitStatus.PROGRAMADO });
         }

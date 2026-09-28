@@ -174,6 +174,7 @@ export const ProjectCalendarPage: React.FC = () => {
     const [isVisitDetailModalOpen, setIsVisitDetailModalOpen] = useState(false);
     const [visitToView, setVisitToView] = useState<Visit | null>(null);
     const [initialDateForNewVisit, setInitialDateForNewVisit] = useState<Date | null>(null);
+    const [initialTimeForNewVisit, setInitialTimeForNewVisit] = useState<string | null>(null);
     const [isProjectFormModalOpen, setIsProjectFormModalOpen] = useState(false);
     const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
 
@@ -233,9 +234,10 @@ export const ProjectCalendarPage: React.FC = () => {
     };
     const goToToday = () => { const today = new Date(); setCurrentDate(today); setSelectedDate(today); };
 
-    const openScheduleVisitModal = (visit?: Visit, date?: Date) => {
+    const openScheduleVisitModal = (visit?: Visit, date?: Date, time?: string) => {
         setVisitToEdit(visit || null);
         setInitialDateForNewVisit(date || null);
+        setInitialTimeForNewVisit(time || null);
         setIsScheduleVisitModalOpen(true);
     };
 
@@ -308,31 +310,65 @@ export const ProjectCalendarPage: React.FC = () => {
                         ))}
                     </div>
                 )}
-                {viewMode === 'week' && (
-                    <div className="grid grid-cols-7 flex-grow overflow-auto pos-reports-scrollbar">
-                        {weekDays.map((dayObj, index) => (
-                            <div key={index} onClick={() => setSelectedDate(dayObj.date)}
-                                className={`flex flex-col border-t border-l border-neutral-200 dark:border-neutral-700 last:border-r cursor-pointer min-h-[200px]
-                                ${isSameDate(dayObj.date, selectedDate) ? 'ring-2 ring-inset ring-primary' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/30'}`}>
-                                <div className={`py-2 text-center border-b border-neutral-200 dark:border-neutral-700 ${dayObj.isToday ? 'bg-primary/10' : 'bg-neutral-50 dark:bg-neutral-700/50'}`}>
-                                    <div className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">{dayObj.date.toLocaleDateString(locale, { weekday: 'short' })}</div>
-                                    <div className={`text-sm font-semibold ${dayObj.isToday ? 'text-primary' : 'text-neutral-700 dark:text-neutral-200'}`}>{dayObj.date.getDate()}</div>
+                {viewMode === 'week' && (() => {
+                    const START_HOUR = 6, END_HOUR = 22, HOUR_PX = 48; // 6am–10pm, franja de 48px por hora
+                    const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+                    const gridH = hours.length * HOUR_PX;
+                    const hh = (n: number) => `${String(n).padStart(2, '0')}:00`;
+                    return (
+                    <div className="flex flex-col flex-grow overflow-hidden">
+                        {/* Encabezado de días (fijo) */}
+                        <div className="grid flex-shrink-0" style={{ gridTemplateColumns: `3.5rem repeat(7, minmax(0,1fr))` }}>
+                            <div className="border-b border-neutral-200 dark:border-neutral-700" />
+                            {weekDays.map((d, i) => (
+                                <div key={i} onClick={() => setSelectedDate(d.date)}
+                                    className={`py-2 text-center border-b border-l border-neutral-200 dark:border-neutral-700 cursor-pointer ${d.isToday ? 'bg-primary/10' : 'bg-neutral-50 dark:bg-neutral-700/50'} ${isSameDate(d.date, selectedDate) ? 'ring-2 ring-inset ring-primary' : ''}`}>
+                                    <div className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">{d.date.toLocaleDateString(locale, { weekday: 'short' })}</div>
+                                    <div className={`text-sm font-semibold ${d.isToday ? 'text-primary' : 'text-neutral-700 dark:text-neutral-200'}`}>{d.date.getDate()}</div>
                                 </div>
-                                <div className="p-1 space-y-1 overflow-y-auto flex-grow">
-                                    {dayObj.events.length === 0
-                                        ? <div className="text-[9px] text-neutral-300 dark:text-neutral-600 text-center pt-2">—</div>
-                                        : dayObj.events.map(event => (
-                                            <div key={event.id} onClick={e => { e.stopPropagation(); handleEventClick(event); }}
-                                                className={`block w-full p-1 text-left text-[10px] rounded shadow-sm ${event.type === 'visit' ? 'bg-teal-100 dark:bg-teal-700/50 text-teal-700 dark:text-teal-200 hover:bg-teal-200' : event.type === 'meeting' ? 'bg-purple-100 dark:bg-purple-700/50 text-purple-700 dark:text-purple-200 hover:bg-purple-200' : 'bg-blue-100 dark:bg-blue-700/50 text-blue-700 dark:text-blue-200 hover:bg-blue-200'}`}>
-                                                {!event.isAllDay && <span className="font-semibold mr-1">{event.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</span>}
-                                                <span className="truncate">{event.title}</span>
-                                            </div>
-                                        ))}
-                                </div>
+                            ))}
+                        </div>
+                        {/* Rejilla de horas (scroll) */}
+                        <div className="grid flex-grow overflow-y-auto pos-reports-scrollbar" style={{ gridTemplateColumns: `3.5rem repeat(7, minmax(0,1fr))` }}>
+                            {/* Columna de horas */}
+                            <div className="relative" style={{ height: gridH }}>
+                                {hours.map((h, i) => (
+                                    <div key={h} className="absolute right-1 text-[10px] text-neutral-400 -translate-y-1/2" style={{ top: i * HOUR_PX }}>{hh(h)}</div>
+                                ))}
                             </div>
-                        ))}
+                            {/* 7 columnas-día */}
+                            {weekDays.map((dayObj, di) => (
+                                <div key={di} className="relative border-l border-neutral-200 dark:border-neutral-700" style={{ height: gridH }}>
+                                    {/* Franjas por hora (clic = crear visita a esa hora) */}
+                                    {hours.map((h, i) => (
+                                        <div key={h}
+                                            onClick={() => { setSelectedDate(dayObj.date); openScheduleVisitModal(undefined, dayObj.date, hh(h)); }}
+                                            title={`Crear visita ${dayObj.date.toLocaleDateString(locale)} ${hh(h)}`}
+                                            className="absolute left-0 right-0 border-b border-neutral-100 dark:border-neutral-700/50 hover:bg-primary/5 cursor-pointer"
+                                            style={{ top: i * HOUR_PX, height: HOUR_PX }}
+                                        />
+                                    ))}
+                                    {/* Eventos con hora, posicionados (los de "todo el día" como proyectos no van en la rejilla) */}
+                                    {dayObj.events.filter(e => !e.isAllDay).map(event => {
+                                        const startMins = event.start.getHours() * 60 + event.start.getMinutes();
+                                        const endMins = event.isAllDay ? startMins + 60 : (event.end.getHours() * 60 + event.end.getMinutes());
+                                        const top = Math.max(0, (startMins - START_HOUR * 60) / 60 * HOUR_PX);
+                                        const height = Math.max(18, ((endMins - startMins) / 60) * HOUR_PX - 2);
+                                        return (
+                                            <div key={event.id} onClick={e => { e.stopPropagation(); handleEventClick(event); }}
+                                                style={{ top, height }}
+                                                className={`absolute left-0.5 right-0.5 p-1 text-[10px] rounded shadow-sm overflow-hidden cursor-pointer ${event.type === 'visit' ? 'bg-teal-100 dark:bg-teal-700/60 text-teal-800 dark:text-teal-100 hover:bg-teal-200' : event.type === 'meeting' ? 'bg-purple-100 dark:bg-purple-700/60 text-purple-800 dark:text-purple-100 hover:bg-purple-200' : 'bg-blue-100 dark:bg-blue-700/60 text-blue-800 dark:text-blue-100 hover:bg-blue-200'}`}>
+                                                {!event.isAllDay && <div className="font-semibold">{event.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</div>}
+                                                <div className="truncate">{event.title}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                )}
+                    );
+                })()}
             </div>
 
             <div className="w-full lg:w-80 bg-white dark:bg-neutral-800 p-3 sm:p-4 rounded-lg shadow-lg flex-shrink-0 overflow-y-auto h-full pos-reports-scrollbar">
@@ -357,7 +393,7 @@ export const ProjectCalendarPage: React.FC = () => {
                 ) : <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 text-center py-4">{t('calendar.no_activity')}</p>}
             </div>
 
-            <ScheduleVisitModal isOpen={isScheduleVisitModalOpen} onClose={() => setIsScheduleVisitModalOpen(false)} visitToEdit={visitToEdit} initialDate={initialDateForNewVisit || (selectedDate && isValidDate(selectedDate) ? selectedDate : new Date())} />
+            <ScheduleVisitModal isOpen={isScheduleVisitModalOpen} onClose={() => setIsScheduleVisitModalOpen(false)} visitToEdit={visitToEdit} initialDate={initialDateForNewVisit || (selectedDate && isValidDate(selectedDate) ? selectedDate : new Date())} initialTime={initialTimeForNewVisit} />
             <VisitDetailModal isOpen={isVisitDetailModalOpen} onClose={() => setIsVisitDetailModalOpen(false)} visit={visitToView} />
             <ProjectFormModal isOpen={isProjectFormModalOpen} onClose={() => setIsProjectFormModalOpen(false)} project={projectToEdit} />
 
