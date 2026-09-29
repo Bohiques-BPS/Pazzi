@@ -367,6 +367,8 @@ export interface Client {
     chargeValue?: number;
     chargeCode?: string;
     images?: string[];
+    /** Redes sociales y enlaces de interés del cliente. */
+    socialLinks?: { label: string; url: string }[];
     loyaltyPoints?: number;
     shippingAddress?: string;
     shippingStreet?: string;

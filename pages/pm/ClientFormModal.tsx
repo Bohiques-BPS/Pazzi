@@ -81,6 +81,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         chargeValue: 0,
         chargeCode: '',
         images: [],
+        socialLinks: [],
         loyaltyPoints: 0,
         loyaltyLevel: '',
         shippingAddress: '',
@@ -109,6 +110,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                     chargeValueType: client.chargeValueType || 'percentage',
                     chargeValue: client.chargeValue || 0,
                     images: client.images || [],
+                    socialLinks: Array.isArray(client.socialLinks) ? client.socialLinks : [],
                     isLoss: client.isLoss || false,
                     // Migración suave: si no hay dirección estructurada pero sí la vieja (texto libre),
                     // se coloca ese texto en la línea de calle para no perder el dato existente.
@@ -157,6 +159,13 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const handleRemoveImage = (urlToRemove: string) => {
         setFormData(prev => ({ ...prev, images: prev.images?.filter(url => url !== urlToRemove) }));
     };
+
+    // Redes sociales / enlaces de interés (label + url).
+    const addSocialLink = () => setFormData(prev => ({ ...prev, socialLinks: [...(prev.socialLinks || []), { label: '', url: '' }] }));
+    const updateSocialLink = (i: number, patch: Partial<{ label: string; url: string }>) =>
+        setFormData(prev => ({ ...prev, socialLinks: (prev.socialLinks || []).map((l, idx) => idx === i ? { ...l, ...patch } : l) }));
+    const removeSocialLink = (i: number) =>
+        setFormData(prev => ({ ...prev, socialLinks: (prev.socialLinks || []).filter((_, idx) => idx !== i) }));
 
     /**
      * Crea/actualiza el cliente. Devuelve el cliente guardado (o null si falló).
@@ -290,6 +299,28 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             <div>
                 <label className="block text-sm font-medium">{t('common.notes')}</label>
                 <RichTextEditor value={formData.clientNotes || ''} onChange={(value) => setFormData(prev => ({...prev, clientNotes: value}))} placeholder={t('pmx.client.notes_ph')} />
+            </div>
+            {/* Redes sociales y enlaces de interés */}
+            <div>
+                <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium">Redes sociales y enlaces</label>
+                    <button type="button" onClick={addSocialLink} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center`}>
+                        <PlusIcon className="w-3 h-3 mr-1"/> Añadir enlace
+                    </button>
+                </div>
+                {(!formData.socialLinks || formData.socialLinks.length === 0) ? (
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500">Sin enlaces. Agrega Instagram, Facebook, sitio web, etc.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {formData.socialLinks.map((link, i) => (
+                            <div key={i} className="flex gap-2 items-center">
+                                <input type="text" value={link.label} onChange={e => updateSocialLink(i, { label: e.target.value })} placeholder="Etiqueta (ej. Instagram)" className={`${inputFormStyle} !py-1.5 w-40 flex-shrink-0`} />
+                                <input type="url" value={link.url} onChange={e => updateSocialLink(i, { url: e.target.value })} placeholder="https://…" className={`${inputFormStyle} !py-1.5 flex-1`} />
+                                <button type="button" onClick={() => removeSocialLink(i)} className="text-red-500 hover:text-red-700 p-1 flex-shrink-0" title="Quitar"><TrashIconMini/></button>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
             <div className="pt-2"><label className="flex items-center text-sm"><input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleChange} className="form-checkbox rounded mr-1.5"/> {t('product.field.active')}</label></div>
         </div>
