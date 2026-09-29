@@ -47,7 +47,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         { id: 'Foto', label: t('client.tab.photo') }
     ];
     const [isQuickProjectModalOpen, setIsQuickProjectModalOpen] = useState(false);
-    
+    // Cliente recién guardado dentro de este mismo modal (para poder crearle un proyecto sin cerrar,
+    // p. ej. en la caja donde el modal siempre abre con client=null). Evita duplicar al volver a guardar.
+    const [savedClient, setSavedClient] = useState<Client | null>(null);
+    const effectiveClient = client || savedClient;
+
     const initialFormState: ClientFormData = { 
         name: '', 
         lastName: '', 
@@ -116,6 +120,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             }
             setActiveTab('General');
             setNewImageUrl('');
+            setSavedClient(null);
         }
     }, [client, isOpen]);
     
@@ -153,31 +158,22 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         setFormData(prev => ({ ...prev, images: prev.images?.filter(url => url !== urlToRemove) }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!formData.name.trim()) {
-            toast.error(t('pmx.client.err_name_required'));
-            return;
-        }
-        if (!formData.lastName.trim()) {
-            toast.error(t('pmx.client.err_lastname_required'));
-            return;
-        }
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            toast.error(t('pmx.client.err_email_invalid'));
-            return;
-        }
+    /**
+     * Crea/actualiza el cliente. Devuelve el cliente guardado (o null si falló).
+     * closeAfter=false permite guardar sin cerrar (p. ej. antes de crearle un proyecto).
+     * Usa effectiveClient (client prop o el ya guardado en este modal) para no duplicar.
+     */
+    const persistClient = async (closeAfter: boolean): Promise<Client | null> => {
+        if (!formData.name.trim()) { toast.error(t('pmx.client.err_name_required')); return null; }
+        if (!formData.lastName.trim()) { toast.error(t('pmx.client.err_lastname_required')); return null; }
+        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) { toast.error(t('pmx.client.err_email_invalid')); return null; }
+        const target = effectiveClient;
         const isDuplicateEmail = formData.email && allClients.some(
-            c => c.email && c.email.toLowerCase() === formData.email.toLowerCase() && (!client || c.id !== client.id)
+            c => c.email && c.email.toLowerCase() === formData.email.toLowerCase() && (!target || c.id !== target.id)
         );
-        if (isDuplicateEmail) {
-            toast.error(t('pmx.client.err_email_duplicate'));
-            return;
-        }
+        if (isDuplicateEmail) { toast.error(t('pmx.client.err_email_duplicate')); return null; }
 
         setIsSubmitting(true);
-
         const dataToSave = {
             ...formData,
             stateTaxRate: formData.stateTaxRate || 0,
@@ -187,46 +183,38 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             balance: formData.balance || 0,
             loyaltyPoints: formData.loyaltyPoints || 0,
         };
-
         try {
-            if (client) {
-                const res = await fetch(`${API_URL}/clients/${client.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    },
-                    body: JSON.stringify(dataToSave),
-                });
-                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al actualizar cliente'); }
-                const updatedClient = await res.json();
-                setClients(prev => prev.map(c => c.id === client.id ? { ...c, ...updatedClient } : c));
-                toast.success(t('pmx.client.updated_ok'));
-                onClose(updatedClient);
-            } else {
-                const res = await fetch(`${API_URL}/clients`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    },
-                    body: JSON.stringify(dataToSave),
-                });
-                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al crear cliente'); }
-                const newClient = await res.json();
-                setClients(prev => [...prev, newClient]);
-                toast.success(t('pmx.client.created_ok'));
-                onClose(newClient);
-            }
+            const res = await fetch(target ? `${API_URL}/clients/${target.id}` : `${API_URL}/clients`, {
+                method: target ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` },
+                body: JSON.stringify(dataToSave),
+            });
+            if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || (target ? 'Error al actualizar cliente' : 'Error al crear cliente')); }
+            const saved = await res.json();
+            setClients(prev => target ? prev.map(c => c.id === saved.id ? { ...c, ...saved } : c) : [...prev, saved]);
+            setSavedClient(saved);
+            toast.success(target ? t('pmx.client.updated_ok') : t('pmx.client.created_ok'));
+            if (closeAfter) onClose(saved);
+            return saved;
         } catch (err: any) {
-            // NO fingir éxito local: si el backend rechazó el guardado, el cambio NO existe.
-            // Antes se actualizaba el estado local y se cerraba el modal → parecía que editaba
-            // pero al recargar se perdía. Ahora mostramos el error real y dejamos el modal abierto.
             console.error('Error al guardar cliente:', err);
             toast.error(err?.message || t('pmx.client.save_error') || 'No se pudo guardar el cliente.');
+            return null;
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    /** "+ Nuevo Proyecto": si el cliente aún no existe, lo guarda primero y luego abre el modal. */
+    const handleQuickProject = async () => {
+        if (effectiveClient) { setIsQuickProjectModalOpen(true); return; }
+        const saved = await persistClient(false);
+        if (saved) setIsQuickProjectModalOpen(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await persistClient(true);
     };
     
     const renderGeneralTab = () => (
@@ -251,10 +239,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                     <label className="block text-sm font-medium">{t('client.field.projects')}</label>
                     <button
                         type="button"
-                        onClick={() => setIsQuickProjectModalOpen(true)}
-                        className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center`}
-                        disabled={!client}
-                        title={!client ? t('pmx.client.save_first_hint') : t('pmx.client.quick_project_hint')}
+                        onClick={handleQuickProject}
+                        disabled={isSubmitting}
+                        className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs flex items-center disabled:opacity-50`}
+                        title={effectiveClient ? t('pmx.client.quick_project_hint') : 'Se guardará el cliente y luego podrás crearle el proyecto.'}
                     >
                         <PlusIcon className="w-3 h-3 mr-1"/> {t('pos.new_project')}
                     </button>
@@ -489,11 +477,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                     </div>
                 </form>
             </Modal>
-            {client && (
+            {effectiveClient && (
                 <POSProjectFormModal
                     isOpen={isQuickProjectModalOpen}
                     onClose={() => setIsQuickProjectModalOpen(false)}
-                    clientId={client.id}
+                    clientId={effectiveClient.id}
                     onProjectCreated={(newProject) => {
                         setFormData(prev => ({
                             ...prev,
