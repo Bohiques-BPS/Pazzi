@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { useNavigate } from 'react-router-dom';
 import { Project, ProjectStatus } from '../../types';
@@ -40,6 +40,19 @@ export const ProjectsListPage: React.FC = () => {
     // Densidad de la cuadrícula en pantallas grandes (4 por defecto; el usuario puede elegir 5). Por dispositivo.
     const [gridCols, setGridCols] = useState<4 | 5>(() => { try { return localStorage.getItem('pazzi_pm_cols') === '5' ? 5 : 4; } catch { return 4; } });
     const chooseCols = (n: 4 | 5) => { setGridCols(n); try { localStorage.setItem('pazzi_pm_cols', String(n)); } catch { /* noop */ } };
+
+    // Resultado de la conexión con Google Calendar (el callback OAuth redirige aquí con ?google=ok|error).
+    // Antes fallaba en silencio y parecía "sin conectar" sin explicar por qué.
+    useEffect(() => {
+        const p = new URLSearchParams(window.location.search);
+        const g = p.get('google');
+        if (!g) return;
+        if (g === 'ok') toast.success('Google Calendar conectado correctamente.');
+        else toast.error(`No se pudo conectar Google Calendar: ${p.get('msg') || 'error'}`, { duration: 8000 });
+        p.delete('google'); p.delete('msg');
+        const qs = p.toString();
+        window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    }, []);
     const [showTasksModal, setShowTasksModal] = useState(false);
     const [showCollabModal, setShowCollabModal] = useState(false);
 
