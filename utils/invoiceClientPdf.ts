@@ -108,6 +108,17 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     totRow('Total:', money(inv.total), true, accent);
     if (amountPaid > 0 && !paid) totRow('Saldo:', money((inv.total || 0) - amountPaid), true, [192, 57, 43]);
 
+    // Descripción / nota de la factura (texto libre que escribe el negocio).
+    if (inv.description && String(inv.description).trim()) {
+        y += 12;
+        doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(17, 17, 17);
+        doc.text('Nota:', M, y);
+        y += 14;
+        doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(51, 51, 51);
+        const lines = doc.splitTextToSize(String(inv.description).trim(), pageW - 2 * M);
+        doc.text(lines, M, y);
+    }
+
     // Pie.
     doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(153, 153, 153);
     doc.text('¡Gracias por su preferencia!', pageW / 2, pageH - 50, { align: 'center' });
