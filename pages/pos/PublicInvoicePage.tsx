@@ -7,7 +7,7 @@ import { AthMovilPhonePay } from '../../components/pos/AthMovilPhonePay';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
-import { ApiError, API_URL } from '../../services/api';
+import { ApiError } from '../../services/api';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
@@ -101,9 +101,10 @@ export const PublicInvoicePage: React.FC = () => {
     };
 
 
-    // Abre el PDF con el diseño configurable del negocio (mismo que llega por correo).
+    // Descarga el PDF generado en el navegador (mismo diseño del correo). Antes usaba el endpoint
+    // del servidor, que devolvía 502 cuando el backend se quedaba sin memoria en Render.
     const downloadPDF = () => {
-        if (token) window.open(`${API_URL}/public/invoices/${token}/pdf`, '_blank', 'noopener');
+        if (inv && cfg) generatePDF(saleFrom(inv), cfg);
     };
 
     if (loading) {
