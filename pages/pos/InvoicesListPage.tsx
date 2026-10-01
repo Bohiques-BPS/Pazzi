@@ -616,9 +616,11 @@ export const InvoicesListPage: React.FC = () => {
     useEffect(() => {
         if (!pdfInvoice) { setPdfUrl(''); return; }
         let url = '';
-        try { url = invoicePdfBlobUrl(pdfInvoice, pdfBiz); setPdfUrl(url); }
-        catch { setPdfUrl(''); toast.error('No se pudo generar el PDF.'); }
-        return () => { if (url) { try { URL.revokeObjectURL(url); } catch { /* noop */ } } };
+        let cancelled = false;
+        invoicePdfBlobUrl(pdfInvoice, pdfBiz)
+            .then(u => { if (cancelled) { try { URL.revokeObjectURL(u); } catch { /* noop */ } return; } url = u; setPdfUrl(u); })
+            .catch(() => { if (!cancelled) { setPdfUrl(''); toast.error('No se pudo generar el PDF.'); } });
+        return () => { cancelled = true; if (url) { try { URL.revokeObjectURL(url); } catch { /* noop */ } } };
     }, [pdfInvoice, pdfBiz]);
 
     // Factura en edición (para mostrar/editar sus abonos). Se recalcula tras cada load().
@@ -1186,7 +1188,7 @@ export const InvoicesListPage: React.FC = () => {
                         />
                     )}
                     <div className="flex justify-end gap-2 pt-1">
-                        <button onClick={() => pdfInvoice && openInvoicePdf(pdfInvoice, pdfBiz)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.open_new_tab')}</button>
+                        <button onClick={() => { if (pdfUrl) window.open(pdfUrl, '_blank', 'noopener'); else if (pdfInvoice) openInvoicePdf(pdfInvoice, pdfBiz); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.open_new_tab')}</button>
                         <button onClick={() => pdfInvoice && downloadInvoicePdf(pdfInvoice, pdfBiz)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.download_pdf')}</button>
                         <button onClick={() => setPdfInvoice(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close')}</button>
                     </div>

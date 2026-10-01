@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Invoice } from '../services/invoices';
+import { loadImageAsDataUrl, dataUrlFormat } from './imageData';
 
 /** Datos del negocio para el encabezado (de settings.receiptConfig). */
 export interface InvoicePdfBusiness {
@@ -18,7 +19,7 @@ const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
  * Construye el PDF de una factura 100% en el navegador (jsPDF). No depende del backend, por lo que
  * sirve de respaldo cuando el PDF del servidor falla (p. ej. 502 por límite de RAM en Render).
  */
-function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness): jsPDF {
+function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: string | null): jsPDF {
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -27,13 +28,11 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness): jsPDF {
     const header: [number, number, number] = [76, 175, 80];   // #4CAF50
     let y = M;
 
-    // Logo (solo data URI; una URL http requeriría descarga asíncrona y aquí se omite).
+    // Logo (data URL ya resuelto: data URI directo o URL http descargada por el llamador).
     let logoBottom = y;
-    if (biz.logoUrl && /^data:image\//i.test(biz.logoUrl)) {
+    if (logoDataUrl) {
         try {
-            const kind = /^data:image\/(png|jpe?g)/i.exec(biz.logoUrl)?.[1]?.toLowerCase();
-            const fmt = kind === 'png' ? 'PNG' : 'JPEG';
-            doc.addImage(biz.logoUrl, fmt, M, y, 120, 60, undefined, 'FAST');
+            doc.addImage(logoDataUrl, dataUrlFormat(logoDataUrl), M, y, 120, 60, undefined, 'FAST');
             logoBottom = y + 66;
         } catch { /* logo inválido: se ignora */ }
     }
@@ -117,16 +116,19 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness): jsPDF {
 }
 
 /** URL blob para previsualizar en un <iframe>. Recuerda revocarla con URL.revokeObjectURL. */
-export function invoicePdfBlobUrl(inv: Invoice, biz: InvoicePdfBusiness): string {
-    return buildInvoiceDoc(inv, biz).output('bloburl') as unknown as string;
+export async function invoicePdfBlobUrl(inv: Invoice, biz: InvoicePdfBusiness): Promise<string> {
+    const logo = await loadImageAsDataUrl(biz.logoUrl);
+    return buildInvoiceDoc(inv, biz, logo).output('bloburl') as unknown as string;
 }
 
 /** Abre el PDF en una pestaña nueva. */
-export function openInvoicePdf(inv: Invoice, biz: InvoicePdfBusiness) {
-    window.open(invoicePdfBlobUrl(inv, biz), '_blank', 'noopener');
+export async function openInvoicePdf(inv: Invoice, biz: InvoicePdfBusiness) {
+    const logo = await loadImageAsDataUrl(biz.logoUrl);
+    window.open(buildInvoiceDoc(inv, biz, logo).output('bloburl') as unknown as string, '_blank', 'noopener');
 }
 
 /** Descarga el PDF al disco. */
-export function downloadInvoicePdf(inv: Invoice, biz: InvoicePdfBusiness) {
-    buildInvoiceDoc(inv, biz).save(`factura-${inv.number ?? (inv.id || '').slice(0, 6)}.pdf`);
+export async function downloadInvoicePdf(inv: Invoice, biz: InvoicePdfBusiness) {
+    const logo = await loadImageAsDataUrl(biz.logoUrl);
+    buildInvoiceDoc(inv, biz, logo).save(`factura-${inv.number ?? (inv.id || '').slice(0, 6)}.pdf`);
 }
