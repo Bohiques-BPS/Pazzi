@@ -58,7 +58,7 @@ export const EcommerceOrdersPage: React.FC = () => {
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('ecommerce.orders.title')}</h1>
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end min-w-0">
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as Order['status'] | 'Todos')}

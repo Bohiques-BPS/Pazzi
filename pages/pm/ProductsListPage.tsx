@@ -317,7 +317,7 @@ export const ProductsListPage: React.FC = () => {
         <div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('product.list.title')} {totalCount > 0 && <span className="text-base font-normal text-neutral-500">({totalCount})</span>}</h1>
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end min-w-0">
                     <input 
                         type="text" 
                         placeholder={t('pmx.product.search_ph')}

@@ -145,7 +145,7 @@ export const CategoriesListPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('category.list.title')}</h1>
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end min-w-0">
                     <button onClick={() => setShowImportModal(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} flex-shrink-0`}>{t('pmx.common.import')}</button>
                     <button onClick={() => openModalForCreate()} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
                         <PlusIcon /> {t('category.list.create')}
