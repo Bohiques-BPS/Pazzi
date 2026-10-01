@@ -18,6 +18,8 @@ import { ReceiptModal, type ReceiptSale } from '../../components/pos/ReceiptModa
 import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { API_URL, ApiError } from '../../services/api';
 import { salesService } from '../../services/sales';
+import { invoicesService, type Invoice } from '../../services/invoices';
+import { printInvoicePaymentReceipt } from '../../utils/printInvoicePaymentReceipt';
 import { toast } from 'react-hot-toast';
 
 /** Comprobante de abono a crédito (para imprimir via ReceiptModal). */
@@ -249,9 +251,14 @@ export const AccountsReceivablePage: React.FC = () => {
             if (Array.isArray(data)) setSales(data);
         } catch { /* noop */ }
     };
+    // Facturas (módulo Facturas) con saldo pendiente: se unifican aquí junto a las ventas a crédito.
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const reloadInvoices = async () => {
+        try { const data = await invoicesService.list(); if (Array.isArray(data)) setInvoices(data); } catch { /* noop */ }
+    };
     // Refresca los saldos al abrir la página (evita ver montos viejos si se abonó desde otra
     // pantalla, p. ej. el estado de cuenta del cliente en el POS, que no toca el caché global).
-    useEffect(() => { reloadSales(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+    useEffect(() => { reloadSales(); reloadInvoices(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
     const [showEditModal, setShowEditModal] = useState(false);
     const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
     const [showVoidConfirmModal, setShowVoidConfirmModal] = useState(false);
@@ -366,8 +373,29 @@ export const AccountsReceivablePage: React.FC = () => {
             });
         }
 
-        return filteredSales.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }, [sales, salePayments, statusFilter, clientFilterId, dueFilter]);
+        // Facturas con saldo (módulo Facturas) unificadas como filas de CxC. Solo pendientes/parciales:
+        // las pagadas viven en el módulo Facturas. Se marcan con isInvoice para enrutar sus acciones.
+        let invoiceRows: any[] = [];
+        if (statusFilter !== 'Pagadas' && dueFilter === 'all') {
+            invoiceRows = invoices
+                .filter(inv => !inv.deletedAt && (inv.status === 'pending' || inv.status === 'partial'))
+                .map(inv => {
+                    const totalPaid = inv.amountPaid ?? (inv.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+                    const balance = Math.max(0, (inv.total || 0) - totalPaid);
+                    return {
+                        id: inv.id, isInvoice: true as const, invoiceRef: inv, invoiceNumber: inv.number ?? null,
+                        date: inv.createdAt, dueDate: undefined as string | undefined,
+                        clientId: inv.clientId || '', clientName: inv.clientName || '', clientEmail: inv.clientEmail || null,
+                        totalAmount: inv.total || 0, totalPaid, balance,
+                        effectiveStatus: 'Pendiente de Pago', payments: [] as any[],
+                    };
+                })
+                .filter(r => r.balance > 0.01)
+                .filter(r => !clientFilterId || r.clientId === clientFilterId);
+        }
+
+        return [...filteredSales, ...invoiceRows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }, [sales, salePayments, invoices, statusFilter, clientFilterId, dueFilter]);
 
     // Orden por columna + paginación (conserva el acordeón de historial de pagos).
     const getReceivableSortValue = useCallback((sale: (typeof receivableData)[number], key: string): any => {
@@ -400,6 +428,28 @@ export const AccountsReceivablePage: React.FC = () => {
     const [saleForReminder, setSaleForReminder] = useState<(typeof receivableData)[0] | null>(null);
 
     const handleConfirmPayment = async (saleId: string, amount: number, method: string, notes: string, attachment?: string, sendEmail?: boolean) => {
+        // Si la fila es una factura (módulo Facturas), el abono va por su propio servicio.
+        const row: any = receivableData.find(r => r.id === saleId);
+        if (row?.isInvoice) {
+            try {
+                const updated = await invoicesService.markPaid(saleId, { amount, method, reference: notes.trim() || undefined });
+                toast.success('Abono registrado.');
+                await reloadInvoices();
+                // Recibo del abono recién registrado (último de la lista), generado en el navegador.
+                const pays = [...(updated.payments || [])].sort((a, b) => new Date(a.paidAt || 0).getTime() - new Date(b.paidAt || 0).getTime());
+                const last = pays[pays.length - 1];
+                const paidTotal = updated.amountPaid ?? pays.reduce((s, p) => s + (p.amount || 0), 0);
+                if (last) {
+                    printInvoicePaymentReceipt(
+                        { invoiceNumber: updated.number, clientName: updated.clientName, payment: last, total: updated.total || 0, paidTotal, index: pays.length },
+                        { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone },
+                    );
+                }
+            } catch (err) {
+                toast.error(err instanceof ApiError ? err.message : 'No se pudo registrar el abono de la factura.');
+            }
+            return;
+        }
         try {
             // Persistir el abono en el backend (antes solo se guardaba en memoria y se perdía al recargar).
             await salesService.addPayment(saleId, {
@@ -587,21 +637,27 @@ export const AccountsReceivablePage: React.FC = () => {
                                                 </button>
                                             )}
                                         </td>
-                                        {colChooser.visible('id') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.id.substring(0, 8).toUpperCase()}</td>}
+                                        {colChooser.visible('id') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">
+                                            {(sale as any).isInvoice
+                                                ? <span className="inline-flex items-center gap-1.5"><span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 font-medium">Factura</span>{(sale as any).invoiceNumber != null ? `#${(sale as any).invoiceNumber}` : sale.id.substring(0, 8).toUpperCase()}</span>
+                                                : sale.id.substring(0, 8).toUpperCase()}
+                                        </td>}
                                         {colChooser.visible('date') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(sale.date).toLocaleDateString()}</td>}
                                         {colChooser.visible('dueDate') && vencimiento()}
-                                        {colChooser.visible('client') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.clientId ? <ClientNameLink clientId={sale.clientId} name={getClientById(sale.clientId)?.name || t('posx.receivable.walk_in')} /> : (getClientById(sale.clientId || '')?.name || t('posx.receivable.walk_in'))}</td>}
+                                        {colChooser.visible('client') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.clientId && getClientById(sale.clientId) ? <ClientNameLink clientId={sale.clientId} name={getClientById(sale.clientId)?.name || t('posx.receivable.walk_in')} /> : ((sale as any).clientName || getClientById(sale.clientId || '')?.name || t('posx.receivable.walk_in'))}</td>}
                                         {colChooser.visible('total') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalAmount.toFixed(2)}</td>}
                                         {colChooser.visible('paid') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${sale.totalPaid.toFixed(2)}</td>}
                                         {colChooser.visible('balance') && <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${sale.balance.toFixed(2)}</span></td>}
                                         {colChooser.visible('status') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{sale.effectiveStatus}</td>}
                                         <td className="px-4 py-2 whitespace-nowrap text-base font-medium">
                                              <div className="flex space-x-1">
-                                                <button onClick={() => requestSendReminder(sale)} className="text-orange-500 p-1" title={t('pos.receivable.action.reminder')}><EnvelopeIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => handleEditReceivable(sale)} className="text-blue-600 p-1" title={t('pos.receivable.action.edit')}><EditIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => setReceiptToPrint(saleToReceipt(sale))} className="text-blue-600 p-1" title={t('posx.receivable.reprint_invoice')}><PrinterIcon className="w-4 h-4"/></button>
+                                                {!(sale as any).isInvoice && <>
+                                                    <button onClick={() => requestSendReminder(sale)} className="text-orange-500 p-1" title={t('pos.receivable.action.reminder')}><EnvelopeIcon className="w-4 h-4"/></button>
+                                                    <button onClick={() => handleEditReceivable(sale)} className="text-blue-600 p-1" title={t('pos.receivable.action.edit')}><EditIcon className="w-4 h-4"/></button>
+                                                    <button onClick={() => setReceiptToPrint(saleToReceipt(sale))} className="text-blue-600 p-1" title={t('posx.receivable.reprint_invoice')}><PrinterIcon className="w-4 h-4"/></button>
+                                                </>}
                                                 <button onClick={() => setPaymentModalSale(sale)} className="text-green-600 p-1" title={t('pos.receivable.action.payment')} disabled={sale.balance <= 0}><BanknotesIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => handleVoidReceivable(sale)} className="text-red-600 p-1" title={t('pos.receivable.action.void')}><TrashIconMini className="w-4 h-4"/></button>
+                                                {!(sale as any).isInvoice && <button onClick={() => handleVoidReceivable(sale)} className="text-red-600 p-1" title={t('pos.receivable.action.void')}><TrashIconMini className="w-4 h-4"/></button>}
                                             </div>
                                         </td>
                                     </tr>

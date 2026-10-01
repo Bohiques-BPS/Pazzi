@@ -18,6 +18,7 @@ import { MoneyInput } from '../../components/ui/MoneyInput';
 import { InvoiceDesignPreview } from '../../components/pos/InvoiceDesignPreview';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { printInvoicePaymentReceipt } from '../../utils/printInvoicePaymentReceipt';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
@@ -71,11 +72,19 @@ const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = (
 /** Modal de SOLO LECTURA: historial de abonos/pagos de una factura. */
 const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = ({ invoice, onClose }) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
     if (!invoice) return null;
     const payments = [...(invoice.payments || [])].sort((a, b) => new Date(a.paidAt || 0).getTime() - new Date(b.paidAt || 0).getTime());
     const paid = invoice.amountPaid ?? payments.reduce((s, p) => s + (p.amount || 0), 0);
     const balance = Math.max(0, (invoice.total || 0) - paid);
     const st = STATUS[invoice.status];
+    const store = { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone };
+    // Imprime (→ guardar como PDF) un recibo del abono i (0-based). El acumulado incluye hasta ese abono.
+    const printAbono = (i: number) => {
+        const p = payments[i];
+        const paidTotal = payments.slice(0, i + 1).reduce((s, x) => s + (x.amount || 0), 0);
+        printInvoicePaymentReceipt({ invoiceNumber: invoice.number, clientName: invoice.clientName, payment: p, total: invoice.total || 0, paidTotal, index: i + 1 }, store);
+    };
     return (
         <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="lg">
             <div className="space-y-4">
@@ -115,6 +124,7 @@ const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> 
                                     <th className="text-left font-medium px-3 py-2">Método</th>
                                     <th className="text-left font-medium px-3 py-2">Referencia</th>
                                     <th className="text-right font-medium px-3 py-2">Monto</th>
+                                    <th className="text-right font-medium px-3 py-2"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -125,6 +135,16 @@ const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> 
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.method || '—'}</td>
                                         <td className="px-3 py-2 text-neutral-400 dark:text-neutral-500 truncate max-w-[220px]">{p.reference || ''}</td>
                                         <td className="px-3 py-2 text-right font-semibold text-green-600 dark:text-green-400 tabular-nums">{money(p.amount)}</td>
+                                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                                            <button
+                                                type="button"
+                                                onClick={() => printAbono(i)}
+                                                title="Descargar recibo de este abono"
+                                                className="text-xs font-medium text-primary hover:underline"
+                                            >
+                                                Recibo
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -132,6 +152,7 @@ const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> 
                                 <tr className="border-t border-neutral-200 dark:border-neutral-700">
                                     <td colSpan={4} className="px-3 py-2 text-right font-medium text-neutral-500 dark:text-neutral-400">Total pagado</td>
                                     <td className="px-3 py-2 text-right font-bold text-green-600 dark:text-green-400 tabular-nums">{money(paid)}</td>
+                                    <td></td>
                                 </tr>
                             </tfoot>
                         </table>
