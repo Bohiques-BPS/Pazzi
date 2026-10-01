@@ -5,7 +5,7 @@ import { ProductFormModal } from '../pm/ProductFormModal';
 import { DataTable, type TableColumn } from '../../components/DataTable';
 import { invoicesService, type Invoice, type InvoiceItemInput, type InvoicePaymentRecord } from '../../services/invoices';
 import { authService } from '../../services/auth';
-import { ApiError, API_URL } from '../../services/api';
+import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
@@ -19,6 +19,7 @@ import { InvoiceDesignPreview } from '../../components/pos/InvoiceDesignPreview'
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { printInvoicePaymentReceipt } from '../../utils/printInvoicePaymentReceipt';
+import { invoicePdfBlobUrl, downloadInvoicePdf, openInvoicePdf, type InvoicePdfBusiness } from '../../utils/invoiceClientPdf';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
@@ -296,8 +297,10 @@ export const InvoicesListPage: React.FC = () => {
     const [pinErr, setPinErr] = useState('');
     const [pinParsed, setPinParsed] = useState<InvoiceItemInput[] | null>(null);
     const [pinPayTarget, setPinPayTarget] = useState<InvoicePaymentRecord | null>(null);
-    // Preview del PDF real (endpoint público inline) de la factura en edición.
-    const [pdfToken, setPdfToken] = useState<string | null>(null);
+    // Preview del PDF: ahora se genera en el navegador (jsPDF), sin depender del backend
+    // (el endpoint del servidor daba 502 por el límite de RAM de Render).
+    const [pdfInvoice, setPdfInvoice] = useState<Invoice | null>(null);
+    const [pdfUrl, setPdfUrl] = useState<string>('');
     const [emailFor, setEmailFor] = useState<Invoice | null>(null);
     const [toDelete, setToDelete] = useState<Invoice | null>(null);
     const [deleting, setDeleting] = useState(false);
@@ -603,25 +606,20 @@ export const InvoicesListPage: React.FC = () => {
     // Abre el modal de abono (reemplaza los prompts nativos).
     const markPaid = (inv: Invoice) => setPayFor(inv);
 
-    // Descarga el PDF de la factura (baja el blob y fuerza la descarga, aunque el endpoint sea inline).
-    const downloadPdf = async (token: string, number?: number | null) => {
-        try {
-            const res = await fetch(`${API_URL}/public/invoices/${token}/pdf`);
-            if (!res.ok) throw new Error('pdf');
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `factura-${number ?? token.slice(0, 6)}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1500);
-        } catch {
-            // Respaldo: abrir en pestaña nueva si la descarga directa falla.
-            window.open(`${API_URL}/public/invoices/${token}/pdf`, '_blank', 'noopener');
-        }
-    };
+    // Datos del negocio para el encabezado del PDF (del recibo configurado).
+    const pdfBiz: InvoicePdfBusiness = useMemo(() => {
+        const rc: any = (settings as any)?.receiptConfig || {};
+        return { businessName: rc.businessName, rnc: rc.rnc, address: rc.address, phone: rc.phone, email: rc.email, logoUrl: rc.logoUrl };
+    }, [settings]);
+
+    // URL blob para la vista previa del PDF (generado en el navegador). Se revoca al cambiar/cerrar.
+    useEffect(() => {
+        if (!pdfInvoice) { setPdfUrl(''); return; }
+        let url = '';
+        try { url = invoicePdfBlobUrl(pdfInvoice, pdfBiz); setPdfUrl(url); }
+        catch { setPdfUrl(''); toast.error('No se pudo generar el PDF.'); }
+        return () => { if (url) { try { URL.revokeObjectURL(url); } catch { /* noop */ } } };
+    }, [pdfInvoice, pdfBiz]);
 
     // Factura en edición (para mostrar/editar sus abonos). Se recalcula tras cada load().
     const editingInvoice = editId ? items.find(i => i.id === editId) || null : null;
@@ -1079,12 +1077,12 @@ export const InvoicesListPage: React.FC = () => {
                         </div>
                     )}
                     <div className="flex justify-end gap-2">
-                        {editId && editingInvoice?.publicToken && (
+                        {editId && editingInvoice && (
                             <>
-                                <button type="button" onClick={() => setPdfToken(editingInvoice.publicToken)} className={BUTTON_SECONDARY_SM_CLASSES}>
+                                <button type="button" onClick={() => editingInvoice && setPdfInvoice(editingInvoice)} className={BUTTON_SECONDARY_SM_CLASSES}>
                                     {t('posx.invoices.view_pdf')}
                                 </button>
-                                <button type="button" onClick={() => downloadPdf(editingInvoice.publicToken, editingInvoice.number)} className={BUTTON_SECONDARY_SM_CLASSES}>
+                                <button type="button" onClick={() => editingInvoice && downloadInvoicePdf(editingInvoice, pdfBiz)} className={BUTTON_SECONDARY_SM_CLASSES}>
                                     {t('posx.invoices.download_pdf')}
                                 </button>
                             </>
@@ -1159,7 +1157,7 @@ export const InvoicesListPage: React.FC = () => {
                         ) : (
                             <RowActionsMenu items={[
                                 { label: 'Ver pagos', onClick: () => setViewPayments(inv), className: 'text-green-600 dark:text-green-400' },
-                                { label: 'Ver PDF', onClick: () => setPdfToken(inv.publicToken), className: 'text-primary' },
+                                { label: 'Ver PDF', onClick: () => setPdfInvoice(inv), className: 'text-primary' },
                                 { label: t('posx.invoices.view_link_qr'), onClick: () => setShare(inv), className: 'text-primary' },
                                 { label: t('posx.invoices.copy_link'), onClick: () => copyLink(inv) },
                                 { label: t('posx.invoices.send_email'), onClick: () => sendByEmail(inv), className: 'text-blue-600 dark:text-blue-400' },
@@ -1176,21 +1174,21 @@ export const InvoicesListPage: React.FC = () => {
             <PaymentsModal invoice={viewPayments} onClose={() => setViewPayments(null)} />
             <PayModal invoice={payFor} onClose={() => setPayFor(null)} onDone={load} />
 
-            {/* Preview del PDF real de la factura (versión guardada) */}
-            <Modal isOpen={!!pdfToken} onClose={() => setPdfToken(null)} title={t('posx.invoices.pdf_preview_title')} size="4xl">
+            {/* Preview del PDF de la factura, generado en el navegador (sin depender del backend). */}
+            <Modal isOpen={!!pdfInvoice} onClose={() => setPdfInvoice(null)} title={t('posx.invoices.pdf_preview_title')} size="4xl">
                 <div className="space-y-2">
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('posx.invoices.pdf_preview_hint')}</p>
-                    {pdfToken && (
+                    {pdfUrl && (
                         <iframe
                             title="PDF"
-                            src={`${API_URL}/public/invoices/${pdfToken}/pdf`}
+                            src={pdfUrl}
                             className="w-full h-[70vh] rounded-md border border-neutral-200 dark:border-neutral-700 bg-white"
                         />
                     )}
                     <div className="flex justify-end gap-2 pt-1">
-                        <button onClick={() => pdfToken && window.open(`${API_URL}/public/invoices/${pdfToken}/pdf`, '_blank', 'noopener')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.open_new_tab')}</button>
-                        <button onClick={() => pdfToken && downloadPdf(pdfToken)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.download_pdf')}</button>
-                        <button onClick={() => setPdfToken(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close')}</button>
+                        <button onClick={() => pdfInvoice && openInvoicePdf(pdfInvoice, pdfBiz)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.open_new_tab')}</button>
+                        <button onClick={() => pdfInvoice && downloadInvoicePdf(pdfInvoice, pdfBiz)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.download_pdf')}</button>
+                        <button onClick={() => setPdfInvoice(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close')}</button>
                     </div>
                 </div>
             </Modal>
