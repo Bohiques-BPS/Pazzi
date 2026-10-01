@@ -1159,6 +1159,7 @@ export const InvoicesListPage: React.FC = () => {
                         ) : (
                             <RowActionsMenu items={[
                                 { label: 'Ver pagos', onClick: () => setViewPayments(inv), className: 'text-green-600 dark:text-green-400' },
+                                { label: 'Ver PDF', onClick: () => setPdfToken(inv.publicToken), className: 'text-primary' },
                                 { label: t('posx.invoices.view_link_qr'), onClick: () => setShare(inv), className: 'text-primary' },
                                 { label: t('posx.invoices.copy_link'), onClick: () => copyLink(inv) },
                                 { label: t('posx.invoices.send_email'), onClick: () => sendByEmail(inv), className: 'text-blue-600 dark:text-blue-400' },
