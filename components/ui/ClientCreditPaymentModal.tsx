@@ -39,14 +39,13 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     const [method, setMethod] = useState('Efectivo');
     const [reference, setReference] = useState('');
     const [distribute, setDistribute] = useState('');
-    const [cashReceived, setCashReceived] = useState(''); // efectivo entregado por el cliente (para el cambio)
     const [excessAction, setExcessAction] = useState<'change' | 'credit'>('change'); // qué hacer con el excedente
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !clientId) return;
         let cancelled = false;
-        setLoading(true); setAmounts({}); setSelected({}); setMethod('Efectivo'); setReference(''); setDistribute(''); setCashReceived(''); setExcessAction('change');
+        setLoading(true); setAmounts({}); setSelected({}); setMethod('Efectivo'); setReference(''); setDistribute(''); setExcessAction('change');
         // Mismo criterio que "Cuentas por Cobrar": pendiente = SALDO > 0 (total − pagos), no el
         // campo paymentStatus exacto (que puede diferir). Así siempre coincide con lo que ve el
         // usuario en CxC. Excluimos anuladas y devoluciones.
@@ -75,10 +74,10 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     const setAmount = (id: string, v: string) => setAmounts(prev => ({ ...prev, [id]: v }));
 
     const anySelected = useMemo(() => sales.some(s => selected[s.id]), [sales, selected]);
-    // Pago en efectivo: excedente = efectivo recibido − total asignado (como en la caja).
+    // El monto a "Repartir" es lo que paga el cliente. Si paga de más, el excedente es el vuelto
+    // (en efectivo) o saldo a favor. El excedente = lo que paga − lo aplicado a facturas.
     const isCash = method === 'Efectivo';
-    const excess = useMemo(() => r2(Math.max(0, num(cashReceived) - assigned)), [cashReceived, assigned]);
-    // El excedente va como vuelto (se devuelve) o como saldo a favor (queda en la cuenta del cliente).
+    const excess = useMemo(() => r2(Math.max(0, num(distribute) - assigned)), [distribute, assigned]);
     const change = excessAction === 'change' ? excess : 0;
     const accountCredit = excessAction === 'credit' ? excess : 0;
 
@@ -169,12 +168,12 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         <span className="text-sm text-neutral-500">{t('cmpx.credit.distribute')}</span>
                         <div className="relative">
                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
-                            <input type="number" min="0" max={totalBalance} step="0.01" value={distribute}
-                                onChange={e => { const n = parseFloat(e.target.value); setDistribute(!isNaN(n) && n > totalBalance ? totalBalance.toFixed(2) : e.target.value); }}
-                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doDistribute(Math.min(num(distribute), totalBalance)); } }} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-32 pl-5`} />
+                            <input type="number" min="0" step="0.01" value={distribute}
+                                onChange={e => setDistribute(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doDistribute(num(distribute)); } }} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-32 pl-5`} />
                         </div>
-                        <button type="button" onClick={() => doDistribute(Math.min(num(distribute), totalBalance))} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.distribute_oldest')}</button>
-                        <button type="button" onClick={() => doDistribute(totalBalance)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.pay_all')}</button>
+                        <button type="button" onClick={() => doDistribute(num(distribute))} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.distribute_oldest')}</button>
+                        <button type="button" onClick={() => { setDistribute(totalBalance.toFixed(2)); doDistribute(totalBalance); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.pay_all')}</button>
                         <button type="button" onClick={() => setAmounts({})} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-red-600`}>{t('cmpx.credit.clear')}</button>
                     </div>
 
@@ -241,50 +240,29 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         </div>
                     </div>
 
-                    {/* Efectivo: cuánto entregó el cliente y cuánto se le devuelve (como en la caja). */}
-                    {isCash && (
+                    {/* Efectivo con excedente: si el cliente paga más de lo que debe, el sobrante es
+                        vuelto (se devuelve) o saldo a favor (queda en su cuenta). */}
+                    {isCash && excess > 0.001 && (
                         <div className="space-y-2">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                                <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">{t('cmpx.credit.cash_received')}</label>
-                                    <div className="relative">
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
-                                        <input type="number" min="0" step="0.01" value={cashReceived}
-                                            onChange={e => {
-                                                const v = e.target.value;
-                                                setCashReceived(v);
-                                                // El efectivo recibido aplica a la deuda (hasta el balance): reparte
-                                                // automáticamente para que el abono quede listo y se calcule el vuelto.
-                                                doDistribute(Math.min(num(v), totalBalance));
-                                            }}
-                                            placeholder={totalBalance > 0 ? totalBalance.toFixed(2) : '0.00'}
-                                            className={`${INPUT_SM_CLASSES} w-full pl-5 tabular-nums`} />
-                                    </div>
-                                </div>
-                                {/* Resultado del excedente: vuelto o saldo a favor. */}
-                                <div className={`flex items-center justify-between rounded-md px-3 py-2 border ${accountCredit > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
-                                    <span className={`text-sm font-medium ${accountCredit > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-green-700 dark:text-green-300'}`}>
-                                        {accountCredit > 0 ? t('cmpx.credit.to_account') : t('cmpx.credit.change')}
-                                    </span>
-                                    <span className={`text-lg font-bold tabular-nums ${accountCredit > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-green-700 dark:text-green-300'}`}>
-                                        {money(accountCredit > 0 ? accountCredit : change)}
-                                    </span>
-                                </div>
+                            <div className={`flex items-center justify-between rounded-md px-3 py-2 border ${accountCredit > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
+                                <span className={`text-sm font-medium ${accountCredit > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-green-700 dark:text-green-300'}`}>
+                                    {accountCredit > 0 ? t('cmpx.credit.to_account') : t('cmpx.credit.change')}
+                                </span>
+                                <span className={`text-lg font-bold tabular-nums ${accountCredit > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-green-700 dark:text-green-300'}`}>
+                                    {money(accountCredit > 0 ? accountCredit : change)}
+                                </span>
                             </div>
-                            {/* Si sobra efectivo, el cliente decide: vuelto o dejarlo como saldo a favor. */}
-                            {excess > 0.001 && (
-                                <div className="flex flex-wrap items-center gap-2 text-sm">
-                                    <span className="text-neutral-500">{t('cmpx.credit.excess_q', { amount: money(excess) })}</span>
-                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                                        <input type="radio" name="excessAction" checked={excessAction === 'change'} onChange={() => setExcessAction('change')} className="h-4 w-4" />
-                                        {t('cmpx.credit.give_change')}
-                                    </label>
-                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                                        <input type="radio" name="excessAction" checked={excessAction === 'credit'} onChange={() => setExcessAction('credit')} className="h-4 w-4" />
-                                        {t('cmpx.credit.leave_as_credit')}
-                                    </label>
-                                </div>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <span className="text-neutral-500">{t('cmpx.credit.excess_q', { amount: money(excess) })}</span>
+                                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="excessAction" checked={excessAction === 'change'} onChange={() => setExcessAction('change')} className="h-4 w-4" />
+                                    {t('cmpx.credit.give_change')}
+                                </label>
+                                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="excessAction" checked={excessAction === 'credit'} onChange={() => setExcessAction('credit')} className="h-4 w-4" />
+                                    {t('cmpx.credit.leave_as_credit')}
+                                </label>
+                            </div>
                         </div>
                     )}
 
