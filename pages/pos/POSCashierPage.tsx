@@ -194,8 +194,7 @@ const POSActionAuthModal: React.FC<{
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">{message}</p>
                 <div>
                     <label className="block text-sm font-medium">{inputLabel || t('posx.cashier.pin')}</label>
-                    <input
-                        type="password"
+                    <PasswordInput
                         inputMode={allowText ? 'text' : 'numeric'}
                         autoComplete="off"
                         value={pin}
