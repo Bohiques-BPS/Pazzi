@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../Modal';
 import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { salesService } from '../../services/sales';
+import type { PaymentReceipt } from '../../services/clients';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -116,7 +117,25 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
         try {
             const res = await salesService.bulkPayment({ clientId, method, reference: reference.trim() || undefined, allocations });
             toast.success(t('cmpx.credit.payment_ok', { amount: money(res.total), count: res.count }));
-            onPaid?.({ total: res.total, method, reference: reference.trim() || undefined, receipt: (res as any).receipt });
+            // Recibo que muestra cada abono y la deuda final (se imprime en el padre vía onPaid).
+            // Si el backend ya devolvió un recibo con folio real, se usa ese; si no, se arma aquí.
+            const built: PaymentReceipt = {
+                id: (res as any).receipt?.id || '',
+                receiptNumber: (res as any).receipt?.receiptNumber ?? 0,
+                clientId,
+                clientName: clientName || null,
+                date: new Date().toISOString(),
+                method,
+                reference: reference.trim() || null,
+                totalPaid: r2(res.total),
+                balanceAfter: r2(totalBalance - res.total),
+                cashierName: null,
+                allocations: allocations.map(a => {
+                    const s = sales.find(x => x.id === a.saleId);
+                    return { saleId: a.saleId, saleNumber: s?.saleNumber ?? null, amount: a.amount, balanceAfter: r2((s?.balance || 0) - a.amount) };
+                }),
+            };
+            onPaid?.({ total: res.total, method, reference: reference.trim() || undefined, receipt: (res as any).receipt || built });
             onClose();
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('cmpx.credit.payment_error'));
@@ -141,9 +160,11 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         <span className="text-sm text-neutral-500">{t('cmpx.credit.distribute')}</span>
                         <div className="relative">
                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
-                            <input type="number" min="0" step="0.01" value={distribute} onChange={e => setDistribute(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doDistribute(num(distribute)); } }} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-32 pl-5`} />
+                            <input type="number" min="0" max={totalBalance} step="0.01" value={distribute}
+                                onChange={e => { const n = parseFloat(e.target.value); setDistribute(!isNaN(n) && n > totalBalance ? totalBalance.toFixed(2) : e.target.value); }}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doDistribute(Math.min(num(distribute), totalBalance)); } }} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-32 pl-5`} />
                         </div>
-                        <button type="button" onClick={() => doDistribute(num(distribute))} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.distribute_oldest')}</button>
+                        <button type="button" onClick={() => doDistribute(Math.min(num(distribute), totalBalance))} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.distribute_oldest')}</button>
                         <button type="button" onClick={() => doDistribute(totalBalance)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.pay_all')}</button>
                         <button type="button" onClick={() => setAmounts({})} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-red-600`}>{t('cmpx.credit.clear')}</button>
                     </div>
@@ -162,6 +183,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                                     <th className="text-left p-2">{t('common.date')}</th>
                                     <th className="text-right p-2">{t('cmpx.credit.col_balance')}</th>
                                     <th className="text-right p-2 w-32">{t('cmpx.credit.col_pay')}</th>
+                                    <th className="text-right p-2">{t('cmpx.credit.col_remaining')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700">
@@ -184,6 +206,12 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                                                 placeholder="0.00"
                                                 className={`${INPUT_SM_CLASSES} w-28 text-right tabular-nums`}
                                             />
+                                        </td>
+                                        <td className="p-2 text-right tabular-nums font-medium">
+                                            {(() => {
+                                                const rem = r2(s.balance - Math.min(num(amounts[s.id]), s.balance));
+                                                return <span className={rem < 0.005 ? 'text-green-600 dark:text-green-400' : 'text-neutral-600 dark:text-neutral-300'}>{money(rem)}</span>;
+                                            })()}
                                         </td>
                                     </tr>
                                 ))}
