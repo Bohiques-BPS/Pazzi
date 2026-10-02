@@ -447,12 +447,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                     <Cog6ToothIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.my_account')}
                 </Link>
                 <Link 
-                    to="/configuration" 
-                    onClick={() => setUserDropdownOpen(false)} 
-                    className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
+                    to="/configuration"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                     role="menuitem"
                 >
                     <WrenchScrewdriverIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.configuration')}
+                </Link>
+                <Link
+                    to="/profile"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                    role="menuitem"
+                >
+                    <UserCircleIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.profile') || 'Mi perfil'}
                 </Link>
                 <button
                     onClick={() => {handleLogout(); setUserDropdownOpen(false);}}
