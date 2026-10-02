@@ -28,12 +28,17 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     const header: [number, number, number] = [76, 175, 80];   // #4CAF50
     let y = M;
 
-    // Logo (data URL ya resuelto: data URI directo o URL http descargada por el llamador).
+    // Logo (data URL ya resuelto). Se ajusta a una caja máxima SIN deformar (conserva proporción).
     let logoBottom = y;
     if (logoDataUrl) {
         try {
-            doc.addImage(logoDataUrl, dataUrlFormat(logoDataUrl), M, y, 120, 60, undefined, 'FAST');
-            logoBottom = y + 66;
+            const maxW = 120, maxH = 60;
+            const props = doc.getImageProperties(logoDataUrl);
+            const ratio = (props.width && props.height) ? props.width / props.height : maxW / maxH;
+            let w = maxW, h = maxW / ratio;
+            if (h > maxH) { h = maxH; w = maxH * ratio; }
+            doc.addImage(logoDataUrl, dataUrlFormat(logoDataUrl), M, y, w, h, undefined, 'FAST');
+            logoBottom = y + h + 6;
         } catch { /* logo inválido: se ignora */ }
     }
 
