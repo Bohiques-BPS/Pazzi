@@ -245,7 +245,7 @@ export const POSCashierPage: React.FC = () => {
     // Modal de apertura de gaveta "Sin venta" (exige razón + PIN).
     const [showDrawerOpen, setShowDrawerOpen] = useState(false);
     // Error al registrar la venta (stock insuficiente, turno cerrado, etc.) → modal claro.
-    const [saleError, setSaleError] = useState<{ message: string; code?: string } | null>(null);
+    const [saleError, setSaleError] = useState<{ message: string; code?: string; details?: any } | null>(null);
     // Intento de venta guardado para reintentar como sobreventa (cuando falla por stock).
     const [pendingSaleRetry, setPendingSaleRetry] = useState<{ payments: { method: string; amount: number; reference?: string }[]; changeDue?: number } | null>(null);
     // Menú "Opciones" del cliente activo (pagar cuenta, ver estado de cuenta).
@@ -1001,7 +1001,7 @@ export const POSCashierPage: React.FC = () => {
             // La venta NO se guardó: mostramos un modal claro y conservamos el carrito para reintentar.
             // Guardamos el intento (pagos/vuelto) por si el usuario confirma vender sin stock (sobreventa).
             setPendingSaleRetry({ payments, changeDue });
-            setSaleError({ message: err?.message || 'No se pudo registrar la venta.', code: err?.code });
+            setSaleError({ message: err?.message || 'No se pudo registrar la venta.', code: err?.code, details: err?.details });
             return;
         }
 
@@ -1683,10 +1683,17 @@ export const POSCashierPage: React.FC = () => {
                                         <span className="font-medium w-24 sm:w-32">${taxReduced.toFixed(2)}</span>
                                     </div>
                                 )}
+                                {/* Si no se cobró IVU (caja sin IVU o todo exento), mostrarlo igual en $0.00. */}
+                                {taxState <= 0 && taxMunicipal <= 0 && taxReduced <= 0 && (
+                                    <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
+                                        <span className="text-neutral-500">{t('pos.tax')}: {!isCurrentCajaApplyIVU && <span className="text-xs text-amber-600 dark:text-amber-400">(Exento)</span>}</span>
+                                        <span className="font-medium w-24 sm:w-32">$0.00</span>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <div className="flex justify-end items-center gap-2 sm:gap-4 text-sm sm:text-lg">
-                                <span className="text-neutral-500">{t('pos.tax')}:</span>
+                                <span className="text-neutral-500">{t('pos.tax')}: {tax <= 0 && !isCurrentCajaApplyIVU && <span className="text-xs text-amber-600 dark:text-amber-400">(Exento)</span>}</span>
                                 <span className="font-medium w-24 sm:w-32">${tax.toFixed(2)}</span>
                             </div>
                         )}
@@ -1786,7 +1793,19 @@ export const POSCashierPage: React.FC = () => {
                         <div>
                             <p className="text-base font-medium text-neutral-800 dark:text-neutral-100">{saleError?.message}</p>
                             {saleError?.code === 'INSUFFICIENT_STOCK' && (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.oversell_prompt')}</p>
+                                <>
+                                    {Array.isArray(saleError.details) && saleError.details.length > 0 && (
+                                        <ul className="mt-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 space-y-0.5">
+                                            {saleError.details.map((d: any, i: number) => (
+                                                <li key={i} className="flex justify-between gap-3">
+                                                    <span className="truncate">{d.productName || d.productId}</span>
+                                                    <span className="whitespace-nowrap">pedido {d.requested} · disp. {d.available}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.oversell_prompt')}</p>
+                                </>
                             )}
                             {saleError?.code === 'CAJA_NOT_OPEN' && (
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.caja_not_open_hint_1')}<strong>{t('posx.cashier.shift_of_register')}</strong>{t('posx.cashier.caja_not_open_hint_2')}</p>

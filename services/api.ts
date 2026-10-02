@@ -12,12 +12,14 @@ class ApiError extends Error {
   public status: number;
   public errors?: any[];
   public code?: string;
+  public details?: any; // payload adicional del backend (p. ej. productos sin stock)
 
-  constructor(message: string, status: number, errors?: any[], code?: string) {
+  constructor(message: string, status: number, errors?: any[], code?: string, details?: any) {
     super(message);
     this.status = status;
     this.errors = errors;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -129,7 +131,7 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
        res.status === 500 ? 'Error interno del servidor' :
        'Error de conexión');
 
-    const apiErr = new ApiError(message, res.status, errorData.errors, errorData.code);
+    const apiErr = new ApiError(message, res.status, errorData.errors, errorData.code, errorData.details);
     emit(apiErr);
     throw apiErr;
   }
