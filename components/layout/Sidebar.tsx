@@ -22,7 +22,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === currentModule);
   // Por defecto TODOS los grupos CERRADOS; solo UNO abierto a la vez (acordeón).
   // null = ninguno abierto.
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  // Varios grupos pueden estar abiertos a la vez: abrir uno NO cierra el anterior, así el menú no
+  // se mueve durante el clic (USO-8).
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   // Badge de chats de proyecto sin leer (solo consulta estando en el módulo de Proyectos).
   const { totalUnread: unreadChats } = useChatUnread(currentModule === AppModule.PROJECT_MANAGEMENT);
 
@@ -78,11 +80,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   }
 
 
-  // Abre automáticamente el grupo (dropdown) que contiene la ruta activa.
+  // Abre (sin cerrar los demás) el grupo que contiene la ruta activa.
   useEffect(() => {
     for (const item of subModulesToDisplay) {
       if (item.type === 'group' && (item as any).children?.some((c: any) => c.type === 'link' && c.path && location.pathname.startsWith(c.path))) {
-        setOpenGroup(item.name);
+        setOpenGroups(prev => prev.has(item.name) ? prev : new Set(prev).add(item.name));
         return;
       }
     }
@@ -96,8 +98,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   };
 
   const toggleGroup = (groupName: string) => {
-    // Acordeón: abrir uno cierra los demás; clic en el abierto lo cierra.
-    setOpenGroup(prev => (prev === groupName ? null : groupName));
+    // Alterna este grupo sin tocar los demás (no se colapsa el anterior).
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupName)) next.delete(groupName); else next.add(groupName);
+      return next;
+    });
   };
 
   if (currentUser?.role === UserRole.CLIENT_ECOMMERCE) { 
@@ -119,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
     const translatedName = t(item.name);
 
     if (item.type === 'group') {
-      const isGroupOpen = openGroup === item.name;
+      const isGroupOpen = openGroups.has(item.name);
       
       return (
         <div key={`${item.name}-${index}`}>
