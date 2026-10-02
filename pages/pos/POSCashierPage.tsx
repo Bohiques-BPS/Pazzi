@@ -1240,6 +1240,12 @@ export const POSCashierPage: React.FC = () => {
 
 
     const isShiftActive = isPosAuthenticated && shiftState?.active;
+    // Turno abierto demasiado tiempo (> 24 h): rompe el cuadre diario. Avisamos y ofrecemos cerrarlo.
+    const shiftHoursOpen = useMemo(() => {
+        if (!shiftState?.startTime) return 0;
+        return (Date.now() - new Date(shiftState.startTime).getTime()) / 3600000;
+    }, [shiftState]);
+    const shiftTooLong = isShiftActive && shiftHoursOpen >= 24;
     
     const currentCajaName = cajas.find(c => c.id === selectedCajaId)?.name || '0008';
     const isCurrentCajaExternal = cajas.find(c => c.id === selectedCajaId)?.isExternal;
@@ -1432,6 +1438,13 @@ export const POSCashierPage: React.FC = () => {
             <nav className="bg-gray-200 dark:bg-neutral-700 p-1 sm:p-1.5 grid grid-cols-5 sm:flex sm:items-stretch gap-1 sm:gap-1.5 flex-shrink-0 shadow-sm w-full">
                 {actionButtons.map(btn => <ActionButton key={btn.text} {...btn} />)}
             </nav>
+
+            {shiftTooLong && (
+                <div className="bg-amber-100 dark:bg-amber-900/30 border-y border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 px-3 py-2 flex items-center justify-between gap-3 text-sm flex-shrink-0">
+                    <span>⚠️ Este turno lleva <strong>{Math.floor(shiftHoursOpen / 24) >= 1 ? `${Math.floor(shiftHoursOpen / 24)} día(s)` : `${Math.floor(shiftHoursOpen)} h`}</strong> abierto. Ciérralo para cuadrar la caja y no mezclar ventas de días distintos.</span>
+                    <button onClick={() => setActiveModal('dailyClose')} className="flex-shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-1.5 px-3 rounded-md text-xs whitespace-nowrap">Cerrar turno (F7)</button>
+                </div>
+            )}
 
             <main className="flex-grow p-3 overflow-hidden">
                 <div className="bg-white dark:bg-neutral-800 h-full rounded-lg shadow-lg flex flex-col text-neutral-800 dark:text-neutral-100">
