@@ -29,6 +29,7 @@ export interface ClientSaleRecent {
   paymentMethod: string;
   paymentStatus: string;
   isReturn: boolean;
+  projectId?: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -91,6 +92,7 @@ export interface ClientReceivable {
   dueDate: string | null;
   daysOverdue: number;
   paymentStatus: string;
+  projectId?: string | null;
 }
 
 export interface ClientTopProduct {

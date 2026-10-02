@@ -85,7 +85,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         setCounted({});
         setNotes('');
         setConfirmHighDiff(false);
-        setDenomMode(false);
+        setDenomMode(true); // por defecto: contar efectivo por denominación
         setDenomCounts({});
         cajasService.getCurrentSession(cajaId)
             .then(({ session, totals }) => {

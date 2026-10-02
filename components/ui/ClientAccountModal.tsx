@@ -215,6 +215,8 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
     const [data, setData] = useState<ClientSummary | null>(null);
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<TabKey>('ar');
+    // Filtro por proyecto (desde la pestaña Proyectos → "Ver"): acota Ventas y Cuentas por cobrar.
+    const [projectFilter, setProjectFilter] = useState<{ id: string; name: string } | null>(null);
     // Abono (Pagos y Créditos) + recibos.
     const [payOpen, setPayOpen] = useState(false);
     const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
@@ -231,6 +233,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         let cancelled = false;
         setLoading(true);
         setData(null);
+        setProjectFilter(null);
         // period amplio (~10 años) para ver historial completo, no solo 90 días.
         clientsService.getSummary(client.id, { period: 3650 })
             .then(res => { if (!cancelled) { setData(res); setTab(prev => prev && prev !== 'ar' ? prev : (res.accountsReceivable.length ? 'ar' : 'sales')); setCreditLimit(Number((res.client as any)?.creditLimit ?? (client as any)?.creditLimit ?? 0)); } })
@@ -321,11 +324,22 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                         ))}
                     </div>
 
+                    {/* Filtro activo por proyecto (acota Ventas y Cuentas por cobrar). */}
+                    {projectFilter && (tab === 'ar' || tab === 'sales') && (
+                        <div className="mb-2 flex items-center gap-2 text-sm">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                📁 {projectFilter.name}
+                                <button type="button" onClick={() => setProjectFilter(null)} className="hover:text-primary/70" title="Quitar filtro">✕</button>
+                            </span>
+                            <span className="text-neutral-400 text-xs">Mostrando solo de este proyecto</span>
+                        </div>
+                    )}
+
                     {/* Contenido del tab */}
                     <div className="flex-1 min-h-0">
                         {tab === 'ar' && (
                             <SmartTable
-                                rows={data.accountsReceivable}
+                                rows={projectFilter ? data.accountsReceivable.filter(r => r.projectId === projectFilter.id) : data.accountsReceivable}
                                 emptyText="Sin saldos pendientes."
                                 initialSortKey="balance" initialSortDir="desc"
                                 selectFilters={[{ key: 'st', label: 'Estado', get: r => r.paymentStatus || '' }]}
@@ -349,7 +363,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                         )}
                         {tab === 'sales' && (
                             <SmartTable
-                                rows={data.recentSales}
+                                rows={projectFilter ? data.recentSales.filter(r => r.projectId === projectFilter.id) : data.recentSales}
                                 emptyText="Sin ventas."
                                 initialSortKey="date" initialSortDir="desc"
                                 selectFilters={[
@@ -411,9 +425,9 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'st', label: 'Estado', text: r => r.status || '', render: r => <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700">{r.status}</span> },
                                     { key: 'createdAt', label: 'Creado', text: r => dateStr(r.createdAt), sort: r => new Date(r.createdAt).getTime(), render: r => dateStr(r.createdAt) },
                                     { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => (
-                                        // Desde la caja no se navega a Gestión de Proyectos (solo vista de reporte).
+                                        // Desde la caja: ver facturas/CxC de ese proyecto (no navega a Gestión).
                                         fromPos
-                                            ? <span className="text-xs text-neutral-400">—</span>
+                                            ? <button type="button" onClick={() => { setProjectFilter({ id: r.id, name: r.name }); setTab('ar'); }} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap">Ver cobros</button>
                                             : <button type="button" onClick={() => actOpenProject(r.id)} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap">Abrir</button>
                                     ) },
                                 ]}
