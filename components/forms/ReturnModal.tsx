@@ -60,8 +60,14 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
             return;
         }
     
-        // Attempt to find by ID first (more specific)
-        const saleById = sales.find(s => s.id.toLowerCase() === searchTerm.toLowerCase() || s.id.slice(-6).toUpperCase() === searchTerm.toUpperCase());
+        // Buscar por número de venta o por ID (lo más específico). El usuario normalmente escribe
+        // el número de venta (ej. "85" o "#85"), no el UUID.
+        const numTerm = searchTerm.replace(/^#/, '');
+        const saleById = sales.find(s =>
+            String((s as any).saleNumber ?? '') === numTerm ||
+            s.id.toLowerCase() === searchTerm.toLowerCase() ||
+            s.id.slice(-6).toUpperCase() === searchTerm.toUpperCase()
+        );
     
         if (saleById) {
             if (saleById.isReturn) {
