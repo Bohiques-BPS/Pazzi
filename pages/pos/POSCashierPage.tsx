@@ -1270,7 +1270,7 @@ export const POSCashierPage: React.FC = () => {
     
     // UI Render
     if (!isPosAuthenticated) {
-      return <POSActionAuthModal isOpen={true} onClose={() => navigate('/')} onConfirm={handleInitialAuth} title={t('posx.cashier.register_access')} message={t('posx.cashier.register_access_msg')} inputLabel={t('posx.cashier.password_or_pin')} allowText />;
+      return <POSActionAuthModal isOpen={true} onClose={() => navigate('/pos/cajas')} onConfirm={handleInitialAuth} title={t('posx.cashier.register_access')} message={t('posx.cashier.register_access_msg')} inputLabel={t('posx.cashier.password_or_pin')} allowText />;
     }
     
     if (!shiftState?.active) {
@@ -1330,7 +1330,7 @@ export const POSCashierPage: React.FC = () => {
         return (
             <OpenCajaModal
                 isOpen={true}
-                onClose={() => navigate('/')}
+                onClose={() => navigate('/pos/cajas')}
                 caja={{ id: currentCajaForOpen.id, name: currentCajaForOpen.name }}
                 onOpened={handleShiftOpened}
             />

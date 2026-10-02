@@ -75,12 +75,24 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         }
 
         const lowerSearchTerm = term.toLowerCase();
+        // Puntaje de relevancia: nombre que EMPIEZA con el término > nombre que lo contiene > SKU/código.
+        // Los productos sin precio ($0) bajan al final (suelen ser pruebas o sin configurar).
+        const score = (p: any): number => {
+            const n = (p.name || '').toLowerCase();
+            let s = 0;
+            if (n.startsWith(lowerSearchTerm)) s = 100;
+            else if (n.includes(lowerSearchTerm)) s = 60;
+            else if (p.skus && p.skus.some((sku: string) => sku.toLowerCase().includes(lowerSearchTerm))) s = 30;
+            else s = 10; // match por código de barras
+            if (!(Number(p.unitPrice) > 0)) s -= 50; // sin precio → al final
+            return s;
+        };
         const filtered = products.filter(product =>
             product.name.toLowerCase().includes(lowerSearchTerm) ||
             (product.skus && product.skus.some(sku => sku.toLowerCase().includes(lowerSearchTerm))) ||
             (product.barcode13Digits && product.barcode13Digits.includes(lowerSearchTerm)) ||
             (product.barcode2 && product.barcode2.includes(lowerSearchTerm))
-        ).slice(0, 7); // Limit to 7 suggestions for performance and UI
+        ).sort((a, b) => score(b) - score(a)).slice(0, 7); // Orden por relevancia, 7 sugerencias
 
         setSuggestions(filtered);
         setCapped(false);

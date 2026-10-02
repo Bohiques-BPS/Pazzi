@@ -7,7 +7,9 @@ import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES,
 import { TrashIconMini, PlusIcon, ExclamationTriangleIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { PhoneInput } from '../../components/ui/PhoneInput';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 import { POSProjectFormModal } from '../pos/POSProjectFormModal';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
@@ -33,6 +35,8 @@ const salespersonOptions = ['ADM ADM', 'Vendedor 1', 'Vendedor 2'];
 
 export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose, client}) => {
     const { t } = useTranslation();
+    const { currentUser } = useAuth();
+    const canSeeSsn = currentUser?.role === 'MANAGER'; // dato sensible: solo el gerente lo ve/edita
     const { settings } = useGlobalSettings();
     const { setClients, clients: allClients, projects } = useData();
     
@@ -322,7 +326,13 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             <div><label className="block text-sm font-medium">{t('common.email')}</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} /></div>
             <div><label className="block text-sm font-medium">{t('client.field.contact_person')}</label><input type="text" name="contactPersonName" value={formData.contactPersonName} onChange={handleChange} className={inputFormStyle}/></div>
              <div className="grid grid-cols-2 gap-2">
-                <div><label className="block text-sm font-medium">{t('client.field.ssn')}</label><input type="text" name="socialSecurity" value={formData.socialSecurity} onChange={handleChange} className={inputFormStyle} /></div>
+                {canSeeSsn && (
+                    <div>
+                        <label className="block text-sm font-medium">{t('client.field.ssn')}</label>
+                        {/* Dato sensible: enmascarado (ojito para revelar) y solo visible para el gerente. */}
+                        <PasswordInput name="socialSecurity" value={formData.socialSecurity} onChange={handleChange} className={inputFormStyle} autoComplete="off" inputMode="numeric" />
+                    </div>
+                )}
                 <div><label className="block text-sm font-medium">{t('client.field.dob')}</label><input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className={inputFormStyle} /></div>
             </div>
             <div>
