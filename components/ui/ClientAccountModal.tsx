@@ -259,6 +259,12 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         }
     };
 
+    // En modo caja, si la pestaña activa quedó en una oculta (p. ej. 'projects'), vuelve a 'ar'.
+    // Debe ir ANTES del return temprano para no romper el orden de hooks (React #310).
+    useEffect(() => {
+        if (fromPos && !['ar', 'sales', 'receipts'].includes(tab)) setTab('ar');
+    }, [fromPos, tab]);
+
     if (!isOpen || !client) return null;
 
     const s = data?.summary;
@@ -282,8 +288,6 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
             { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
         ]
     ) : [];
-    // Si la pestaña activa quedó oculta (p. ej. 'projects' en modo caja), vuelve a Cuentas por cobrar.
-    useEffect(() => { if (data && TABS.length && !TABS.some(x => x.key === tab)) setTab('ar'); /* eslint-disable-next-line */ }, [data, fromPos, tab]);
 
     return (
       <>
