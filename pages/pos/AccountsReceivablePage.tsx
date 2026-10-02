@@ -384,7 +384,7 @@ export const AccountsReceivablePage: React.FC = () => {
                     const balance = Math.max(0, (inv.total || 0) - totalPaid);
                     return {
                         id: inv.id, isInvoice: true as const, invoiceRef: inv, invoiceNumber: inv.number ?? null,
-                        date: inv.createdAt, dueDate: undefined as string | undefined,
+                        date: inv.createdAt, dueDate: inv.dueDate ? String(inv.dueDate).slice(0, 10) : undefined,
                         clientId: inv.clientId || '', clientName: inv.clientName || '', clientEmail: inv.clientEmail || null,
                         totalAmount: inv.total || 0, totalPaid, balance,
                         effectiveStatus: 'Pendiente de Pago', payments: [] as any[],

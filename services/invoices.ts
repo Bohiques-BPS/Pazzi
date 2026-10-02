@@ -25,6 +25,7 @@ export interface Invoice {
     total: number;
     amountPaid?: number;
     description?: string | null;
+    dueDate?: string | null;
     status: 'pending' | 'partial' | 'paid' | 'cancelled';
     paidMethod?: string | null;
     paidReference?: string | null;
@@ -58,6 +59,7 @@ export interface CreateInvoiceInput {
     designOverride?: Record<string, any> | null; // personalización de diseño solo para esta factura
     initialPayments?: { method?: string | null; amount: number; reference?: string | null; paidAt?: string | null }[]; // abonos ya realizados
     createdAt?: string | null; // fecha de la factura, si no es hoy (solo hacia atras)
+    dueDate?: string | null;   // vencimiento de la factura (opcional; puede ser futura)
 }
 
 export interface UpdateInvoiceInput {
@@ -70,6 +72,7 @@ export interface UpdateInvoiceInput {
     allowedMethods?: string | null;
     allowPartial?: boolean;
     type?: string | null;
+    dueDate?: string | null;   // vencimiento (puede ser futura; '' o null lo limpia)
 }
 
 export interface PublicInvoiceBusiness {

@@ -329,6 +329,8 @@ export const InvoicesListPage: React.FC = () => {
     const [editId, setEditId] = useState<string | null>(null);
     // Fecha de la factura: hoy por defecto; se puede poner una anterior si se registra tarde.
     const [invDate, setInvDate] = useState(hoyISO());
+    // Vencimiento de la factura (opcional; vacío = sin vencimiento). Puede ser futura.
+    const [dueDate, setDueDate] = useState('');
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
     // Filtros extra
     const [cashierF, setCashierF] = useState('all');
@@ -355,7 +357,7 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); };
 
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
     const openEdit = (inv: Invoice) => {
@@ -367,6 +369,7 @@ export const InvoicesListPage: React.FC = () => {
         setInvType(inv.type || '');
         setAllowPartial(inv.allowPartial !== false);
         setInvDate(isoAFecha(inv.createdAt));
+        setDueDate(inv.dueDate ? isoAFecha(inv.dueDate) : '');
         setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), taxRate: (it as any).taxRate ?? undefined })));
         setSendOnCreate(false);
         setShowForm(true);
@@ -502,6 +505,7 @@ export const InvoicesListPage: React.FC = () => {
                     allowPartial,
                     type: invType.trim() || null,
                     createdAt: editingInvoice && invDate !== isoAFecha(editingInvoice.createdAt) ? fechaAIso(invDate) : undefined,
+                    dueDate: dueDate || null,
                 });
                 toast.success(t('posx.invoices.updated'));
                 setShowForm(false); resetForm(); load();
@@ -516,6 +520,7 @@ export const InvoicesListPage: React.FC = () => {
                     type: invType.trim() || null,
                     designOverride: Object.keys(design).length ? design : undefined,
                     createdAt: invDate !== hoyISO() ? fechaAIso(invDate) : undefined,
+                    dueDate: dueDate || undefined,
                     initialPayments: abonos.map(a => ({ method: a.method, amount: Number(a.amount) || 0, reference: a.reference.trim() || undefined, paidAt: a.date && a.date !== hoyISO() ? fechaAIso(a.date) : undefined })).filter(a => a.amount > 0),
                 });
                 toast.success(sendOnCreate && email.trim() ? t('posx.invoices.created_sent', { email: email.trim() }) : t('posx.invoices.created'));
@@ -813,6 +818,10 @@ export const InvoicesListPage: React.FC = () => {
                         <div>
                             <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.invoice_date')}</label>
                             <input type="date" value={invDate} max={hoyISO()} onChange={e => setInvDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} title={t('posx.invoices.invoice_date_hint')} />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Vencimiento <span className="text-neutral-400">(opcional)</span></label>
+                            <input type="date" value={dueDate} min={invDate} onChange={e => setDueDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} title="Fecha de vencimiento de la factura" />
                         </div>
                     </div>
 

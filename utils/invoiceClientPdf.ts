@@ -77,6 +77,7 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     };
     metaRow('Número', inv.number ? `#${inv.number}` : '—');
     metaRow('Fecha', new Date(inv.createdAt || Date.now()).toLocaleDateString('es-PR'));
+    if (inv.dueDate) metaRow('Vence', new Date(`${String(inv.dueDate).slice(0, 10)}T12:00:00`).toLocaleDateString('es-PR'));
     if (inv.type) metaRow('Tipo', String(inv.type));
     metaRow('Estado', paid ? 'PAGADA' : 'PENDIENTE');
 
