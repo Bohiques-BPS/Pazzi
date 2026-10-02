@@ -19,6 +19,9 @@ interface ClientAccountModalProps {
     isOpen: boolean;
     onClose: () => void;
     client: Client | null;
+    /** Desde la caja: solo Ventas, Cuentas por cobrar y Recibos de pago (la caja no gestiona
+     *  proyectos de gestión; sus "proyectos" son solo para cobro). Oculta Proyectos/Cotizaciones/etc. */
+    fromPos?: boolean;
 }
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -172,7 +175,7 @@ function SmartTable<T>({ rows, columns, selectFilters = [], initialSortKey, init
 
 type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products' | 'receipts';
 
-export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client }) => {
+export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client, fromPos }) => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { settings } = useGlobalSettings();
@@ -262,15 +265,25 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
     const itemsText = (items: { quantity: number; product?: { name: string } }[]) =>
         (items || []).map(it => `${it.product?.name || 'Producto'} ×${it.quantity}`).join(', ');
 
-    const TABS: { key: TabKey; label: string; count: number }[] = data ? [
-        { key: 'ar', label: 'Cuentas por cobrar', count: data.accountsReceivable.length },
-        { key: 'sales', label: 'Ventas', count: data.recentSales.length },
-        { key: 'estimates', label: 'Cotizaciones', count: data.recentEstimates.length },
-        { key: 'layaways', label: 'Apartados', count: data.recentLayaways.length },
-        { key: 'projects', label: 'Proyectos', count: data.projects.length },
-        { key: 'products', label: 'Top productos', count: data.topProducts.length },
-        { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
-    ] : [];
+    const TABS: { key: TabKey; label: string; count: number }[] = data ? (
+        // Desde la caja: solo cobro (Cuentas por cobrar, Ventas, Recibos de pago). La caja no
+        // gestiona proyectos ni cotizaciones/apartados, así que esas pestañas se ocultan.
+        fromPos ? [
+            { key: 'ar', label: 'Cuentas por cobrar', count: data.accountsReceivable.length },
+            { key: 'sales', label: 'Ventas', count: data.recentSales.length },
+            { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
+        ] : [
+            { key: 'ar', label: 'Cuentas por cobrar', count: data.accountsReceivable.length },
+            { key: 'sales', label: 'Ventas', count: data.recentSales.length },
+            { key: 'estimates', label: 'Cotizaciones', count: data.recentEstimates.length },
+            { key: 'layaways', label: 'Apartados', count: data.recentLayaways.length },
+            { key: 'projects', label: 'Proyectos', count: data.projects.length },
+            { key: 'products', label: 'Top productos', count: data.topProducts.length },
+            { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
+        ]
+    ) : [];
+    // Si la pestaña activa quedó oculta (p. ej. 'projects' en modo caja), vuelve a Cuentas por cobrar.
+    useEffect(() => { if (data && TABS.length && !TABS.some(x => x.key === tab)) setTab('ar'); /* eslint-disable-next-line */ }, [data, fromPos, tab]);
 
     return (
       <>

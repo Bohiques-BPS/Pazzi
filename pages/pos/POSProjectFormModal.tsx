@@ -21,12 +21,16 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
   const { setProjects } = useData();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  // Por defecto el proyecto de caja es SOLO para cobro (interno). Si se marca, se crea además en
+  // Gestión de Proyectos (billingOnly = false) para poder gestionarlo (tareas, recursos, etc.).
+  const [inManagement, setInManagement] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setName('');
       setDescription('');
+      setInManagement(false);
     }
   }, [isOpen]);
 
@@ -52,7 +56,8 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
       workMode: 'daysOnly',
       workDays: [],
       workDayTimeRanges: [],
-      billingOnly: true, // creado en caja → solo para la factura, no aparece en Gestión
+      // Solo cobro (interno) a menos que el usuario pida crearlo también en Gestión de Proyectos.
+      billingOnly: !inManagement,
     } as any;
 
     setSaving(true);
@@ -95,6 +100,14 @@ export const POSProjectFormModal: React.FC<POSProjectFormModalProps> = ({ isOpen
                     placeholder={t('posx.projectform.description_placeholder')}
                 />
             </div>
+            {/* Interno (solo cobro) vs crear en Gestión de Proyectos. */}
+            <label className="flex items-start gap-2 rounded-md border border-neutral-200 dark:border-neutral-700 p-3 cursor-pointer select-none">
+                <input type="checkbox" checked={inManagement} onChange={e => setInManagement(e.target.checked)} className="h-4 w-4 mt-0.5" />
+                <span className="text-sm">
+                    <span className="font-medium text-neutral-800 dark:text-neutral-100">{t('posx.projectform.in_management')}</span>
+                    <span className="block text-xs text-neutral-500 dark:text-neutral-400">{t('posx.projectform.in_management_hint')}</span>
+                </span>
+            </label>
             <div className="flex justify-end space-x-2 pt-4">
                 <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                 <button type="submit" disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('common.saving') : t('posx.projectform.create_assign')}</button>

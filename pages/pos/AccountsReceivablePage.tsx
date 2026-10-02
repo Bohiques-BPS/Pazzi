@@ -723,6 +723,7 @@ export const AccountsReceivablePage: React.FC = () => {
                 clients={clients}
                 onClientSelect={(c) => { setShowCreditSearch(false); setCreditClient(c); }}
                 onOpenCreateClient={() => setShowCreditSearch(false)}
+                fromPos
             />
             <ClientCreditPaymentModal
                 isOpen={!!creditClient}

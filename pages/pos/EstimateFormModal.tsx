@@ -291,6 +291,7 @@ export const EstimateFormModal: React.FC<EstimateFormModalProps> = ({ isOpen, on
                 clients={clients}
                 onClientSelect={handleClientSelect}
                 onOpenCreateClient={() => { setIsClientSearchModalOpen(false); setShowCreateClient(true); }}
+                fromPos
             />
             {showCreateClient && (
                 <ClientFormModal
