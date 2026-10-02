@@ -1600,6 +1600,7 @@ export const POSCashierPage: React.FC = () => {
                                                     min={1}
                                                     value={item.quantity}
                                                     onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 1)}
+                                                    onFocus={e => e.currentTarget.select()}
                                                     className="w-16 sm:w-20 text-center text-base sm:text-xl font-semibold bg-gray-100 dark:bg-neutral-900 rounded-lg border border-gray-300 dark:border-neutral-600 p-1 sm:p-2 focus:ring-primary focus:border-primary"
                                                     aria-label={t('posx.cashier.quantity_for', { name: item.name })}
                                                 />
