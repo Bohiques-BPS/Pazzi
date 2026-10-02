@@ -6,9 +6,11 @@ import { toast } from '../hooks/useToast';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
 import { LockClosedIcon, UserIcon as UserKeyIcon, ExclamationTriangleIcon } from '../components/icons';
 import { PasswordInput } from '../components/ui/PasswordInput';
+import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 export const ProfilePage: React.FC = () => {
     const { currentUser, logout } = useAuth();
+    const { t } = useTranslation();
 
     const [current, setCurrent] = useState('');
     const [next, setNext] = useState('');
@@ -28,16 +30,16 @@ export const ProfilePage: React.FC = () => {
     const handlePinSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setPinError(null);
-        if (!pinPass) { setPinError('Ingresa tu contraseña actual.'); return; }
-        if (!/^\d{4}$/.test(pin)) { setPinError('El PIN debe ser de 4 dígitos.'); return; }
-        if (pin !== pinConfirm) { setPinError('Los PIN no coinciden.'); return; }
+        if (!pinPass) { setPinError(t('profile.pin.err_password')); return; }
+        if (!/^\d{4}$/.test(pin)) { setPinError(t('profile.pin.err_format')); return; }
+        if (pin !== pinConfirm) { setPinError(t('profile.pin.err_mismatch')); return; }
         setPinSubmitting(true);
         try {
             await authService.updatePin(pinPass, pin);
-            toast.success('PIN actualizado. Ya puedes usarlo para autorizar devoluciones, descuentos y desbloquear la caja.');
+            toast.success(t('profile.pin.saved'));
             setPinPass(''); setPin(''); setPinConfirm('');
         } catch (err) {
-            setPinError(err instanceof ApiError ? err.message : 'Error al actualizar el PIN');
+            setPinError(err instanceof ApiError ? err.message : t('profile.pin.err_generic'));
         } finally {
             setPinSubmitting(false);
         }
@@ -156,10 +158,10 @@ export const ProfilePage: React.FC = () => {
             <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6">
                 <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
                     <LockClosedIcon className="w-5 h-5 text-primary" />
-                    PIN de seguridad
+                    {t('profile.pin.title')}
                 </h2>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-                    PIN de 4 dígitos para desbloquear la caja, autorizar <strong>devoluciones</strong> y <strong>descuentos</strong> (si eres gerente) y el ponche de asistencia.
+                    {t('profile.pin.desc')}
                 </p>
 
                 {pinError && (
@@ -171,7 +173,7 @@ export const ProfilePage: React.FC = () => {
 
                 <form onSubmit={handlePinSubmit} className="space-y-3 max-w-md">
                     <div>
-                        <label className="block text-sm font-medium">Contraseña actual</label>
+                        <label className="block text-sm font-medium">{t('profile.pin.current_password')}</label>
                         <PasswordInput
                             value={pinPass}
                             onChange={(e) => setPinPass(e.target.value)}
@@ -182,7 +184,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-sm font-medium">Nuevo PIN (4 dígitos)</label>
+                            <label className="block text-sm font-medium">{t('profile.pin.new')}</label>
                             <input
                                 type="password" inputMode="numeric" autoComplete="off"
                                 value={pin}
@@ -191,7 +193,7 @@ export const ProfilePage: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium">Confirmar PIN</label>
+                            <label className="block text-sm font-medium">{t('profile.pin.confirm')}</label>
                             <input
                                 type="password" inputMode="numeric" autoComplete="off"
                                 value={pinConfirm}
@@ -201,7 +203,7 @@ export const ProfilePage: React.FC = () => {
                         </div>
                     </div>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={pinSubmitting}>
-                        {pinSubmitting ? 'Guardando...' : 'Guardar PIN'}
+                        {pinSubmitting ? t('profile.pin.saving') : t('profile.pin.save')}
                     </button>
                 </form>
             </section>

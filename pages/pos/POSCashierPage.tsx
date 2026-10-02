@@ -159,10 +159,12 @@ const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: stri
 const POSActionAuthModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (pin: string) => Promise<boolean | string>;
+  onConfirm: (value: string) => Promise<boolean | string>;
   title: string;
   message: string;
-}> = ({ isOpen, onClose, onConfirm, title, message }) => {
+  inputLabel?: string;   // etiqueta del campo (por defecto "PIN")
+  allowText?: boolean;   // true = acepta texto (contraseña o PIN); false = solo dígitos (PIN)
+}> = ({ isOpen, onClose, onConfirm, title, message, inputLabel, allowText }) => {
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [isChecking, setIsChecking] = useState(false);
@@ -191,13 +193,13 @@ const POSActionAuthModal: React.FC<{
             <form onSubmit={(e) => { e.preventDefault(); handleConfirm(); }} className="space-y-4">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">{message}</p>
                 <div>
-                    <label className="block text-sm font-medium">{t('posx.cashier.pin') || 'PIN'}</label>
+                    <label className="block text-sm font-medium">{inputLabel || t('posx.cashier.pin')}</label>
                     <input
                         type="password"
-                        inputMode="numeric"
+                        inputMode={allowText ? 'text' : 'numeric'}
                         autoComplete="off"
                         value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                        onChange={(e) => setPin(allowText ? e.target.value : e.target.value.replace(/\D/g, '').slice(0, 8))}
                         className={inputFormStyle}
                         required
                         autoFocus
@@ -409,19 +411,20 @@ export const POSCashierPage: React.FC = () => {
 
     const handleInitialAuth = async (pin: string): Promise<boolean | string> => {
         if (!currentUser) return false;
+        // Desbloqueo de la caja: acepta PIN O contraseña (lo que el usuario prefiera).
+        const value = (pin || '').trim();
+        if (!value) return false;
+        // 1) Intentar como PIN.
         try {
-            // Desbloqueo de la caja con el PIN del propio usuario (antes pedía contraseña).
-            const { valid } = await authService.verifyPin(pin);
-            if (valid) {
-                setIsPosAuthenticated(true);
-                setActiveModal(null);
-                return true;
-            }
-            return false;
-        } catch (err) {
-            // Mensaje claro si el usuario aún no tiene PIN (p. ej. el gerente): se configura en Perfil.
-            return err instanceof ApiError ? err.message : false;
-        }
+            const { valid } = await authService.verifyPin(value);
+            if (valid) { setIsPosAuthenticated(true); setActiveModal(null); return true; }
+        } catch { /* sin PIN o PIN inválido → probamos contraseña */ }
+        // 2) Intentar como contraseña.
+        try {
+            const { valid } = await authService.verifyPassword(value);
+            if (valid) { setIsPosAuthenticated(true); setActiveModal(null); return true; }
+        } catch { /* contraseña inválida */ }
+        return false;
     };
     
     // El "abrir turno" real lo hace el OpenCajaModal contra el BE; esta función queda como
@@ -1262,7 +1265,7 @@ export const POSCashierPage: React.FC = () => {
     
     // UI Render
     if (!isPosAuthenticated) {
-      return <POSActionAuthModal isOpen={true} onClose={() => navigate('/')} onConfirm={handleInitialAuth} title={t('posx.cashier.register_access')} message={t('posx.cashier.register_access_msg')} />;
+      return <POSActionAuthModal isOpen={true} onClose={() => navigate('/')} onConfirm={handleInitialAuth} title={t('posx.cashier.register_access')} message={t('posx.cashier.register_access_msg')} inputLabel={t('posx.cashier.password_or_pin')} allowText />;
     }
     
     if (!shiftState?.active) {

@@ -6,6 +6,7 @@ import { barcodeToSvg } from '../../utils/barcode';
 import { loadImageAsDataUrl, dataUrlFormat } from '../../utils/imageData';
 import { isReceiptPrinterEnabled, printReceiptViaQz, getPrintFormat } from '../../services/receiptPrinter';
 import { isWebUsbEnabled, printReceiptViaWebUsb } from '../../services/webusbPrinter';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 export interface ReceiptSale {
     saleNumber: string;
@@ -509,6 +510,7 @@ export function setReceiptAction(v: ReceiptAction) {
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sale, config, forceChoose }) => {
+    const { t } = useTranslation();
     const [barcode, setBarcode] = useState('');
     // Formato elegido para ESTA impresión: recibo térmico (80mm) o factura carta. Arranca en el
     // formato sticky del dispositivo y el usuario lo puede cambiar (requisito: ambas opciones a mano).
@@ -571,10 +573,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
         <Modal isOpen={isOpen} onClose={onClose} title="Factura / Recibo" size="md">
             <div className="space-y-4">
                 <div>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Formato</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.receipt.format')}</p>
                     <div className="flex gap-2">
-                        {fmtBtn('recibo', '🧾 Recibo (80mm)')}
-                        {fmtBtn('factura', '📄 Factura (Carta)')}
+                        {fmtBtn('recibo', t('posx.receipt.format_receipt'))}
+                        {fmtBtn('factura', t('posx.receipt.format_invoice'))}
                     </div>
                 </div>
                 <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900 rounded-md p-3 max-h-[55vh] overflow-y-auto">

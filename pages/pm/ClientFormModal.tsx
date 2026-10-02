@@ -231,21 +231,21 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             {/* Tipo de registro: Cliente final vs Contratista (define cómo se dividen las facturas
                 de sus proyectos; la regla de división se define aparte). */}
             <div>
-                <label className="block text-sm font-medium mb-1">Tipo de registro</label>
+                <label className="block text-sm font-medium mb-1">{t('client.registry_type')}</label>
                 <div className="grid grid-cols-2 gap-2">
                     <button
                         type="button"
                         onClick={() => setFormData(p => ({ ...p, isContractor: false }))}
                         className={`py-2 px-3 rounded-md text-sm font-medium border transition-colors ${!formData.isContractor ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
                     >
-                        👤 Cliente
+                        {t('client.registry.client')}
                     </button>
                     <button
                         type="button"
                         onClick={() => setFormData(p => ({ ...p, isContractor: true }))}
                         className={`py-2 px-3 rounded-md text-sm font-medium border transition-colors ${formData.isContractor ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
                     >
-                        🛠️ Contratista
+                        {t('client.registry.contractor')}
                     </button>
                 </div>
             </div>

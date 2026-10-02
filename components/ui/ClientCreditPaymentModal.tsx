@@ -90,14 +90,18 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
         let remaining = total;
         const targets = anySelected ? sales.filter(s => selected[s.id]) : sales;
         const next: Record<string, string> = { ...amounts };
+        const nextSel: Record<string, boolean> = { ...selected };
         // Limpia primero las que están en el set de destino para recalcular.
         for (const s of targets) next[s.id] = '';
         for (const s of targets) {
             const take = Math.min(r2(remaining), s.balance);
             next[s.id] = take > 0 ? take.toFixed(2) : '';
+            // Marca automáticamente el check de las facturas que reciben abono (y desmarca las que no).
+            nextSel[s.id] = take > 0;
             remaining = r2(remaining - take);
         }
         setAmounts(next);
+        setSelected(nextSel);
     };
 
     const canSubmit = assigned > 0.001 && !saving;
