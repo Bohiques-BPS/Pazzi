@@ -66,6 +66,7 @@ import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
 import { CajaFormModal } from '../../components/forms/CajaFormModal';
 import logo from '../../assets/logo.png';
 import { authService } from '../../services/auth';
+import { projectsService, normalizeProjectFromApi } from '../../services/projects';
 import { ApiError } from '../../services/api';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { DrawerOpenModal } from '../../components/pos/DrawerOpenModal';
@@ -225,7 +226,7 @@ export const POSCashierPage: React.FC = () => {
     const { settings } = useGlobalSettings();
     const {
         products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
-        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, projects, addProject, setEstimates, setProjects, addEstimate, sales, setSales, employees, getBranchById
+        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, setEstimates, addEstimate, sales, setSales, employees, getBranchById
     } = useData();
     const { currentUser, login, logout, toggleUserEmergencyOrderMode } = useAuth();
     const productSearchRef = useRef<HTMLInputElement>(null);
@@ -355,10 +356,18 @@ export const POSCashierPage: React.FC = () => {
             } as unknown as User));
     }, [employees, currentUser?.email]);
 
-    const clientProjects = useMemo(() => {
-        if (!selectedClient) return [];
-        return projects.filter(p => p.clientId === selectedClient.id);
-    }, [selectedClient, projects]);
+    // Proyectos del cliente para el selector de la caja. Se cargan A DEMANDA (no desde el DataContext
+    // global, que ya no trae proyectos en el POS) cuando se selecciona un cliente. Incluye los
+    // proyectos de cobro (billingOnly) del cliente.
+    const [clientProjects, setClientProjects] = useState<Project[]>([]);
+    useEffect(() => {
+        let cancelled = false;
+        if (!selectedClient) { setClientProjects([]); return; }
+        projectsService.getAll({ clientId: selectedClient.id })
+            .then(list => { if (!cancelled) setClientProjects(Array.isArray(list) ? list.map(normalizeProjectFromApi) : []); })
+            .catch(() => { if (!cancelled) setClientProjects([]); });
+        return () => { cancelled = true; };
+    }, [selectedClient]);
 
     const currentDiscountForModal = useMemo(() => {
         if (discountTarget === 'general') return generalDiscount;
@@ -1736,7 +1745,7 @@ export const POSCashierPage: React.FC = () => {
             {/* MODALS */}
             <ClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients} onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }} onOpenCreateClient={() => setActiveModal('createClient')} fromPos />
             <ClientFormModal isOpen={activeModal === 'createClient'} onClose={(client) => {setActiveModal(null); if(client) setSelectedClient(client);}} client={null} />
-            <POSProjectFormModal isOpen={activeModal === 'createProject'} onClose={() => setActiveModal(null)} clientId={selectedClient?.id || ''} onProjectCreated={(newProject) => { setSelectedProjectId(newProject.id); setActiveModal(null); }} />
+            <POSProjectFormModal isOpen={activeModal === 'createProject'} onClose={() => setActiveModal(null)} clientId={selectedClient?.id || ''} onProjectCreated={(newProject) => { setClientProjects(prev => [newProject, ...prev]); setSelectedProjectId(newProject.id); setActiveModal(null); }} />
             <HeldCartsModal
                 isOpen={activeModal === 'heldCarts'}
                 onClose={() => setActiveModal(null)}

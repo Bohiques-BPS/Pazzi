@@ -1,4 +1,5 @@
-import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
+import React, { useState, createContext, useContext, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Product, Client, Employee, Project, Sale, Order, Visit, Category, 
   ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, 
@@ -136,6 +137,12 @@ export const DataContext = createContext<DataContextType | null>(null);
 
 export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
     const { currentUser } = useAuth();
+    // En el POS no se usan los datos de Gestión de Proyectos (proyectos de gestión, tareas, visitas)
+    // ni las órdenes de proveedor: evitamos cargarlos mientras se esté en /pos/* para no disparar
+    // ~20 llamadas lentas en Render (USO-3). Se cargan al entrar a su módulo (una vez por usuario).
+    const { pathname } = useLocation();
+    const inPos = pathname.startsWith('/pos');
+    const pmLoadedForRef = useRef<{ projects?: string; visits?: string; tasks?: string; supplierOrders?: string }>({});
     // Datos de dominio: inicializados vacíos. Se llenan vía useEffect contra el backend.
     // Antes había fallback a INITIAL_* + localStorage, lo cual mostraba dummy en producción.
     const [products, setProducts] = useState<Product[]>([]);
@@ -368,8 +375,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error("Error al cargar proyectos del servidor:", e);
             }
         };
-        if (currentUser) fetchProjects();
-    }, [currentUser]);
+        if (currentUser && !inPos && pmLoadedForRef.current.projects !== currentUser.id) {
+            pmLoadedForRef.current.projects = currentUser.id;
+            fetchProjects();
+        }
+    }, [currentUser, inPos]);
 
     // Carga de visitas
     useEffect(() => {
@@ -391,8 +401,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error("Error al cargar visitas del servidor:", e);
             }
         };
-        if (currentUser) fetchVisits();
-    }, [currentUser]);
+        if (currentUser && !inPos && pmLoadedForRef.current.visits !== currentUser.id) {
+            pmLoadedForRef.current.visits = currentUser.id;
+            fetchVisits();
+        }
+    }, [currentUser, inPos]);
 
     // Carga de tareas
     useEffect(() => {
@@ -416,8 +429,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             currentUser.role === UserRole.CLIENT_PROJECT ||
             (currentUser.role === UserRole.EMPLOYEE && (perms['tasks.manage'] === true || perms['projects.view'] === true))
         );
-        if (canAccessTasks) fetchTasks();
-    }, [currentUser]);
+        if (canAccessTasks && !inPos && pmLoadedForRef.current.tasks !== currentUser!.id) {
+            pmLoadedForRef.current.tasks = currentUser!.id;
+            fetchTasks();
+        }
+    }, [currentUser, inPos]);
 
     // Carga de estimates
     useEffect(() => {
@@ -464,8 +480,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error("Error al cargar órdenes de proveedor del servidor:", e);
             }
         };
-        if (currentUser) fetchSupplierOrders();
-    }, [currentUser]);
+        if (currentUser && !inPos && pmLoadedForRef.current.supplierOrders !== currentUser.id) {
+            pmLoadedForRef.current.supplierOrders = currentUser.id;
+            fetchSupplierOrders();
+        }
+    }, [currentUser, inPos]);
 
     // Carga de notificaciones
     const fetchNotifications = useCallback(async () => {

@@ -2,6 +2,16 @@
 import React, { useState, createContext, useContext, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, useParams, Outlet } from 'react-router-dom';
 import { Toaster, ToastBar, toast as hotToast } from 'react-hot-toast';
+import appLogo from './assets/logo.png';
+
+/** Pantalla de carga con marca (logo + spinner) en vez de un texto "Cargando..." en blanco. */
+const BrandedLoader: React.FC = () => (
+  <div className="flex h-screen flex-col items-center justify-center gap-4 bg-neutral-50 dark:bg-neutral-900">
+    <img src={appLogo} alt="Pazzi" className="h-12 w-auto opacity-90" />
+    <div className="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-primary animate-spin" />
+    <p className="text-sm text-neutral-400">Cargando…</p>
+  </div>
+);
 
 // Code-splitting: carga diferida de páginas por ruta. Envuelve módulos con export por nombre.
 // (Debe declararse antes de las constantes `const X = lazyNamed(...)` de más abajo.)
@@ -122,7 +132,7 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: UserRole[] }) => {
   const { currentUser, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return <div className="flex h-screen items-center justify-center">Cargando...</div>;
+  if (loading) return <BrandedLoader />;
 
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -388,7 +398,7 @@ const AppContent: React.FC = () => {
     <ErrorBoundary>
       <KeyboardShortcutsModal isOpen={shortcutsModalOpen} onClose={() => setShortcutsModalOpen(false)} />
       <BusinessOnboardingModal />
-      <Suspense fallback={<div className="flex h-screen items-center justify-center text-neutral-500 dark:text-neutral-400">Cargando…</div>}>
+      <Suspense fallback={<BrandedLoader />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
