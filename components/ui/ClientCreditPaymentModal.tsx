@@ -39,12 +39,14 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     const [method, setMethod] = useState('Efectivo');
     const [reference, setReference] = useState('');
     const [distribute, setDistribute] = useState('');
+    const [cashReceived, setCashReceived] = useState(''); // efectivo entregado por el cliente (para el cambio)
+    const [excessAction, setExcessAction] = useState<'change' | 'credit'>('change'); // qué hacer con el excedente
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !clientId) return;
         let cancelled = false;
-        setLoading(true); setAmounts({}); setSelected({}); setMethod('Efectivo'); setReference(''); setDistribute('');
+        setLoading(true); setAmounts({}); setSelected({}); setMethod('Efectivo'); setReference(''); setDistribute(''); setCashReceived(''); setExcessAction('change');
         // Mismo criterio que "Cuentas por Cobrar": pendiente = SALDO > 0 (total − pagos), no el
         // campo paymentStatus exacto (que puede diferir). Así siempre coincide con lo que ve el
         // usuario en CxC. Excluimos anuladas y devoluciones.
@@ -73,6 +75,12 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     const setAmount = (id: string, v: string) => setAmounts(prev => ({ ...prev, [id]: v }));
 
     const anySelected = useMemo(() => sales.some(s => selected[s.id]), [sales, selected]);
+    // Pago en efectivo: excedente = efectivo recibido − total asignado (como en la caja).
+    const isCash = method === 'Efectivo';
+    const excess = useMemo(() => r2(Math.max(0, num(cashReceived) - assigned)), [cashReceived, assigned]);
+    // El excedente va como vuelto (se devuelve) o como saldo a favor (queda en la cuenta del cliente).
+    const change = excessAction === 'change' ? excess : 0;
+    const accountCredit = excessAction === 'credit' ? excess : 0;
 
     // Marca/desmarca una factura: al marcarla, autocompleta su saldo (editable); al desmarcar, limpia.
     const toggleSelect = (s: PendingSale, on: boolean) => {
@@ -115,8 +123,9 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
         if (allocations.length === 0) return toast.error(t('cmpx.credit.enter_amount'));
         setSaving(true);
         try {
-            const res = await salesService.bulkPayment({ clientId, method, reference: reference.trim() || undefined, allocations });
+            const res = await salesService.bulkPayment({ clientId, method, reference: reference.trim() || undefined, allocations, accountCredit: isCash && accountCredit > 0 ? accountCredit : undefined });
             toast.success(t('cmpx.credit.payment_ok', { amount: money(res.total), count: res.count }));
+            if (isCash && accountCredit > 0) toast.success(t('cmpx.credit.credit_added', { amount: money(accountCredit) }));
             // Recibo que muestra cada abono y la deuda final (se imprime en el padre vía onPaid).
             // Si el backend ya devolvió un recibo con folio real, se usa ese; si no, se arma aquí.
             const built: PaymentReceipt = {
@@ -231,6 +240,47 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                             <input type="text" value={reference} onChange={e => setReference(e.target.value)} placeholder={t('cmpx.credit.reference_ph')} className={`${INPUT_SM_CLASSES} w-full`} />
                         </div>
                     </div>
+
+                    {/* Efectivo: cuánto entregó el cliente y cuánto se le devuelve (como en la caja). */}
+                    {isCash && (
+                        <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                                <div>
+                                    <label className="block text-xs text-neutral-500 mb-1">{t('cmpx.credit.cash_received')}</label>
+                                    <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
+                                        <input type="number" min="0" step="0.01" value={cashReceived}
+                                            onChange={e => setCashReceived(e.target.value)}
+                                            placeholder={assigned > 0 ? assigned.toFixed(2) : '0.00'}
+                                            className={`${INPUT_SM_CLASSES} w-full pl-5 tabular-nums`} />
+                                    </div>
+                                </div>
+                                {/* Resultado del excedente: vuelto o saldo a favor. */}
+                                <div className={`flex items-center justify-between rounded-md px-3 py-2 border ${accountCredit > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
+                                    <span className={`text-sm font-medium ${accountCredit > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-green-700 dark:text-green-300'}`}>
+                                        {accountCredit > 0 ? t('cmpx.credit.to_account') : t('cmpx.credit.change')}
+                                    </span>
+                                    <span className={`text-lg font-bold tabular-nums ${accountCredit > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-green-700 dark:text-green-300'}`}>
+                                        {money(accountCredit > 0 ? accountCredit : change)}
+                                    </span>
+                                </div>
+                            </div>
+                            {/* Si sobra efectivo, el cliente decide: vuelto o dejarlo como saldo a favor. */}
+                            {excess > 0.001 && (
+                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                    <span className="text-neutral-500">{t('cmpx.credit.excess_q', { amount: money(excess) })}</span>
+                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                        <input type="radio" name="excessAction" checked={excessAction === 'change'} onChange={() => setExcessAction('change')} className="h-4 w-4" />
+                                        {t('cmpx.credit.give_change')}
+                                    </label>
+                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                        <input type="radio" name="excessAction" checked={excessAction === 'credit'} onChange={() => setExcessAction('credit')} className="h-4 w-4" />
+                                        {t('cmpx.credit.leave_as_credit')}
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="flex items-center justify-between border-t dark:border-neutral-700 pt-3">
                         <span className="text-sm text-neutral-500">{t('cmpx.credit.assigned')} <b className="text-neutral-800 dark:text-neutral-100">{money(assigned)}</b></span>

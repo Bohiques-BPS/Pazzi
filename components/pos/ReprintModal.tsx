@@ -7,7 +7,8 @@ import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
 import { EmptyState } from '../ui/EmptyState';
 import type { ReceiptSale } from './ReceiptModal';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { printPaymentReceipt } from '../../utils/printPaymentReceipt';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
@@ -52,6 +53,8 @@ interface ReprintModalProps {
 
 export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, employeeId, onSelectReceipt }) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
+    const storeInfo = { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone };
     const [tab, setTab] = useState<TabKey>('facturas');
     const [rows, setRows] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -64,8 +67,16 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
     useEffect(() => {
         if (!isOpen) return;
         setQ('');
-        if (tab !== 'facturas' && tab !== 'devoluciones') { setRows([]); return; }
         let cancelled = false;
+        if (tab === 'pagos') {
+            setLoading(true);
+            salesService.paymentReceipts(200)
+                .then(data => { if (!cancelled) setRows(Array.isArray(data) ? data : []); })
+                .catch(err => { if (!cancelled && err instanceof ApiError) toast.error(err.message); })
+                .finally(() => { if (!cancelled) setLoading(false); });
+            return () => { cancelled = true; };
+        }
+        if (tab !== 'facturas' && tab !== 'devoluciones') { setRows([]); return; }
         setLoading(true);
         salesService.getAll({ isReturn: tab === 'devoluciones' })
             .then(data => {
@@ -82,18 +93,23 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
     // Al abrir, arranca en Facturas.
     useEffect(() => { if (isOpen) { setTab('facturas'); setLastTx(null); } }, [isOpen]);
 
+    const isPagos = tab === 'pagos';
     const filtered = useMemo(() => {
-        const t = q.trim().toLowerCase();
-        if (!t) return rows;
-        return rows.filter(s =>
-            String(s.saleNumber ?? '').includes(t) ||
-            (s.client && `${s.client.name} ${s.client.lastName || ''}`.toLowerCase().includes(t))
+        const term = q.trim().toLowerCase();
+        if (!term) return rows;
+        if (isPagos) return rows.filter(r =>
+            String(r.receiptNumber ?? '').includes(term) ||
+            String(r.clientName || '').toLowerCase().includes(term)
         );
-    }, [rows, q]);
+        return rows.filter(s =>
+            String(s.saleNumber ?? '').includes(term) ||
+            (s.client && `${s.client.name} ${s.client.lastName || ''}`.toLowerCase().includes(term))
+        );
+    }, [rows, q, isPagos]);
 
     const reprint = (sale: any) => { if (sale) onSelectReceipt(toReceiptSale(sale)); };
 
-    const listable = tab === 'facturas' || tab === 'devoluciones';
+    const listable = tab === 'facturas' || tab === 'devoluciones' || isPagos;
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.reprint.title')} size="2xl">
@@ -142,7 +158,31 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
                     {loading ? (
                         <LoadingSkeleton variant="list" rows={5} />
                     ) : filtered.length === 0 ? (
-                        <EmptyState title={t('cmpx.reprint.no_results')} description={tab === 'devoluciones' ? t('cmpx.reprint.no_returns') : t('cmpx.reprint.no_invoices')} />
+                        <EmptyState title={t('cmpx.reprint.no_results')} description={isPagos ? t('cmpx.reprint.no_payments') : tab === 'devoluciones' ? t('cmpx.reprint.no_returns') : t('cmpx.reprint.no_invoices')} />
+                    ) : isPagos ? (
+                        <div className="max-h-[45vh] overflow-y-auto border rounded-md divide-y divide-neutral-100 dark:divide-neutral-700 dark:border-neutral-700">
+                            {filtered.map(r => (
+                                <button
+                                    key={r.id}
+                                    onClick={() => printPaymentReceipt(r, storeInfo)}
+                                    className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 dark:hover:bg-neutral-700/40 text-left transition-colors"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-neutral-800 dark:text-neutral-100">
+                                            {t('cmpx.reprint.receipt_no', { n: r.receiptNumber })}
+                                            <span className="ml-2 text-xs font-normal text-neutral-400">{new Date(r.date).toLocaleString()}</span>
+                                        </p>
+                                        <p className="text-xs text-neutral-500 truncate">
+                                            {r.clientName || t('cmpx.reprint.walkin')} · {r.method}{(r.allocations?.length ? ` · ${r.allocations.length} fact.` : '')}
+                                        </p>
+                                    </div>
+                                    <div className="text-right flex-shrink-0 ml-3">
+                                        <p className="font-bold text-green-600 dark:text-green-400">{money(r.totalPaid)}</p>
+                                        <span className="text-xs text-primary">🖨️ {t('cmpx.reprint.reprint_btn')}</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     ) : (
                         <div className="max-h-[45vh] overflow-y-auto border rounded-md divide-y divide-neutral-100 dark:divide-neutral-700 dark:border-neutral-700">
                             {filtered.map(s => (
@@ -171,8 +211,8 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
                 </>
             ) : (
                 <EmptyState
-                    title={tab === 'pagos' ? 'Pagos Recibidos' : 'Desembolsos'}
-                    description="Esta sección estará disponible pronto."
+                    title={t('cmpx.reprint.tab_desembolsos')}
+                    description={t('cmpx.reprint.coming_soon')}
                 />
             )}
         </Modal>
