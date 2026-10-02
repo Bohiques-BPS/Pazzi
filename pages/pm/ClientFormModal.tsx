@@ -176,6 +176,14 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         if (!formData.name.trim()) { toast.error(t('pmx.client.err_name_required')); return null; }
         if (!formData.lastName.trim()) { toast.error(t('pmx.client.err_lastname_required')); return null; }
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) { toast.error(t('pmx.client.err_email_invalid')); return null; }
+        // Teléfono: si se escribe, debe tener 10 dígitos (nacional). Evita guardados incompletos como "+1 12".
+        {
+            const d = (formData.phone || '').replace(/\D/g, '');
+            if (d.length > 0) {
+                const national = (d.length === 11 && d.startsWith('1')) ? d.slice(1) : d;
+                if (national.length !== 10) { toast.error('El teléfono debe tener 10 dígitos.'); return null; }
+            }
+        }
         const target = effectiveClient;
         const isDuplicateEmail = formData.email && allClients.some(
             c => c.email && c.email.toLowerCase() === formData.email.toLowerCase() && (!target || c.id !== target.id)

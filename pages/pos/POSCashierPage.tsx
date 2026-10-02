@@ -1724,7 +1724,7 @@ export const POSCashierPage: React.FC = () => {
                         <PaymentButton
                             key={m.id}
                             text={m.name}
-                            shortcut={i < 9 ? `F${i + 1}` : undefined}
+                            shortcut={(i === 6 || i === 8 || i >= 9) ? undefined : `F${i + 1}`}
                             icon={METHOD_ICON[m.type] || METHOD_ICON.custom}
                             color={m.color}
                             onClick={() => handleOpenPaymentModal(m.name)}

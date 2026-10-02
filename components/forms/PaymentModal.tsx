@@ -522,9 +522,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                     </button>
                     <button
                         type="button"
-                        onClick={handleFinalize}
+                        onClick={() => { if (!tryQuickFinalize()) handleFinalize(); }}
                         className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
-                        disabled={balance > 0.001}
+                        // Habilitado cuando ya está pagado, O cuando el monto escrito (método directo) cubre
+                        // el saldo: así no hay que pulsar "Agregar Pago" primero (USO-13).
+                        disabled={balance > 0.001 && !(isDirectMethod && coversBalance(amountInput, balance))}
                     >
                         {t('cmpx.payment.finalize')} <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
                     </button>
