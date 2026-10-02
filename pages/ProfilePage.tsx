@@ -16,7 +16,32 @@ export const ProfilePage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // PIN de seguridad (desbloqueo de caja, autorización de devoluciones/descuentos, ponche).
+    const [pinPass, setPinPass] = useState('');
+    const [pin, setPin] = useState('');
+    const [pinConfirm, setPinConfirm] = useState('');
+    const [pinSubmitting, setPinSubmitting] = useState(false);
+    const [pinError, setPinError] = useState<string | null>(null);
+
     if (!currentUser) return null;
+
+    const handlePinSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPinError(null);
+        if (!pinPass) { setPinError('Ingresa tu contraseña actual.'); return; }
+        if (!/^\d{4}$/.test(pin)) { setPinError('El PIN debe ser de 4 dígitos.'); return; }
+        if (pin !== pinConfirm) { setPinError('Los PIN no coinciden.'); return; }
+        setPinSubmitting(true);
+        try {
+            await authService.updatePin(pinPass, pin);
+            toast.success('PIN actualizado. Ya puedes usarlo para autorizar devoluciones, descuentos y desbloquear la caja.');
+            setPinPass(''); setPin(''); setPinConfirm('');
+        } catch (err) {
+            setPinError(err instanceof ApiError ? err.message : 'Error al actualizar el PIN');
+        } finally {
+            setPinSubmitting(false);
+        }
+    };
 
     const validate = (): string | null => {
         if (!current) return 'Ingresa tu contraseña actual.';
@@ -124,6 +149,59 @@ export const ProfilePage: React.FC = () => {
                     </div>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
                         {submitting ? 'Guardando...' : 'Cambiar contraseña'}
+                    </button>
+                </form>
+            </section>
+
+            <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6">
+                <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                    <LockClosedIcon className="w-5 h-5 text-primary" />
+                    PIN de seguridad
+                </h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+                    PIN de 4 dígitos para desbloquear la caja, autorizar <strong>devoluciones</strong> y <strong>descuentos</strong> (si eres gerente) y el ponche de asistencia.
+                </p>
+
+                {pinError && (
+                    <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-start text-red-700 text-sm mb-4">
+                        <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                        <span>{pinError}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handlePinSubmit} className="space-y-3 max-w-md">
+                    <div>
+                        <label className="block text-sm font-medium">Contraseña actual</label>
+                        <PasswordInput
+                            value={pinPass}
+                            onChange={(e) => setPinPass(e.target.value)}
+                            className={inputFormStyle}
+                            autoComplete="current-password"
+                            required
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium">Nuevo PIN (4 dígitos)</label>
+                            <input
+                                type="password" inputMode="numeric" autoComplete="off"
+                                value={pin}
+                                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                className={inputFormStyle} required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">Confirmar PIN</label>
+                            <input
+                                type="password" inputMode="numeric" autoComplete="off"
+                                value={pinConfirm}
+                                onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                className={inputFormStyle} required
+                            />
+                        </div>
+                    </div>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={pinSubmitting}>
+                        {pinSubmitting ? 'Guardando...' : 'Guardar PIN'}
                     </button>
                 </form>
             </section>

@@ -72,7 +72,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         salesperson: salespersonOptions[0],
         priceLevel: CLIENT_PRICE_LEVEL_OPTIONS[0],
         businessType: '', zone: '',
-        clientType: 'Particular', companyName: '',
+        clientType: 'Particular', isContractor: false, companyName: '',
         preferredCommunication: 'Email', industry: '', acquisitionSource: '',
         balance: 0,
         specialInvoiceMessageEnabled: false,
@@ -228,6 +228,27 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     
     const renderGeneralTab = () => (
         <div className="space-y-3">
+            {/* Tipo de registro: Cliente final vs Contratista (define cómo se dividen las facturas
+                de sus proyectos; la regla de división se define aparte). */}
+            <div>
+                <label className="block text-sm font-medium mb-1">Tipo de registro</label>
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setFormData(p => ({ ...p, isContractor: false }))}
+                        className={`py-2 px-3 rounded-md text-sm font-medium border transition-colors ${!formData.isContractor ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+                    >
+                        👤 Cliente
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setFormData(p => ({ ...p, isContractor: true }))}
+                        className={`py-2 px-3 rounded-md text-sm font-medium border transition-colors ${formData.isContractor ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+                    >
+                        🛠️ Contratista
+                    </button>
+                </div>
+            </div>
             <div><label className="block text-sm font-medium">{t('common.name')}</label><input type="text" name="name" value={formData.name} onChange={handleChange} className={inputFormStyle} required/></div>
             <div><label className="block text-sm font-medium">{t('client.field.lastname')}</label><input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} required /></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

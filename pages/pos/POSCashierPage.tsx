@@ -66,6 +66,7 @@ import { OpenCajaModal } from '../../components/forms/OpenCajaModal';
 import { CajaFormModal } from '../../components/forms/CajaFormModal';
 import logo from '../../assets/logo.png';
 import { authService } from '../../services/auth';
+import { ApiError } from '../../services/api';
 import { cajasService, type CajaSession } from '../../services/cajas';
 import { DrawerOpenModal } from '../../components/pos/DrawerOpenModal';
 import { posService } from '../../services/pos';
@@ -153,22 +154,23 @@ const PaymentButton: React.FC<{ icon: React.ReactNode; text: string; color: stri
     );
 };
 
-// Inline Modal for simple authentication prompts
+// Modal de autorización por PIN (antes pedía contraseña). onConfirm debe devolver true si el PIN
+// es válido; si devuelve un string, se muestra como mensaje de error (p. ej. "configura tu PIN").
 const POSActionAuthModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (password: string) => Promise<boolean>;
+  onConfirm: (pin: string) => Promise<boolean | string>;
   title: string;
   message: string;
 }> = ({ isOpen, onClose, onConfirm, title, message }) => {
-    const [password, setPassword] = useState('');
+    const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [isChecking, setIsChecking] = useState(false);
     const { t } = useTranslation();
 
     useEffect(() => {
         if (isOpen) {
-            setPassword('');
+            setPin('');
             setError('');
             setIsChecking(false);
         }
@@ -177,9 +179,9 @@ const POSActionAuthModal: React.FC<{
     const handleConfirm = async () => {
         setIsChecking(true);
         setError('');
-        const success = await onConfirm(password);
-        if (!success) {
-            setError(t('posx.cashier.wrong_password'));
+        const result = await onConfirm(pin);
+        if (result !== true) {
+            setError(typeof result === 'string' && result ? result : (t('posx.cashier.wrong_pin') || 'PIN incorrecto'));
             setIsChecking(false);
         }
     };
@@ -189,10 +191,13 @@ const POSActionAuthModal: React.FC<{
             <form onSubmit={(e) => { e.preventDefault(); handleConfirm(); }} className="space-y-4">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">{message}</p>
                 <div>
-                    <label className="block text-sm font-medium">{t('posx.cashier.password')}</label>
-                    <PasswordInput
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                    <label className="block text-sm font-medium">{t('posx.cashier.pin') || 'PIN'}</label>
+                    <input
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                         className={inputFormStyle}
                         required
                         autoFocus
@@ -232,6 +237,8 @@ export const POSCashierPage: React.FC = () => {
     const [showScanCamera, setShowScanCamera] = useState(false);
     // Factura generada tras finalizar la venta (muestra el ReceiptModal).
     const [lastReceipt, setLastReceipt] = useState<ReceiptSale | null>(null);
+    // true cuando el recibo mostrado viene de una REIMPRESIÓN (fuerza el selector Recibo/Factura).
+    const [reprintMode, setReprintMode] = useState(false);
     // Cambio a devolver tras una venta en efectivo: overlay grande que permanece hasta ESC.
     const [changeOverlay, setChangeOverlay] = useState<number | null>(null);
     // Modal de apertura de gaveta "Sin venta" (exige razón + PIN).
@@ -400,21 +407,20 @@ export const POSCashierPage: React.FC = () => {
     }, [isPosAuthenticated, selectedCajaId]);
 
 
-    const handleInitialAuth = async (password: string): Promise<boolean> => {
+    const handleInitialAuth = async (pin: string): Promise<boolean | string> => {
         if (!currentUser) return false;
         try {
-            // Verifica la contraseña contra el BE sin crear nueva sesión ni emitir tokens.
-            // Usa el endpoint dedicado /auth/verify-password para no tener efectos secundarios
-            // (no cambia currentUser, no dispara re-fetches en DataContext, no revoca el JWT actual).
-            const { valid } = await authService.verifyPassword(password);
+            // Desbloqueo de la caja con el PIN del propio usuario (antes pedía contraseña).
+            const { valid } = await authService.verifyPin(pin);
             if (valid) {
                 setIsPosAuthenticated(true);
                 setActiveModal(null);
                 return true;
             }
             return false;
-        } catch {
-            return false;
+        } catch (err) {
+            // Mensaje claro si el usuario aún no tiene PIN (p. ej. el gerente): se configura en Perfil.
+            return err instanceof ApiError ? err.message : false;
         }
     };
     
@@ -854,20 +860,18 @@ export const POSCashierPage: React.FC = () => {
         setActiveModal('deleteItemAuth');
     };
 
-    const handleConfirmItemDelete = async (password: string): Promise<boolean> => {
+    const handleConfirmItemDelete = async (pin: string): Promise<boolean | string> => {
         if (!currentUser || !itemToDelete) return false;
         try {
-            // Verifica la contraseña sin re-loguear (login() recargaría el carrito desde
-            // localStorage y "restauraría" el artículo recién borrado).
-            const { valid } = await authService.verifyPassword(password);
-            if (valid) {
-                removeCartItem(itemToDelete.id);
-                setActiveModal(null);
-                setItemToDelete(null);
-                return true;
-            }
-        } catch { /* contraseña inválida o error de red */ }
-        return false;
+            // Eliminar un artículo del carrito requiere PIN de supervisor (gerente).
+            await authService.verifySupervisorPin(pin);
+            removeCartItem(itemToDelete.id);
+            setActiveModal(null);
+            setItemToDelete(null);
+            return true;
+        } catch (err) {
+            return err instanceof ApiError ? err.message : false;
+        }
     };
 
     const handleOpenDiscountModal = (target: 'general' | string) => {
@@ -913,6 +917,13 @@ export const POSCashierPage: React.FC = () => {
             setPosError(t('posx.cashier.err_no_client_payment'));
             return;
         }
+        // El cliente "Público General" no puede comprar a crédito (hay que poder cobrarle después).
+        const isGeneral = !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID;
+        const methodObj = enabledMethods.find(mm => mm.name === method);
+        if (isGeneral && (methodObj?.type === 'credit' || /crédito|credito/i.test(method))) {
+            setPosError(t('posx.cashier.credit_requires_client') || 'El cliente "Público General" no puede realizar transacciones a crédito. Selecciona o crea un cliente identificado.');
+            return;
+        }
         setInitialPaymentMethod(method);
         setActiveModal('payment');
     };
@@ -920,6 +931,12 @@ export const POSCashierPage: React.FC = () => {
     const handleFinalizeSale = async (payments: { method: string; amount: number; reference?: string }[], changeDue?: number, allowOversell = false) => {
          if (cart.length === 0 || !currentUser || !selectedCajaId || !selectedBranchId) {
             toast.error(t('posx.cashier.err_cannot_complete_sale'));
+            return;
+        }
+        // Resguardo: Público General no puede pagar a crédito (el BE también lo valida).
+        const isGeneralFinal = !selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID;
+        if (isGeneralFinal && payments.some(p => /crédito|credito/i.test(p.method))) {
+            toast.error(t('posx.cashier.credit_requires_client') || 'El cliente "Público General" no puede realizar transacciones a crédito.');
             return;
         }
 
@@ -1443,9 +1460,9 @@ export const POSCashierPage: React.FC = () => {
                                             <div className="relative">
                                                 <button
                                                     onClick={() => setClientMenuOpen(o => !o)}
-                                                    className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20"
+                                                    className="inline-flex items-center gap-1.5 text-sm font-medium py-2 px-3 rounded-md bg-primary/15 text-primary hover:bg-primary/25 dark:bg-primary/25 border border-primary/30"
                                                 >
-                                                    {t('posx.cashier.client_options')} <span className="text-[8px]">▼</span>
+                                                    {t('posx.cashier.client_options')} <span className="text-[10px]">▼</span>
                                                 </button>
                                                 {clientMenuOpen && (
                                                     <>
@@ -1468,8 +1485,8 @@ export const POSCashierPage: React.FC = () => {
                                                 )}
                                             </div>
                                         )}
-                                        <button onClick={() => setActiveModal('clientSearch')} title={t('posx.cashier.shortcut', { key: 'U' })} className="inline-flex items-center gap-1 text-[10px] sm:text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900">{t('posx.cashier.change')} <span className="border border-blue-400/60 rounded px-1 text-[8px] font-bold leading-none">U</span></button>
-                                        <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-[10px] sm:text-xs py-1 px-2 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900">{t('posx.cashier.remove')}</button>
+                                        <button onClick={() => setActiveModal('clientSearch')} title={t('posx.cashier.shortcut', { key: 'U' })} className="inline-flex items-center gap-1.5 text-sm font-medium py-2 px-3 rounded-md bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900 border border-blue-300/60 dark:border-blue-700">{t('posx.cashier.change')} <span className="border border-blue-400/60 rounded px-1 text-[10px] font-bold leading-none">U</span></button>
+                                        <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-sm font-medium py-2 px-3 rounded-md bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900 border border-red-300/60 dark:border-red-700">{t('posx.cashier.remove')}</button>
                                     </div>
                                 </div>
                                 <div className="mt-2">
@@ -1740,7 +1757,7 @@ export const POSCashierPage: React.FC = () => {
                 methods={enabledMethods.map(m => ({ name: m.name, type: m.type, requiresReference: m.requiresReference, referenceLabel: m.referenceLabel, config: m.config }))}
                 onFinalizeSale={handleFinalizeSale}
             />
-            <ReceiptModal isOpen={!!lastReceipt} onClose={() => setLastReceipt(null)} sale={lastReceipt} config={settings.receiptConfig} />
+            <ReceiptModal isOpen={!!lastReceipt} onClose={() => { setLastReceipt(null); setReprintMode(false); }} sale={lastReceipt} config={settings.receiptConfig} forceChoose={reprintMode} />
 
             <DrawerOpenModal isOpen={showDrawerOpen} onClose={() => setShowDrawerOpen(false)} onConfirm={handleConfirmDrawerOpen} />
 
@@ -1798,7 +1815,7 @@ export const POSCashierPage: React.FC = () => {
                     isOpen={activeModal === 'reprint'}
                     onClose={() => setActiveModal(null)}
                     employeeId={currentUser.id}
-                    onSelectReceipt={(rs) => { setActiveModal(null); setLastReceipt(rs); }}
+                    onSelectReceipt={(rs) => { setActiveModal(null); setReprintMode(true); setLastReceipt(rs); }}
                 />
             )}
 

@@ -40,6 +40,10 @@ export const authService = {
 
   verifyPin: (pin: string) => api.post<{ valid: boolean }>('/auth/verify-pin', { pin }),
 
+  /** Establece/cambia el PIN de 4 dígitos del usuario (exige su contraseña actual). */
+  updatePin: (currentPassword: string, pin: string) =>
+    api.post<{ message: string }>('/auth/update-pin', { currentPassword, pin }),
+
   /** Verifica la contraseña del usuario autenticado sin emitir nuevos tokens ni crear sesión. */
   verifyPassword: (password: string) =>
     api.post<{ valid: boolean }>('/auth/verify-password', { password }),

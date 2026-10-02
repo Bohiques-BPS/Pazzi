@@ -32,6 +32,9 @@ interface ReceiptModalProps {
     onClose: () => void;
     sale: ReceiptSale | null;
     config: ReceiptConfig;
+    /** Si true, siempre muestra el modal con el selector Recibo/Factura (usado al reimprimir),
+     *  aunque el dispositivo tenga una acción "no volver a preguntar" guardada. */
+    forceChoose?: boolean;
 }
 
 const esc = (s: any) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] || c));
@@ -469,9 +472,9 @@ function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
  * por QZ Tray, imprime ahí (silencioso, con corte, sin espacio blanco); si no, o si QZ falla,
  * cae al diálogo del navegador.
  */
-function printReceiptSmart(_html: string, sale: ReceiptSale, cfg: ReceiptConfig) {
-    // Formato elegido en la venta (recibo térmico 80mm vs factura carta), sticky por dispositivo.
-    const format = getPrintFormat();
+function printReceiptSmart(_html: string, sale: ReceiptSale, cfg: ReceiptConfig, formatOverride?: 'recibo' | 'factura') {
+    // Formato: el elegido en este momento (override, p. ej. al reimprimir) o el sticky del dispositivo.
+    const format = formatOverride || getPrintFormat();
     const paper: '80mm' | 'letter' = format === 'factura' ? 'letter' : '80mm';
     const useHtml = buildReceiptHTML(sale, { ...cfg, paperSize: paper });
 
@@ -505,8 +508,13 @@ export function setReceiptAction(v: ReceiptAction) {
     try { if (v === 'ask') localStorage.removeItem(RECEIPT_ACTION_KEY); else localStorage.setItem(RECEIPT_ACTION_KEY, v); } catch { /* almacenamiento no disponible */ }
 }
 
-export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sale, config }) => {
+export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sale, config, forceChoose }) => {
     const [barcode, setBarcode] = useState('');
+    // Formato elegido para ESTA impresión: recibo térmico (80mm) o factura carta. Arranca en el
+    // formato sticky del dispositivo y el usuario lo puede cambiar (requisito: ambas opciones a mano).
+    const [fmt, setFmt] = useState<'recibo' | 'factura'>(() => (getPrintFormat() === 'factura' ? 'factura' : 'recibo'));
+    useEffect(() => { if (isOpen) setFmt(getPrintFormat() === 'factura' ? 'factura' : 'recibo'); }, [isOpen]);
+    const effConfig = useMemo(() => ({ ...config, paperSize: (fmt === 'factura' ? 'letter' : '80mm') as '80mm' | 'letter' }), [config, fmt]);
     useEffect(() => {
         let alive = true;
         if (sale && (config.design ?? 'modern') === 'classic' && config.showBarcode) {
@@ -514,48 +522,70 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
         } else setBarcode('');
         return () => { alive = false; };
     }, [sale, config]);
-    const html = useMemo(() => (sale ? buildReceiptHTML(sale, config, barcode) : ''), [sale, config, barcode]);
+    const html = useMemo(() => (sale ? buildReceiptHTML(sale, effConfig, barcode) : ''), [sale, effConfig, barcode]);
     const [dontAsk, setDontAsk] = useState(false);
     // Evita ejecutar la acción dos veces para el mismo recibo (re-render / StrictMode).
     const handledRef = useRef<string | null>(null);
     const pref = getReceiptAction();
 
     // Al abrir un recibo nuevo: si hay preferencia guardada, ejecuta la acción y cierra sin preguntar.
-    // Si no, respeta la impresión automática del config.
+    // Si no, respeta la impresión automática del config. (Al reimprimir, forceChoose desactiva esto
+    // para que el cajero siempre pueda elegir recibo o factura.)
     useEffect(() => {
+        if (forceChoose) return;
         if (!(isOpen && sale && html)) return;
         if (handledRef.current === sale.saleNumber) return; // ya procesado este recibo
         if (pref === 'print') { handledRef.current = sale.saleNumber; printReceiptSmart(html, sale, config); onClose(); return; }
         if (pref === 'download') { handledRef.current = sale.saleNumber; generatePDF(sale, config); onClose(); return; }
         if (config.autoPrint) { handledRef.current = sale.saleNumber; const t = setTimeout(() => printReceiptSmart(html, sale, config), 150); return () => clearTimeout(t); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, sale, html]);
+    }, [isOpen, sale, html, forceChoose]);
 
     // Al cerrar, olvidar el recibo procesado para permitir reimprimir la MISMA factura otra vez.
     useEffect(() => { if (!isOpen) handledRef.current = null; }, [isOpen]);
 
     if (!sale) return null;
-    // Con preferencia activa no mostramos el modal (el efecto ya ejecutó la acción).
-    if (pref !== 'ask') return null;
+    // Con preferencia activa no mostramos el modal (el efecto ya ejecutó la acción) — salvo reimpresión.
+    if (!forceChoose && pref !== 'ask') return null;
 
     // Ejecuta la acción elegida; si marcó "no volver a preguntar", la guarda y cierra.
+    // Al reimprimir (forceChoose) NO se guarda la preferencia: el formato es solo para esta vez.
     const doAction = (action: 'print' | 'download') => {
-        if (dontAsk) setReceiptAction(action);
-        if (action === 'print') printReceiptSmart(html, sale, config);
-        else generatePDF(sale, config);
-        if (dontAsk) onClose();
+        if (dontAsk && !forceChoose) setReceiptAction(action);
+        if (action === 'print') printReceiptSmart(html, sale, effConfig, fmt);
+        else generatePDF(sale, effConfig);
+        if (dontAsk || forceChoose) onClose();
     };
+
+    const fmtBtn = (v: 'recibo' | 'factura', label: string) => (
+        <button
+            type="button"
+            onClick={() => setFmt(v)}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium border transition-colors ${fmt === v ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}
+        >
+            {label}
+        </button>
+    );
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Factura / Recibo" size="md">
             <div className="space-y-4">
+                <div>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Formato</p>
+                    <div className="flex gap-2">
+                        {fmtBtn('recibo', '🧾 Recibo (80mm)')}
+                        {fmtBtn('factura', '📄 Factura (Carta)')}
+                    </div>
+                </div>
                 <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900 rounded-md p-3 max-h-[55vh] overflow-y-auto">
                     <div className="bg-white shadow-sm" dangerouslySetInnerHTML={{ __html: html }} />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 select-none">
-                    <input type="checkbox" checked={dontAsk} onChange={e => setDontAsk(e.target.checked)} className="h-4 w-4" />
-                    No volver a preguntar (usar siempre la acción que elija ahora)
-                </label>
+                {!forceChoose && (
+                    <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 select-none">
+                        <input type="checkbox" checked={dontAsk} onChange={e => setDontAsk(e.target.checked)} className="h-4 w-4" />
+                        No volver a preguntar (usar siempre la acción que elija ahora)
+                    </label>
+                )}
                 <div className="flex justify-end gap-2">
                     <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
                     <button onClick={() => doAction('download')} className={BUTTON_SECONDARY_SM_CLASSES}>📄 Descargar PDF</button>

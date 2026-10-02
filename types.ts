@@ -323,6 +323,7 @@ export interface Client {
     phone?: string;
     address?: string;
     clientType: 'Particular' | 'Empresa';
+    isContractor?: boolean; // Contratista (vs cliente final); define cómo se dividen las facturas de sus proyectos
     acquisitionSource?: string;
     isActive: boolean;
     isDefault?: boolean; // Cliente "Público General" de mostrador (venta al público)
