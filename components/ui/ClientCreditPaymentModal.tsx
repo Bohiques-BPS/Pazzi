@@ -250,8 +250,14 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                                     <div className="relative">
                                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
                                         <input type="number" min="0" step="0.01" value={cashReceived}
-                                            onChange={e => setCashReceived(e.target.value)}
-                                            placeholder={assigned > 0 ? assigned.toFixed(2) : '0.00'}
+                                            onChange={e => {
+                                                const v = e.target.value;
+                                                setCashReceived(v);
+                                                // El efectivo recibido aplica a la deuda (hasta el balance): reparte
+                                                // automáticamente para que el abono quede listo y se calcule el vuelto.
+                                                doDistribute(Math.min(num(v), totalBalance));
+                                            }}
+                                            placeholder={totalBalance > 0 ? totalBalance.toFixed(2) : '0.00'}
                                             className={`${INPUT_SM_CLASSES} w-full pl-5 tabular-nums`} />
                                     </div>
                                 </div>

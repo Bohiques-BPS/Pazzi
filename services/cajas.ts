@@ -88,6 +88,7 @@ export interface CashMovementPayload {
   reason: string;
   receiptCount?: number;
   invoiceNumber?: string;
+  attachment?: string; // justificante opcional (data URL)
   authorizedByUserId?: string;
 }
 

@@ -259,35 +259,21 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         }
     };
 
-    // En modo caja, si la pestaña activa quedó en una oculta (p. ej. 'projects'), vuelve a 'ar'.
-    // Debe ir ANTES del return temprano para no romper el orden de hooks (React #310).
-    useEffect(() => {
-        if (fromPos && !['ar', 'sales', 'receipts'].includes(tab)) setTab('ar');
-    }, [fromPos, tab]);
-
     if (!isOpen || !client) return null;
 
     const s = data?.summary;
     const itemsText = (items: { quantity: number; product?: { name: string } }[]) =>
         (items || []).map(it => `${it.product?.name || 'Producto'} ×${it.quantity}`).join(', ');
 
-    const TABS: { key: TabKey; label: string; count: number }[] = data ? (
-        // Desde la caja: solo cobro (Cuentas por cobrar, Ventas, Recibos de pago). La caja no
-        // gestiona proyectos ni cotizaciones/apartados, así que esas pestañas se ocultan.
-        fromPos ? [
-            { key: 'ar', label: 'Cuentas por cobrar', count: data.accountsReceivable.length },
-            { key: 'sales', label: 'Ventas', count: data.recentSales.length },
-            { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
-        ] : [
-            { key: 'ar', label: 'Cuentas por cobrar', count: data.accountsReceivable.length },
-            { key: 'sales', label: 'Ventas', count: data.recentSales.length },
-            { key: 'estimates', label: 'Cotizaciones', count: data.recentEstimates.length },
-            { key: 'layaways', label: 'Apartados', count: data.recentLayaways.length },
-            { key: 'projects', label: 'Proyectos', count: data.projects.length },
-            { key: 'products', label: 'Top productos', count: data.topProducts.length },
-            { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
-        ]
-    ) : [];
+    const TABS: { key: TabKey; label: string; count: number }[] = data ? [
+        { key: 'ar', label: 'Cuentas por cobrar', count: data.accountsReceivable.length },
+        { key: 'sales', label: 'Ventas', count: data.recentSales.length },
+        { key: 'estimates', label: 'Cotizaciones', count: data.recentEstimates.length },
+        { key: 'layaways', label: 'Apartados', count: data.recentLayaways.length },
+        { key: 'projects', label: 'Proyectos', count: data.projects.length },
+        { key: 'products', label: 'Top productos', count: data.topProducts.length },
+        { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
+    ] : [];
 
     return (
       <>
@@ -425,7 +411,10 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'st', label: 'Estado', text: r => r.status || '', render: r => <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700">{r.status}</span> },
                                     { key: 'createdAt', label: 'Creado', text: r => dateStr(r.createdAt), sort: r => new Date(r.createdAt).getTime(), render: r => dateStr(r.createdAt) },
                                     { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => (
-                                        <button type="button" onClick={() => actOpenProject(r.id)} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap">Abrir</button>
+                                        // Desde la caja no se navega a Gestión de Proyectos (solo vista de reporte).
+                                        fromPos
+                                            ? <span className="text-xs text-neutral-400">—</span>
+                                            : <button type="button" onClick={() => actOpenProject(r.id)} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap">Abrir</button>
                                     ) },
                                 ]}
                             />

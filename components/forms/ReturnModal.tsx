@@ -374,6 +374,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                             <PasswordInput
                                 value={adminPassword}
                                 onChange={e => setAdminPassword(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!authorizing) handleSubmit(); } }}
                                 className={inputFormStyle}
                                 placeholder="****"
                                 inputMode="numeric"

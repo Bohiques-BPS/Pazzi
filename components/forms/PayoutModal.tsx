@@ -3,9 +3,11 @@ import { Modal } from '../Modal';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useAuth } from '../../contexts/AuthContext';
 import { cajasService, type CashMovement } from '../../services/cajas';
+import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
-import { ExclamationTriangleIcon } from '../icons';
+import { ExclamationTriangleIcon, DocumentArrowUpIcon, PhotoIcon } from '../icons';
+import { PasswordInput } from '../ui/PasswordInput';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface PayoutModalProps {
@@ -30,8 +32,12 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
     const [reason, setReason] = useState('');
     const [receiptCount, setReceiptCount] = useState('1');
     const [invoiceNumber, setInvoiceNumber] = useState('');
+    const [pin, setPin] = useState('');
+    const [attachment, setAttachment] = useState<string | undefined>(undefined);
+    const [attachmentName, setAttachmentName] = useState<string | undefined>(undefined);
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -39,9 +45,21 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
             setReason('');
             setReceiptCount('1');
             setInvoiceNumber('');
+            setPin('');
+            setAttachment(undefined);
+            setAttachmentName(undefined);
             setError(null);
         }
     }, [isOpen]);
+
+    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 3 * 1024 * 1024) { setError(t('cmpx.payout.err_file_size') || 'El archivo no puede superar 3 MB.'); return; }
+        const reader = new FileReader();
+        reader.onloadend = () => { setAttachment(reader.result as string); setAttachmentName(file.name); };
+        reader.readAsDataURL(file);
+    };
 
     const handleConfirm = async () => {
         setError(null);
@@ -58,16 +76,23 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
             setError(t('cmpx.payout.err_reason'));
             return;
         }
+        if (!pin.trim()) {
+            setError(t('cmpx.payout.err_pin') || 'Ingresa el PIN de autorización.');
+            return;
+        }
 
         setSubmitting(true);
         try {
+            // El desembolso SIEMPRE requiere autorización por PIN de supervisor (gerente).
+            const { manager } = await authService.verifySupervisorPin(pin.trim());
             const movement = await cajasService.recordCashMovement(cajaId, {
                 type: 'PAYOUT',
                 amount: payoutAmount,
                 reason: reason.trim(),
                 receiptCount: parseInt(receiptCount, 10) || undefined,
                 invoiceNumber: invoiceNumber.trim() || undefined,
-                authorizedByUserId: currentUser?.role === 'MANAGER' ? currentUser.id : undefined,
+                attachment,
+                authorizedByUserId: manager?.id,
             });
             toast.success(t('cmpx.payout.recorded', { amount: payoutAmount.toFixed(2) }));
             onRecorded?.(movement);
@@ -143,9 +168,41 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
                     </div>
                 </div>
 
+                {/* Justificante opcional (imagen o PDF). */}
+                <div>
+                    <label className="block text-sm font-medium">{t('cmpx.payout.attachment') || 'Justificante (opcional)'}</label>
+                    <div className="mt-1 flex items-center gap-2">
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className={BUTTON_SECONDARY_SM_CLASSES}>
+                            <DocumentArrowUpIcon className="w-4 h-4 mr-2" /> {t('common.search')}...
+                        </button>
+                        <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden" accept="image/*,.pdf" />
+                        {attachmentName && (
+                            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                                <PhotoIcon className="w-4 h-4 text-green-500" />
+                                <span className="truncate max-w-[180px]">{attachmentName}</span>
+                                <button type="button" onClick={() => { setAttachment(undefined); setAttachmentName(undefined); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="text-red-500 text-xs">X</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Autorización obligatoria por PIN de supervisor. */}
+                <div>
+                    <label className="block text-sm font-medium">{t('cmpx.payout.pin') || 'PIN de autorización'}</label>
+                    <PasswordInput
+                        value={pin}
+                        onChange={e => setPin(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !submitting) handleConfirm(); }}
+                        className={inputFormStyle}
+                        placeholder="****"
+                        inputMode="numeric"
+                        maxLength={6}
+                    />
+                    <p className="text-xs text-neutral-500 mt-1">{t('cmpx.payout.pin_hint') || 'Requiere el PIN de un supervisor o gerente para autorizar el desembolso.'}</p>
+                </div>
+
                 <div className="text-xs text-neutral-500 dark:text-neutral-400">
                     {t('cmpx.payout.recorded_by')} <strong>{currentUser?.name} {currentUser?.lastName}</strong>
-                    {currentUser?.role === 'MANAGER' && ` ${t('cmpx.payout.self_authorized')}`}
                 </div>
 
                 {error && (

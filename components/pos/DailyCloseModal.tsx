@@ -72,7 +72,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     const [punchOnClose, setPunchOnClose] = useState(true);
     // Conteo asistido por denominación: cuando está activo, el efectivo de la gaveta se calcula
     // sumando (denominación × cantidad) en vez de digitarse a mano.
-    const [denomMode, setDenomMode] = useState(false);
+    const [denomMode, setDenomMode] = useState(true);
     const [denomCounts, setDenomCounts] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -190,7 +190,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     const diffColor = (d: number) => d === 0 ? 'text-neutral-500' : d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Cuadre de tienda diario (F7)" size="5xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Cuadre de tienda diario (F7)" size="screen">
             {loading ? (
                 <LoadingSkeleton variant="form" rows={6} />
             ) : error && !session ? (
