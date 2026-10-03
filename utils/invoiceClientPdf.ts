@@ -127,11 +127,42 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
         doc.text(v, valX, y, { align: 'right' });
         y += bold ? 20 : 15;
     };
+    // Pagado efectivo: amountPaid, o la suma de abonos, o el total si está marcada como pagada.
+    const paysArr = Array.isArray(inv.payments) ? inv.payments : [];
+    const paysSum = paysArr.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+    const paidEff = amountPaid > 0 ? amountPaid : (paid ? (inv.total || 0) : paysSum);
+    const balance = Math.max(0, (inv.total || 0) - paidEff);
+
     totRow('Subtotal:', money(inv.subtotal));
     if ((inv.tax || 0) > 0) totRow('IVU:', money(inv.tax));
-    if (amountPaid > 0 && !paid) totRow('Pagado:', money(amountPaid));
     totRow('Total:', money(inv.total), true, accent);
-    if (amountPaid > 0 && !paid) totRow('Saldo:', money((inv.total || 0) - amountPaid), true, [192, 57, 43]);
+    // Siempre mostramos Pagado y Saldo cuando hubo algún pago (o está pagada).
+    if (paidEff > 0 || paid) {
+        totRow('Pagado:', money(paidEff), false, [39, 110, 60]);
+        totRow('Saldo:', money(balance), true, balance > 0 ? [192, 57, 43] : [39, 110, 60]);
+    }
+
+    // Detalle de pago(s): cómo se pagó, fecha, referencia y abonos. Solo si hubo pago.
+    const fmtDate = (v: any) => v ? new Date(v).toLocaleDateString('es-PR') : '';
+    const payRows = paysArr.length > 0
+        ? paysArr.map((p: any) => ({ date: fmtDate(p.paidAt), method: p.method || inv.paidMethod || '—', reference: p.reference || '', amount: Number(p.amount) || 0 }))
+        : (paid || paidEff > 0 ? [{ date: fmtDate(inv.paidAt || inv.createdAt), method: inv.paidMethod || '—', reference: inv.paidReference || '', amount: paidEff }] : []);
+    if (payRows.length > 0) {
+        y += 16;
+        doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 17, 17);
+        doc.text('Pago', M, y);
+        y += 4;
+        autoTable(doc, {
+            startY: y,
+            head: [['Fecha', 'Método', 'Referencia', 'Monto']],
+            body: payRows.map(p => [p.date || '—', String(p.method), String(p.reference), money(p.amount)]),
+            styles: { fontSize: 9, cellPadding: 4 },
+            headStyles: { fillColor: [120, 120, 120], textColor: 255, fontStyle: 'bold' },
+            columnStyles: { 3: { halign: 'right' } },
+            margin: { left: M, right: M },
+        });
+        y = ((doc as any).lastAutoTable?.finalY || y) + 6;
+    }
 
     // Descripción / nota de la factura (texto libre que escribe el negocio).
     if (inv.description && String(inv.description).trim()) {

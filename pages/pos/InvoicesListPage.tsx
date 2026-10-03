@@ -201,8 +201,12 @@ const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone:
         if (amt > balance + 0.001) return toast.error(t('posx.invoices.err_amount_over', { balance: money(balance) }));
         setSaving(true);
         try {
-            await invoicesService.markPaid(invoice.id, { method, reference: reference.trim() || undefined, amount: amt, paidAt: date !== hoyISO() ? fechaAIso(date) : undefined });
+            const res: any = await invoicesService.markPaid(invoice.id, { method, reference: reference.trim() || undefined, amount: amt, paidAt: date !== hoyISO() ? fechaAIso(date) : undefined });
             toast.success(t('posx.invoices.payment_recorded'));
+            // Avisar si el recibo se envió al cliente por correo (o por qué no).
+            if (res?.emailSent) toast.success(`Recibo enviado a ${res.emailTo}`);
+            else if (!res?.emailTo) toast.warning('El cliente no tiene correo; no se envió el recibo.');
+            else toast.warning('El pago se registró, pero no se pudo enviar el recibo por correo.');
             onDone(); onClose();
         } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_payment')); }
         finally { setSaving(false); }

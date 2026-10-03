@@ -432,8 +432,11 @@ export const AccountsReceivablePage: React.FC = () => {
         const row: any = receivableData.find(r => r.id === saleId);
         if (row?.isInvoice) {
             try {
-                const updated = await invoicesService.markPaid(saleId, { amount, method, reference: notes.trim() || undefined });
+                const updated: any = await invoicesService.markPaid(saleId, { amount, method, reference: notes.trim() || undefined });
                 toast.success('Abono registrado.');
+                if (updated?.emailSent) toast.success(`Recibo enviado a ${updated.emailTo}`);
+                else if (!updated?.emailTo) toast('El cliente no tiene correo; no se envió el recibo.', { icon: '⚠️' });
+                else toast('El abono se registró, pero no se pudo enviar el recibo por correo.', { icon: '⚠️' });
                 await reloadInvoices();
                 // Recibo del abono recién registrado (último de la lista), generado en el navegador.
                 const pays = [...(updated.payments || [])].sort((a, b) => new Date(a.paidAt || 0).getTime() - new Date(b.paidAt || 0).getTime());
