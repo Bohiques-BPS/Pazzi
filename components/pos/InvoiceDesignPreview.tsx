@@ -9,6 +9,10 @@ interface DesignLike {
     labels?: Record<string, string>;
     showLogo?: boolean;
     showBusiness?: boolean;
+    showAddress?: boolean;
+    showPhone?: boolean;
+    showEmail?: boolean;
+    showRnc?: boolean;
     showClient?: boolean;
     showPaymentMethod?: boolean;
     showNotes?: boolean;
@@ -62,8 +66,8 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
                 <div className="p-4 border-b-2 flex items-start justify-between" style={{ borderColor: header }}>
                     <div className="min-w-0">
                         <div className="text-lg font-bold" style={{ color: '#111' }}>{title}</div>
-                        {d.showBusiness !== false && <div className="text-[11px] text-neutral-500 truncate">{business.name || 'Tu Negocio'}{business.rnc ? ` · RNC ${business.rnc}` : ''}</div>}
-                        {d.showBusiness !== false && business.address && <div className="text-[10px] text-neutral-400 truncate">{business.address}</div>}
+                        {(d.showBusiness !== false || d.showRnc !== false) && <div className="text-[11px] text-neutral-500 truncate">{d.showBusiness !== false ? (business.name || 'Tu Negocio') : ''}{(d.showRnc !== false && business.rnc) ? ` · RNC ${business.rnc}` : ''}</div>}
+                        {d.showAddress !== false && business.address && <div className="text-[10px] text-neutral-400 truncate">{business.address}</div>}
                     </div>
                     <Logo />
                 </div>
@@ -73,7 +77,7 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
                     <div className="text-white min-w-0">
                         <div className="text-lg font-extrabold truncate">{title}</div>
                         {d.showBusiness !== false && <div className="text-xs opacity-90 truncate">{business.name || 'Tu Negocio'}</div>}
-                        {d.showBusiness !== false && business.phone && <div className="text-[10px] opacity-80 truncate">{business.phone}</div>}
+                        {d.showPhone !== false && business.phone && <div className="text-[10px] opacity-80 truncate">{business.phone}</div>}
                     </div>
                     <Logo />
                 </div>

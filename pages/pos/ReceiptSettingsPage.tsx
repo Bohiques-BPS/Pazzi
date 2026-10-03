@@ -265,7 +265,11 @@ export const ReceiptSettingsPage: React.FC = () => {
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
                                     {boolField('showLogo', 'Mostrar logo')}
-                                    {boolField('showBusiness', 'Datos del negocio')}
+                                    {boolField('showBusiness', 'Nombre del negocio')}
+                                    {boolField('showAddress', 'Dirección')}
+                                    {boolField('showPhone', 'Teléfono')}
+                                    {boolField('showEmail', 'Correo')}
+                                    {boolField('showRnc', 'RNC / registro')}
                                     {boolField('showClient', 'Datos del cliente')}
                                     {boolField('showPaymentMethod', 'Método de pago')}
                                     {boolField('showNotes', 'Notas / términos de línea')}

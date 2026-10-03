@@ -11,6 +11,16 @@ export interface InvoicePdfBusiness {
     phone?: string;
     email?: string;
     logoUrl?: string;
+    /** Qué mostrar en la factura (de Config. Factura). Por defecto todo visible. */
+    design?: {
+        showLogo?: boolean;
+        showBusiness?: boolean;   // nombre del negocio
+        showAddress?: boolean;
+        showPhone?: boolean;
+        showEmail?: boolean;
+        showRnc?: boolean;
+        showClient?: boolean;
+    };
 }
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -28,9 +38,10 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     const header: [number, number, number] = [76, 175, 80];   // #4CAF50
     let y = M;
 
+    const d = biz.design || {};
     // Logo (data URL ya resuelto). Se ajusta a una caja máxima SIN deformar (conserva proporción).
     let logoBottom = y;
-    if (logoDataUrl) {
+    if (logoDataUrl && d.showLogo !== false) {
         try {
             const maxW = 120, maxH = 60;
             const props = doc.getImageProperties(logoDataUrl);
@@ -42,14 +53,20 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
         } catch { /* logo inválido: se ignora */ }
     }
 
-    // Nombre del negocio + líneas a la derecha.
-    doc.setFont('helvetica', 'bold').setFontSize(14).setTextColor(17, 17, 17);
-    doc.text(biz.businessName || '', pageW - M, y + 6, { align: 'right' });
-    let by = y + 22;
+    // Nombre del negocio + líneas a la derecha (cada dato se puede ocultar desde Config. Factura).
+    let by = y + 6;
+    if (d.showBusiness !== false && biz.businessName) {
+        doc.setFont('helvetica', 'bold').setFontSize(14).setTextColor(17, 17, 17);
+        doc.text(biz.businessName, pageW - M, by, { align: 'right' });
+        by += 16;
+    }
     doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(85, 85, 85);
-    [biz.address, biz.phone, biz.email, biz.rnc ? `RNC/Reg: ${biz.rnc}` : '']
-        .filter(Boolean)
-        .forEach(l => { doc.text(String(l), pageW - M, by, { align: 'right' }); by += 12; });
+    [
+        d.showAddress !== false ? biz.address : '',
+        d.showPhone !== false ? biz.phone : '',
+        d.showEmail !== false ? biz.email : '',
+        (d.showRnc !== false && biz.rnc) ? `RNC/Reg: ${biz.rnc}` : '',
+    ].filter(Boolean).forEach(l => { doc.text(String(l), pageW - M, by, { align: 'right' }); by += 12; });
     y = Math.max(logoBottom, by) + 18;
 
     // Título.
@@ -57,13 +74,15 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     doc.text('FACTURA', M, y + 10);
     y += 34;
 
-    // Cliente (izq) + meta (der).
+    // Cliente (izq) + meta (der). El bloque de cliente se puede ocultar desde Config. Factura.
     const blockTop = y;
-    doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 17, 17);
-    doc.text('Datos del Cliente', M, y);
-    doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(51, 51, 51);
-    if (inv.clientName) doc.text(String(inv.clientName), M, y + 16);
-    if (inv.clientEmail) { doc.setFontSize(9).setTextColor(102, 102, 102); doc.text(String(inv.clientEmail), M, y + 30); }
+    if (d.showClient !== false) {
+        doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(17, 17, 17);
+        doc.text('Datos del Cliente', M, y);
+        doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(51, 51, 51);
+        if (inv.clientName) doc.text(String(inv.clientName), M, y + 16);
+        if (inv.clientEmail) { doc.setFontSize(9).setTextColor(102, 102, 102); doc.text(String(inv.clientEmail), M, y + 30); }
+    }
 
     const paid = inv.status === 'paid';
     const metaX = pageW / 2 + 20;

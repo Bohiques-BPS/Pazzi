@@ -614,7 +614,16 @@ export const InvoicesListPage: React.FC = () => {
     // Datos del negocio para el encabezado del PDF (del recibo configurado).
     const pdfBiz: InvoicePdfBusiness = useMemo(() => {
         const rc: any = (settings as any)?.receiptConfig || {};
-        return { businessName: rc.businessName, rnc: rc.rnc, address: rc.address, phone: rc.phone, email: rc.email, logoUrl: rc.logoUrl };
+        const id: any = rc.invoiceDesign || {};
+        // Qué datos del negocio salen en la factura (Config. Factura). showBusiness/showLogo/showClient
+        // vienen del diseño de factura; dirección/teléfono/correo/RNC usan los toggles del recibo.
+        const design = {
+            showLogo: id.showLogo, showBusiness: id.showBusiness, showClient: id.showClient,
+            // Granulares: usa el toggle del diseño de factura; si no está definido, cae al del recibo.
+            showAddress: id.showAddress ?? rc.showAddress, showPhone: id.showPhone ?? rc.showPhone,
+            showEmail: id.showEmail ?? rc.showEmail, showRnc: id.showRnc ?? rc.showRnc,
+        };
+        return { businessName: rc.businessName, rnc: rc.rnc, address: rc.address, phone: rc.phone, email: rc.email, logoUrl: rc.logoUrl, design };
     }, [settings]);
 
     // URL blob para la vista previa del PDF (generado en el navegador). Se revoca al cambiar/cerrar.
