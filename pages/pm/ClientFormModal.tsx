@@ -76,7 +76,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         salesperson: salespersonOptions[0],
         priceLevel: CLIENT_PRICE_LEVEL_OPTIONS[0],
         businessType: '', zone: '',
-        clientType: 'Particular', isContractor: false, companyName: '',
+        clientType: 'Particular', isContractor: false, companyName: '', displayName: '',
         preferredCommunication: 'Email', industry: '', acquisitionSource: '',
         balance: 0,
         specialInvoiceMessageEnabled: false,
@@ -263,6 +263,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             </div>
             <div><label className="block text-sm font-medium">{t('common.name')}</label><input type="text" name="name" value={formData.name} onChange={handleChange} className={inputFormStyle} required/></div>
             <div><label className="block text-sm font-medium">{t('client.field.lastname')}</label><input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} required /></div>
+            <div>
+                <label className="block text-sm font-medium">Nombre para documentos <span className="text-neutral-400 text-xs font-normal">(opcional)</span></label>
+                <input type="text" name="displayName" value={formData.displayName || ''} onChange={handleChange} className={inputFormStyle} placeholder={`Ej. ${formData.companyName || 'Bohiques'} — así saldrá en la factura/recibo`} />
+                <p className="text-xs text-neutral-500 mt-1">Si lo llenas, se usa en la factura y el recibo en vez de “{(formData.name || 'Nombre')} {formData.lastName || ''}”. Útil para empresas o alias.</p>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label className="block text-sm font-medium">{t('client.field.type')}</label>

@@ -319,6 +319,7 @@ export interface Client {
     id: string;
     name: string;
     lastName: string;
+    displayName?: string; // alias para documentos (factura/recibo): si se llena, se usa en vez de Nombre+Apellido
     email: string;
     phone?: string;
     address?: string;
