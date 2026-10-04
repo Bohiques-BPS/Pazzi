@@ -30,15 +30,22 @@ export const AdminDashboardPage: React.FC = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    const Kpi: React.FC<{ icon: React.ComponentType<any>; label: string; value: string; sub?: string; accent?: string }> = ({ icon: Icon, label, value, sub, accent = 'text-primary' }) => (
-        <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
-            <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
-                <Icon className={`w-5 h-5 ${accent}`} /><span className="truncate">{label}</span>
-            </div>
-            <div className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 mt-1 tabular-nums">{value}</div>
-            {sub && <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{sub}</div>}
-        </div>
-    );
+    const Kpi: React.FC<{ icon: React.ComponentType<any>; label: string; value: string; sub?: string; accent?: string; to?: string }> = ({ icon: Icon, label, value, sub, accent = 'text-primary', to }) => {
+        const inner = (
+            <>
+                <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
+                    <Icon className={`w-5 h-5 ${accent}`} /><span className="truncate">{label}</span>
+                </div>
+                <div className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 mt-1 tabular-nums">{value}</div>
+                {sub && <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{sub}</div>}
+            </>
+        );
+        const base = "bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm";
+        if (to) return (
+            <Link to={to} className={`${base} block transition hover:shadow-md hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40`}>{inner}</Link>
+        );
+        return <div className={base}>{inner}</div>;
+    };
 
     const quickLinks = [
         { to: '/admin/business', label: t('adminx.nav.business') || 'Datos del Negocio', icon: BuildingStorefrontIcon },
@@ -65,10 +72,10 @@ export const AdminDashboardPage: React.FC = () => {
                     <section>
                         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 mb-3">{t('adminx.overview.sales') || 'Ventas'}</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Kpi icon={CashBillIcon} label={t('adminx.overview.sales_today') || 'Ventas de hoy'} value={money(data.sales.today.total)} sub={`${data.sales.today.count} ${t('adminx.overview.transactions') || 'transacciones'}`} accent="text-green-600 dark:text-green-400" />
-                            <Kpi icon={CashBillIcon} label={t('adminx.overview.sales_month') || 'Ventas del mes'} value={money(data.sales.month.total)} sub={`${data.sales.month.count} ${t('adminx.overview.transactions') || 'transacciones'}`} accent="text-green-600 dark:text-green-400" />
-                            <Kpi icon={DocumentArrowUpIcon} label={t('adminx.overview.invoices_pending') || 'Facturas por cobrar'} value={String(data.invoices.pendingCount)} sub={`${t('pos.receivable.col.balance') || 'Saldo'}: ${money(data.invoices.pendingBalance)}`} accent="text-red-600 dark:text-red-400" />
-                            <Kpi icon={ShoppingCartIcon} label={t('adminx.overview.ecommerce_pending') || 'Pedidos online pendientes'} value={String(data.ecommerce.pendingOrders)} accent="text-amber-600 dark:text-amber-400" />
+                            <Kpi icon={CashBillIcon} label={t('adminx.overview.sales_today') || 'Ventas de hoy'} value={money(data.sales.today.total)} sub={`${data.sales.today.count} ${t('adminx.overview.transactions') || 'transacciones'}`} accent="text-green-600 dark:text-green-400" to="/pos/sales-history?periodo=hoy" />
+                            <Kpi icon={CashBillIcon} label={t('adminx.overview.sales_month') || 'Ventas del mes'} value={money(data.sales.month.total)} sub={`${data.sales.month.count} ${t('adminx.overview.transactions') || 'transacciones'}`} accent="text-green-600 dark:text-green-400" to="/pos/sales-history?periodo=mes" />
+                            <Kpi icon={DocumentArrowUpIcon} label={t('adminx.overview.invoices_pending') || 'Facturas por cobrar'} value={String(data.invoices.pendingCount)} sub={`${t('pos.receivable.col.balance') || 'Saldo'}: ${money(data.invoices.pendingBalance)}`} accent="text-red-600 dark:text-red-400" to="/pos/accounts-receivable" />
+                            <Kpi icon={ShoppingCartIcon} label={t('adminx.overview.ecommerce_pending') || 'Pedidos online pendientes'} value={String(data.ecommerce.pendingOrders)} accent="text-amber-600 dark:text-amber-400" to="/ecommerce/orders?estado=pendiente" />
                         </div>
                     </section>
 
@@ -76,8 +83,8 @@ export const AdminDashboardPage: React.FC = () => {
                     <section>
                         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 mb-3">{t('adminx.overview.projects') || 'Proyectos'}</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Kpi icon={BriefcaseIcon} label={t('adminx.overview.projects_active') || 'Proyectos activos'} value={String(data.projects.active)} />
-                            <Kpi icon={ClipboardDocumentListIcon} label={t('adminx.overview.pending_tasks') || 'Tareas pendientes'} value={String(data.projects.pendingTasks)} accent="text-indigo-600 dark:text-indigo-400" />
+                            <Kpi icon={BriefcaseIcon} label={t('adminx.overview.projects_active') || 'Proyectos activos'} value={String(data.projects.active)} to="/pm/projects?estado=activo" />
+                            <Kpi icon={ClipboardDocumentListIcon} label={t('adminx.overview.pending_tasks') || 'Tareas pendientes'} value={String(data.projects.pendingTasks)} accent="text-indigo-600 dark:text-indigo-400" to="/pm/my-tasks?estado=pendiente" />
                         </div>
                     </section>
 
@@ -85,9 +92,9 @@ export const AdminDashboardPage: React.FC = () => {
                     <section>
                         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 mb-3">{t('adminx.overview.catalog') || 'Catálogo y equipo'}</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Kpi icon={CubeIcon} label={t('adminx.overview.products') || 'Productos'} value={String(data.catalog.products)} accent="text-sky-600 dark:text-sky-400" />
-                            <Kpi icon={UserGroupIcon} label={t('adminx.overview.clients') || 'Clientes'} value={String(data.catalog.clients)} accent="text-teal-600 dark:text-teal-400" />
-                            <Kpi icon={IdentificationIcon} label={t('adminx.overview.employees') || 'Colaboradores'} value={String(data.catalog.employees)} accent="text-violet-600 dark:text-violet-400" />
+                            <Kpi icon={CubeIcon} label={t('adminx.overview.products') || 'Productos'} value={String(data.catalog.products)} accent="text-sky-600 dark:text-sky-400" to="/tienda/products" />
+                            <Kpi icon={UserGroupIcon} label={t('adminx.overview.clients') || 'Clientes'} value={String(data.catalog.clients)} accent="text-teal-600 dark:text-teal-400" to="/tienda/clients" />
+                            <Kpi icon={IdentificationIcon} label={t('adminx.overview.employees') || 'Colaboradores'} value={String(data.catalog.employees)} accent="text-violet-600 dark:text-violet-400" to="/tienda/employees" />
                         </div>
                     </section>
                 </>

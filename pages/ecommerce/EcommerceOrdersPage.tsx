@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Order } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { DataTable, TableColumn } from '../../components/DataTable'; // Adjusted path
@@ -15,7 +16,14 @@ export const EcommerceOrdersPage: React.FC = () => {
     const { orders, updateOrderStatus: updateContextOrderStatus } = useData();
     const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<Order | null>(null);
     const [selectedOrderForStatus, setSelectedOrderForStatus] = useState<Order | null>(null);
-    const [statusFilter, setStatusFilter] = useState<Order['status'] | 'Todos'>('Todos');
+    const [searchParams] = useSearchParams();
+    const estadoParam = (searchParams.get('estado') || '').toLowerCase();
+    const estadoInitial: Order['status'] | 'Todos' = estadoParam === 'pendiente' ? 'Pendiente'
+        : estadoParam === 'enviado' ? 'Enviado'
+        : estadoParam === 'completado' ? 'Completado'
+        : estadoParam === 'cancelado' ? 'Cancelado'
+        : 'Todos';
+    const [statusFilter, setStatusFilter] = useState<Order['status'] | 'Todos'>(estadoInitial);
 
     const orderStatusOptions: (Order['status'] | 'Todos')[] = ['Todos', 'Pendiente', 'Enviado', 'Completado', 'Cancelado'];
 

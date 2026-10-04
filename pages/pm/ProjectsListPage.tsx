@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Project, ProjectStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { ConfirmationModal, Modal } from '../../components/Modal';
@@ -35,7 +35,12 @@ export const ProjectsListPage: React.FC = () => {
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>('Todos');
+    const [searchParams] = useSearchParams();
+    const estadoParam = (searchParams.get('estado') || '').toLowerCase();
+    const estadoInitial: ProjectStatus | 'Todos' = estadoParam === 'activo' ? ProjectStatus.ACTIVE
+        : estadoParam === 'completado' ? ProjectStatus.COMPLETED
+        : 'Todos';
+    const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>(estadoInitial);
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     // Densidad de la cuadrícula en pantallas grandes (4 por defecto; el usuario puede elegir 5). Por dispositivo.
     const [gridCols, setGridCols] = useState<4 | 5>(() => { try { return localStorage.getItem('pazzi_pm_cols') === '5' ? 5 : 4; } catch { return 4; } });

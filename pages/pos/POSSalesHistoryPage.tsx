@@ -1,6 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
+import { useSearchParams } from 'react-router-dom';
 import { Sale, SupplierOrder } from '../../types';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { PrinterIcon, ArrowDownIcon, ArrowUpIcon } from '../../components/icons';
@@ -134,6 +135,24 @@ export const POSSalesHistoryPage: React.FC = () => {
 
       return [...salesItems, ...supplierItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, supplierOrders, getClientById, getSupplierById, showDeleted, deletedSales]);
+
+  // Filtro de período leído de la URL (?periodo=hoy|mes), enlazado desde el panel de administración.
+  const [periodParams, setPeriodParams] = useSearchParams();
+  const periodo = (periodParams.get('periodo') || '').toLowerCase();
+  const periodLabel = periodo === 'hoy' ? (t('adminx.overview.sales_today') || 'Ventas de hoy')
+      : periodo === 'mes' ? (t('adminx.overview.sales_month') || 'Ventas del mes')
+      : '';
+  const clearPeriod = () => { const n = new URLSearchParams(periodParams); n.delete('periodo'); setPeriodParams(n, { replace: true }); };
+  const filteredHistory: HistoryItem[] = useMemo(() => {
+      if (periodo !== 'hoy' && periodo !== 'mes') return combinedHistory;
+      const now = new Date();
+      return combinedHistory.filter(item => {
+          const d = new Date(item.date);
+          if (isNaN(d.getTime())) return true;
+          if (periodo === 'hoy') return d.toDateString() === now.toDateString();
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      });
+  }, [combinedHistory, periodo]);
 
   const handleTypeClick = (item: HistoryItem) => {
       if (item.type === 'CxC' || item.type === 'Venta') {
@@ -346,8 +365,16 @@ export const POSSalesHistoryPage: React.FC = () => {
         </h1>
         <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
       </div>
+      {periodLabel && !showDeleted && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-primary/10 text-primary">
+            {periodLabel}
+            <button onClick={clearPeriod} className="font-bold hover:text-primary/70" aria-label={t('common.clear') || 'Quitar filtro'}>×</button>
+          </span>
+        </div>
+      )}
       <DataTable<HistoryItem> onRowClick={showDeleted ? undefined : handleTypeClick}
-        data={combinedHistory}
+        data={showDeleted ? combinedHistory : filteredHistory}
         columns={columns}
         tableId="sales-history"
         actions={(item) => (
