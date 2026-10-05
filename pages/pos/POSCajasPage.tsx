@@ -7,7 +7,7 @@ import { PayoutModal } from '../../components/forms/PayoutModal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, EyeIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants';
 import { cajasService, type CajaWithSession, type CajaSession } from '../../services/cajas';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -409,7 +409,7 @@ const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({ isOpen, onClo
                 </div>
             )}
             <div className="flex justify-end pt-3">
-                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.cajas.history.close')}</button>
+                <button type="button" onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('posx.cajas.history.close')}</button>
             </div>
 
             <ConfirmationModal

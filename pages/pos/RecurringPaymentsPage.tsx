@@ -5,7 +5,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { recurringService, type RecurringPayment, type RecurringCharge, type CreateRecurringInput, type RecurringMode, type LinkMethod, type RecurringItem } from '../../services/recurring';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmationModal } from '../../components/Modal';
@@ -297,7 +297,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.recurring.title')}</h1>
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
-                    {!showDeleted && <button onClick={() => setShowForm(s => !s)} className={BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.recurring.close') : t('posx.recurring.new')}</button>}
+                    {!showDeleted && <button onClick={() => setShowForm(s => !s)} className={showForm ? BUTTON_CLOSE_SM_CLASSES : BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.recurring.close') : t('posx.recurring.new')}</button>}
                 </div>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.recurring.subtitle.a')} <b>{t('posx.recurring.subtitle.autoCharge')}</b> {t('posx.recurring.subtitle.b')} <b>{t('posx.recurring.subtitle.invoiceLink')}</b> {t('posx.recurring.subtitle.c')}</p>

@@ -7,7 +7,7 @@ import { invoicesService, type Invoice, type InvoiceItemInput, type InvoicePayme
 import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, INPUT_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal, ConfirmationModal } from '../../components/Modal';
@@ -167,7 +167,7 @@ const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void; on
                     {canAddPayment
                         ? <button onClick={() => onAddPayment!()} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.invoices.abonos_add') || '+ Añadir abono'}</button>
                         : <span />}
-                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.close') || 'Cerrar'}</button>
+                    <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('common.close') || 'Cerrar'}</button>
                 </div>
             </div>
         </Modal>
@@ -779,7 +779,7 @@ export const InvoicesListPage: React.FC = () => {
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.title')}</h1>
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
-                    {!showDeleted && <button onClick={() => { if (showForm) { setShowForm(false); resetForm(); } else { resetForm(); setShowForm(true); } }} className={BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.invoices.close') : t('posx.invoices.new_invoice_btn')}</button>}
+                    {!showDeleted && <button onClick={() => { if (showForm) { setShowForm(false); resetForm(); } else { resetForm(); setShowForm(true); } }} className={showForm ? BUTTON_CLOSE_SM_CLASSES : BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.invoices.close') : t('posx.invoices.new_invoice_btn')}</button>}
                 </div>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.invoices.intro')}</p>
@@ -1217,7 +1217,7 @@ export const InvoicesListPage: React.FC = () => {
                     <div className="flex justify-end gap-2 pt-1">
                         <button onClick={() => { if (pdfUrl) window.open(pdfUrl, '_blank', 'noopener'); else if (pdfInvoice) openInvoicePdf(pdfInvoice, pdfBiz); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.open_new_tab')}</button>
                         <button onClick={() => pdfInvoice && downloadInvoicePdf(pdfInvoice, pdfBiz)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.invoices.download_pdf')}</button>
-                        <button onClick={() => setPdfInvoice(null)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close')}</button>
+                        <button onClick={() => setPdfInvoice(null)} className={BUTTON_CLOSE_SM_CLASSES}>{t('common.close')}</button>
                     </div>
                 </div>
             </Modal>

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Order, CartItem } from '../../types'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
-import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants'; // Adjusted path
 import { CreditCardIcon, BanknotesIcon, AthMovilIcon } from '../../components/icons'; // Added icons
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -85,7 +85,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ isOpen, onCl
                 </div>
 
                 <div className="flex justify-end pt-4">
-                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('ecomx.common.close')}</button>
+                    <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('ecomx.common.close')}</button>
                 </div>
             </div>
         </Modal>

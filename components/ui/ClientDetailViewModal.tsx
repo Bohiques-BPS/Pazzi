@@ -2,7 +2,7 @@
 import React from 'react';
 import { Modal } from '../Modal';
 import { Client } from '../../types';
-import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ClientDetailViewModalProps {
@@ -84,7 +84,7 @@ export const ClientDetailViewModal: React.FC<ClientDetailViewModalProps> = ({ is
                 </section>
 
                 <div className="flex justify-end pt-4">
-                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('pmx.common.close')}</button>
+                    <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('pmx.common.close')}</button>
                 </div>
             </div>
         </Modal>

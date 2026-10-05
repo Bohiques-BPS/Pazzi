@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, ConfirmationModal } from '../../components/Modal';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants';
 import { productsService, type ProductReportRow, type ProductReportType } from '../../services/products';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -256,7 +256,7 @@ export const ProductReportsModal: React.FC<ProductReportsModalProps> = ({ isOpen
             )}
 
             <div className="flex justify-end pt-3">
-                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('pmx.common.close')}</button>
+                <button type="button" onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('pmx.common.close')}</button>
             </div>
 
             <ConfirmationModal

@@ -477,6 +477,9 @@ export const BUTTON_PRIMARY_SM_CLASSES = "bg-primary hover:bg-secondary text-whi
 export const BUTTON_SECONDARY_CLASSES = "bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-lg py-2 px-4 rounded-md shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 dark:focus:ring-neutral-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900";
 export const BUTTON_SECONDARY_SM_CLASSES = "bg-neutral-200 hover:bg-neutral-300 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-base py-2 px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500 focus:ring-offset-1 dark:focus:ring-offset-neutral-800";
 
+// Botón de CERRAR (rojo): se usa en todos los botones cuyo texto es "Cerrar" (cerrar modal / cerrar formulario).
+export const BUTTON_CLOSE_SM_CLASSES = "bg-red-600 hover:bg-red-700 text-white font-semibold text-base py-2 px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-red-400 focus:ring-offset-1 dark:focus:ring-offset-neutral-800";
+
 
 // POS Specific Button Styles
 export const POS_BUTTON_BLUE_CLASSES = "bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-neutral-800 transition-colors";

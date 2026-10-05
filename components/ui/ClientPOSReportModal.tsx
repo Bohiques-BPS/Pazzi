@@ -5,7 +5,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { EmptyState } from './EmptyState';
-import { BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface ClientPOSReportModalProps {
@@ -123,7 +123,7 @@ export const ClientPOSReportModal: React.FC<ClientPOSReportModalProps> = ({
             )}
 
             <div className="mt-4 flex justify-end">
-                <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('pmx.common.close')}</button>
+                <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('pmx.common.close')}</button>
             </div>
         </Modal>
     );

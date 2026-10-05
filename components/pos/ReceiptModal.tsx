@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Modal } from '../Modal';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
 import { barcodeToSvg } from '../../utils/barcode';
 import { loadImageAsDataUrl, dataUrlFormat } from '../../utils/imageData';
@@ -589,7 +589,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
                     </label>
                 )}
                 <div className="flex justify-end gap-2">
-                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
+                    <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>Cerrar</button>
                     <button onClick={() => doAction('download')} className={BUTTON_SECONDARY_SM_CLASSES}>📄 Descargar PDF</button>
                     <button onClick={() => doAction('print')} className={BUTTON_PRIMARY_SM_CLASSES}>🖨️ Imprimir</button>
                 </div>

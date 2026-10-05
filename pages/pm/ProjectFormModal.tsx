@@ -6,7 +6,7 @@ import { canAccessProjects } from '../../utils/employeePermissions';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { Modal, ConfirmationModal } from '../../components/Modal';
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
 import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon } from '../../components/icons'; // Added DocumentArrowDownIcon
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
@@ -706,7 +706,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
                     )}
                     {!canEditDetails && (
                         <div className="flex justify-end pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4">
-                            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar Vista</button>
+                            <button type="button" onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>Cerrar Vista</button>
                         </div>
                     )}
                 </form>

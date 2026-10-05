@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import { Employee, EmployeeFormData, UserStatus, PermissionCategory, EmployeePermissions } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal, ConfirmationModal } from '../../components/Modal';
-import { EMPLOYEE_ROLES, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { EMPLOYEE_ROLES, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { LockClosedIcon, KeyIcon, CameraIcon, TrashIconMini, ExclamationTriangleIcon, EditIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -129,7 +129,7 @@ const ManageLookupModal: React.FC<ManageLookupModalProps> = ({ isOpen, title, pl
                 </form>
 
                 <div className="flex justify-end">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.close') || t('common.cancel')}</button>
+                    <button type="button" onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('common.close') || t('common.cancel')}</button>
                 </div>
             </div>
         </Modal>

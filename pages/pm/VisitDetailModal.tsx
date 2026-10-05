@@ -3,7 +3,7 @@ import { Visit, Employee, VisitStatus } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
 import { VisitStatusBadge } from '../../components/ui/VisitStatusBadge'; // Adjusted path
-import { BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
+import { BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { BriefcaseIcon } from '../../components/icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -61,7 +61,7 @@ export const VisitDetailModal: React.FC<VisitDetailModalProps> = ({ isOpen, onCl
                             {t('pm2x.visit.detail.convert')}
                         </button>
                     )}
-                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('pm2x.common.close')}</button>
+                    <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('pm2x.common.close')}</button>
                 </div>
             </div>
         </Modal>

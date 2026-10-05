@@ -4,7 +4,7 @@ import { Client } from '../../types';
 import { invoicesService, type Invoice, type InvoiceItemInput } from '../../services/invoices';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -115,7 +115,7 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
                     </div>
                     <a href={publicLink(created.publicToken)} target="_blank" rel="noreferrer" className="inline-block text-sm text-primary hover:underline">{t('cmpx.invoice.open_client_view')}</a>
                     <div className="flex justify-end pt-2">
-                        <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('pmx.common.close')}</button>
+                        <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('pmx.common.close')}</button>
                     </div>
                 </div>
             ) : (
