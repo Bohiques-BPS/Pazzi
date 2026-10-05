@@ -71,7 +71,7 @@ const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = (
 };
 
 /** Modal de SOLO LECTURA: historial de abonos/pagos de una factura. */
-const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = ({ invoice, onClose }) => {
+const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onAddPayment?: () => void }> = ({ invoice, onClose, onAddPayment }) => {
     const { t } = useTranslation();
     const { settings } = useGlobalSettings();
     if (!invoice) return null;
@@ -79,6 +79,8 @@ const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> 
     const paid = invoice.amountPaid ?? payments.reduce((s, p) => s + (p.amount || 0), 0);
     const balance = Math.max(0, (invoice.total || 0) - paid);
     const st = STATUS[invoice.status];
+    // Se puede abonar mientras quede saldo y la factura no esté anulada.
+    const canAddPayment = !!onAddPayment && balance > 0.001 && invoice.status !== 'cancelled' && invoice.status !== 'paid';
     const store = { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone };
     // Imprime (→ guardar como PDF) un recibo del abono i (0-based). El acumulado incluye hasta ese abono.
     const printAbono = (i: number) => {
@@ -160,9 +162,12 @@ const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> 
                     </div>
                 )}
 
-                <p className="text-xs text-neutral-400">Vista de solo lectura. Para registrar, editar o eliminar un abono usa <strong>Editar</strong> en la factura (pide PIN de supervisor).</p>
-                <div className="flex justify-end pt-1">
-                    <button onClick={onClose} className={BUTTON_PRIMARY_SM_CLASSES}>{t('common.close') || 'Cerrar'}</button>
+                <p className="text-xs text-neutral-400">{t('posx.invoices.payments_ro_note') || 'Para editar o eliminar un abono ya registrado usa Editar en la factura (pide PIN de supervisor).'}</p>
+                <div className="flex justify-between items-center pt-1 gap-2">
+                    {canAddPayment
+                        ? <button onClick={() => onAddPayment!()} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.invoices.abonos_add') || '+ Añadir abono'}</button>
+                        : <span />}
+                    <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.close') || 'Cerrar'}</button>
                 </div>
             </div>
         </Modal>
@@ -1195,7 +1200,7 @@ export const InvoicesListPage: React.FC = () => {
             )}
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
-            <PaymentsModal invoice={viewPayments} onClose={() => setViewPayments(null)} />
+            <PaymentsModal invoice={viewPayments} onClose={() => setViewPayments(null)} onAddPayment={() => { const inv = viewPayments; setViewPayments(null); if (inv) setPayFor(inv); }} />
             <PayModal invoice={payFor} onClose={() => setPayFor(null)} onDone={load} />
 
             {/* Preview del PDF de la factura, generado en el navegador (sin depender del backend). */}
