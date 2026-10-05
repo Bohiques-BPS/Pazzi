@@ -2,6 +2,14 @@ import { api } from './api';
 
 export type RecurringMode = 'auto_charge' | 'invoice_link';
 export type LinkMethod = 'agilpay' | 'ath';
+
+/** Línea del plan recurrente (tipo factura). taxRate = fracción (0.115); 0 = exento; omitido = default del negocio. */
+export interface RecurringItem {
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    taxRate?: number | null;
+}
 export type PayState = 'approved' | 'declined' | 'error' | 'pending' | 'partial' | 'paid' | 'overdue' | 'cancelled';
 
 export interface RecurringCharge {
@@ -32,6 +40,8 @@ export interface RecurringPayment {
     linkMethods?: string | null;   // "agilpay,ath"
     graceDays?: number;
     amount: number;
+    items?: RecurringItem[] | null;
+    taxRate?: number | null;
     interval: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
     intervalCount?: number;
     startDate?: string | null;
@@ -52,7 +62,9 @@ export interface RecurringPayment {
 export interface CreateRecurringInput {
     clientId: string;
     mode: RecurringMode;
-    amount: number;
+    amount?: number;                // opcional: si se envían `items`, el total se calcula del detalle
+    items?: RecurringItem[];        // líneas tipo factura (producto/cantidad/precio/IVU)
+    taxRate?: number | null;        // IVU por defecto para líneas sin tasa propia (fracción)
     interval: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
     intervalCount?: number;         // "Cada N" periodos
     monthlyDay?: number | null;     // día fijo del mes (mensual/trimestral/anual)

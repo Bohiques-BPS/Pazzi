@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePagination, PaginationFooter } from '../../components/ui/tableTools';
 import { useData } from '../../contexts/DataContext';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { recurringService, type RecurringPayment, type RecurringCharge, type CreateRecurringInput, type RecurringMode, type LinkMethod } from '../../services/recurring';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { recurringService, type RecurringPayment, type RecurringCharge, type CreateRecurringInput, type RecurringMode, type LinkMethod, type RecurringItem } from '../../services/recurring';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
@@ -11,6 +11,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmationModal } from '../../components/Modal';
 import { ClientAutocomplete } from '../../components/ui/ClientAutocomplete';
 import { ClientNameLink } from '../../components/ui/EntityNameLink';
+import { MoneyInput } from '../../components/ui/MoneyInput';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 // Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
@@ -57,9 +58,15 @@ const lastPaidDate = (rp: RecurringPayment): string | null => {
     return paid.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
 };
 
+// Línea editable del plan (tipo factura).
+type DraftItem = { name: string; quantity: string; unitPrice: string; taxRate?: number };
+const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
+const normRate = (r?: number) => r == null ? 0 : (r > 1 ? r / 100 : r); // acepta fracción (0.115) o % (11.5)
+
 export const RecurringPaymentsPage: React.FC = () => {
     const { t } = useTranslation();
-    const { clients } = useData();
+    const { clients, products } = useData();
+    const { settings } = useGlobalSettings();
     const [items, setItems] = useState<RecurringPayment[]>([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
@@ -77,7 +84,8 @@ export const RecurringPaymentsPage: React.FC = () => {
     // Form
     const [mode, setMode] = useState<RecurringMode>('invoice_link');
     const [clientId, setClientId] = useState('');
-    const [amount, setAmount] = useState('');
+    const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
+    const [openLine, setOpenLine] = useState<number | null>(null);
     const [interval, setInterval] = useState<CreateRecurringInput['interval']>('monthly');
     const [intervalCount, setIntervalCount] = useState('1');
     const [monthlyDay, setMonthlyDay] = useState('');
@@ -113,7 +121,7 @@ export const RecurringPaymentsPage: React.FC = () => {
     };
 
     const resetForm = () => {
-        setClientId(''); setAmount(''); setInterval('monthly'); setDescription('');
+        setClientId(''); setLines([emptyItem()]); setInterval('monthly'); setDescription('');
         setIntervalCount('1'); setMonthlyDay(''); setRetryEnabled(true); setMaxRetries('3'); setStartDate(''); setExecType('until'); setEndDate(''); setMaxOccurrences('');
         setCard(''); setExpiry(''); setCvv(''); setZip('');
         setEmail(''); setMethods(['agilpay', 'ath']); setGraceDays('3');
@@ -122,21 +130,71 @@ export const RecurringPaymentsPage: React.FC = () => {
     const onCard = (v: string) => { const d = v.replace(/\D/g, '').slice(0, 19); setCard(d.match(/.{1,4}/g)?.join(' ') || d); };
     const onExpiry = (v: string) => { let d = v.replace(/\D/g, '').slice(0, 4); if (d.length >= 2) d = d.slice(0, 2) + '/' + d.slice(2); setExpiry(d); };
 
-    // Al elegir cliente en modo factura, precargar su correo.
+    // Al elegir cliente, precargar su correo (siempre que el cliente tenga uno).
     const onSelectClient = (id: string) => {
         setClientId(id);
         const c = clients.find(c => c.id === id);
-        if (c?.email && !email) setEmail(c.email);
+        if (c?.email) setEmail(c.email);
     };
+
+    // ── Líneas tipo factura ──
+    const setLine = (i: number, patch: Partial<DraftItem>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
+    const addLine = () => setLines(ls => [...ls, emptyItem()]);
+    const removeLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : [emptyItem()]);
+
+    // Tasa de IVU de un producto (el BE la expone como ivaRate; el público como ivuRate).
+    const prodRate = (p: any): number | undefined => (p?.ivaRate != null ? p.ivaRate : p?.ivuRate);
+    const productByName = useMemo(() => {
+        const m = new Map<string, any>();
+        for (const p of (products || [])) m.set(p.name.trim().toLowerCase(), p);
+        return m;
+    }, [products]);
+    const bd = !!(settings as any).taxBreakdownEnabled;
+    const selClient: any = clients.find(c => c.id === clientId);
+    const exemptState = !!selClient?.taxExemptState;
+    const exemptMunicipal = !!selClient?.taxExemptMunicipal
+        || (selClient?.municipalTaxExemptionUntil && new Date(selClient.municipalTaxExemptionUntil).getTime() > Date.now());
+    const clientFullyExempt = exemptState && exemptMunicipal;
+    const stateR = exemptState ? 0 : (Number((settings as any).taxStateRate) || 0);
+    const municipalR = exemptMunicipal ? 0 : (Number((settings as any).taxMunicipalRate) || 0);
+    const reducedR = exemptState ? 0 : (Number((settings as any).taxReducedRate) || 0);
+    // Tasa de IVU efectiva de una línea (misma lógica que el formulario de Facturas).
+    const lineTaxRate = (l: DraftItem): number | undefined => {
+        const prod = productByName.get(l.name.trim().toLowerCase());
+        const explicit = l.taxRate != null ? l.taxRate : (prod ? prodRate(prod) : undefined);
+        if (explicit === 0) return 0;
+        if (bd) {
+            const reduced = prod ? !!(prod as any).reducedTax : false;
+            return reduced ? reducedR : (stateR + municipalR);
+        }
+        if (clientFullyExempt) return 0;
+        return explicit != null ? explicit : (Number((settings as any).defaultTaxRate) || 0);
+    };
+    const subtotal = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0);
+    const taxTotal = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
+    const grandTotal = subtotal + taxTotal;
 
     const toggleMethod = (m: LinkMethod) => setMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
 
     const create = async () => {
         if (!clientId) return toast.error(t('posx.recurring.toast.selectClient'));
-        if (!amount || Number(amount) <= 0) return toast.error(t('posx.recurring.toast.invalidAmount'));
+
+        // Construir las líneas (tipo factura). La tasa se envía como FRACCIÓN por línea
+        // (ya resuelta igual que en Facturas) para que el total del BE coincida con el mostrado.
+        const items: RecurringItem[] = [];
+        for (const l of lines) {
+            if (!l.name.trim() && !(Number(l.unitPrice) > 0)) continue; // ignora líneas vacías
+            if (!l.name.trim()) return toast.error(t('posx.recurring.toast.lineDesc') || 'Cada línea necesita una descripción.');
+            const q = Number(l.quantity), p = Number(l.unitPrice);
+            if (!(q > 0)) return toast.error(t('posx.recurring.toast.lineQty') || 'Cantidad inválida en una línea.');
+            if (!(p >= 0)) return toast.error(t('posx.recurring.toast.linePrice') || 'Precio inválido en una línea.');
+            items.push({ name: l.name.trim(), quantity: q, unitPrice: p, taxRate: normRate(lineTaxRate(l)) });
+        }
+        if (items.length === 0) return toast.error(t('posx.recurring.toast.noItems') || 'Agrega al menos un producto o servicio.');
+        if (!(grandTotal > 0)) return toast.error(t('posx.recurring.toast.invalidAmount'));
 
         const base: CreateRecurringInput = {
-            clientId, mode, amount: Number(amount), interval, description: description || undefined,
+            clientId, mode, items, interval, description: description || undefined,
             intervalCount: Math.max(1, Number(intervalCount) || 1),
             monthlyDay: (['monthly', 'quarterly', 'annual'].includes(interval) && Number(monthlyDay) >= 1 && Number(monthlyDay) <= 31) ? Number(monthlyDay) : null,
             retryEnabled,
@@ -262,15 +320,66 @@ export const RecurringPaymentsPage: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* Grupo: Cliente y monto */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className={LABEL}>{t('posx.recurring.form.client')}</label>
-                            <ClientAutocomplete clients={clients.filter(c => !c.isDefault)} value={clientId} onChange={onSelectClient} placeholder={t('posx.recurring.form.select')} />
-                        </div>
-                        <div>
-                            <label className={LABEL}>{t('posx.recurring.form.amount')}</label>
-                            <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={`${INPUT_SM_CLASSES} w-full`} />
+                    {/* Grupo: Cliente */}
+                    <div>
+                        <label className={LABEL}>{t('posx.recurring.form.client')}</label>
+                        <ClientAutocomplete clients={clients.filter(c => !c.isDefault)} value={clientId} onChange={onSelectClient} placeholder={t('posx.recurring.form.select')} />
+                    </div>
+
+                    {/* Grupo: Productos / servicios del período (tipo factura) */}
+                    <div className="space-y-2">
+                        <label className={LABEL}>{t('posx.recurring.form.items') || 'Productos / servicios que se facturan cada período'}</label>
+                        {lines.map((l, i) => {
+                            const rate = normRate(lineTaxRate(l));
+                            return (
+                            <div key={i} className="flex gap-2 items-center">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={l.name}
+                                        onChange={e => { setLine(i, { name: e.target.value, taxRate: undefined }); setOpenLine(i); }}
+                                        onFocus={() => setOpenLine(i)}
+                                        onBlur={() => setTimeout(() => setOpenLine(o => (o === i ? null : o)), 150)}
+                                        placeholder={t('posx.recurring.form.item_ph') || 'Descripción o producto'}
+                                        className={`${INPUT_SM_CLASSES} w-full`}
+                                        autoComplete="off"
+                                    />
+                                    {openLine === i && l.name.trim() && (() => {
+                                        const q = l.name.trim().toLowerCase();
+                                        const matches = (products || []).filter(p => `${p.name} ${(p.skus || []).join(' ')}`.toLowerCase().includes(q)).slice(0, 30);
+                                        if (matches.length === 0) return null;
+                                        return (
+                                            <ul className="absolute z-30 w-full mt-1 bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                                                {matches.map(p => (
+                                                    <li
+                                                        key={p.id}
+                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? ''), taxRate: prodRate(p) }); setOpenLine(null); }}
+                                                        className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm flex justify-between gap-2"
+                                                    >
+                                                        <span className="truncate">{p.name}</span>
+                                                        <span className="text-neutral-400 whitespace-nowrap">{money(p.unitPrice || 0)}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        );
+                                    })()}
+                                </div>
+                                <input type="number" min="0" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.recurring.form.qty_ph') || 'Cant.'} className={`${INPUT_SM_CLASSES} w-16`} />
+                                <div className="w-28"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder="0.00" className={INPUT_SM_CLASSES} /></div>
+                                <span className="w-16 text-center text-[11px] text-neutral-400" title={t('posx.recurring.form.ivu') || 'IVU'}>{rate > 0 ? `${(rate * 100).toFixed(rate * 100 % 1 ? 1 : 0)}%` : t('posx.recurring.form.exempt') || 'Exento'}</span>
+                                <span className="w-24 text-right text-sm text-neutral-500">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
+                                <button onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.recurring.form.remove') || 'Quitar'}>✕</button>
+                            </div>
+                        );})}
+                        <button onClick={addLine} className="text-sm text-primary hover:underline">+ {t('posx.recurring.form.add_item') || 'Agregar línea'}</button>
+
+                        {/* Totales del período */}
+                        <div className="flex justify-end">
+                            <div className="w-full sm:w-64 text-sm space-y-0.5 border-t border-neutral-100 dark:border-neutral-700 pt-2 mt-1">
+                                <div className="flex justify-between text-neutral-500"><span>{t('posx.recurring.form.subtotal') || 'Subtotal'}</span><span>{money(subtotal)}</span></div>
+                                <div className="flex justify-between text-neutral-500"><span>{t('posx.recurring.form.ivu') || 'IVU'}</span><span>{money(taxTotal)}</span></div>
+                                <div className="flex justify-between font-semibold text-neutral-800 dark:text-neutral-100 text-base"><span>{t('posx.recurring.form.total_period') || 'Total por período'}</span><span>{money(grandTotal)}</span></div>
+                            </div>
                         </div>
                     </div>
 
