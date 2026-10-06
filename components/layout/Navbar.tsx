@@ -309,7 +309,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
            {/* Buscador global + "+ Nuevo" (solo staff) */}
            <NavCommand setCurrentModule={setCurrentModule} />
            {/* Ponche rápido (Entrada/Salida) — solo staff */}
-           {currentUser && (currentUser.role === UserRole.MANAGER || currentUser.role === UserRole.EMPLOYEE) && (
+           {currentUser && currentUser.role === UserRole.EMPLOYEE && (
              <button
                 onClick={handlePunch}
                 disabled={punching}
