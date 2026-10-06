@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/auth';
 import { ApiError } from '../services/api';
@@ -17,6 +17,12 @@ export const ProfilePage: React.FC = () => {
     const [confirm, setConfirm] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Si se llega con #seguridad (ej. desde "Configurar PIN" en el POS), desplaza a esa sección.
+    useEffect(() => {
+        if (window.location.hash === '#seguridad') {
+            setTimeout(() => document.getElementById('seguridad')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+        }
+    }, []);
 
     // PIN de seguridad (desbloqueo de caja, autorización de devoluciones/descuentos, ponche).
     const [pinPass, setPinPass] = useState('');
@@ -155,7 +161,7 @@ export const ProfilePage: React.FC = () => {
                 </form>
             </section>
 
-            <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6">
+            <section id="seguridad" className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6 scroll-mt-20">
                 <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
                     <LockClosedIcon className="w-5 h-5 text-primary" />
                     {t('profile.pin.title')}

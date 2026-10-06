@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductFormModal } from '../pm/ProductFormModal';
@@ -305,6 +305,8 @@ export const InvoicesListPage: React.FC = () => {
     const [pinValue, setPinValue] = useState('');
     const [pinBusy, setPinBusy] = useState(false);
     const [pinErr, setPinErr] = useState('');
+    const [pinNoSetup, setPinNoSetup] = useState(false); // el gerente no tiene PIN configurado
+    const navigate = useNavigate();
     const [pinParsed, setPinParsed] = useState<InvoiceItemInput[] | null>(null);
     const [pinPayTarget, setPinPayTarget] = useState<InvoicePaymentRecord | null>(null);
     // Preview del PDF: ahora se genera en el navegador (jsPDF), sin depender del backend
@@ -692,7 +694,7 @@ export const InvoicesListPage: React.FC = () => {
     // Verifica el PIN de supervisor y ejecuta la acción sensible pendiente.
     const submitPin = async () => {
         if (!pinValue.trim()) { setPinErr(t('cmpx.discount.err_pin')); return; }
-        setPinBusy(true); setPinErr('');
+        setPinBusy(true); setPinErr(''); setPinNoSetup(false);
         try {
             await authService.verifySupervisorPin(pinValue.trim());
             const action = pinAction;
@@ -703,6 +705,8 @@ export const InvoicesListPage: React.FC = () => {
             else if (action === 'payEdit') await doSaveEditPay();
             else if (action === 'payDelete' && payTarget) await doDeletePay(payTarget);
         } catch (err) {
+            const noSetup = err instanceof ApiError && (err as any).code === 'NO_SUPERVISOR_PIN';
+            setPinNoSetup(noSetup);
             setPinErr(err instanceof ApiError ? err.message : t('cmpx.return.err_pin_incorrect'));
         } finally { setPinBusy(false); }
     };
@@ -1250,8 +1254,20 @@ export const InvoicesListPage: React.FC = () => {
                             className={INPUT_SM_CLASSES + ' w-full'}
                             placeholder="••••"
                         />
-                        {pinErr && <p className="mt-1 text-xs text-red-500">{pinErr}</p>}
-                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('cmpx.return.pin_hint')}</p>
+                        {pinErr && !pinNoSetup && <p className="mt-1 text-xs text-red-500">{pinErr}</p>}
+                        {pinNoSetup && (
+                            <div className="mt-2 text-xs text-red-500">
+                                <p>{t('posx.invoices.pin_not_set') || 'El gerente no tiene un PIN de supervisor configurado.'}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => { setPinAction(null); setPinValue(''); setPinErr(''); setPinNoSetup(false); navigate('/profile#seguridad'); }}
+                                    className={`${BUTTON_PRIMARY_SM_CLASSES} mt-2 inline-flex items-center gap-1`}
+                                >
+                                    {t('posx.invoices.pin_configure') || 'Configurar PIN ahora'} →
+                                </button>
+                            </div>
+                        )}
+                        {!pinNoSetup && <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('cmpx.return.pin_hint')}</p>}
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
                         <button onClick={() => { setPinAction(null); setPinValue(''); setPinErr(''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>

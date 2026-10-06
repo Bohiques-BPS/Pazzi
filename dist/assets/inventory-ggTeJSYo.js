@@ -1,1 +1,0 @@
-import{ai as o}from"./index-DQn-13zP.js";const e={adjustStock:(t,s)=>o.post(`/products/${t}/adjust-stock`,s),transferStock:(t,s)=>o.post(`/products/${t}/transfer-stock`,s),getLogs:t=>o.get("/inventory/logs",t),getCurrentStock:t=>o.get("/inventory/stock",t)};export{e as i};
