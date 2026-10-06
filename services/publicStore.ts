@@ -12,6 +12,8 @@ export interface PublicProduct {
   saleEndDate?: string | null;
   category?: { id: string; name: string } | null;
   totalStock: number;
+  /** true si es servicio o está marcado "vender sin stock": el FE no bloquea por inventario. */
+  allowNoStock?: boolean;
 }
 
 export interface PublicProductDetail extends PublicProduct {

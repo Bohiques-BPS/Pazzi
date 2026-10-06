@@ -243,6 +243,8 @@ export interface Product {
     height?: number;
     weight?: number;
     isService?: boolean;
+    /** Se puede vender aunque no haya stock (servicios o productos sin inventario). */
+    allowNoStock?: boolean;
     compatibility?: string;
     supplierId?: string;
     hasVariations?: boolean;

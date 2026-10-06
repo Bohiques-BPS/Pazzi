@@ -212,16 +212,17 @@ export const EcommerceStorePage: React.FC = () => {
     }, [effectiveStoreOwnerId, getSettingsForClient]);
 
     const handleAddToCart = (product: PublicProduct) => {
+        const noStock = !!product.allowNoStock; // servicio o "vender sin stock" → no se valida inventario
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.id === product.id);
             if (existingItem) {
-                if (existingItem.quantity >= product.totalStock) {
+                if (!noStock && existingItem.quantity >= product.totalStock) {
                     toast.warning(t('store.max_stock', { max: product.totalStock }));
                     return prevCart;
                 }
                 return prevCart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
             }
-            if (product.totalStock <= 0) {
+            if (!noStock && product.totalStock <= 0) {
                 toast.error(t('store.out_of_stock'));
                 return prevCart;
             }

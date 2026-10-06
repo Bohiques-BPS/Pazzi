@@ -124,6 +124,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
         priceLevels: [],
         hasVariations: false,
         variations: [],
+        allowNoStock: false,
         displayOnScreen: true,
         requiresSerialNumber: false,
         useKitchenPrinter: false,
@@ -743,6 +744,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             className="h-4 w-4"
                                         />
                                         {t('product.tax_exempt')}
+                                    </label>
+                                </div>
+                                <div>
+                                    <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+                                        <input type="checkbox" name="allowNoStock" checked={!!formData.allowNoStock} onChange={handleChange} className="h-4 w-4 mt-0.5 text-primary rounded" />
+                                        <span>
+                                            <span className="font-medium">{t('pmx.product.allow_no_stock') || 'Vender sin stock'}</span>
+                                            <span className="block text-xs text-neutral-400 dark:text-neutral-500">{t('pmx.product.allow_no_stock_hint') || 'Para servicios o productos sin inventario: se puede vender aunque el stock sea 0.'}</span>
+                                        </span>
                                     </label>
                                 </div>
                                 {!productToEdit && (
