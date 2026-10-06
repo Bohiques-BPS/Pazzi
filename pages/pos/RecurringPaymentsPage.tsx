@@ -64,6 +64,27 @@ type DraftItem = { name: string; quantity: string; unitPrice: string; taxRate?: 
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
 const normRate = (r?: number) => r == null ? 0 : (r > 1 ? r / 100 : r); // acepta fracción (0.115) o % (11.5)
 
+// Tarjeta seleccionable (estilo radio): muestra un check cuando está marcada y resalta el borde.
+const SelectableCard: React.FC<{ selected: boolean; disabled?: boolean; onClick: () => void; title: string; desc?: string }> = ({ selected, disabled, onClick, title, desc }) => (
+    <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        aria-pressed={selected}
+        className={`relative text-left p-3 rounded-lg border-2 transition-colors ${selected ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-neutral-200 dark:border-neutral-700 hover:border-primary/50'} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+        <div className="flex items-start gap-2">
+            <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center ${selected ? 'border-primary bg-primary text-white' : 'border-neutral-300 dark:border-neutral-600'}`}>
+                {selected && <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
+            </span>
+            <div className="min-w-0">
+                <div className={`font-medium text-sm ${selected ? 'text-primary' : 'text-neutral-700 dark:text-neutral-200'}`}>{title}</div>
+                {desc && <div className="text-xs text-neutral-500 mt-0.5">{desc}</div>}
+            </div>
+        </div>
+    </button>
+);
+
 export const RecurringPaymentsPage: React.FC = () => {
     const { t } = useTranslation();
     const { clients, products } = useData();
@@ -82,8 +103,8 @@ export const RecurringPaymentsPage: React.FC = () => {
     const [payF, setPayF] = useState<'all' | 'paid' | 'unpaid'>('all');
     const [showFilters, setShowFilters] = useState(false);
 
-    // Form
-    const [mode, setMode] = useState<RecurringMode>('invoice_link');
+    // Form. mode = '' hasta que el usuario elija un modo (no se muestran los campos antes).
+    const [mode, setMode] = useState<'' | RecurringMode>('');
     const [clientId, setClientId] = useState('');
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
     const [openLine, setOpenLine] = useState<number | null>(null);
@@ -134,7 +155,7 @@ export const RecurringPaymentsPage: React.FC = () => {
     };
 
     const resetForm = () => {
-        setEditId(null);
+        setEditId(null); setMode('');
         setClientId(''); setLines([emptyItem()]); setInterval('monthly'); setDescription('');
         setIntervalCount('1'); setMonthlyDay(''); setRetryEnabled(true); setMaxRetries('3'); setStartDate(''); setExecType('indefinite'); setEndDate(''); setMaxOccurrences('');
         setCard(''); setExpiry(''); setCvv(''); setZip(''); setEnrollByClient(false);
@@ -219,6 +240,7 @@ export const RecurringPaymentsPage: React.FC = () => {
     const toggleMethod = (m: LinkMethod) => setMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
 
     const create = async () => {
+        if (!mode) return; // sin modo no hay formulario visible
         if (!clientId) return toast.error(t('posx.recurring.toast.selectClient'));
 
         // Construir las líneas (tipo factura). La tasa se envía como FRACCIÓN por línea
@@ -382,19 +404,29 @@ export const RecurringPaymentsPage: React.FC = () => {
                     <h3 className="font-semibold text-primary">{editId ? (t('posx.recurring.form.edit_title') || 'Editar pago recurrente') : t('posx.recurring.form.title')}</h3>
 
                     {/* Selector de modo (no se puede cambiar al editar). */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button type="button" disabled={!!editId} onClick={() => setMode('invoice_link')}
-                            className={`text-left p-3 rounded-lg border ${mode === 'invoice_link' ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'} ${editId ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                            <div className="font-medium text-sm">📧 {t('posx.recurring.mode.invoiceLink')}</div>
-                            <div className="text-xs text-neutral-500">{t('posx.recurring.mode.invoiceLink.desc')}</div>
-                        </button>
-                        <button type="button" disabled={!!editId} onClick={() => setMode('auto_charge')}
-                            className={`text-left p-3 rounded-lg border ${mode === 'auto_charge' ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'} ${editId ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                            <div className="font-medium text-sm">💳 {t('posx.recurring.mode.autoCharge')}</div>
-                            <div className="text-xs text-neutral-500">{t('posx.recurring.mode.autoCharge.desc')}</div>
-                        </button>
+                    <div>
+                        <label className={LABEL}>{t('posx.recurring.form.chooseMode') || 'Elige cómo se cobrará cada período'}</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <SelectableCard
+                                selected={mode === 'invoice_link'} disabled={!!editId}
+                                onClick={() => setMode('invoice_link')}
+                                title={`📧 ${t('posx.recurring.mode.invoiceLink')}`}
+                                desc={t('posx.recurring.mode.invoiceLink.desc')}
+                            />
+                            <SelectableCard
+                                selected={mode === 'auto_charge'} disabled={!!editId}
+                                onClick={() => setMode('auto_charge')}
+                                title={`💳 ${t('posx.recurring.mode.autoCharge')}`}
+                                desc={t('posx.recurring.mode.autoCharge.desc')}
+                            />
+                        </div>
                     </div>
 
+                    {!mode && (
+                        <p className="text-sm text-neutral-400 dark:text-neutral-500 py-2">{t('posx.recurring.form.selectModeHint') || 'Selecciona un modo arriba para continuar.'}</p>
+                    )}
+
+                    {mode && (<>
                     {/* Grupo: Cliente */}
                     <div>
                         <label className={LABEL}>{t('posx.recurring.form.client')}</label>
@@ -586,14 +618,16 @@ export const RecurringPaymentsPage: React.FC = () => {
                         <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-3">
                             {/* ¿Quién ingresa la tarjeta? */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <button type="button" onClick={() => setEnrollByClient(false)}
-                                    className={`text-left p-2.5 rounded-lg border text-sm ${!enrollByClient ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}`}>
-                                    <div className="font-medium">💳 {t('posx.recurring.form.cardByMe') || 'Yo ingreso la tarjeta ahora'}</div>
-                                </button>
-                                <button type="button" onClick={() => setEnrollByClient(true)}
-                                    className={`text-left p-2.5 rounded-lg border text-sm ${enrollByClient ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}`}>
-                                    <div className="font-medium">✉️ {t('posx.recurring.form.cardByClient') || 'El cliente la ingresa por correo'}</div>
-                                </button>
+                                <SelectableCard
+                                    selected={!enrollByClient}
+                                    onClick={() => setEnrollByClient(false)}
+                                    title={`💳 ${t('posx.recurring.form.cardByMe') || 'Yo ingreso la tarjeta ahora'}`}
+                                />
+                                <SelectableCard
+                                    selected={enrollByClient}
+                                    onClick={() => setEnrollByClient(true)}
+                                    title={`✉️ ${t('posx.recurring.form.cardByClient') || 'El cliente la ingresa por correo'}`}
+                                />
                             </div>
 
                             {enrollByClient ? (
@@ -630,6 +664,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                             {saving ? t('posx.recurring.form.processing') : editId ? (t('posx.recurring.form.save') || 'Guardar cambios') : mode === 'invoice_link' ? t('posx.recurring.form.submitInvoice') : (enrollByClient ? (t('posx.recurring.form.submitEnroll') || 'Crear y enviar enrolamiento') : t('posx.recurring.form.submitCharge'))}
                         </button>
                     </div>
+                    </>)}
                 </div>
             )}
 

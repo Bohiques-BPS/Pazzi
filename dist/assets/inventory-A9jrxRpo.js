@@ -1,0 +1,1 @@
+import{ai as o}from"./index-DIO-io_4.js";const e={adjustStock:(t,s)=>o.post(`/products/${t}/adjust-stock`,s),transferStock:(t,s)=>o.post(`/products/${t}/transfer-stock`,s),getLogs:t=>o.get("/inventory/logs",t),getCurrentStock:t=>o.get("/inventory/stock",t)};export{e as i};
