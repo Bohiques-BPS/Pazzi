@@ -39,11 +39,15 @@ export interface RecurringPayment {
     clientEmail?: string | null;
     linkMethods?: string | null;   // "agilpay,ath"
     graceDays?: number;
+    sendEmail?: boolean;           // enviar la factura por correo (modo invoice_link)
     amount: number;
     items?: RecurringItem[] | null;
     taxRate?: number | null;
     interval: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
     intervalCount?: number;
+    monthlyDay?: number | null;
+    retryEnabled?: boolean;
+    maxRetries?: number;
     startDate?: string | null;
     endDate?: string | null;
     maxOccurrences?: number | null;
@@ -82,12 +86,34 @@ export interface CreateRecurringInput {
     zipCode?: string;
     // Modo invoice_link:
     email?: string;
+    sendEmail?: boolean;
+    linkMethods?: LinkMethod[];
+    graceDays?: number;
+}
+
+/** Campos editables de un plan recurrente (todos opcionales). */
+export interface UpdateRecurringInput {
+    amount?: number;
+    items?: RecurringItem[] | null;
+    taxRate?: number | null;
+    interval?: CreateRecurringInput['interval'];
+    intervalCount?: number;
+    monthlyDay?: number | null;
+    retryEnabled?: boolean;
+    maxRetries?: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    maxOccurrences?: number | null;
+    description?: string | null;
+    email?: string | null;
+    sendEmail?: boolean;
     linkMethods?: LinkMethod[];
     graceDays?: number;
 }
 
 export const recurringService = {
     create: (data: CreateRecurringInput) => api.post<{ recurring: RecurringPayment }>('/payments/recurring', data),
+    update: (id: string, data: UpdateRecurringInput) => api.put<{ recurring: RecurringPayment }>(`/payments/recurring/${id}`, data),
     chargeNow: (id: string) => api.post<{ status: string; message: string; reference?: string }>(`/payments/recurring/${id}/charge`),
     setStatus: (id: string, action: 'pause' | 'resume' | 'cancel') => api.post<RecurringPayment>(`/payments/recurring/${id}/${action}`),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),

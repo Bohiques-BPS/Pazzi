@@ -162,9 +162,9 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
   if (!currentUser || [UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role)) return null;
 
   return (
-    <div className="flex items-center gap-2 flex-1 min-w-0 justify-center px-2">
+    <div className="flex items-center gap-2">
       {/* Buscador global */}
-      <div ref={searchBoxRef} className="relative w-full max-w-md hidden sm:block">
+      <div ref={searchBoxRef} className="relative w-44 md:w-64 lg:w-72 hidden sm:block">
         <div className="relative">
           <span className="absolute inset-y-0 left-3 flex items-center text-neutral-400 pointer-events-none">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
@@ -177,7 +177,7 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
             onFocus={() => setSearchOpen(true)}
             onKeyDown={onSearchKey}
             placeholder={t('cmp.navcmd.search_ph') || 'Buscar o ir a…'}
-            className="w-full pl-9 pr-12 py-1.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="w-full h-[38px] pl-9 pr-12 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
             aria-label={t('cmp.navcmd.search_ph') || 'Buscar o ir a…'}
             autoComplete="off"
           />
@@ -219,7 +219,7 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
           <button
             type="button"
             onClick={() => setCreateOpen(o => !o)}
-            className={`${BUTTON_PRIMARY_SM_CLASSES} inline-flex items-center gap-1 whitespace-nowrap`}
+            className={`${BUTTON_PRIMARY_SM_CLASSES} inline-flex items-center gap-1 whitespace-nowrap h-[38px]`}
             aria-haspopup="true"
             aria-expanded={createOpen}
           >

@@ -303,11 +303,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           )}
         </div>
 
-        {/* Centro: buscador global + creación rápida (solo staff) */}
-        <NavCommand setCurrentModule={setCurrentModule} />
-
-        {/* Right side: Notifications & User Menu */}
+        {/* Right side: buscador + creación rápida + Notifications & User Menu */}
         <div className="flex items-center space-x-1 sm:space-x-2">
+           {/* Buscador global + "+ Nuevo" (solo staff) */}
+           <NavCommand setCurrentModule={setCurrentModule} />
            {/* Ponche rápido (Entrada/Salida) — solo staff */}
            {currentUser && (currentUser.role === UserRole.MANAGER || currentUser.role === UserRole.EMPLOYEE) && (
              <button
