@@ -94,6 +94,7 @@ export interface InvoicePaymentRow {
 export interface PublicInvoice {
     id: string;
     number?: number | null;
+    clientName?: string | null;
     items: InvoiceItemInput[];
     subtotal: number;
     tax: number;

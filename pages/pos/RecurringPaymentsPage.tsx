@@ -92,7 +92,7 @@ export const RecurringPaymentsPage: React.FC = () => {
     const [retryEnabled, setRetryEnabled] = useState(true);
     const [maxRetries, setMaxRetries] = useState('3');
     const [startDate, setStartDate] = useState('');
-    const [execType, setExecType] = useState<'until' | 'occurrences'>('until');
+    const [execType, setExecType] = useState<'until' | 'occurrences' | 'indefinite'>('indefinite');
     const [endDate, setEndDate] = useState('');
     const [maxOccurrences, setMaxOccurrences] = useState('');
     const [description, setDescription] = useState('');
@@ -122,7 +122,7 @@ export const RecurringPaymentsPage: React.FC = () => {
 
     const resetForm = () => {
         setClientId(''); setLines([emptyItem()]); setInterval('monthly'); setDescription('');
-        setIntervalCount('1'); setMonthlyDay(''); setRetryEnabled(true); setMaxRetries('3'); setStartDate(''); setExecType('until'); setEndDate(''); setMaxOccurrences('');
+        setIntervalCount('1'); setMonthlyDay(''); setRetryEnabled(true); setMaxRetries('3'); setStartDate(''); setExecType('indefinite'); setEndDate(''); setMaxOccurrences('');
         setCard(''); setExpiry(''); setCvv(''); setZip('');
         setEmail(''); setMethods(['agilpay', 'ath']); setGraceDays('3');
     };
@@ -441,6 +441,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                             <div>
                                 <label className={LABEL}>{t('posx.recurring.form.exec_type')}</label>
                                 <select value={execType} onChange={e => setExecType(e.target.value as any)} className={`${INPUT_SM_CLASSES} w-full`}>
+                                    <option value="indefinite">{t('posx.recurring.form.exec_indefinite') || 'Indefinido (hasta cancelar)'}</option>
                                     <option value="until">{t('posx.recurring.form.exec_until')}</option>
                                     <option value="occurrences">{t('posx.recurring.form.exec_occurrences')}</option>
                                 </select>
@@ -451,11 +452,15 @@ export const RecurringPaymentsPage: React.FC = () => {
                                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
                                     <p className="text-[11px] text-neutral-400 mt-0.5">{t('posx.recurring.form.until_hint')}</p>
                                 </div>
-                            ) : (
+                            ) : execType === 'occurrences' ? (
                                 <div>
                                     <label className={LABEL}>{t('posx.recurring.form.occurrences')}</label>
                                     <input type="number" min="1" value={maxOccurrences} onChange={e => setMaxOccurrences(e.target.value)} placeholder="12" className={`${INPUT_SM_CLASSES} w-full`} />
                                     <p className="text-[11px] text-neutral-400 mt-0.5">{t('posx.recurring.form.occurrences_hint')}</p>
+                                </div>
+                            ) : (
+                                <div className="flex items-end">
+                                    <p className="text-[11px] text-neutral-400 mt-0.5">{t('posx.recurring.form.exec_indefinite_hint') || 'El plan sigue cobrando cada período hasta que lo pauses o canceles.'}</p>
                                 </div>
                             )}
                         </div>

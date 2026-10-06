@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../contexts/GlobalSettingsContext';
 
 export type SortDirection = 'asc' | 'desc';
@@ -161,6 +161,57 @@ export const DataTable = <T extends {id: string}>({
     const vis = columns.filter((c, i) => !hiddenCols.has(columnId(c, i)));
     return vis.length ? vis : columns;
   }, [columns, hiddenCols]);
+
+  // ── Ancho de columnas redimensionable (estilo Excel), persistido por tabla ──
+  const widthKey = colPersistKey + '_w';
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    try { const raw = localStorage.getItem(widthKey); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  });
+  const persistWidths = (next: Record<string, number>) => { try { localStorage.setItem(widthKey, JSON.stringify(next)); } catch { /* sin storage */ } };
+  // id estable de columna (mismo criterio que para ocultar): índice original en `columns`.
+  const idOf = (col: TableColumn<T>) => columnId(col, columns.indexOf(col));
+  const resizingRef = useRef<{ id: string; startX: number; startW: number } | null>(null);
+  const startResize = (e: React.MouseEvent, id: string) => {
+    e.preventDefault(); e.stopPropagation();
+    const th = (e.currentTarget as HTMLElement).closest('th') as HTMLElement | null;
+    const startW = colWidths[id] ?? (th ? th.offsetWidth : 120);
+    resizingRef.current = { id, startX: e.clientX, startW };
+    const onMove = (ev: MouseEvent) => {
+      const r = resizingRef.current; if (!r) return;
+      const w = Math.max(60, Math.round(r.startW + (ev.clientX - r.startX)));
+      setColWidths(prev => ({ ...prev, [r.id]: w }));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setColWidths(prev => { persistWidths(prev); return prev; });
+      resizingRef.current = null;
+      document.body.style.cursor = '';
+      (document.body.style as any).userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    (document.body.style as any).userSelect = 'none';
+  };
+  // Doble clic en el divisor → vuelve al ancho automático de esa columna.
+  const resetWidth = (id: string) => setColWidths(prev => { const n = { ...prev }; delete n[id]; persistWidths(n); return n; });
+  const widthStyle = (id: string): React.CSSProperties | undefined => {
+    const w = colWidths[id];
+    return w ? { width: w, minWidth: w, maxWidth: w } : undefined;
+  };
+  // Manija de redimensionado en el borde derecho de la cabecera.
+  const Resizer = ({ id }: { id: string }) => (
+    <span
+      onMouseDown={(e) => startResize(e, id)}
+      onDoubleClick={() => resetWidth(id)}
+      onClick={(e) => e.stopPropagation()}
+      title={t('cmp.datatable.resize_hint')}
+      className="group absolute top-0 right-0 h-full w-2 cursor-col-resize select-none z-10 flex justify-end"
+    >
+      <span className="h-full w-px bg-neutral-300 dark:bg-neutral-600 group-hover:w-1 group-hover:bg-primary transition-all" />
+    </span>
+  );
   const controlled = typeof onSortChange === 'function';
   // Por defecto, las funciones cliente (buscar/filtrar/paginar) se activan cuando el orden es interno.
   const enableSearch = searchable ?? !controlled;
@@ -411,21 +462,24 @@ export const DataTable = <T extends {id: string}>({
                 const key = columnSortKey(col);
                 const sortable = isColumnSortable(col) && !!key;
                 const direction = sortable && activeSort?.key === key ? activeSort.direction : null;
+                const cid = idOf(col);
+                const sized = !!colWidths[cid];
                 return (
-                  <th key={idx} scope="col" className={`px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider ${col.className || ''}`}>
+                  <th key={idx} scope="col" style={widthStyle(cid)} className={`relative px-4 py-2 text-left text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider ${sized ? 'overflow-hidden' : ''} ${col.className || ''}`}>
                     {sortable ? (
                       <button
                         type="button"
                         onClick={() => handleSort(key!)}
-                        className="group inline-flex items-center uppercase tracking-wider font-medium hover:text-primary focus:outline-none"
+                        className="group inline-flex items-center uppercase tracking-wider font-medium hover:text-primary focus:outline-none max-w-full"
                         aria-label={t('cmp.datatable.sort_by', { column: typeof col.header === 'string' ? col.header : key })}
                       >
-                        <React.Fragment>{col.header}</React.Fragment>
+                        <span className={sized ? 'truncate' : ''}>{col.header}</span>
                         <SortIndicator direction={direction} />
                       </button>
                     ) : (
-                      <React.Fragment>{col.header}</React.Fragment>
+                      <span className={sized ? 'block truncate' : ''}>{col.header}</span>
                     )}
+                    <Resizer id={cid} />
                   </th>
                 );
               })}
@@ -436,12 +490,12 @@ export const DataTable = <T extends {id: string}>({
                 {onSelectionChange && <th className="px-4 py-1.5" />}
                 {visibleColumns.map((col, idx) => {
                   const key = colKeyOf(col, idx);
-                  if (!isFilterable(col)) return <th key={idx} className="px-2 py-1.5" />;
+                  if (!isFilterable(col)) return <th key={idx} style={widthStyle(idOf(col))} className="px-2 py-1.5" />;
                   const options = distinctByCol[key] || [];
                   const useSelect = col.filterType === 'select' || (col.filterType !== 'text' && options.length > 0 && options.length <= MAX_SELECT_OPTIONS);
                   const val = colFilters[key] || '';
                   return (
-                    <th key={idx} className="px-2 py-1.5 font-normal normal-case">
+                    <th key={idx} style={widthStyle(idOf(col))} className="px-2 py-1.5 font-normal normal-case">
                       {useSelect ? (
                         <select
                           value={val}
@@ -487,11 +541,15 @@ export const DataTable = <T extends {id: string}>({
                     />
                   </td>
                 )}
-                {visibleColumns.map((col, idx) => (
-                  <td key={idx} className={`px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 ${col.noWrap !== false ? 'whitespace-nowrap' : ''} ${col.className || ''}`}>
+                {visibleColumns.map((col, idx) => {
+                  const cid = idOf(col);
+                  const sized = !!colWidths[cid];
+                  return (
+                  <td key={idx} style={widthStyle(cid)} className={`px-4 py-2 text-base text-neutral-700 dark:text-neutral-200 ${col.noWrap !== false ? 'whitespace-nowrap' : ''} ${sized ? 'overflow-hidden text-ellipsis' : ''} ${col.className || ''}`}>
                     {typeof col.accessor === 'function' ? col.accessor(item) : String(item[col.accessor] ?? '')}
                   </td>
-                ))}
+                  );
+                })}
                 {actions && <td className="px-4 py-2 whitespace-nowrap text-base font-medium space-x-2" onClick={(e) => e.stopPropagation()}>{actions(item)}</td>}
               </tr>
             ))}

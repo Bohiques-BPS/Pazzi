@@ -48,6 +48,7 @@ export const PublicInvoicePage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [payAmount, setPayAmount] = useState('');
     const [payMethod, setPayMethod] = useState<'card' | 'ath'>('card');
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const t = usePublicT();
 
     const load = async () => {
@@ -147,6 +148,12 @@ export const PublicInvoicePage: React.FC = () => {
 
                 {/* Detalle */}
                 <div className="p-6">
+                    {inv.clientName && (
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-3">
+                            <span className="text-neutral-400">{t('pay.billed_to')}: </span>
+                            <span className="font-medium text-neutral-800 dark:text-neutral-100">{inv.clientName}</span>
+                        </p>
+                    )}
                     {inv.description && <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-3">{inv.description}</p>}
                     <table className="w-full text-sm">
                         <tbody>
@@ -243,6 +250,15 @@ export const PublicInvoicePage: React.FC = () => {
                                 )}
                             </div>
 
+                            {/* Términos y condiciones: hay que aceptarlos antes de pagar. */}
+                            <label className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                                <input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="h-4 w-4 mt-0.5 flex-shrink-0 accent-teal-600" />
+                                <span>{t('pay.terms_accept')}</span>
+                            </label>
+
+                            {/* El bloque de pago se habilita solo al aceptar los términos. */}
+                            <div className={acceptedTerms ? 'space-y-4' : 'space-y-4 opacity-50 pointer-events-none select-none'} aria-disabled={!acceptedTerms}>
+                            {!acceptedTerms && <p className="text-xs text-amber-600 dark:text-amber-400">{t('pay.terms_required')}</p>}
                             {/* Selector de método de pago (solo si hay más de una opción). */}
                             {availableMethods.length > 1 && (
                                 <div>
@@ -297,6 +313,7 @@ export const PublicInvoicePage: React.FC = () => {
                                     </div>
                                 )
                             )}
+                            </div>
                         </div>
                     )}
                 </div>

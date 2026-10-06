@@ -705,6 +705,9 @@ export const TRANSLATIONS = {
         'pay.ath_partial': 'Abono registrado. Gracias.',
         'pay.ath_error': 'Recibimos tu pago pero no se pudo registrar automáticamente. El comercio lo confirmará.',
         'pay.secure': 'Pazzi · Pago seguro',
+        'pay.billed_to': 'Facturar a',
+        'pay.terms_accept': 'He leído y acepto los términos y condiciones.',
+        'pay.terms_required': 'Debes aceptar los términos y condiciones para continuar con el pago.',
 
         // Auth pages (login/forgot/reset/activate) — público
         'auth.login.title': 'Inicie sesión en su cuenta',
@@ -2086,6 +2089,8 @@ export const TRANSLATIONS = {
         'posx.recurring.form.retry_hint': 'Tras esta cantidad de cobros fallidos, el plan se pausa.',
         'posx.recurring.form.first_charge': 'Fecha del 1er cobro',
         'posx.recurring.form.exec_type': 'Terminación',
+        'posx.recurring.form.exec_indefinite': 'Indefinido (hasta cancelar)',
+        'posx.recurring.form.exec_indefinite_hint': 'El plan sigue cobrando cada período hasta que lo pauses o canceles.',
         'posx.recurring.form.exec_until': 'Hasta una fecha',
         'posx.recurring.form.exec_occurrences': 'Nº de ocurrencias',
         'posx.recurring.form.until': 'Hasta',
@@ -2462,6 +2467,7 @@ export const TRANSLATIONS = {
         'posx.projectform.in_management': 'Crear también en Gestión de Proyectos',
         'posx.projectform.in_management_hint': 'Si lo dejas sin marcar, el proyecto es solo interno para cobro (no aparece en Gestión de Proyectos).',
         'cmp.datatable.sort_by': 'Ordenar por {column}',
+        'cmp.datatable.resize_hint': 'Arrastra para redimensionar · doble clic para auto',
         'cmp.datatable.no_data': 'No hay datos disponibles.',
         'cmp.datatable.no_results': 'No hay resultados para tu búsqueda o filtros.',
         'cmp.datatable.search_ph': 'Buscar...',
@@ -3934,6 +3940,9 @@ export const TRANSLATIONS = {
         'pay.ath_partial': 'Payment recorded. Thank you.',
         'pay.ath_error': 'We received your payment but could not record it automatically. The business will confirm it.',
         'pay.secure': 'Pazzi · Secure payment',
+        'pay.billed_to': 'Billed to',
+        'pay.terms_accept': 'I have read and accept the terms and conditions.',
+        'pay.terms_required': 'You must accept the terms and conditions to continue with the payment.',
 
         // Auth pages (login/forgot/reset/activate) — public
         'auth.login.title': 'Sign in to your account',
@@ -5315,6 +5324,8 @@ export const TRANSLATIONS = {
         'posx.recurring.form.retry_hint': 'After this many failed charges, the plan pauses.',
         'posx.recurring.form.first_charge': '1st charge date',
         'posx.recurring.form.exec_type': 'Ending',
+        'posx.recurring.form.exec_indefinite': 'Indefinite (until cancelled)',
+        'posx.recurring.form.exec_indefinite_hint': 'The plan keeps charging each period until you pause or cancel it.',
         'posx.recurring.form.exec_until': 'Until a date',
         'posx.recurring.form.exec_occurrences': '# of occurrences',
         'posx.recurring.form.until': 'Until',
@@ -5691,6 +5702,7 @@ export const TRANSLATIONS = {
         'posx.projectform.in_management': 'Also create in Project Management',
         'posx.projectform.in_management_hint': 'If left unchecked, the project is internal for billing only (it will not appear in Project Management).',
         'cmp.datatable.sort_by': 'Sort by {column}',
+        'cmp.datatable.resize_hint': 'Drag to resize · double-click to auto-fit',
         'cmp.datatable.no_data': 'No data available.',
         'cmp.datatable.no_results': 'No results match your search or filters.',
         'cmp.datatable.search_ph': 'Search...',
