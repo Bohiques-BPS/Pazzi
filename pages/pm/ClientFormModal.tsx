@@ -265,8 +265,20 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             <div><label className="block text-sm font-medium">{t('client.field.lastname')}</label><input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className={inputFormStyle} required /></div>
             <div>
                 <label className="block text-sm font-medium">Nombre para documentos <span className="text-neutral-400 text-xs font-normal">(opcional)</span></label>
+                {/* Atajos para llenar rápido; el campo sigue editable manualmente. */}
+                <div className="flex flex-wrap gap-2 mb-1.5 mt-1">
+                    {(() => { const full = `${formData.name || ''} ${formData.lastName || ''}`.trim(); return full ? (
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: full }))} className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${formData.displayName === full ? 'bg-primary text-white border-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:border-primary hover:text-primary'}`}>Usar nombre: {full}</button>
+                    ) : null; })()}
+                    {formData.companyName?.trim() ? (
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: (prev.companyName || '').trim() }))} className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${formData.displayName === formData.companyName?.trim() ? 'bg-primary text-white border-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:border-primary hover:text-primary'}`}>Usar empresa: {formData.companyName.trim()}</button>
+                    ) : null}
+                    {formData.displayName ? (
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: '' }))} className="text-xs px-2.5 py-1 rounded-full border border-neutral-300 dark:border-neutral-600 text-neutral-500 hover:border-red-400 hover:text-red-500">Limpiar</button>
+                    ) : null}
+                </div>
                 <input type="text" name="displayName" value={formData.displayName || ''} onChange={handleChange} className={inputFormStyle} placeholder={`Ej. ${formData.companyName || 'Bohiques'} — así saldrá en la factura/recibo`} />
-                <p className="text-xs text-neutral-500 mt-1">Si lo llenas, se usa en la factura y el recibo en vez de “{(formData.name || 'Nombre')} {formData.lastName || ''}”. Útil para empresas o alias.</p>
+                <p className="text-xs text-neutral-500 mt-1">Elige un atajo o escríbelo manual. Si lo llenas, se usa en la factura y el recibo en vez de “{(formData.name || 'Nombre')} {formData.lastName || ''}”. Útil para empresas o alias.</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
