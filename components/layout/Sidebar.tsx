@@ -183,7 +183,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
 
   return (
     <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 space-y-1 py-7 px-2 fixed inset-y-0 left-0 top-[65px] transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
-      <nav className="mt-4">
+      {/* Módulo actual (en bold) como encabezado del sidebar. */}
+      {currentModule && (
+        <div className="px-2 pb-2 mb-1 border-b border-neutral-200 dark:border-neutral-700">
+          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{t(`module.${currentModule}`)}</span>
+        </div>
+      )}
+      <nav className="mt-2">
         {subModulesToDisplay.map((item, index) => renderSidebarItem(item, index))}
       </nav>
     </aside>
