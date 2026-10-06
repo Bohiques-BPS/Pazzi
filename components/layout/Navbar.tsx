@@ -309,11 +309,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
              <button
                 onClick={handlePunch}
                 disabled={punching}
-                className="p-1.5 sm:p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
                 aria-label={t('cmp.navbar.punch')}
                 title={t('cmp.navbar.punch')}
              >
                 <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('cmp.navbar.punch_label') || 'Ponche'}</span>
              </button>
            )}
            {/* Configuración rápida: tema e idioma */}
