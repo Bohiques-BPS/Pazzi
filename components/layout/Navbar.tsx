@@ -15,6 +15,7 @@ import { AddAccountModal } from '../AddAccountModal';
 import { timeclockService } from '../../services/timeclock';
 import { QuickSettingsButton } from '../ui/QuickSettingsButton';
 import { NavCommand } from './NavCommand';
+import { hubPath } from '../../utils/moduleNav';
 import { toast } from '../../hooks/useToast';
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
@@ -269,7 +270,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                 onClick={() => {
                                     setCurrentModule(mod.name);
                                     setModuleDropdownOpen(false);
-                                    navigate(getModuleBasePath(mod.name));
+                                    navigate(hubPath(mod.name));
                                 }}
                                 className="block w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                                 role="menuitem"

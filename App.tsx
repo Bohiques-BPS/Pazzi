@@ -70,6 +70,7 @@ const ClientsListPage = lazyNamed(() => import('./pages/pm/ClientsListPage'), 'C
 const EmployeesListPage = lazyNamed(() => import('./pages/pm/EmployeesListPage'), 'EmployeesListPage');
 const RolesListPage = lazyNamed(() => import('./pages/pm/RolesListPage'), 'RolesListPage');
 const ProjectsListPage = lazyNamed(() => import('./pages/pm/ProjectsListPage'), 'ProjectsListPage');
+const ModuleHubPage = lazyNamed(() => import('./pages/ModuleHubPage'), 'ModuleHubPage');
 const ProjectDetailPage = lazyNamed(() => import('./pages/pm/ProjectDetailPage'), 'ProjectDetailPage');
 const ProjectCalendarPage = lazyNamed(() => import('./pages/pm/ProjectCalendarPage'), 'ProjectCalendarPage');
 const ProjectChatPage = lazyNamed(() => import('./pages/pm/ProjectChatPage'), 'ProjectChatPage');
@@ -441,6 +442,7 @@ const AppContent: React.FC = () => {
                 <Route path="/project-client/chat/:projectId" element={<ProjectClientChatPage />} />
 
                 {/* Shared Manager & Employee Routes */}
+                <Route path="/inicio/:slug" element={<ModuleHubPage />} />
                 <Route path="/pm/dashboard" element={<ProjectsDashboardPage />} />
                 <Route path="/pm/projects" element={<ProjectsListPage />} />
                 <Route path="/pm/projects/:projectId" element={<ProjectDetailPage />} />

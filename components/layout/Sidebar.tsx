@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
 import { useChatUnread } from '../../hooks/useChatUnread';
+import { hubPath } from '../../utils/moduleNav';
 import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon } from '../icons'; 
 
 interface SidebarProps {
@@ -183,13 +184,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
 
   return (
     <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 space-y-1 py-7 px-2 fixed inset-y-0 left-0 top-[65px] transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
-      {/* Módulo actual (en bold) como encabezado del sidebar. */}
-      {currentModule && (
-        <div className="px-2 pb-2 mb-1 border-b border-neutral-200 dark:border-neutral-700">
-          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100">{t(`module.${currentModule}`)}</span>
-        </div>
+      {/* Módulo actual (en bold) como encabezado del sidebar → enlaza a la vista principal del módulo. */}
+      {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
+        <Link to={hubPath(currentModule)} className="block px-2 pb-2 mb-1 border-b border-neutral-200 dark:border-neutral-700 group" title={t('hub.go') || 'Ver todas las secciones'}>
+          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
+        </Link>
       )}
       <nav className="mt-2">
+        {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
+          <Link
+            to={hubPath(currentModule)}
+            className={`relative flex items-center py-2 px-2 rounded-md transition duration-200 text-lg font-normal ${location.pathname.startsWith('/inicio') ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
+          >
+            <Squares2X2Icon className="w-6 h-6 mr-3 flex-shrink-0" />
+            <span>{t('hub.home') || 'Inicio'}</span>
+          </Link>
+        )}
         {subModulesToDisplay.map((item, index) => renderSidebarItem(item, index))}
       </nav>
     </aside>
