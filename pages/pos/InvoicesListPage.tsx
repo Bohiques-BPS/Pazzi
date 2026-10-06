@@ -378,6 +378,16 @@ export const InvoicesListPage: React.FC = () => {
         setInvSearchParams(invSearchParams, { replace: true });
     }, [invSearchParams]); // eslint-disable-line
 
+    // Abrir el detalle de pagos de una factura desde una notificación (?invoice=<id>).
+    useEffect(() => {
+        const invId = invSearchParams.get('invoice');
+        if (!invId || items.length === 0) return;
+        const inv = items.find(i => i.id === invId);
+        if (inv) setViewPayments(inv);
+        invSearchParams.delete('invoice');
+        setInvSearchParams(invSearchParams, { replace: true });
+    }, [invSearchParams, items]); // eslint-disable-line
+
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
     const openEdit = (inv: Invoice) => {
         setEditId(inv.id);

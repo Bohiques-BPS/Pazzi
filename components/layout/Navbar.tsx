@@ -203,8 +203,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
 
   const handleNotificationClick = (notification: Notification) => {
     markNotificationAsRead(notification.id);
+    setNotificationDropdownOpen(false);
     if (notification.link) {
-        navigate(notification.link);
+        // Compat: enlaces viejos con '#/...' (hash) → ruta limpia para BrowserRouter.
+        const to = notification.link.startsWith('#') ? notification.link.slice(1) : notification.link;
+        if (to.startsWith('/pos')) setCurrentModule(AppModule.POS);
+        navigate(to);
     }
   };
   
