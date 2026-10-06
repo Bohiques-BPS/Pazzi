@@ -1509,8 +1509,8 @@ export const POSCashierPage: React.FC = () => {
                                                 )}
                                             </div>
                                         )}
-                                        <button onClick={() => setActiveModal('clientSearch')} title={t('posx.cashier.shortcut', { key: 'U' })} className="inline-flex items-center gap-1.5 text-sm font-medium py-2 px-3 rounded-md bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900 border border-blue-300/60 dark:border-blue-700">{t('posx.cashier.change')} <span className="border border-blue-400/60 rounded px-1 text-[10px] font-bold leading-none">U</span></button>
-                                        <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-sm font-medium py-2 px-3 rounded-md bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900 border border-red-300/60 dark:border-red-700">{t('posx.cashier.remove')}</button>
+                                        <button onClick={() => setActiveModal('clientSearch')} title={t('posx.cashier.shortcut', { key: 'U' })} className="inline-flex items-center gap-2 text-base font-semibold py-2.5 px-5 rounded-lg shadow-sm bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900 border border-blue-300/60 dark:border-blue-700">{t('posx.cashier.change')} <span className="border border-blue-400/60 rounded px-1.5 text-xs font-bold leading-none">U</span></button>
+                                        <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-base font-semibold py-2.5 px-5 rounded-lg shadow-sm bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900 border border-red-300/60 dark:border-red-700">{t('posx.cashier.remove')}</button>
                                     </div>
                                 </div>
                                 <div className="mt-2">
