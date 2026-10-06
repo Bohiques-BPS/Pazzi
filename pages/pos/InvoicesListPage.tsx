@@ -378,13 +378,14 @@ export const InvoicesListPage: React.FC = () => {
         setInvSearchParams(invSearchParams, { replace: true });
     }, [invSearchParams]); // eslint-disable-line
 
-    // Abrir el detalle de pagos de una factura desde una notificación (?invoice=<id>).
+    // Abrir el detalle de pagos de una factura desde una notificación (?invoice=<id> o ?invoiceNo=<n>).
     useEffect(() => {
         const invId = invSearchParams.get('invoice');
-        if (!invId || items.length === 0) return;
-        const inv = items.find(i => i.id === invId);
+        const invNo = invSearchParams.get('invoiceNo');
+        if ((!invId && !invNo) || items.length === 0) return;
+        const inv = invId ? items.find(i => i.id === invId) : items.find(i => String(i.number) === String(invNo));
         if (inv) setViewPayments(inv);
-        invSearchParams.delete('invoice');
+        invSearchParams.delete('invoice'); invSearchParams.delete('invoiceNo');
         setInvSearchParams(invSearchParams, { replace: true });
     }, [invSearchParams, items]); // eslint-disable-line
 

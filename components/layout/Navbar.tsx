@@ -206,7 +206,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     setNotificationDropdownOpen(false);
     if (notification.link) {
         // Compat: enlaces viejos con '#/...' (hash) → ruta limpia para BrowserRouter.
-        const to = notification.link.startsWith('#') ? notification.link.slice(1) : notification.link;
+        let to = notification.link.startsWith('#') ? notification.link.slice(1) : notification.link;
+        // Si es una notificación de factura sin id en el enlace (notificaciones antiguas),
+        // deducimos el número de factura del mensaje ("Factura #83 …") para abrir su detalle.
+        if (to.startsWith('/pos/invoices') && !/[?&]invoice=/.test(to)) {
+            const m = /#(\d+)/.exec(notification.message || '');
+            if (m) to += (to.includes('?') ? '&' : '?') + 'invoiceNo=' + m[1];
+        }
         if (to.startsWith('/pos')) setCurrentModule(AppModule.POS);
         navigate(to);
     }
