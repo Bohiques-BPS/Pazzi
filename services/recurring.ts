@@ -36,6 +36,7 @@ export interface RecurringPayment {
     clientName: string;
     mode: RecurringMode;
     cardLast4?: string | null;
+    enrollToken?: string | null;
     clientEmail?: string | null;
     linkMethods?: string | null;   // "agilpay,ath"
     graceDays?: number;
@@ -53,7 +54,7 @@ export interface RecurringPayment {
     maxOccurrences?: number | null;
     occurrencesDone?: number;
     description?: string | null;
-    status: 'active' | 'paused' | 'cancelled' | 'completed';
+    status: 'active' | 'paused' | 'cancelled' | 'completed' | 'pending_card';
     deletedAt?: string | null;
     nextChargeDate: string;
     lastChargeAt?: string | null;
@@ -84,6 +85,7 @@ export interface CreateRecurringInput {
     expYear?: string;
     cvv?: string;
     zipCode?: string;
+    enrollByClient?: boolean;   // el cliente ingresa su tarjeta por un link enviado por correo
     // Modo invoice_link:
     email?: string;
     sendEmail?: boolean;
@@ -119,4 +121,24 @@ export const recurringService = {
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/payments/recurring/${id}/restore`),
     list: (deleted?: boolean) => api.get<RecurringPayment[]>(`/payments/recurring${deleted ? '?deleted=1' : ''}`),
+};
+
+// ── Enrolamiento público (sin auth) ──
+export interface PublicEnroll {
+    status: string;
+    enrolled: boolean;
+    clientName?: string | null;
+    amount: number;
+    items?: RecurringItem[] | null;
+    interval: RecurringPayment['interval'];
+    intervalCount?: number;
+    description?: string | null;
+    nextChargeDate?: string | null;
+    business: { businessName: string; rnc: string; address: string; phone: string; email: string; logoUrl: string };
+    agilpayEnabled: boolean;
+}
+export const recurringPublic = {
+    get: (token: string) => api.get<PublicEnroll>(`/public/recurring/${token}`),
+    enroll: (token: string, body: { card: string; expMonth: string; expYear: string; cvv: string; zipCode?: string; acceptedTerms: boolean }) =>
+        api.post<{ success: boolean; reference?: string | null }>(`/public/recurring/${token}/enroll`, body),
 };

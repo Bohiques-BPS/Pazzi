@@ -17,8 +17,8 @@ import { MoneyInput } from '../../components/ui/MoneyInput';
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 // Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
 const INTERVAL_LABEL: Record<string, string> = { daily: 'posx.recurring.interval.daily', weekly: 'posx.recurring.interval.weekly', biweekly: 'posx.recurring.interval.biweekly', monthly: 'posx.recurring.interval.monthly', quarterly: 'posx.recurring.interval.quarterly', annual: 'posx.recurring.interval.annual' };
-const STATUS_LABEL: Record<string, string> = { active: 'posx.recurring.status.active', paused: 'posx.recurring.status.paused', cancelled: 'posx.recurring.status.cancelled', completed: 'posx.recurring.status.completed' };
-const STATUS_COLOR: Record<string, string> = { active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', paused: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', cancelled: 'bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300', completed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' };
+const STATUS_LABEL: Record<string, string> = { active: 'posx.recurring.status.active', paused: 'posx.recurring.status.paused', cancelled: 'posx.recurring.status.cancelled', completed: 'posx.recurring.status.completed', pending_card: 'posx.recurring.status.pending_card' };
+const STATUS_COLOR: Record<string, string> = { active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', paused: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', cancelled: 'bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300', completed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', pending_card: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' };
 
 // Estado de pago de un período (para el modo factura + link, y compat con el modo cobro).
 const PAY_LABEL: Record<string, string> = {
@@ -102,6 +102,7 @@ export const RecurringPaymentsPage: React.FC = () => {
     const [expiry, setExpiry] = useState('');
     const [cvv, setCvv] = useState('');
     const [zip, setZip] = useState('');
+    const [enrollByClient, setEnrollByClient] = useState(false); // el cliente ingresa su tarjeta por correo
     // invoice_link
     const [email, setEmail] = useState('');
     const [sendEmail, setSendEmail] = useState(true);
@@ -136,7 +137,7 @@ export const RecurringPaymentsPage: React.FC = () => {
         setEditId(null);
         setClientId(''); setLines([emptyItem()]); setInterval('monthly'); setDescription('');
         setIntervalCount('1'); setMonthlyDay(''); setRetryEnabled(true); setMaxRetries('3'); setStartDate(''); setExecType('indefinite'); setEndDate(''); setMaxOccurrences('');
-        setCard(''); setExpiry(''); setCvv(''); setZip('');
+        setCard(''); setExpiry(''); setCvv(''); setZip(''); setEnrollByClient(false);
         setEmail(''); setSendEmail(true); setMethods(['agilpay', 'ath']); setGraceDays('3');
     };
 
@@ -256,13 +257,23 @@ export const RecurringPaymentsPage: React.FC = () => {
             base.linkMethods = methods;
             base.graceDays = Math.max(0, Number(graceDays) || 0);
         } else if (!editId) {
-            // Datos de tarjeta solo al CREAR un cobro automático (al editar no se re-tokeniza).
-            const [mm, yy] = expiry.split('/');
-            if (!mm || !yy) return toast.error(t('posx.recurring.toast.invalidExpiry'));
-            base.card = card.replace(/\s/g, '');
-            base.expMonth = mm; base.expYear = yy;
-            base.cvv = cvv.replace(/\D/g, '');
-            base.zipCode = zip || undefined;
+            if (enrollByClient) {
+                // El cliente ingresa su tarjeta por un link enviado por correo.
+                const client = clients.find(c => c.id === clientId);
+                const finalEmail = (email || client?.email || '').trim();
+                if (!finalEmail) return toast.error(t('posx.recurring.toast.noEmail'));
+                base.enrollByClient = true;
+                base.email = finalEmail;
+                base.sendEmail = sendEmail;
+            } else {
+                // Datos de tarjeta solo al CREAR un cobro automático (al editar no se re-tokeniza).
+                const [mm, yy] = expiry.split('/');
+                if (!mm || !yy) return toast.error(t('posx.recurring.toast.invalidExpiry'));
+                base.card = card.replace(/\s/g, '');
+                base.expMonth = mm; base.expYear = yy;
+                base.cvv = cvv.replace(/\D/g, '');
+                base.zipCode = zip || undefined;
+            }
         }
 
         setSaving(true);
@@ -278,8 +289,16 @@ export const RecurringPaymentsPage: React.FC = () => {
                 });
                 toast.success(t('posx.recurring.toast.updated') || 'Pago recurrente actualizado.');
             } else {
-                await recurringService.create(base);
-                toast.success(mode === 'invoice_link' ? t('posx.recurring.toast.createdInvoice') : t('posx.recurring.toast.createdCharge'));
+                const res: any = await recurringService.create(base);
+                if (mode === 'auto_charge' && enrollByClient) {
+                    const link = res?.enrollLink;
+                    toast.success(res?.emailSent
+                        ? (t('posx.recurring.toast.enrollSent') || 'Enlace de enrolamiento enviado al cliente por correo.')
+                        : (t('posx.recurring.toast.enrollCreated') || 'Plan creado. Comparte el enlace de enrolamiento con el cliente.'));
+                    if (link) navigator.clipboard?.writeText(link).then(() => toast.success(t('posx.recurring.toast.linkCopied')), () => {});
+                } else {
+                    toast.success(mode === 'invoice_link' ? t('posx.recurring.toast.createdInvoice') : t('posx.recurring.toast.createdCharge'));
+                }
             }
             setShowForm(false); resetForm(); load();
         } catch (err) {
@@ -320,8 +339,8 @@ export const RecurringPaymentsPage: React.FC = () => {
         } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
     };
 
-    const copyLink = (token: string) => {
-        const url = `${window.location.origin}/pay/${token}`;
+    const copyLink = (token: string, enroll = false) => {
+        const url = `${window.location.origin}/${enroll ? 'enroll' : 'pay'}/${token}`;
         navigator.clipboard?.writeText(url).then(() => toast.success(t('posx.recurring.toast.linkCopied')), () => toast.error(t('posx.recurring.toast.copyFailed')));
     };
 
@@ -564,21 +583,51 @@ export const RecurringPaymentsPage: React.FC = () => {
                             <p className="text-[12px] text-neutral-400">{t('posx.recurring.form.card_locked') || 'La tarjeta tokenizada no se cambia al editar. Para usar otra tarjeta, cancela este plan y crea uno nuevo.'}</p>
                         </div>
                     ) : (
-                        <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3">
-                            <label className={LABEL}>{t('posx.recurring.form.card')}</label>
-                            <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder={t('posx.recurring.form.cardNumber.ph')} className={`${INPUT_SM_CLASSES} w-full mb-2`} autoComplete="off" />
-                            <div className="grid grid-cols-3 gap-2">
-                                <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder={t('posx.recurring.form.expiry.ph')} className={INPUT_SM_CLASSES} autoComplete="off" />
-                                <input type="text" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={INPUT_SM_CLASSES} autoComplete="off" />
-                                <input type="text" inputMode="numeric" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))} placeholder="Zip" className={INPUT_SM_CLASSES} autoComplete="off" />
+                        <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-3">
+                            {/* ¿Quién ingresa la tarjeta? */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <button type="button" onClick={() => setEnrollByClient(false)}
+                                    className={`text-left p-2.5 rounded-lg border text-sm ${!enrollByClient ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}`}>
+                                    <div className="font-medium">💳 {t('posx.recurring.form.cardByMe') || 'Yo ingreso la tarjeta ahora'}</div>
+                                </button>
+                                <button type="button" onClick={() => setEnrollByClient(true)}
+                                    className={`text-left p-2.5 rounded-lg border text-sm ${enrollByClient ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}`}>
+                                    <div className="font-medium">✉️ {t('posx.recurring.form.cardByClient') || 'El cliente la ingresa por correo'}</div>
+                                </button>
                             </div>
+
+                            {enrollByClient ? (
+                                <div>
+                                    <label className={LABEL}>{t('posx.recurring.form.clientEmail')}</label>
+                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('posx.recurring.form.clientEmail.ph')} className={`${INPUT_SM_CLASSES} w-full`} autoComplete="off" />
+                                    <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 mt-2 cursor-pointer select-none">
+                                        <input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} className="h-4 w-4" />
+                                        {t('posx.recurring.form.sendReceipts') || 'Enviarle la factura por correo en cada cobro'}
+                                    </label>
+                                    <p className="text-[11px] text-neutral-400 mt-1">{t('posx.recurring.form.enroll_hint') || 'Se le enviará un enlace seguro para ingresar su tarjeta y aceptar los términos. El primer cobro se hace al enrolar.'}</p>
+                                </div>
+                            ) : (<>
+                                <div>
+                                    <label className={LABEL}>{t('posx.recurring.form.card')}</label>
+                                    <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder={t('posx.recurring.form.cardNumber.ph')} className={`${INPUT_SM_CLASSES} w-full mb-2`} autoComplete="off" />
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder={t('posx.recurring.form.expiry.ph')} className={INPUT_SM_CLASSES} autoComplete="off" />
+                                        <input type="text" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={INPUT_SM_CLASSES} autoComplete="off" />
+                                        <input type="text" inputMode="numeric" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))} placeholder="Zip" className={INPUT_SM_CLASSES} autoComplete="off" />
+                                    </div>
+                                </div>
+                                <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                                    <input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} className="h-4 w-4" />
+                                    {t('posx.recurring.form.sendReceipts') || 'Enviarle la factura por correo en cada cobro'}
+                                </label>
+                            </>)}
                         </div>
                     )}
 
                     <div className="flex justify-end gap-2">
                         <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.recurring.form.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                            {saving ? t('posx.recurring.form.processing') : editId ? (t('posx.recurring.form.save') || 'Guardar cambios') : mode === 'invoice_link' ? t('posx.recurring.form.submitInvoice') : t('posx.recurring.form.submitCharge')}
+                            {saving ? t('posx.recurring.form.processing') : editId ? (t('posx.recurring.form.save') || 'Guardar cambios') : mode === 'invoice_link' ? t('posx.recurring.form.submitInvoice') : (enrollByClient ? (t('posx.recurring.form.submitEnroll') || 'Crear y enviar enrolamiento') : t('posx.recurring.form.submitCharge'))}
                         </button>
                     </div>
                 </div>
@@ -647,6 +696,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                                 {showDeleted ? (
                                     <button onClick={() => confirmRestore(rp.id)} className="text-xs text-green-600 hover:underline">{t('common.restore')}</button>
                                 ) : (<>
+                                {rp.status === 'pending_card' && rp.enrollToken && <button onClick={() => copyLink(rp.enrollToken!, true)} className="text-xs text-primary hover:underline">{t('posx.recurring.action.copyEnroll') || 'Copiar enlace de enrolamiento'}</button>}
                                 {rp.status !== 'cancelled' && <button onClick={() => openEdit(rp)} className="text-xs text-primary hover:underline">{t('common.edit') || 'Editar'}</button>}
                                 {rp.status === 'active' && <button onClick={() => doAction(rp.id, 'pause')} className="text-xs text-amber-600 hover:underline">{t('posx.recurring.action.pause')}</button>}
                                 {rp.status === 'paused' && <button onClick={() => doAction(rp.id, 'resume')} className="text-xs text-green-600 hover:underline">{t('posx.recurring.action.resume')}</button>}

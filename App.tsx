@@ -106,6 +106,7 @@ const SupplierOrdersListPage = lazyNamed(() => import('./pages/ecommerce/Supplie
 const CheckoutPage = lazyNamed(() => import('./pages/ecommerce/CheckoutPage'), 'CheckoutPage'); 
 const OrderConfirmationPage = lazyNamed(() => import('./pages/ecommerce/OrderConfirmationPage'), 'OrderConfirmationPage');
 const PublicInvoicePage = lazyNamed(() => import('./pages/pos/PublicInvoicePage'), 'PublicInvoicePage');
+const PublicEnrollPage = lazyNamed(() => import('./pages/pos/PublicEnrollPage'), 'PublicEnrollPage');
 
 // Admin Pages
 const AdminDashboardPage = lazyNamed(() => import('./pages/admin/AdminDashboardPage'), 'AdminDashboardPage');
@@ -411,6 +412,7 @@ const AppContent: React.FC = () => {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
         <Route path="/pay/:token" element={<PublicInvoicePage />} />
+        <Route path="/enroll/:token" element={<PublicEnrollPage />} />
         {/* Páginas legales públicas (para registro de app OAuth y pie de la tienda). */}
         <Route path="/privacy" element={<LegalPage variant="privacy" />} />
         <Route path="/privacidad" element={<LegalPage variant="privacy" />} />
