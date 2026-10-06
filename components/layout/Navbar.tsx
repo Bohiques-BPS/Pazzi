@@ -14,6 +14,7 @@ import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRe
 import { AddAccountModal } from '../AddAccountModal';
 import { timeclockService } from '../../services/timeclock';
 import { QuickSettingsButton } from '../ui/QuickSettingsButton';
+import { NavCommand } from './NavCommand';
 import { toast } from '../../hooks/useToast';
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
@@ -301,6 +302,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
               </div>
           )}
         </div>
+
+        {/* Centro: buscador global + creación rápida (solo staff) */}
+        <NavCommand setCurrentModule={setCurrentModule} />
 
         {/* Right side: Notifications & User Menu */}
         <div className="flex items-center space-x-1 sm:space-x-2">

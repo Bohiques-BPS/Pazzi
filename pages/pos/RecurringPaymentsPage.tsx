@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePagination, PaginationFooter } from '../../components/ui/tableTools';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
@@ -114,6 +115,15 @@ export const RecurringPaymentsPage: React.FC = () => {
         finally { setLoading(false); }
     }, [showDeleted]);
     useEffect(() => { load(); }, [load]);
+
+    // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
+    const [recSearchParams, setRecSearchParams] = useSearchParams();
+    useEffect(() => {
+        if (recSearchParams.get('new') !== '1') return;
+        resetForm(); setShowForm(true);
+        recSearchParams.delete('new');
+        setRecSearchParams(recSearchParams, { replace: true });
+    }, [recSearchParams]); // eslint-disable-line
 
     const confirmRestore = async (id: string) => {
         try { await recurringService.restore(id); toast.success(t('posx.recurring.toast.restored')); load(); }

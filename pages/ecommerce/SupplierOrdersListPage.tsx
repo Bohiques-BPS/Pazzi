@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { SupplierOrder, SupplierOrderStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -117,6 +118,7 @@ export const SupplierOrdersListPage: React.FC = () => {
     } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingOrder, setEditingOrder] = useState<SupplierOrder | null>(null);
+    const [soSearchParams, setSoSearchParams] = useSearchParams();
     const [loadingData, setLoadingData] = useState(false);
     
     const [showStatusModal, setShowStatusModal] = useState(false);
@@ -208,6 +210,13 @@ export const SupplierOrdersListPage: React.FC = () => {
         setEditingOrder(null);
         setShowFormModal(true);
     };
+    // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
+    useEffect(() => {
+        if (soSearchParams.get('new') !== '1') return;
+        openModalForCreate();
+        soSearchParams.delete('new');
+        setSoSearchParams(soSearchParams, { replace: true });
+    }, [soSearchParams]); // eslint-disable-line
 
     const openModalForEdit = (order: SupplierOrder) => {
         setEditingOrder(order);

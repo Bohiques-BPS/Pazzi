@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductFormModal } from '../pm/ProductFormModal';
@@ -296,6 +297,7 @@ export const InvoicesListPage: React.FC = () => {
     const [share, setShare] = useState<Invoice | null>(null);
     const [viewPayments, setViewPayments] = useState<Invoice | null>(null);
     const [payFor, setPayFor] = useState<Invoice | null>(null);
+    const [invSearchParams, setInvSearchParams] = useSearchParams();
     // Edición de un abono existente (en el form de edición de factura).
     const [editingPayId, setEditingPayId] = useState<string | null>(null);
     const [payDraft, setPayDraft] = useState<{ amount: string; method: string; reference: string; date: string }>({ amount: '', method: '', reference: '', date: '' });
@@ -367,6 +369,13 @@ export const InvoicesListPage: React.FC = () => {
     };
 
     const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); };
+    // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
+    useEffect(() => {
+        if (invSearchParams.get('new') !== '1') return;
+        resetForm(); setShowForm(true);
+        invSearchParams.delete('new');
+        setInvSearchParams(invSearchParams, { replace: true });
+    }, [invSearchParams]); // eslint-disable-line
 
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
     const openEdit = (inv: Invoice) => {

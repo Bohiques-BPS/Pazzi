@@ -103,6 +103,13 @@ export const ClientsListPage: React.FC = () => {
         searchParams.delete('edit');
         setSearchParams(searchParams, { replace: true });
     }, [searchParams, clients]); // eslint-disable-line
+    // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
+    useEffect(() => {
+        if (searchParams.get('new') !== '1') return;
+        openModalForCreate();
+        searchParams.delete('new');
+        setSearchParams(searchParams, { replace: true });
+    }, [searchParams]); // eslint-disable-line
 
     const requestDelete = (clientId: string) => {
         setItemToDeleteId(clientId);

@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Estimate, EstimateStatus, Client, Product, CartItem, EstimateFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -180,6 +180,7 @@ export const EstimatesListPage: React.FC = () => {
     const { getDefaultSettings } = useECommerceSettings();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
+    const [estSearchParams, setEstSearchParams] = useSearchParams();
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
@@ -195,6 +196,13 @@ export const EstimatesListPage: React.FC = () => {
         setEditingEstimate(null);
         setShowFormModal(true);
     };
+    // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
+    useEffect(() => {
+        if (estSearchParams.get('new') !== '1') return;
+        openModalForCreate();
+        estSearchParams.delete('new');
+        setEstSearchParams(estSearchParams, { replace: true });
+    }, [estSearchParams]); // eslint-disable-line
 
     const openModalForEdit = (estimate: Estimate) => {
         setEditingEstimate(estimate);

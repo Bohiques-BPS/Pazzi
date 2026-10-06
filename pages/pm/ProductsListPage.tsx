@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { Product, ProductFormData, Category, UserRole } from '../../types'; 
 import { useData } from '../../contexts/DataContext'; 
@@ -65,6 +66,7 @@ export const ProductsListPage: React.FC = () => {
     
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
     const [showScanner, setShowScanner] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
@@ -178,6 +180,13 @@ export const ProductsListPage: React.FC = () => {
         setEditingProduct(null);
         setShowFormModal(true);
     };
+    // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
+    useEffect(() => {
+        if (searchParams.get('new') !== '1') return;
+        openModalForCreate();
+        searchParams.delete('new');
+        setSearchParams(searchParams, { replace: true });
+    }, [searchParams]); // eslint-disable-line
 
     const openModalForEdit = (product: Product) => {
                if (product.storeOwnerId === ADMIN_USER_ID || product.storeOwnerId === currentUser?.id) {
