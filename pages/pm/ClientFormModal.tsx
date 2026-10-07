@@ -210,7 +210,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` },
                 body: JSON.stringify(dataToSave),
             });
-            if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || (target ? 'Error al actualizar cliente' : 'Error al crear cliente')); }
+            if (!res.ok) {
+                const e = await res.json().catch(() => ({}));
+                const base = e.error || (target ? 'Error al actualizar cliente' : 'Error al crear cliente');
+                const extra = e.detail ? ` (${typeof e.detail === 'string' ? e.detail : JSON.stringify(e.detail)})` : (e.code ? ` (${e.code})` : '');
+                throw new Error(base + extra);
+            }
             const saved = await res.json();
             setClients(prev => target ? prev.map(c => c.id === saved.id ? { ...c, ...saved } : c) : [...prev, saved]);
             setSavedClient(saved);
@@ -267,12 +272,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 <label className="block text-sm font-medium">Nombre para documentos <span className="text-neutral-400 text-xs font-normal">(opcional)</span></label>
                 {/* Atajos para llenar rápido; el campo sigue editable manualmente. */}
                 <div className="flex flex-wrap gap-2 mb-1.5 mt-1">
-                    {(() => { const full = `${formData.name || ''} ${formData.lastName || ''}`.trim(); return full ? (
-                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: full }))} className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${formData.displayName === full ? 'bg-primary text-white border-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:border-primary hover:text-primary'}`}>Usar nombre: {full}</button>
+                    {(() => { const full = `${formData.name || ''} ${formData.lastName || ''}`.trim(); const on = formData.displayName === full; return full ? (
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: full }))} className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border-2 transition-all ${on ? 'bg-primary text-white border-primary font-bold ring-2 ring-primary/40 shadow-md scale-[1.03]' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:border-primary hover:text-primary'}`}>{on && <span>✓</span>}Usar nombre: {full}</button>
                     ) : null; })()}
-                    {formData.companyName?.trim() ? (
-                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: (prev.companyName || '').trim() }))} className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${formData.displayName === formData.companyName?.trim() ? 'bg-primary text-white border-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:border-primary hover:text-primary'}`}>Usar empresa: {formData.companyName.trim()}</button>
-                    ) : null}
+                    {formData.companyName?.trim() ? (() => { const on = formData.displayName === formData.companyName?.trim(); return (
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: (prev.companyName || '').trim() }))} className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border-2 transition-all ${on ? 'bg-primary text-white border-primary font-bold ring-2 ring-primary/40 shadow-md scale-[1.03]' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:border-primary hover:text-primary'}`}>{on && <span>✓</span>}Usar empresa: {formData.companyName.trim()}</button>
+                    ); })() : null}
                     {formData.displayName ? (
                         <button type="button" onClick={() => setFormData(prev => ({ ...prev, displayName: '' }))} className="text-xs px-2.5 py-1 rounded-full border border-neutral-300 dark:border-neutral-600 text-neutral-500 hover:border-red-400 hover:text-red-500">Limpiar</button>
                     ) : null}
