@@ -271,6 +271,7 @@ export const ClientsListPage: React.FC = () => {
                 isOpen={showFormModal}
                 onClose={() => { setShowFormModal(false); loadClients(); }}
                 client={editingClient}
+                onViewAccount={(c) => { setShowFormModal(false); setTimeout(() => setClientForAccount(c), 60); }}
             />
             <ClientAccountModal
                 isOpen={!!clientForAccount}

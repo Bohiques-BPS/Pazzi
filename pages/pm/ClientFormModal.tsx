@@ -18,6 +18,8 @@ interface ClientFormModalProps {
     isOpen: boolean;
     onClose: (updatedClient?: Client) => void;
     client: Client | null;
+    /** Atajo: abrir el reporte/cuenta 360º del cliente (facturas, pagos, C×C, productos). */
+    onViewAccount?: (client: Client) => void;
 }
 
 /** Quita etiquetas HTML de un texto (para migrar direcciones viejas de texto enriquecido). */
@@ -33,7 +35,7 @@ const paymentTermsOptions = ['Neto', 'N-15 DIAS', 'N-30 DIAS', 'N-60 DIAS', 'Con
 const clientCategoryOptions = ['Cliente General', 'Contratista', 'Cliente VIP', 'Gubernamental'];
 const salespersonOptions = ['ADM ADM', 'Vendedor 1', 'Vendedor 2'];
 
-export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose, client}) => {
+export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose, client, onViewAccount}) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
     const canSeeSsn = currentUser?.role === 'MANAGER'; // dato sensible: solo el gerente lo ve/edita
@@ -535,6 +537,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         <>
             <Modal isOpen={isOpen} onClose={() => onClose()} title={client ? t('client.form.edit') : t('client.form.create')} size="7xl">
                 <form onSubmit={handleSubmit} className="flex flex-col h-[85vh]">
+                    {/* Atajo al reporte 360º del cliente (facturas, pagos, C×C, productos comprados). */}
+                    {effectiveClient?.id && onViewAccount && (
+                        <div className="-mt-1 mb-2 flex-shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => onViewAccount(effectiveClient)}
+                                className="inline-flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
+                            >
+                                📊 {t('pmx.client.view_report') || 'Ver reporte del cliente (facturas, pagos, C×C, productos)'}
+                            </button>
+                        </div>
+                    )}
                     <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4 -mx-4 px-4 overflow-x-auto flex-shrink-0">
                         {tabs.map(tab => (
                             <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-3 py-2 text-sm font-medium whitespace-nowrap ${activeTab === tab.id ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
