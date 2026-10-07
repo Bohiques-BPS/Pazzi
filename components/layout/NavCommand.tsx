@@ -5,10 +5,30 @@ import { AppModule, UserRole } from '../../types';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useModules } from '../../hooks/useModules';
 import { useAuth } from '../../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { PlusIcon } from '../icons';
 
 interface NavEntry { id: string; module: AppModule; name: string; path: string; Icon?: React.ComponentType<any>; }
+
+// Búsqueda por entidad ("empleado: Andres"): alcance + cómo buscar registros y a dónde ir.
+interface Scope { key: string; label: string; en: string; module: AppModule; perm?: string | string[]; }
+const SCOPES: Scope[] = [
+  { key: 'cliente',  label: 'Cliente',  en: 'Client',   module: AppModule.TIENDA,             perm: 'clients.view' },
+  { key: 'empleado', label: 'Empleado', en: 'Employee', module: AppModule.TIENDA,             perm: 'employees.view' },
+  { key: 'producto', label: 'Producto', en: 'Product',  module: AppModule.TIENDA,             perm: 'products.view' },
+  { key: 'proyecto', label: 'Proyecto', en: 'Project',  module: AppModule.PROJECT_MANAGEMENT, perm: 'projects.view' },
+  { key: 'factura',  label: 'Factura',  en: 'Invoice',  module: AppModule.POS,                perm: 'pos.viewHistory' },
+];
+const SCOPE_ALIASES: Record<string, string[]> = {
+  cliente: ['cliente', 'clientes', 'client', 'clients'],
+  empleado: ['empleado', 'empleados', 'employee', 'employees'],
+  producto: ['producto', 'productos', 'product', 'products'],
+  proyecto: ['proyecto', 'proyectos', 'project', 'projects'],
+  factura: ['factura', 'facturas', 'invoice', 'invoices'],
+};
+interface RecordResult { id: string; label: string; sub?: string; href: string; module: AppModule; }
+type Item = { kind: 'scope'; scope: Scope } | { kind: 'nav'; entry: NavEntry } | { kind: 'record'; rec: RecordResult };
 
 // Acciones de creación rápida ("+ Nuevo"). `path` abre la pantalla; `?new=1` hace que la
 // página abra directamente su formulario de creación (las páginas que lo soportan lo leen).
@@ -39,6 +59,7 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
   const { currentUser } = useAuth();
   const { can, canAny } = usePermissions();
   const { isModuleEnabled } = useModules();
+  const { clients, employees, products, projects } = useData();
 
   const isManager = currentUser?.role === UserRole.MANAGER;
   const allowed = (perm?: string | string[]): boolean => {
@@ -79,26 +100,66 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
 
   // ── Buscador ──
   const [q, setQ] = useState('');
+  const [scope, setScope] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [hi, setHi] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
 
-  const results = useMemo<NavEntry[]>(() => {
+  const allowedScopes = useMemo(() => SCOPES.filter(s => isModuleEnabled(s.module) && allowed(s.perm)), [currentUser, isModuleEnabled]); // eslint-disable-line
+  const scopeObj = scope ? SCOPES.find(s => s.key === scope) || null : null;
+  const scopeLbl = (s: Scope) => (lang === 'en' ? s.en : s.label);
+
+  // Resultados de navegación (secciones).
+  const navResults = useMemo<NavEntry[]>(() => {
     const freq = readFreq(FREQ_NAV);
     const sortByFreq = (a: NavEntry, b: NavEntry) => (freq[b.id] || 0) - (freq[a.id] || 0) || a.name.localeCompare(b.name);
     const query = q.trim().toLowerCase();
-    if (!query) {
-      // Sin texto: muestra las más usadas ("Frecuentes").
-      return [...navIndex].filter(e => (freq[e.id] || 0) > 0).sort(sortByFreq).slice(0, 6);
-    }
-    return navIndex
-      .filter(e => `${e.name} ${t(`module.${e.module}`)}`.toLowerCase().includes(query))
-      .sort(sortByFreq)
-      .slice(0, 8);
+    if (!query) return [...navIndex].filter(e => (freq[e.id] || 0) > 0).sort(sortByFreq).slice(0, 6);
+    return navIndex.filter(e => `${e.name} ${t(`module.${e.module}`)}`.toLowerCase().includes(query)).sort(sortByFreq).slice(0, 8);
   }, [q, navIndex, t]);
 
-  useEffect(() => { setHi(0); }, [q, searchOpen]);
+  // Búsqueda de registros dentro de un alcance (usa datos ya cargados).
+  const recordSearch = (s: Scope, query: string): RecordResult[] => {
+    const ql = query.trim().toLowerCase();
+    if (s.key === 'cliente') {
+      const list = (clients || []).filter((c: any) => !c.isDefault);
+      return (ql ? list.filter((c: any) => `${c.name || ''} ${c.lastName || ''} ${c.companyName || ''} ${c.displayName || ''} ${c.email || ''}`.toLowerCase().includes(ql)) : list)
+        .slice(0, 8).map((c: any) => ({ id: c.id, label: (c.displayName?.trim()) || `${c.name || ''} ${c.lastName || ''}`.trim() || c.companyName || 'Cliente', sub: c.companyName || c.email || '', href: `/tienda/clients?edit=${c.id}`, module: AppModule.TIENDA }));
+    }
+    if (s.key === 'empleado') {
+      const list = employees || [];
+      return (ql ? list.filter((e: any) => `${e.name || ''} ${e.lastName || ''} ${e.email || ''}`.toLowerCase().includes(ql)) : list)
+        .slice(0, 8).map((e: any) => ({ id: e.id, label: `${e.name || ''} ${e.lastName || ''}`.trim() || e.email || 'Empleado', sub: e.email || e.role || '', href: `/tienda/employees?edit=${e.id}`, module: AppModule.TIENDA }));
+    }
+    if (s.key === 'producto') {
+      const list = products || [];
+      return (ql ? list.filter((p: any) => `${p.name || ''} ${(p.skus || []).join(' ')}`.toLowerCase().includes(ql)) : list)
+        .slice(0, 8).map((p: any) => ({ id: p.id, label: p.name, sub: (p.skus || [])[0] || '', href: `/tienda/products?edit=${p.id}`, module: AppModule.TIENDA }));
+    }
+    if (s.key === 'proyecto') {
+      const list = (projects || []).filter((p: any) => !p.billingOnly);
+      return (ql ? list.filter((p: any) => (p.name || '').toLowerCase().includes(ql)) : list)
+        .slice(0, 8).map((p: any) => ({ id: p.id, label: p.name, sub: p.status || '', href: `/pm/projects/${p.id}`, module: AppModule.PROJECT_MANAGEMENT }));
+    }
+    if (s.key === 'factura') {
+      const n = ql.replace(/\D/g, '');
+      return n ? [{ id: n, label: `Factura #${n}`, sub: '', href: `/pos/invoices?invoiceNo=${n}`, module: AppModule.POS }] : [];
+    }
+    return [];
+  };
+
+  // Lista unificada que se muestra y se navega con el teclado.
+  const listItems = useMemo<Item[]>(() => {
+    if (scopeObj) return recordSearch(scopeObj, q).map(rec => ({ kind: 'record', rec } as Item));
+    const items: Item[] = [];
+    const ql = q.trim().toLowerCase();
+    if (ql) for (const s of allowedScopes) { if (SCOPE_ALIASES[s.key].some(a => a.startsWith(ql))) items.push({ kind: 'scope', scope: s }); }
+    for (const e of navResults) items.push({ kind: 'nav', entry: e });
+    return items;
+  }, [scopeObj, q, navResults, allowedScopes, clients, employees, products, projects]); // eslint-disable-line
+
+  useEffect(() => { setHi(0); }, [q, scope, searchOpen]);
 
   // Ctrl/Cmd+K enfoca el buscador.
   useEffect(() => {
@@ -125,20 +186,46 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
-  const goTo = (e: NavEntry) => {
-    bumpFreq(FREQ_NAV, e.id);
-    setCurrentModule(e.module);
-    navigate(e.path);
-    setSearchOpen(false);
-    setQ('');
-    inputRef.current?.blur();
+  const closeSearch = () => { setSearchOpen(false); setQ(''); setScope(null); inputRef.current?.blur(); };
+
+  const pickScope = (s: Scope, rest = '') => { setScope(s.key); setQ(rest); setSearchOpen(true); setTimeout(() => inputRef.current?.focus(), 0); };
+
+  const activate = (item: Item) => {
+    if (item.kind === 'scope') { pickScope(item.scope); return; }
+    if (item.kind === 'nav') {
+      bumpFreq(FREQ_NAV, item.entry.id);
+      setCurrentModule(item.entry.module);
+      navigate(item.entry.path);
+      closeSearch();
+      return;
+    }
+    // record
+    setCurrentModule(item.rec.module);
+    navigate(item.rec.href);
+    closeSearch();
+  };
+
+  // Detecta "entidad: texto" al escribir (ej. "empleado: Andres") y activa el alcance.
+  const onSearchChange = (val: string) => {
+    setSearchOpen(true);
+    if (!scope) {
+      const m = /^\s*([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*:\s*(.*)$/.exec(val);
+      if (m) {
+        const key = Object.keys(SCOPE_ALIASES).find(k => SCOPE_ALIASES[k].includes(m[1].toLowerCase()));
+        const s = key ? allowedScopes.find(x => x.key === key) : null;
+        if (s) { pickScope(s, m[2]); return; }
+      }
+    }
+    setQ(val);
   };
 
   const onSearchKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHi(h => Math.min(h + 1, results.length - 1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHi(h => Math.min(h + 1, listItems.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
-    else if (e.key === 'Enter') { if (results[hi]) goTo(results[hi]); }
-    else if (e.key === 'Escape') { setSearchOpen(false); inputRef.current?.blur(); }
+    else if (e.key === 'Enter') { if (listItems[hi]) activate(listItems[hi]); }
+    else if (e.key === 'Escape') { if (scope) { setScope(null); setQ(''); } else { setSearchOpen(false); inputRef.current?.blur(); } }
+    else if (e.key === 'Backspace' && scope && q === '') { e.preventDefault(); setScope(null); }
+    else if (e.key === 'Tab' && !scope && listItems[hi]?.kind === 'scope') { e.preventDefault(); activate(listItems[hi]); }
   };
 
   const runCreate = (a: CreateAction) => {
@@ -165,47 +252,72 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
     <div className="flex items-center gap-2">
       {/* Buscador global */}
       <div ref={searchBoxRef} className="relative w-44 md:w-64 lg:w-72 hidden sm:block">
-        <div className="relative">
-          <span className="absolute inset-y-0 left-3 flex items-center text-neutral-400 pointer-events-none">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
-          </span>
+        <div className="flex items-center h-[38px] rounded-md border border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 focus-within:ring-2 focus-within:ring-primary/40 overflow-hidden">
+          {scopeObj ? (
+            <span className="ml-2 inline-flex items-center gap-1 flex-shrink-0 text-xs font-semibold px-2 py-1 rounded bg-primary/15 text-primary">
+              {scopeLbl(scopeObj)}:
+              <button type="button" onMouseDown={(ev) => { ev.preventDefault(); setScope(null); inputRef.current?.focus(); }} className="font-bold hover:text-primary/70" aria-label="Quitar alcance">×</button>
+            </span>
+          ) : (
+            <span className="pl-3 flex items-center text-neutral-400 pointer-events-none flex-shrink-0">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+            </span>
+          )}
           <input
             ref={inputRef}
             type="text"
             value={q}
-            onChange={e => { setQ(e.target.value); setSearchOpen(true); }}
+            onChange={e => onSearchChange(e.target.value)}
             onFocus={() => setSearchOpen(true)}
             onKeyDown={onSearchKey}
-            placeholder={t('cmp.navcmd.search_ph') || 'Buscar o ir a…'}
-            className="w-full h-[38px] pl-9 pr-12 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            placeholder={scopeObj ? `${t('cmp.navcmd.search_in') || 'Buscar'} ${scopeLbl(scopeObj).toLowerCase()}…` : (t('cmp.navcmd.search_ph') || 'Buscar o ir a…')}
+            className="flex-1 min-w-0 h-full px-2 bg-transparent text-sm text-neutral-700 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none"
             aria-label={t('cmp.navcmd.search_ph') || 'Buscar o ir a…'}
             autoComplete="off"
           />
-          <span className="absolute inset-y-0 right-2.5 hidden md:flex items-center">
-            <kbd className="text-[10px] font-sans text-neutral-400 border border-neutral-300 dark:border-neutral-600 rounded px-1 py-0.5">Ctrl K</kbd>
-          </span>
+          {!scopeObj && <span className="pr-2.5 hidden md:flex items-center flex-shrink-0"><kbd className="text-[10px] font-sans text-neutral-400 border border-neutral-300 dark:border-neutral-600 rounded px-1 py-0.5">Ctrl K</kbd></span>}
         </div>
 
         {searchOpen && (
           <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-lg shadow-lg py-1 z-40 max-h-96 overflow-y-auto">
-            {!q.trim() && results.length > 0 && (
+            {!scope && !q.trim() && navResults.length > 0 && (
               <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-neutral-400">{t('cmp.navcmd.frequent') || 'Frecuentes'}</div>
             )}
-            {results.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-neutral-400">{q.trim() ? (t('cmp.navcmd.no_results') || 'Sin resultados') : (t('cmp.navcmd.hint') || 'Escribe para buscar una sección…')}</div>
-            ) : results.map((e, i) => {
-              const Icon = e.Icon;
+            {listItems.length === 0 ? (
+              <div className="px-3 py-3 text-sm text-neutral-400">
+                {scopeObj ? (q.trim() ? (t('cmp.navcmd.no_results') || 'Sin resultados') : `${t('cmp.navcmd.type_to_search') || 'Escribe para buscar'} ${scopeLbl(scopeObj).toLowerCase()}…`)
+                  : (q.trim() ? (t('cmp.navcmd.no_results') || 'Sin resultados') : (t('cmp.navcmd.hint') || 'Escribe para buscar una sección…'))}
+              </div>
+            ) : listItems.map((item, i) => {
+              const active = i === hi;
+              if (item.kind === 'scope') {
+                return (
+                  <button key={`s-${item.scope.key}`} type="button" onMouseDown={(ev) => { ev.preventDefault(); activate(item); }} onMouseEnter={() => setHi(i)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm ${active ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-primary/15 text-primary text-xs font-bold flex-shrink-0">:</span>
+                    <span className="flex-1 truncate text-neutral-700 dark:text-neutral-100"><b>{scopeLbl(item.scope)}:</b> {t('cmp.navcmd.search_records') || 'buscar registros'}</span>
+                    <span className="text-[11px] text-neutral-400">↹</span>
+                  </button>
+                );
+              }
+              if (item.kind === 'nav') {
+                const Icon = item.entry.Icon;
+                return (
+                  <button key={`n-${item.entry.id}`} type="button" onMouseDown={(ev) => { ev.preventDefault(); activate(item); }} onMouseEnter={() => setHi(i)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm ${active ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>
+                    {Icon ? <Icon className="w-4 h-4 text-neutral-400 flex-shrink-0" /> : <span className="w-4" />}
+                    <span className="flex-1 truncate text-neutral-700 dark:text-neutral-100">{item.entry.name}</span>
+                    <span className="text-[11px] text-neutral-400 whitespace-nowrap">{t(`module.${item.entry.module}`)}</span>
+                  </button>
+                );
+              }
+              // record
               return (
-                <button
-                  key={e.id}
-                  type="button"
-                  onMouseDown={(ev) => { ev.preventDefault(); goTo(e); }}
-                  onMouseEnter={() => setHi(i)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm ${i === hi ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
-                >
-                  {Icon ? <Icon className="w-4 h-4 text-neutral-400 flex-shrink-0" /> : <span className="w-4" />}
-                  <span className="flex-1 truncate text-neutral-700 dark:text-neutral-100">{e.name}</span>
-                  <span className="text-[11px] text-neutral-400 whitespace-nowrap">{t(`module.${e.module}`)}</span>
+                <button key={`r-${item.rec.href}`} type="button" onMouseDown={(ev) => { ev.preventDefault(); activate(item); }} onMouseEnter={() => setHi(i)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm ${active ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                  <span className="flex-1 truncate text-neutral-700 dark:text-neutral-100">{item.rec.label}</span>
+                  {item.rec.sub && <span className="text-[11px] text-neutral-400 truncate max-w-[40%]">{item.rec.sub}</span>}
                 </button>
               );
             })}

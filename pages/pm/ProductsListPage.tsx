@@ -187,6 +187,15 @@ export const ProductsListPage: React.FC = () => {
         searchParams.delete('new');
         setSearchParams(searchParams, { replace: true });
     }, [searchParams]); // eslint-disable-line
+    // Abrir un producto para editar desde el buscador global (?edit=<id>).
+    useEffect(() => {
+        const editId = searchParams.get('edit');
+        if (!editId || products.length === 0) return;
+        const p = products.find(x => x.id === editId);
+        if (p) openModalForEdit(p);
+        searchParams.delete('edit');
+        setSearchParams(searchParams, { replace: true });
+    }, [searchParams, products]); // eslint-disable-line
 
     const openModalForEdit = (product: Product) => {
                if (product.storeOwnerId === ADMIN_USER_ID || product.storeOwnerId === currentUser?.id) {
