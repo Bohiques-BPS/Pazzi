@@ -102,7 +102,7 @@ export const ProjectDetailPage: React.FC = () => {
                             className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100 bg-transparent border-0 border-b-2 border-transparent hover:border-neutral-300 focus:border-primary focus:outline-none cursor-pointer max-w-full truncate -ml-1 pr-6"
                         >
                             {projects.filter(p => !(p as any).billingOnly).sort((a, b) => a.name.localeCompare(b.name)).map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
+                                <option key={p.id} value={p.id} className="text-base font-normal bg-white text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">{p.name}</option>
                             ))}
                         </select>
                     )}
