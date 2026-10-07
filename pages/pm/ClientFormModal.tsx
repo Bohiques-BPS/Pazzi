@@ -537,18 +537,6 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         <>
             <Modal isOpen={isOpen} onClose={() => onClose()} title={client ? t('client.form.edit') : t('client.form.create')} size="7xl">
                 <form onSubmit={handleSubmit} className="flex flex-col h-[85vh]">
-                    {/* Atajo al reporte 360º del cliente (facturas, pagos, C×C, productos comprados). */}
-                    {effectiveClient?.id && onViewAccount && (
-                        <div className="-mt-1 mb-2 flex-shrink-0">
-                            <button
-                                type="button"
-                                onClick={() => onViewAccount(effectiveClient)}
-                                className="inline-flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
-                            >
-                                📊 {t('pmx.client.view_report') || 'Ver reporte del cliente (facturas, pagos, C×C, productos)'}
-                            </button>
-                        </div>
-                    )}
                     <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4 -mx-4 px-4 overflow-x-auto flex-shrink-0">
                         {tabs.map(tab => (
                             <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-3 py-2 text-sm font-medium whitespace-nowrap ${activeTab === tab.id ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
@@ -567,7 +555,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                        <div className={activeTab === 'Foto' ? '' : 'hidden'}>{renderFotoTab()}</div>
                     </div>
 
-                    <div className="sticky bottom-0 z-10 flex justify-end space-x-2 mt-4 -mx-6 -mb-6 px-6 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+                    <div className="sticky bottom-0 z-10 flex items-center justify-end space-x-2 mt-4 -mx-6 -mb-6 px-6 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+                        {effectiveClient?.id && onViewAccount && (
+                            <button type="button" onClick={() => onViewAccount(effectiveClient)} className="mr-auto inline-flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30">
+                                📊 <span className="hidden sm:inline">{t('pmx.client.view_report') || 'Ver reporte del cliente (facturas, pagos, C×C, productos)'}</span><span className="sm:hidden">{t('pmx.client.view_report_short') || 'Ver reporte'}</span>
+                            </button>
+                        )}
                         <button type="button" onClick={() => onClose()} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
                             {isSubmitting ? (
