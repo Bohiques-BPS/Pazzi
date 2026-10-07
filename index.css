@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Accesibilidad en modo oscuro (auditoría de contraste) ── */
+
+/* Controles nativos oscuros: dropdowns de <select>, date pickers y scrollbars.
+   Antes salían con fondo blanco y texto casi blanco en Windows. */
+html.dark { color-scheme: dark; }
+
+/* Texto secundario gris: neutral-500 (#737373) queda por debajo de 4.5:1 sobre
+   fondos oscuros. Lo subimos a ~neutral-400 (#a3a3a3, ~6.4:1) SOLO en modo oscuro. */
+html.dark .text-neutral-500 { color: #a3a3a3; }
+/* La vista previa de factura/recibo es papel blanco a propósito: ahí se mantiene el gris original. */
+html.dark .pazzi-paper .text-neutral-500,
+html.dark .pazzi-paper.text-neutral-500 { color: #737373; }

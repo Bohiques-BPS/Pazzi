@@ -778,7 +778,7 @@ export const InvoicesListPage: React.FC = () => {
         { header: t('common.name'), sortValue: inv => inv.clientName || '', accessor: (inv) => inv.clientName ? <ClientNameLink clientId={inv.clientId} name={inv.clientName} /> : <span className="text-neutral-400">—</span> },
         { header: t('common.email'), sortValue: inv => inv.clientEmail || '', accessor: (inv) => inv.clientEmail || <span className="text-neutral-400">—</span> },
         { header: t('posx.invoices.cashier_label'), sortValue: inv => inv.cashierName || '', accessor: (inv) => inv.cashierName ? <EmployeeNameLink userId={inv.createdByUserId} name={inv.cashierName} /> : <span className="text-neutral-400">—</span> },
-        { header: t('posx.invoices.type_label'), sortValue: inv => inv.type || '', accessor: (inv) => inv.type ? <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{inv.type}</span> : <span className="text-neutral-400">—</span> },
+        { header: t('posx.invoices.type_label'), sortValue: inv => inv.type || '', accessor: (inv) => inv.type ? <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-200">{inv.type}</span> : <span className="text-neutral-400">—</span> },
         { header: t('common.total'), sortValue: inv => inv.total, className: 'text-right', accessor: (inv) => <span className="font-medium tabular-nums">{money(inv.total)}</span> },
         {
             header: t('posx.invoices.paid_label'), sortValue: inv => inv.amountPaid || 0, className: 'text-right',

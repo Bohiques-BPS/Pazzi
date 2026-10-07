@@ -58,7 +58,7 @@ export const MiniChart: React.FC<Props> = ({ labels, series, area = false, heigh
                     return (
                         <g key={i}>
                             <line x1={padL} y1={yy} x2={W - padR} y2={yy} stroke="currentColor" className="text-neutral-200 dark:text-neutral-700" strokeWidth="1" strokeDasharray={i === 0 ? '0' : '4 4'} />
-                            <text x={padL - 8} y={yy + 4} textAnchor="end" className="fill-neutral-400 dark:fill-neutral-500" fontSize="12">{fmt(niceMax * g)}</text>
+                            <text x={padL - 8} y={yy + 4} textAnchor="end" className="fill-neutral-400 dark:fill-neutral-400" fontSize="12">{fmt(niceMax * g)}</text>
                         </g>
                     );
                 })}
@@ -80,7 +80,7 @@ export const MiniChart: React.FC<Props> = ({ labels, series, area = false, heigh
 
                 {/* Etiquetas X */}
                 {labels.map((lab, i) => (
-                    <text key={i} x={x(i)} y={H - 10} textAnchor="middle" className="fill-neutral-400 dark:fill-neutral-500" fontSize="12">{lab}</text>
+                    <text key={i} x={x(i)} y={H - 10} textAnchor="middle" className="fill-neutral-400 dark:fill-neutral-400" fontSize="12">{lab}</text>
                 ))}
             </svg>
 

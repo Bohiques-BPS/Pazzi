@@ -580,7 +580,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
                     </div>
                 </div>
                 <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900 rounded-md p-3 max-h-[55vh] overflow-y-auto">
-                    <div className="bg-white shadow-sm" dangerouslySetInnerHTML={{ __html: html }} />
+                    <div className="pazzi-paper bg-white shadow-sm" dangerouslySetInnerHTML={{ __html: html }} />
                 </div>
                 {!forceChoose && (
                     <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 select-none">
