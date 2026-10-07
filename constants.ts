@@ -543,10 +543,6 @@ export const APP_MODULES_CONFIG = [
         { type: 'link', name: 'Categorías', path: '/tienda/categories', icon: ListBulletIcon, permission: 'categories.manage' },
         { type: 'link', name: 'Departamentos', path: '/tienda/departments', icon: FolderIcon, permission: 'departments.manage' },
       ] },
-      { type: 'group', name: 'Compras y Proveedores', icon: TruckIcon, children: [
-        { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon, permission: 'suppliers.manage' },
-        { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: 'supplierOrders.manage' },
-      ] },
       { type: 'group', name: 'Usuarios y Permisos', icon: UserGroupIcon, children: [
         { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon, permission: 'clients.view' },
         { type: 'link', name: 'Empleados', path: '/tienda/employees', icon: IdentificationIcon, permission: 'employees.view' },
@@ -597,6 +593,10 @@ export const APP_MODULES_CONFIG = [
             { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: BanknotesIcon, permission: 'accounts.viewPayable' },
             { type: 'link', name: 'Pagos Recurrentes', path: '/pos/recurring', icon: ArrowPathIcon, permission: 'accounts.viewReceivable' },
         ] },
+        { type: 'group', name: 'Compras y Proveedores', icon: TruckIcon, children: [
+            { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon, permission: 'suppliers.manage' },
+            { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: 'supplierOrders.manage' },
+        ] },
         { type: 'group', name: 'Cajas', icon: CubeIcon, children: [
             { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
             { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: CubeIcon, permission: 'caja.open' },
@@ -620,8 +620,6 @@ export const APP_MODULES_CONFIG = [
         { type: 'link', name: 'Reportes', path: '/ecommerce/dashboard', icon: HomeIcon, permission: 'ecommerce.viewOrders' },
         { type: 'link', name: 'Diseño de la tienda', path: '/ecommerce/design', icon: Squares2X2Icon, permission: 'ecommerce.manageStore' },
         { type: 'link', name: 'Pedidos Online', path: '/ecommerce/orders', icon: TruckIcon, permission: 'ecommerce.viewOrders' },
-        { type: 'link', name: 'Proveedores', path: '/ecommerce/suppliers', icon: UserGroupIcon, permission: 'suppliers.manage' },
-        { type: 'link', name: 'Pedidos a Proveedor', path: '/ecommerce/supplier-orders', icon: DocumentArrowUpIcon, permission: 'supplierOrders.manage' },
         { type: 'link', name: 'Mi Tienda (Vista Previa)', path: `/store/${ADMIN_USER_ID}`, icon: BuildingStorefrontIcon, permission: 'ecommerce.manageStore' },
     ] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],

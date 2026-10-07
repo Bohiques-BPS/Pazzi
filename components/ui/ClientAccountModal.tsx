@@ -344,7 +344,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                 initialSortKey="balance" initialSortDir="desc"
                                 selectFilters={[{ key: 'st', label: 'Estado', get: r => r.paymentStatus || '' }]}
                                 columns={[
-                                    { key: 'folio', label: 'Folio', text: r => shortId(r.saleId), render: r => <span className="font-mono text-xs">{shortId(r.saleId)}</span> },
+                                    { key: 'folio', label: 'Folio', text: r => (r as any).kind === 'invoice' && (r as any).number != null ? `#${(r as any).number}` : shortId(r.saleId), render: r => <span className="font-mono text-xs">{(r as any).kind === 'invoice' && (r as any).number != null ? `#${(r as any).number}` : shortId(r.saleId)}</span> },
                                     { key: 'date', label: 'Fecha', text: r => dateStr(r.saleDate), sort: r => new Date(r.saleDate).getTime(), render: r => dateStr(r.saleDate) },
                                     { key: 'due', label: 'Vence', text: r => dateStr(r.dueDate), sort: r => r.dueDate ? new Date(r.dueDate).getTime() : 0, render: r => dateStr(r.dueDate) },
                                     { key: 'total', label: 'Total', align: 'right', text: r => String(r.totalAmount), sort: r => r.totalAmount, render: r => money(r.totalAmount) },
@@ -354,8 +354,10 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'st', label: 'Estado', text: r => r.paymentStatus || '', render: r => <span className="text-xs">{r.paymentStatus}</span> },
                                     { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => (
                                         <div className="flex gap-1 justify-center whitespace-nowrap">
-                                            <button type="button" onClick={() => actAbonar()} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20">Abonar</button>
-                                            <button type="button" onClick={() => actPrintSale(r.saleId)} title="Recibo / Factura" className="text-xs px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600">🖨️</button>
+                                            {(r as any).kind !== 'invoice' && <button type="button" onClick={() => actAbonar()} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20">Abonar</button>}
+                                            {(r as any).kind === 'invoice'
+                                                ? <button type="button" onClick={() => { onClose(); navigate(`/pos/invoices?invoice=${r.saleId}`); }} title="Ver factura" className="text-xs px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600">🧾</button>
+                                                : <button type="button" onClick={() => actPrintSale(r.saleId)} title="Recibo / Factura" className="text-xs px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600">🖨️</button>}
                                         </div>
                                     ) },
                                 ]}
