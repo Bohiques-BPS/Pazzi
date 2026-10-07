@@ -674,6 +674,10 @@ export const TOGGLEABLE_MODULES: AppModule[] = [
 
 // Prefijo de ruta → módulo, para saber a qué módulo pertenece una URL.
 const MODULE_PATH_PREFIX: Array<{ prefix: string; module: AppModule }> = [
+  // Overrides específicos ANTES del genérico /tienda: Proveedores y Pedidos a Proveedor
+  // se movieron al módulo de Punto de Venta aunque conservan su ruta /tienda/*.
+  { prefix: '/tienda/suppliers', module: AppModule.POS },
+  { prefix: '/tienda/supplier-orders', module: AppModule.POS },
   { prefix: '/tienda', module: AppModule.TIENDA },
   { prefix: '/pm', module: AppModule.PROJECT_MANAGEMENT },
   { prefix: '/pos', module: AppModule.POS },

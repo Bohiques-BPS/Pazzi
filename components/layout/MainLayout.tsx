@@ -57,14 +57,15 @@ export const MainLayout: React.FC = () => {
 
   useEffect(() => {
     const currentPath = location.pathname;
-    const matchedModule = APP_MODULES_CONFIG.find(m => currentPath.startsWith(m.path));
-    
-    if (matchedModule) {
-        if (matchedModule.name !== currentModule) {
-            setCurrentModule(matchedModule.name);
-        }
+    // getModuleForPath respeta los overrides de prefijo (p.ej. /tienda/suppliers → POS);
+    // si no resuelve, caemos al match genérico por path de módulo.
+    const resolvedModule = getModuleForPath(currentPath)
+        ?? APP_MODULES_CONFIG.find(m => currentPath.startsWith(m.path))?.name;
+
+    if (resolvedModule && resolvedModule !== currentModule) {
+        setCurrentModule(resolvedModule);
     }
-    // If no matchedModule (e.g. /settings), currentModule remains as is, which is fine.
+    // If no resolvedModule (e.g. /settings), currentModule remains as is, which is fine.
   }, [location.pathname, currentModule, setCurrentModule]);
 
 

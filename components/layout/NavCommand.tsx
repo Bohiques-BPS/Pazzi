@@ -40,7 +40,7 @@ const CREATE_ACTIONS: CreateAction[] = [
   { id: 'estimate', label: 'Nueva cotización',    en: 'New estimate',       path: '/pos/estimates?new=1',          module: AppModule.POS,                 perm: 'pos.viewHistory' },
   { id: 'recurring',label: 'Nuevo pago recurrente', en: 'New recurring payment', path: '/pos/recurring?new=1',     module: AppModule.POS,                 perm: 'pos.viewHistory' },
   { id: 'client',   label: 'Nuevo cliente',       en: 'New client',         path: '/tienda/clients?new=1',         module: AppModule.TIENDA,              perm: 'clients.view' },
-  { id: 'supplierOrder', label: 'Pedido a proveedor', en: 'Supplier order',  path: '/tienda/supplier-orders?new=1', module: AppModule.TIENDA,              perm: 'supplierOrders.manage' },
+  { id: 'supplierOrder', label: 'Pedido a proveedor', en: 'Supplier order',  path: '/tienda/supplier-orders?new=1', module: AppModule.POS,                 perm: 'supplierOrders.manage' },
   { id: 'project',  label: 'Nuevo proyecto',      en: 'New project',        path: '/pm/projects/new',              module: AppModule.PROJECT_MANAGEMENT,  perm: 'projects.view' },
 ];
 
