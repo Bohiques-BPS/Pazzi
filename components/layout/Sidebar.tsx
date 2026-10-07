@@ -132,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         <div key={`${item.name}-${index}`}>
           <button
             onClick={() => toggleGroup(item.name)}
-            className={`flex items-center justify-between gap-1 w-full py-2 px-2 rounded-md transition duration-200 font-normal text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white focus:outline-none text-lg`}
+            className={`flex items-center justify-between gap-1 w-full py-2 px-2 rounded-md transition duration-200 focus:outline-none text-lg hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white ${isGroupOpen ? 'font-semibold text-primary dark:text-teal-300' : 'font-normal text-neutral-600 dark:text-neutral-300'}`}
             aria-expanded={isGroupOpen}
             aria-controls={`group-content-${item.name}`}
           >
