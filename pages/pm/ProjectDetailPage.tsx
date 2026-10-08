@@ -8,7 +8,7 @@ import { ProjectTaskBoard } from '../../components/tasks/ProjectTaskBoard';
 import { ProjectMeetingsTab } from '../../components/pm/ProjectMeetingsTab';
 import { ProjectHistoryTab } from '../../components/pm/ProjectHistoryTab';
 import { ArrowUturnLeftIcon, PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon, ChevronDownIcon, EyeIcon } from '../../components/icons';
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { MicButton } from '../../components/ui/MicButton';
 import { PaperClipIcon } from '../../components/icons';
@@ -109,6 +109,10 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* La barra de pestañas externa (Detalles/Chat/Tareas/…) solo aplica a un proyecto
+                existente. En uno NUEVO solo habría "Detalles", que duplicaría la pestaña interna
+                del formulario (Detalles/Programación/Recursos), así que se oculta. */}
+            {!isNewProject && (
             <div className="flex border-b border-neutral-200 dark:border-neutral-700">
                 <button onClick={() => handleTabChange('details')} className={`px-4 py-2 text-base font-medium ${activeTab === 'details' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
                     {t('project.tab.details')}
@@ -132,6 +136,7 @@ export const ProjectDetailPage: React.FC = () => {
                     </>
                 )}
             </div>
+            )}
 
             <div className="bg-white dark:bg-neutral-800 p-4 rounded-b-lg shadow-sm">
                 {activeTab === 'details' && (
@@ -159,8 +164,15 @@ export const ProjectDetailPage: React.FC = () => {
 
 // --- Form Component (migrated from ProjectFormModal) ---
 type ActiveDetailsTab = 'Detalles' | 'Programación' | 'Recursos' | 'Facturación';
-const defaultWorkDayTime: WorkDayTimeRange = { date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00' };
-const defaultToday = new Date().toISOString().split('T')[0];
+// Fecha LOCAL en formato YYYY-MM-DD (no UTC). Con toISOString() a las 21:29 UTC-4
+// se obtenía el día siguiente; esto respeta la zona horaria del usuario.
+const localDateStr = (): string => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+const defaultWorkDayTime: WorkDayTimeRange = { date: localDateStr(), startTime: '09:00', endTime: '17:00' };
+const defaultToday = localDateStr();
 
 const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: Project) => void }> = ({ project, onSuccess }) => {
     const { t } = useTranslation(); // Use translation hook
@@ -172,10 +184,13 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const selectFormStyle = inputFormStyle + " appearance-none pr-8";
     const disabledInputStyle = inputFormStyle + " !text-sm bg-neutral-100 dark:bg-neutral-700 cursor-default";
 
-    const projectRelevantProducts = useMemo(() => allProductsHookData.filter(p => p.storeOwnerId === ADMIN_USER_ID || !p.storeOwnerId), [allProductsHookData]);
+    // Catálogo del proyecto = productos del tenant (DataContext ya los trae scopados por tienda).
+    // Antes se filtraba por storeOwnerId === ADMIN_USER_ID (resto del modo dummy), lo que dejaba
+    // el select vacío para cualquier tienda real.
+    const projectRelevantProducts = useMemo(() => allProductsHookData, [allProductsHookData]);
 
     const getInitialFormData = (): ProjectFormData => ({
-        name: '', clientId: clients[0]?.id || '', status: ProjectStatus.PENDING, description: '', assignedProducts: [], customProducts: [], assignedEmployeeIds: [],
+        name: '', clientId: '', status: ProjectStatus.PENDING, description: '', assignedProducts: [], customProducts: [], assignedEmployeeIds: [],
         visitDate: '', visitTime: '', workMode: 'daysOnly' as ProjectWorkMode, workDays: [], workDayTimeRanges: [], workStartDate: '', workEndDate: '',
         purchaseOrder: '', projectKey: '', priority: ProjectPriority.LOW, managerUserIds: [],
     });
@@ -465,8 +480,8 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('common.address')}</label>
-                                    <input type="text" value={selectedClientDetails.address || ''} className={disabledInputStyle} readOnly tabIndex={-1} />
+                                    <label htmlFor="project-client-address" className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{t('common.address')}</label>
+                                    <input id="project-client-address" type="text" value={selectedClientDetails.address || ''} className={disabledInputStyle} readOnly tabIndex={-1} aria-label={t('common.address')} />
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
@@ -577,11 +592,15 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('project.resources.assign_catalog')}</label>
                         <div className="flex items-center gap-2 mb-1">
                              <div className="relative flex-grow">
-                                <select value={currentProduct} onChange={e => setCurrentProduct(e.target.value)} className={selectFormStyle + " !text-xs"}>{projectRelevantProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                                <select value={currentProduct} onChange={e => setCurrentProduct(e.target.value)} disabled={projectRelevantProducts.length === 0} className={selectFormStyle + " !text-xs"}>
+                                    {projectRelevantProducts.length === 0
+                                        ? <option value="">{t('project.resources.empty_catalog')}</option>
+                                        : projectRelevantProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-700 dark:text-neutral-200"><ChevronDownIcon className="w-4 h-4" /></div>
                             </div>
                             <input type="number" value={currentQuantity} onChange={e => setCurrentQuantity(Math.max(1, parseInt(e.target.value) || 1))} className={inputFormStyle + " w-20 !text-xs"} min="1"/>
-                            <button type="button" onClick={handleProductAdd} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs"}>{t('common.add')}</button>
+                            <button type="button" onClick={handleProductAdd} disabled={!currentProduct || projectRelevantProducts.length === 0} className={BUTTON_SECONDARY_SM_CLASSES + " !text-xs disabled:opacity-50 disabled:cursor-not-allowed"}>{t('common.add')}</button>
                         </div>
                         {formData.assignedProducts.length > 0 && (
                             <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded text-xs scrollbar-thin">{formData.assignedProducts.map(ap => { const product = projectRelevantProducts.find(p => p.id === ap.productId); return (<li key={ap.productId} className="flex justify-between items-center"><span>{product?.name || t('pm2x.project.unknown_product')} (x{ap.quantity})</span><button type="button" onClick={() => handleProductRemove(ap.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={t('pm2x.common.remove_name', { name: product?.name ?? '' })}><TrashIconMini/></button></li>); })}</ul>

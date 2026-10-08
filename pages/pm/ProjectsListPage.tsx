@@ -8,6 +8,7 @@ import { ConfirmationModal, Modal } from '../../components/Modal';
 import { ProjectCard } from '../../components/cards/ProjectCard';
 import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon, BriefcaseIcon, ClipboardDocumentListIcon, ChartBarIcon, UserGroupIcon, MagnifyingGlassIcon } from '../../components/icons';
 import { DataTable, TableColumn } from '../../components/DataTable';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -19,7 +20,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 export const ProjectsListPage: React.FC = () => {
     const { t } = useTranslation();
     const { can } = usePermissions();
-    const { projects: _allProjects, setProjects, employees: allEmployees, tasks, generateInvoiceForProject, getClientById } = useData();
+    const { projects: _allProjects, projectsLoading, setProjects, employees: allEmployees, tasks, generateInvoiceForProject, getClientById } = useData();
     // Gestión NO muestra los proyectos "solo factura" (creados en caja para agrupar ventas).
     const projects = useMemo(() => _allProjects.filter(p => !p.billingOnly), [_allProjects]);
     const navigate = useNavigate();
@@ -218,7 +219,7 @@ export const ProjectsListPage: React.FC = () => {
                                 <Icon className="w-4 h-4 flex-shrink-0" />
                                 <span className="truncate">{k.label}</span>
                             </div>
-                            <div className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 mt-1">{k.value}</div>
+                            <div className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 mt-1">{projectsLoading && _allProjects.length === 0 ? '—' : k.value}</div>
                         </button>
                     );
                 })}
@@ -280,7 +281,9 @@ export const ProjectsListPage: React.FC = () => {
                 </div>
             </div>
 
-            {viewMode === 'card' ? (
+            {projectsLoading && _allProjects.length === 0 ? (
+                <LoadingSkeleton variant="cards" count={gridCols} className={`${gridCols === 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`} />
+            ) : viewMode === 'card' ? (
                 <>
                     {filteredProjects.length > 0 ? (
                         <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${gridCols === 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>

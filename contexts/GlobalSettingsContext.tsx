@@ -346,6 +346,7 @@ export const TRANSLATIONS = {
         // Project Resources
         'project.resources.custom_name': 'Nombre',
         'project.resources.assign_catalog': 'Asignar Productos del Catálogo',
+        'project.resources.empty_catalog': 'No hay productos en el catálogo',
         'project.resources.add_custom_title': 'Añadir Producto/Servicio Personalizado',
         'project.resources.quantity': 'Cantidad',
         'project.resources.unit_price_opt': 'Precio Unit. (Opc)',
@@ -3654,6 +3655,7 @@ export const TRANSLATIONS = {
         'project.schedule.range_end': 'Range End Date',
         'project.resources.custom_name': 'Name',
         'project.resources.assign_catalog': 'Assign Catalog Products',
+        'project.resources.empty_catalog': 'No products in the catalog',
         'project.resources.add_custom_title': 'Add Custom Product/Service',
         'project.resources.quantity': 'Quantity',
         'project.resources.unit_price_opt': 'Unit Price (Opt.)',

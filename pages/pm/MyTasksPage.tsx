@@ -164,6 +164,7 @@ export const MyTasksPage: React.FC = () => {
 
             {selected && (
                 <TaskDetailModal
+                    key={(selected as any).id}
                     task={toTask(selected)}
                     onClose={() => setSelected(null)}
                     onSave={(taskId, updates) => { updateTask(taskId, updates); setSelected(null); load(); }}

@@ -59,7 +59,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [checklists, setChecklists] = useState<ChecklistItem[]>(((task as any).checklists as ChecklistItem[]) || []);
     const [newCheckItem, setNewCheckItem] = useState('');
-    const [addingCheck, setAddingCheck] = useState(false);
     // IA: "¿cómo resuelvo esta tarea?"
     const [aiLoading, setAiLoading] = useState(false);
     const [aiSolution, setAiSolution] = useState<TaskSolution | null>(null);
@@ -68,6 +67,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [requestingApproval, setRequestingApproval] = useState(false);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [addingSubtask, setAddingSubtask] = useState(false);
+    const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
 
     // Solo se pueden asignar tareas a personas ASIGNADAS al proyecto. La asignación del proyecto
     // guarda User.id; los empleados enlazan con userId (o su propio id según el flujo), así que
@@ -109,6 +109,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     useEffect(() => {
         setComments(((task as any).comments as TaskCommentRecord[]) || []);
     }, [task]);
+
+    // Mantener el checklist sincronizado en el estado global (DataContext) para que el badge
+    // de la tarjeta y el tablero reflejen altas/bajas/toggles sin tener que recargar la página.
+    useEffect(() => {
+        setTasks(prev => prev.map(tk => tk.id === task.id ? ({ ...tk, checklists } as any) : tk));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [checklists]);
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -198,7 +205,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             setComments(prev => [...prev, comment]);
             setNewComment('');
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : t('cmpx.task.comment_error'));
+            // Los 4xx comunes y 5xx ya los muestra el handler global (useApiErrorToasts).
+            // Aquí solo cubrimos validación (400/422) para no duplicar el toast.
+            if (err instanceof ApiError && (err.status === 400 || err.status === 422)) {
+                toast.error(err.message);
+            } else if (!(err instanceof ApiError)) {
+                toast.error(t('cmpx.task.comment_error'));
+            }
         } finally {
             setSendingComment(false);
         }
@@ -207,13 +220,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const handleAddCheckItem = async () => {
         const text = newCheckItem.trim();
         if (!text) return;
-        setAddingCheck(true);
+        // Optimista: limpiar el input de inmediato (sin deshabilitarlo) para no perder el foco
+        // ni los caracteres que se sigan escribiendo mientras responde el servidor.
+        setNewCheckItem('');
+        const tempId = `tmp-${Date.now()}`;
+        setChecklists(prev => [...prev, { id: tempId, text, checked: false } as any]);
         try {
             const item = await tasksService.addChecklistItem(task.id, text);
-            setChecklists(prev => [...prev, item]);
-            setNewCheckItem('');
-        } catch { toast.error(t('cmpx.task.check_add_error')); }
-        finally { setAddingCheck(false); }
+            setChecklists(prev => prev.map(c => c.id === tempId ? item : c));
+        } catch {
+            setChecklists(prev => prev.filter(c => c.id !== tempId));
+            toast.error(t('cmpx.task.check_add_error'));
+        }
     };
 
     const handleAskAi = async () => {
@@ -284,6 +302,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             setNewSubtaskTitle('');
         } catch { toast.error('No se pudo crear la subtarea.'); }
         finally { setAddingSubtask(false); }
+    };
+
+    const confirmDeleteSubtask = async () => {
+        const sub = subtaskToDelete;
+        setSubtaskToDelete(null);
+        if (!sub) return;
+        const prevTasks = allTasks;
+        setTasks(prev => prev.filter(t => t.id !== sub.id));
+        try { await tasksService.delete(sub.id); }
+        catch { setTasks(prevTasks); toast.error('No se pudo eliminar la subtarea.'); }
     };
 
     const handleToggleSubtask = async (sub: Task) => {
@@ -477,6 +505,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                         {sub.title}
                                     </button>
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500">{sub.status}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSubtaskToDelete(sub)}
+                                        className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 transition-opacity p-0.5 flex-shrink-0"
+                                        aria-label={`Eliminar subtarea ${sub.title}`}
+                                        title="Eliminar subtarea"
+                                    >
+                                        ✕
+                                    </button>
                                 </li>
                             ))}
                         </ul>
@@ -592,7 +629,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                             value={item.assignedUserId || ''}
                                             onChange={e => handleAssignChecklist(item, e.target.value)}
                                             title={item.assignedUserId ? `Responsable: ${assigneeName(item.assignedUserId)}` : 'Asignar responsable'}
-                                            className="text-xs max-w-[120px] rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 py-0.5 px-1 text-neutral-600 dark:text-neutral-200"
+                                            className="text-xs min-w-[140px] max-w-[190px] rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 py-0.5 px-1 text-neutral-600 dark:text-neutral-200"
                                         >
                                             <option value="">Sin responsable</option>
                                             {assigneeOptions.map(o => <option key={o.uid} value={o.uid}>{o.name}</option>)}
@@ -622,12 +659,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCheckItem(); } }}
                             placeholder={t('cmpx.task.check_add_ph')}
                             className={inputFormStyle + ' flex-1 !py-1.5 text-sm'}
-                            disabled={addingCheck}
                         />
                         <button
                             type="button"
                             onClick={handleAddCheckItem}
-                            disabled={addingCheck || !newCheckItem.trim()}
+                            disabled={!newCheckItem.trim()}
                             className={BUTTON_SECONDARY_SM_CLASSES}
                         >
                             {t('common.add')}
@@ -701,6 +737,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             onConfirm={confirmDelete}
             title={t('cmpx.task.delete_confirm_title')}
             message={t('cmpx.task.delete_confirm_msg')}
+            confirmButtonText={t('pmx.common.yes_delete')}
+        />
+        <ConfirmationModal
+            isOpen={!!subtaskToDelete}
+            onClose={() => setSubtaskToDelete(null)}
+            onConfirm={confirmDeleteSubtask}
+            title="Eliminar subtarea"
+            message={subtaskToDelete ? `¿Eliminar la subtarea "${subtaskToDelete.title}"? Esta acción no se puede deshacer.` : ''}
             confirmButtonText={t('pmx.common.yes_delete')}
         />
         </>

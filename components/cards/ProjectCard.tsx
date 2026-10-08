@@ -33,7 +33,7 @@ const avatarColors = ['bg-teal-500', 'bg-indigo-500', 'bg-rose-500', 'bg-amber-5
 const initials = (e: Employee) => `${(e.name || '')[0] || ''}${(e.lastName || '')[0] || ''}`.toUpperCase();
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({
-    project, onViewProject, onRequestDelete, onViewQuotation, onGenerateInvoice, onViewInvoice, allEmployees, showManagementActions = true,
+    project, onViewProject, onRequestDelete, onGenerateInvoice, onViewInvoice, allEmployees, showManagementActions = true,
 }) => {
     const [actionsOpen, setActionsOpen] = useState(false);
     const { t } = useTranslation();
@@ -63,7 +63,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         <div onClick={() => onViewProject(project, 'details')} className={`group relative cursor-pointer bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col ${actionsOpen ? 'z-30' : ''}`}>
             {/* Acento de estado (redondeado arriba; sin overflow-hidden para no recortar el menú "···") */}
             <div className={`h-1.5 rounded-t-xl ${meta.bar}`} />
-            <div className="p-8 flex flex-col flex-grow">
+            <div className="p-5 flex flex-col flex-grow min-w-0">
                 {/* Título + menú */}
                 <div className="flex justify-between items-start gap-2">
                     <button onClick={() => onViewProject(project, 'details')} className="text-left min-w-0 flex-1 flex items-center gap-2.5">
@@ -80,7 +80,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                             {actionsOpen && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600">
                                     <button onMouseDown={() => onViewProject(project, 'details')} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmp.projectcard.edit_details')}</button>
-                                    <button onMouseDown={() => onViewQuotation(project)} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmp.projectcard.view_quotation')}</button>
+                                    {/* "Ver Cotización" oculto hasta que exista el backend de cotizaciones (solo era un toast "no implementado"). */}
                                     {project.status === ProjectStatus.COMPLETED && !project.invoiceGenerated && (
                                         <button onMouseDown={() => onGenerateInvoice(project)} className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmp.projectcard.generate_invoice')}</button>
                                     )}
@@ -139,12 +139,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
                 {/* Acciones */}
                 <div className="mt-auto pt-3 border-t border-neutral-100 dark:border-neutral-700 flex gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onViewProject(project, 'chat'); }} className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                        <ChatBubbleLeftRightIcon className="w-4 h-4" /> {t('cmp.projectcard.chat')}
-                        {chatCount > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">{chatCount}</span>}
+                    <button onClick={(e) => { e.stopPropagation(); onViewProject(project, 'chat'); }} className="flex-1 min-w-0 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-200 font-semibold text-xs py-2.5 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <ChatBubbleLeftRightIcon className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{t('cmp.projectcard.chat')}</span>
+                        {chatCount > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold flex-shrink-0">{chatCount}</span>}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); onViewProject(project, 'tasks'); }} className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary dark:text-teal-300 font-semibold text-xs py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                        <ClipboardDocumentListIcon className="w-4 h-4" /> {t('cmp.projectcard.tasks')}
+                    <button onClick={(e) => { e.stopPropagation(); onViewProject(project, 'tasks'); }} className="flex-1 min-w-0 bg-primary/10 hover:bg-primary/20 text-primary dark:text-teal-300 font-semibold text-xs py-2.5 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <ClipboardDocumentListIcon className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{t('cmp.projectcard.tasks')}</span>
                     </button>
                 </div>
             </div>

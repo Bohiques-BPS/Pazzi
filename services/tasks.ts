@@ -75,8 +75,11 @@ export function normalizeTaskFromApi<T extends Record<string, any>>(t: T): T {
 }
 
 export const tasksService = {
-  getAll: (filters?: { projectId?: string; status?: TaskStatus }) =>
-    api.get<any[]>('/tasks', filters as any).then(rows => rows.map(normalizeTaskFromApi)) as Promise<TaskRecord[]>,
+  getAll: (filters?: { projectId?: string; status?: TaskStatus; archived?: boolean }) => {
+    const q: any = { ...(filters || {}) };
+    if (q.archived === true) q.archived = 'true'; else if (q.archived === false) delete q.archived;
+    return api.get<any[]>('/tasks', q).then(rows => rows.map(normalizeTaskFromApi)) as Promise<TaskRecord[]>;
+  },
 
   /** Tareas asignadas al usuario conectado (todos los proyectos), ordenadas por vencimiento. */
   getMine: (opts?: { includeDone?: boolean }) =>

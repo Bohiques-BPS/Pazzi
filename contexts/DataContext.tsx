@@ -33,6 +33,7 @@ export interface DataContextType {
   employees: Employee[];
   setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
   projects: Project[];
+  projectsLoading: boolean;
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   addProject: (projectData: ProjectFormData) => Project;
   generateInvoiceForProject: (projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }) => Promise<boolean>;
@@ -149,6 +150,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [clients, setClients] = useState<Client[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
+    // Flag de carga inicial de proyectos (para mostrar skeleton en vez del estado "vacío").
+    const [projectsLoading, setProjectsLoading] = useState(true);
     const [sales, setSalesInternal] = useState<Sale[]>([]);
     const [salePayments, setSalePayments] = useState<SalePayment[]>([]);
     const [estimates, setEstimates] = useState<Estimate[]>([]);
@@ -373,11 +376,17 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 })));
             } catch (e) {
                 console.error("Error al cargar proyectos del servidor:", e);
+            } finally {
+                setProjectsLoading(false);
             }
         };
         if (currentUser && !inPos && pmLoadedForRef.current.projects !== currentUser.id) {
             pmLoadedForRef.current.projects = currentUser.id;
+            setProjectsLoading(true);
             fetchProjects();
+        } else {
+            // Ya cargados (o contexto sin PM): no estamos esperando una carga.
+            setProjectsLoading(false);
         }
     }, [currentUser, inPos]);
 
@@ -1294,7 +1303,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     return (
         <DataContext.Provider value={{ 
             products, setProducts, getProductsByStoreOwner, getProductStockForBranch, updateProductStockForBranch, addProduct, updateProduct, getProductsWithStockForBranch,
-            clients, setClients, employees, setEmployees, projects, setProjects, addProject, generateInvoiceForProject,
+            clients, setClients, employees, setEmployees, projects, projectsLoading, setProjects, addProject, generateInvoiceForProject,
             sales, setSales, addSale, processReturn, recordSalePayment, lastCompletedSale,
             salePayments, addSalePayment,
             estimates, setEstimates, addEstimate,

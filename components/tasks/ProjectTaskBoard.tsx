@@ -50,7 +50,63 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     );
     const [sectionModalOpen, setSectionModalOpen] = useState(false);
     const [extractOpen, setExtractOpen] = useState(false);
+    // Gestión de secciones (renombrar / eliminar).
+    const [sectionMenuFor, setSectionMenuFor] = useState<string | null>(null);
+    const [sectionRename, setSectionRename] = useState<string | null>(null);
+    const [sectionDelete, setSectionDelete] = useState<string | null>(null);
+    // Tareas archivadas (ver / restaurar).
+    const [archivedOpen, setArchivedOpen] = useState(false);
+    const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
+    const [archivedLoading, setArchivedLoading] = useState(false);
     const reloadTasks = () => { tasksService.getAll().then(d => setTasks(d as any)).catch(() => {}); };
+
+    const openArchived = async () => {
+        setArchivedOpen(true);
+        setArchivedLoading(true);
+        try { const d = await tasksService.getAll({ projectId, archived: true }); setArchivedTasks(d as any); }
+        catch { toast.error('No se pudieron cargar las tareas archivadas.'); }
+        finally { setArchivedLoading(false); }
+    };
+
+    const restoreTask = async (taskId: string) => {
+        setArchivedTasks(prev => prev.filter(t => t.id !== taskId));
+        try {
+            const updated = await tasksService.update(taskId, { archived: false });
+            setTasks(prev => prev.some(t => t.id === taskId) ? prev.map(t => t.id === taskId ? { ...t, archived: false } : t) : [...prev, { ...(updated as any), assignedEmployeeIds: (updated as any).assignedEmployeeIds || [] }]);
+            toast.success('Tarea restaurada.');
+        } catch { toast.error('No se pudo restaurar la tarea.'); openArchived(); }
+    };
+
+    // ── Gestión de secciones (renombrar / eliminar) ──
+    const persistSections = async (nextSections: string[], prevSections: string[]) => {
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, sections: nextSections } : p));
+        try { await projectsService.update(projectId, { sections: nextSections }); }
+        catch { toast.error(t('cmpx.task.section_save_error') || 'No se pudo guardar la sección.'); setProjects(prev => prev.map(p => p.id === projectId ? { ...p, sections: prevSections } : p)); }
+    };
+
+    const handleRenameSection = async (from: string, to: string) => {
+        setSectionRename(null);
+        const clean = to.trim();
+        if (!clean || clean === from) return;
+        if (persistedSections.includes(clean) || sections.includes(clean)) { toast.error('Ya existe una sección con ese nombre.'); return; }
+        // Secciones del proyecto.
+        await persistSections(persistedSections.map(s => s === from ? clean : s), persistedSections);
+        // Reasignar las tareas de esa sección (optimista + persistencia por tarea).
+        const affected = tasks.filter(x => x.projectId === projectId && (x.section || '') === from);
+        setTasks(prev => prev.map(x => x.projectId === projectId && (x.section || '') === from ? { ...x, section: clean } as any : x));
+        if (activeSection === from) setActiveSection(clean);
+        await Promise.allSettled(affected.map(x => tasksService.update(x.id, { section: clean })));
+    };
+
+    const handleDeleteSection = async (name: string) => {
+        setSectionDelete(null);
+        await persistSections(persistedSections.filter(s => s !== name), persistedSections);
+        // Las tareas de la sección quedan sin sección (aparecen en "Todas").
+        const affected = tasks.filter(x => x.projectId === projectId && (x.section || '') === name);
+        setTasks(prev => prev.map(x => x.projectId === projectId && (x.section || '') === name ? { ...x, section: '' } as any : x));
+        if (activeSection === name) setActiveSection('');
+        await Promise.allSettled(affected.map(x => tasksService.update(x.id, { section: '' })));
+    };
 
     const allEmployees = getAllEmployees();
     // Id con el que se asigna al USUARIO CONECTADO en las tareas. Las asignaciones usan
@@ -266,7 +322,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
 
     const handleCreateTask = async (status: string) => {
         if (!newTaskTitle.trim()) {
-            setIsCreatingInStatus(null);
+            // Antes cerraba el formulario en silencio; ahora avisa y lo mantiene abierto.
+            toast.error(t('cmpx.task.title_required') || 'Escribe un título para la tarea.');
             return;
         }
         try {
@@ -297,14 +354,26 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 </button>
                 {sections.map(sec => {
                     const count = projectTasks.filter(x => x.section === sec).length;
+                    const active = activeSection === sec;
                     return (
-                        <button
-                            key={sec}
-                            onClick={() => setActiveSection(sec)}
-                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeSection === sec ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
-                        >
-                            {sec} <span className="opacity-70">({count})</span>
-                        </button>
+                        <div key={sec} className={`relative inline-flex items-center rounded-md transition-colors ${active ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>
+                            <button onClick={() => setActiveSection(sec)} className="pl-3 pr-1 py-1.5 text-sm font-medium">
+                                {sec} <span className="opacity-70">({count})</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSectionMenuFor(m => m === sec ? null : sec)}
+                                onBlur={() => setTimeout(() => setSectionMenuFor(m => m === sec ? null : m), 150)}
+                                className={`px-1.5 py-1.5 rounded-r-md text-xs ${active ? 'hover:bg-white/20' : 'hover:bg-neutral-200 dark:hover:bg-neutral-600'}`}
+                                aria-label={`Opciones de la sección ${sec}`}
+                            >⋯</button>
+                            {sectionMenuFor === sec && (
+                                <div className="absolute left-0 top-full mt-1 w-40 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600 text-sm font-normal text-neutral-700 dark:text-neutral-200">
+                                    <button onMouseDown={() => { setSectionMenuFor(null); setSectionRename(sec); }} className="block w-full text-left px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-600">✏️ Renombrar</button>
+                                    <button onMouseDown={() => { setSectionMenuFor(null); setSectionDelete(sec); }} className="block w-full text-left px-3 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40">🗑 Eliminar</button>
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
                 <button onClick={addSection} className="px-3 py-1.5 rounded-md text-sm font-medium text-primary hover:bg-primary/10 flex items-center gap-1">
@@ -312,6 +381,9 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 </button>
                 <button onClick={() => setExtractOpen(true)} className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 flex items-center gap-1" title={t('cmpx.task.analyze_doc_hint') || 'Analizar un documento o transcripción y sugerir tareas'}>
                     <DocumentTextIcon className="w-4 h-4" /> {t('cmpx.task.analyze_doc') || 'Analizar documento'}
+                </button>
+                <button onClick={openArchived} className="px-3 py-1.5 rounded-md text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-1" title="Ver y restaurar tareas archivadas">
+                    🗄️ Archivadas
                 </button>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-2 items-start">
@@ -423,6 +495,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             </div>
             {selectedTask && (
                 <TaskDetailModal
+                    key={selectedTask.id}
                     task={selectedTask}
                     onClose={() => setSelectedTask(null)}
                     onSave={(taskId, updates) => { updateTask(taskId, updates); setSelectedTask(null); }}
@@ -468,6 +541,50 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 message={`¿Eliminar la columna "${deleteCol}"? Las tareas que tenga se moverán a la primera columna.`}
                 confirmButtonText="Eliminar"
             />
+            {/* Renombrar sección */}
+            <InputModal
+                isOpen={!!sectionRename}
+                title="Renombrar sección"
+                label="Nuevo nombre de la sección:"
+                placeholder="Ej. Diseño"
+                initialValue={sectionRename || ''}
+                confirmText="Guardar"
+                cancelText={t('common.cancel') || 'Cancelar'}
+                onConfirm={(val) => { if (sectionRename) handleRenameSection(sectionRename, val); }}
+                onClose={() => setSectionRename(null)}
+            />
+            {/* Eliminar sección */}
+            <ConfirmationModal
+                isOpen={!!sectionDelete}
+                onClose={() => setSectionDelete(null)}
+                onConfirm={() => sectionDelete && handleDeleteSection(sectionDelete)}
+                title="Eliminar sección"
+                message={`¿Eliminar la sección "${sectionDelete}"? Las tareas que tenga quedarán sin sección (seguirán en el tablero).`}
+                confirmButtonText="Eliminar"
+            />
+            {/* Tareas archivadas */}
+            <Modal isOpen={archivedOpen} onClose={() => setArchivedOpen(false)} title={`Tareas archivadas${archivedTasks.length ? ` (${archivedTasks.length})` : ''}`} size="2xl">
+                {archivedLoading ? (
+                    <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">Cargando…</p>
+                ) : archivedTasks.length === 0 ? (
+                    <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">No hay tareas archivadas en este proyecto.</p>
+                ) : (
+                    <ul className="divide-y divide-neutral-100 dark:divide-neutral-700/60 max-h-[60vh] overflow-y-auto">
+                        {archivedTasks.map(tk => (
+                            <li key={tk.id} className="flex items-center justify-between gap-2 py-2.5">
+                                <div className="min-w-0">
+                                    <p className="text-sm text-neutral-800 dark:text-neutral-100 truncate">{tk.title}</p>
+                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{tk.section || 'Sin sección'} · {tk.status}</p>
+                                </div>
+                                <button type="button" onClick={() => restoreTask(tk.id)} className={BUTTON_SECONDARY_SM_CLASSES + ' flex-shrink-0'}>
+                                    ♻️ Restaurar
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Modal>
+
             {/* ¿Asignar la tarea recién movida (sin responsable) al usuario conectado? */}
             <Modal isOpen={!!assignPrompt} onClose={closeAssignPrompt} title="Asignar tarea" size="sm">
                 <div className="space-y-4">
