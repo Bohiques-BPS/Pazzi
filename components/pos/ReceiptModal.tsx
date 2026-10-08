@@ -570,7 +570,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
     );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Factura / Recibo" size="md">
+        <Modal isOpen={isOpen} onClose={onClose} title="Factura / Recibo" size={fmt === 'factura' ? '3xl' : 'md'}>
             <div className="space-y-4">
                 <div>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.receipt.format')}</p>
@@ -579,8 +579,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, sal
                         {fmtBtn('factura', t('posx.receipt.format_invoice'))}
                     </div>
                 </div>
-                <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900 rounded-md p-3 max-h-[55vh] overflow-y-auto">
-                    <div className="pazzi-paper bg-white shadow-sm" dangerouslySetInnerHTML={{ __html: html }} />
+                {/* overflow-auto (ambos ejes) + bloque con mx-auto/w-max: la factura tamaño carta
+                    (210mm) ya no se recorta a los lados; se puede hacer scroll horizontal si no cabe. */}
+                <div className="bg-neutral-100 dark:bg-neutral-900 rounded-md p-3 max-h-[65vh] overflow-auto">
+                    <div className="pazzi-paper bg-white shadow-sm mx-auto w-max max-w-full" dangerouslySetInnerHTML={{ __html: html }} />
                 </div>
                 {!forceChoose && (
                     <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 select-none">

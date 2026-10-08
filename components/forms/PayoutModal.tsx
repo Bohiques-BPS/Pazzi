@@ -8,7 +8,8 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon, DocumentArrowUpIcon, PhotoIcon } from '../icons';
 import { PasswordInput } from '../ui/PasswordInput';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { printPayoutVoucher } from '../../utils/printPayoutVoucher';
 
 interface PayoutModalProps {
     isOpen: boolean;
@@ -27,6 +28,7 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
     onRecorded,
 }) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
     const { currentUser } = useAuth();
     const [amount, setAmount] = useState('');
     const [reason, setReason] = useState('');
@@ -94,6 +96,19 @@ export const PayoutModal: React.FC<PayoutModalProps> = ({
                 attachment,
                 authorizedByUserId: manager?.id,
             });
+            // Comprobante impreso del desembolso (antes no se generaba ninguno).
+            try {
+                const rc: any = (settings as any)?.receiptConfig || {};
+                printPayoutVoucher({
+                    amount: payoutAmount,
+                    reason: reason.trim(),
+                    receiptCount,
+                    invoiceNumber: invoiceNumber.trim(),
+                    recordedBy: `${currentUser?.name || ''} ${(currentUser as any)?.lastName || ''}`.trim(),
+                    authorizedBy: manager ? `${manager.name || ''} ${(manager as any).lastName || ''}`.trim() : undefined,
+                    date: new Date(),
+                }, { businessName: rc.businessName, address: rc.address, phone: rc.phone });
+            } catch { /* la impresión no debe bloquear el registro */ }
             toast.success(t('cmpx.payout.recorded', { amount: payoutAmount.toFixed(2) }));
             onRecorded?.(movement);
             onClose();

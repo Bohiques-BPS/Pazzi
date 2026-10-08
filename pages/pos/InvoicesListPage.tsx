@@ -19,6 +19,7 @@ import { MoneyInput } from '../../components/ui/MoneyInput';
 import { InvoiceDesignPreview } from '../../components/pos/InvoiceDesignPreview';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { splitTax } from '../../utils/taxBreakdown';
 import { printInvoicePaymentReceipt } from '../../utils/printInvoicePaymentReceipt';
 import { invoicePdfBlobUrl, downloadInvoicePdf, openInvoicePdf, type InvoicePdfBusiness } from '../../utils/invoiceClientPdf';
 
@@ -653,7 +654,10 @@ export const InvoicesListPage: React.FC = () => {
             showAddress: id.showAddress ?? rc.showAddress, showPhone: id.showPhone ?? rc.showPhone,
             showEmail: id.showEmail ?? rc.showEmail, showRnc: id.showRnc ?? rc.showRnc,
         };
-        return { businessName: rc.businessName, rnc: rc.rnc, address: rc.address, phone: rc.phone, email: rc.email, logoUrl: rc.logoUrl, design };
+        // Tasas IVU para desglosar Estatal/Municipal en el PDF (solo si el breakdown está activo).
+        const taxStateRate = settings.taxBreakdownEnabled ? (Number(settings.taxStateRate) || 0) : 0;
+        const taxMunicipalRate = settings.taxBreakdownEnabled ? (Number(settings.taxMunicipalRate) || 0) : 0;
+        return { businessName: rc.businessName, rnc: rc.rnc, address: rc.address, phone: rc.phone, email: rc.email, logoUrl: rc.logoUrl, design, taxStateRate, taxMunicipalRate };
     }, [settings]);
 
     // URL blob para la vista previa del PDF (generado en el navegador). Se revoca al cambiar/cerrar.
@@ -1113,10 +1117,30 @@ export const InvoicesListPage: React.FC = () => {
                             <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.subtotal')}</span>
                             <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTotal)}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.tax_ivu')}</span>
-                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(previewTax)}</span>
-                        </div>
+                        {(() => {
+                            // Desglose IVU Estatal / Municipal cuando está activado el breakdown.
+                            const sp = bd ? splitTax(previewTax, stateR, municipalR) : null;
+                            if (sp && sp.municipal > 0) {
+                                return (
+                                    <>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_state')}</span>
+                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.state)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_municipal')}</span>
+                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.municipal)}</span>
+                                        </div>
+                                    </>
+                                );
+                            }
+                            return (
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.tax_ivu')}</span>
+                                    <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(previewTax)}</span>
+                                </div>
+                            );
+                        })()}
                         <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-700">
                             <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.total')}</span>
                             <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(draftTotal + previewTax)}</span>

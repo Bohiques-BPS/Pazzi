@@ -221,10 +221,10 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                         <Field label="Turno #" value={session.id.slice(0, 8)} />
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                        {/* Columnas POS vs conteo (2/3) */}
-                        <div className="lg:col-span-2 border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden">
-                            <div className="grid grid-cols-12 bg-neutral-100 dark:bg-neutral-700/50 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                    <div className="grid grid-cols-1 lg:grid-cols-1 gap-3">
+                        {/* Columnas POS vs conteo (ancho completo para que se lea mejor) */}
+                        <div className="border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden">
+                            <div className="grid grid-cols-12 bg-neutral-100 dark:bg-neutral-700/50 text-sm font-semibold text-neutral-600 dark:text-neutral-300">
                                 <div className="col-span-5 px-3 py-2">Método</div>
                                 <div className="col-span-3 px-3 py-2 text-right">Datos Caja POS</div>
                                 <div className="col-span-2 px-2 py-2 text-right">Conteo</div>
@@ -254,7 +254,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                                 {r.cash && denomMode ? (
                                                     <span
                                                         title="Calculado por denominación (abajo)"
-                                                        className="inline-block w-24 text-right px-2 py-1 rounded border border-dashed border-primary/50 bg-primary/5 dark:bg-primary/10 tabular-nums font-semibold"
+                                                        className="inline-block w-28 text-right px-2 py-1.5 text-base rounded border border-dashed border-primary/50 bg-primary/5 dark:bg-primary/10 tabular-nums font-semibold"
                                                     >
                                                         {denomTotal.toFixed(2)}
                                                     </span>
@@ -264,7 +264,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                                         value={counted[r.key] ?? ''}
                                                         onChange={e => setCounted(prev => ({ ...prev, [r.key]: e.target.value }))}
                                                         placeholder="0.00"
-                                                        className="w-24 text-right px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
+                                                        className="w-28 text-right px-2 py-1.5 text-base rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
                                                         autoFocus={r.cash}
                                                     />
                                                 )}
@@ -325,29 +325,29 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                         </label>
                         {denomMode && (
                             <div className="p-3">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                     {DENOMINATIONS.map(d => {
                                         const qty = denomInt(denomCounts[String(d.v)]);
                                         const sub = Math.round(d.v * qty * 100) / 100;
                                         return (
-                                            <div key={d.v} className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-700 rounded-md px-2 py-1.5">
-                                                <span className="w-12 text-sm font-semibold text-neutral-700 dark:text-neutral-200 tabular-nums">{d.label}</span>
+                                            <div key={d.v} className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-700 rounded-md px-3 py-2">
+                                                <span className="w-16 text-base font-semibold text-neutral-700 dark:text-neutral-200 tabular-nums">{d.label}</span>
                                                 <span className="text-neutral-400">×</span>
                                                 <input
                                                     type="number" min="0" step="1" inputMode="numeric"
                                                     value={denomCounts[String(d.v)] ?? ''}
                                                     onChange={e => setDenomCounts(prev => ({ ...prev, [String(d.v)]: e.target.value }))}
                                                     placeholder="0"
-                                                    className="w-14 text-right px-2 py-1 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
+                                                    className="w-20 text-right px-2 py-1.5 text-base rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
                                                 />
-                                                <span className="ml-auto text-xs text-neutral-500 tabular-nums">{money(sub)}</span>
+                                                <span className="ml-auto text-sm text-neutral-600 dark:text-neutral-300 tabular-nums">{money(sub)}</span>
                                             </div>
                                         );
                                     })}
                                 </div>
-                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
-                                    <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Total contado (gaveta)</span>
-                                    <span className="text-lg font-bold text-primary dark:text-accent tabular-nums">{money(denomTotal)}</span>
+                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                                    <span className="text-base font-semibold text-neutral-700 dark:text-neutral-200">Total contado (gaveta)</span>
+                                    <span className="text-xl font-bold text-primary dark:text-accent tabular-nums">{money(denomTotal)}</span>
                                 </div>
                             </div>
                         )}

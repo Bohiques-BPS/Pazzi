@@ -6,7 +6,9 @@ import { BranchStockAdjustmentModal } from '../../components/forms/BranchStockAd
 import { TransferStockModal } from '../../components/forms/TransferStockModal';
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { ListBulletIcon, Cog6ToothIcon, EyeIcon } from '../../components/icons';
-import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { Modal } from '../../components/Modal';
+import { PasswordInput } from '../../components/ui/PasswordInput';
+import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import {
     inventoryService,
@@ -62,6 +64,31 @@ export const POSInventoryPage: React.FC = () => {
     const [productForAdjust, setProductForAdjust] = useState<Product | null>(null);
     const [productForTransfer, setProductForTransfer] = useState<Product | null>(null);
     const [productForHistory, setProductForHistory] = useState<Product | null>(null);
+
+    // Ajuste masivo de stock (acción de gerente, protegida por PIN).
+    const [showSetAll, setShowSetAll] = useState(false);
+    const [setAllPin, setSetAllPin] = useState('');
+    const [setAllQty, setSetAllQty] = useState('500');
+    const [setAllBranch, setSetAllBranch] = useState('');
+    const [setAllBusy, setSetAllBusy] = useState(false);
+
+    const doSetAll = async () => {
+        const qty = parseInt(setAllQty, 10);
+        if (isNaN(qty) || qty < 0) { toast.error('Ingresa una cantidad válida.'); return; }
+        if (!setAllPin.trim()) { toast.error('Ingresa el PIN del gerente.'); return; }
+        setSetAllBusy(true);
+        try {
+            const r = await inventoryService.setAllStock({ pin: setAllPin.trim(), branchId: setAllBranch || filterBranchId || undefined, quantity: qty });
+            toast.success(`Stock fijado a ${r.quantity} en ${r.updated} producto(s).`);
+            setShowSetAll(false);
+            setSetAllPin('');
+            loadStock();
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo ajustar el inventario.');
+        } finally {
+            setSetAllBusy(false);
+        }
+    };
 
     // ─── Carga de stock actual ──────────────────────────────
     const loadStock = useCallback(async () => {
@@ -278,6 +305,19 @@ export const POSInventoryPage: React.FC = () => {
                     </>
                 )}
 
+                {tab === 'stock' && (
+                    <PermissionGate require="inventory.adjust">
+                        <button
+                            type="button"
+                            onClick={() => { setSetAllBranch(filterBranchId); setSetAllQty('500'); setSetAllPin(''); setShowSetAll(true); }}
+                            className={BUTTON_SECONDARY_SM_CLASSES}
+                            title="Fijar el stock de todos los productos a una cantidad (requiere PIN de gerente)"
+                        >
+                            📦 Fijar stock de todos…
+                        </button>
+                    </PermissionGate>
+                )}
+
                 <button
                     type="button"
                     onClick={() => (tab === 'stock' ? loadStock() : loadLogs())}
@@ -377,6 +417,46 @@ export const POSInventoryPage: React.FC = () => {
                 onClose={() => setProductForHistory(null)}
                 productId={productForHistory?.id || null}
             />
+
+            {/* Ajuste masivo de stock — acción de gerente protegida por PIN */}
+            <Modal isOpen={showSetAll} onClose={() => setShowSetAll(false)} title="Fijar stock de todos los productos" size="md">
+                <div className="space-y-4">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                        Esto fijará el inventario de <strong>todos</strong> los productos a la cantidad indicada en la sucursal seleccionada. Queda registrado en la bitácora. Requiere PIN de gerente.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Cantidad</label>
+                            <input type="number" min="0" step="1" value={setAllQty} onChange={e => setSetAllQty(e.target.value)} className={inputFormStyle} placeholder="500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Sucursal</label>
+                            <select value={setAllBranch} onChange={e => setSetAllBranch(e.target.value)} className={inputFormStyle}>
+                                <option value="">{branches[0]?.name ? `Principal (${branches[0].name})` : 'Principal'}</option>
+                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">PIN del gerente</label>
+                        <PasswordInput
+                            value={setAllPin}
+                            onChange={e => setSetAllPin(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !setAllBusy) doSetAll(); }}
+                            className={inputFormStyle}
+                            placeholder="****"
+                            inputMode="numeric"
+                            maxLength={6}
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={() => setShowSetAll(false)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                        <button type="button" onClick={doSetAll} disabled={setAllBusy} className={BUTTON_PRIMARY_SM_CLASSES}>
+                            {setAllBusy ? 'Aplicando…' : 'Fijar stock'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

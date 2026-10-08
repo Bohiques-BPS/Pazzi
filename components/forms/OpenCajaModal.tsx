@@ -17,14 +17,14 @@ interface OpenCajaModalProps {
 
 export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, caja, onOpened }) => {
     const { t } = useTranslation();
-    const [openingFloat, setOpeningFloat] = useState<string>('0');
+    const [openingFloat, setOpeningFloat] = useState<string>('');
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
-            setOpeningFloat('0');
+            setOpeningFloat('');
             setNotes('');
             setError(null);
         }
@@ -35,7 +35,8 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-        const amount = parseFloat(openingFloat);
+        // Campo vacío = abrir con $0 (el campo ya no trae un 0 que haya que borrar).
+        const amount = openingFloat.trim() === '' ? 0 : parseFloat(openingFloat);
         if (isNaN(amount) || amount < 0) {
             setError(t('cmpx.opencaja.err_float'));
             return;
@@ -88,8 +89,8 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                             value={openingFloat}
                             onChange={(e) => setOpeningFloat(e.target.value)}
                             className={`${inputFormStyle} pl-7`}
+                            placeholder="0.00"
                             autoFocus
-                            required
                         />
                     </div>
                     <p className="text-xs text-neutral-500 mt-1">

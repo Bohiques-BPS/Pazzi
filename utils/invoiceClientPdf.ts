@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Invoice } from '../services/invoices';
 import { loadImageAsDataUrl, dataUrlFormat } from './imageData';
+import { splitTax } from './taxBreakdown';
 
 /** Datos del negocio para el encabezado (de settings.receiptConfig). */
 export interface InvoicePdfBusiness {
@@ -11,6 +12,9 @@ export interface InvoicePdfBusiness {
     phone?: string;
     email?: string;
     logoUrl?: string;
+    /** Tasas IVU (de settings) para desglosar Estatal/Municipal cuando el documento solo guarda el total. */
+    taxStateRate?: number | null;
+    taxMunicipalRate?: number | null;
     /** Qué mostrar en la factura (de Config. Factura). Por defecto todo visible. */
     design?: {
         showLogo?: boolean;
@@ -134,7 +138,16 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     const balance = Math.max(0, (inv.total || 0) - paidEff);
 
     totRow('Subtotal:', money(inv.subtotal));
-    if ((inv.tax || 0) > 0) totRow('IVU:', money(inv.tax));
+    if ((inv.tax || 0) > 0) {
+        // Desglose IVU Estatal / Municipal (si hay tasas en settings). Si no, una sola línea "IVU".
+        const sp = splitTax(inv.tax || 0, biz.taxStateRate, biz.taxMunicipalRate);
+        if (sp.municipal > 0) {
+            totRow('IVU Estatal:', money(sp.state));
+            totRow('IVU Municipal:', money(sp.municipal));
+        } else {
+            totRow('IVU:', money(inv.tax));
+        }
+    }
     totRow('Total:', money(inv.total), true, accent);
     // Siempre mostramos Pagado y Saldo cuando hubo algún pago (o está pagada).
     if (paidEff > 0 || paid) {

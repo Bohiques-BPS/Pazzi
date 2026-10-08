@@ -4,7 +4,6 @@ import { Sale, CartItem, UserRole, Client } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { MagnifyingGlassIcon, TrashIconMini } from '../icons';
-import { RichTextEditor } from '../ui/RichTextEditor';
 import { authService } from '../../services/auth';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -271,7 +270,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                 <div className="flex items-end gap-2">
                     <div className="flex-grow">
                         <label className="text-sm font-medium">{t('cmpx.return.search_label')}</label>
-                        <input type="text" value={saleIdInput} onChange={e => setSaleIdInput(e.target.value)} placeholder={t('cmpx.return.search_ph')} className={inputFormStyle} />
+                        <input type="text" value={saleIdInput} onChange={e => setSaleIdInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleFindSale(); } }} placeholder={t('cmpx.return.search_ph')} className={inputFormStyle} />
                     </div>
                     <button onClick={handleFindSale} className={BUTTON_SECONDARY_SM_CLASSES}>
                         <MagnifyingGlassIcon className="w-4 h-4 mr-1.5"/> {t('common.search')}
@@ -366,7 +365,15 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
 
                         <div>
                             <label className="text-sm font-medium">{t('cmpx.return.reason_label')}</label>
-                            <RichTextEditor value={reason} onChange={setReason} />
+                            {/* Textarea plano: el editor enriquecido (contentEditable) interfería con la
+                                composición de teclas muertas (p.ej. la "ñ") en algunos teclados. */}
+                            <textarea
+                                value={reason}
+                                onChange={e => setReason(e.target.value)}
+                                rows={3}
+                                placeholder={t('cmpx.return.reason_ph') || 'Motivo de la devolución…'}
+                                className={inputFormStyle + ' resize-y'}
+                            />
                         </div>
 
                         <div>

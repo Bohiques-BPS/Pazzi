@@ -103,4 +103,8 @@ export const inventoryService = {
       '/inventory/stock',
       params as any
     ),
+
+  /** Ajuste masivo: fija el stock de TODOS los productos a una cantidad. Requiere PIN de gerente. */
+  setAllStock: (data: { pin: string; branchId?: string; quantity?: number }) =>
+    api.post<{ updated: number; quantity: number; branchId: string }>('/inventory/set-all-stock', data),
 };
