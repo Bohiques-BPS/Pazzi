@@ -71,6 +71,7 @@ const EmployeesListPage = lazyNamed(() => import('./pages/pm/EmployeesListPage')
 const RolesListPage = lazyNamed(() => import('./pages/pm/RolesListPage'), 'RolesListPage');
 const ProjectsListPage = lazyNamed(() => import('./pages/pm/ProjectsListPage'), 'ProjectsListPage');
 const ModuleHubPage = lazyNamed(() => import('./pages/ModuleHubPage'), 'ModuleHubPage');
+const NotificationsPage = lazyNamed(() => import('./pages/NotificationsPage'), 'NotificationsPage');
 const ProjectDetailPage = lazyNamed(() => import('./pages/pm/ProjectDetailPage'), 'ProjectDetailPage');
 const ProjectCalendarPage = lazyNamed(() => import('./pages/pm/ProjectCalendarPage'), 'ProjectCalendarPage');
 const ProjectChatPage = lazyNamed(() => import('./pages/pm/ProjectChatPage'), 'ProjectChatPage');
@@ -431,6 +432,7 @@ const AppContent: React.FC = () => {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/configuration" element={<ConfigurationPage />} /> {/* New Route */}
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/" element={<DashboardHomePage />} />
 
                 {/* E-commerce Client Routes */}

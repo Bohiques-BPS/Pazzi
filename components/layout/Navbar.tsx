@@ -388,11 +388,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
                                 <p className="text-center text-base text-neutral-500 dark:text-neutral-400 py-6">{t('cmp.navbar.no_notifications')}</p>
                             )}
                         </div>
-                         {notifications.length > 0 && (
-                             <div className="px-4 py-2 border-t dark:border-neutral-600 text-center">
-                                <span className="text-sm text-neutral-400 dark:text-neutral-500">{t('cmp.navbar.showing_latest', { count: latestNotifications.length })}</span>
-                            </div>
-                         )}
+                         <div className="px-2 py-2 border-t dark:border-neutral-600">
+                            <button
+                                type="button"
+                                onClick={() => { setNotificationDropdownOpen(false); navigate('/notifications'); }}
+                                className="w-full text-center text-sm font-medium text-primary dark:text-accent hover:bg-primary/10 dark:hover:bg-primary/20 rounded-md py-2"
+                            >
+                                {t('cmp.navbar.view_all_notifications') || 'Ver todas las notificaciones'}
+                            </button>
+                         </div>
                     </div>
                 )}
             </div>
