@@ -6,7 +6,7 @@ import { Project, ProjectStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { ConfirmationModal, Modal } from '../../components/Modal';
 import { ProjectCard } from '../../components/cards/ProjectCard';
-import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon, BriefcaseIcon, ClipboardDocumentListIcon, ChartBarIcon, UserGroupIcon } from '../../components/icons';
+import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon, BriefcaseIcon, ClipboardDocumentListIcon, ChartBarIcon, UserGroupIcon, MagnifyingGlassIcon } from '../../components/icons';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
@@ -41,6 +41,7 @@ export const ProjectsListPage: React.FC = () => {
         : estadoParam === 'completado' ? ProjectStatus.COMPLETED
         : 'Todos';
     const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>(estadoInitial);
+    const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     // Densidad de la cuadrícula en pantallas grandes (4 por defecto; el usuario puede elegir 5). Por dispositivo.
     const [gridCols, setGridCols] = useState<4 | 5>(() => { try { return localStorage.getItem('pazzi_pm_cols') === '5' ? 5 : 4; } catch { return 4; } });
@@ -109,16 +110,21 @@ export const ProjectsListPage: React.FC = () => {
     };
 
     const filteredProjects = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
         return projects
-            .filter(project =>
-                (statusFilter === 'Todos' || project.status === statusFilter)
-            )
+            .filter(project => (statusFilter === 'Todos' || project.status === statusFilter))
+            .filter(project => {
+                if (!q) return true;
+                const client = getClientById(project.clientId);
+                const clientName = client ? `${client.name || ''} ${client.lastName || ''} ${client.companyName || ''}`.toLowerCase() : '';
+                return (project.name || '').toLowerCase().includes(q) || clientName.includes(q);
+            })
             .sort((a, b) => {
                 const dateA = a.visitDate || a.workStartDate || '0';
                 const dateB = b.visitDate || b.workStartDate || '0';
                 return new Date(dateB).getTime() - new Date(dateA).getTime();
             });
-    }, [projects, statusFilter]);
+    }, [projects, statusFilter, searchQuery, getClientById]);
     
     const tableColumns: TableColumn<Project>[] = useMemo(() => [
         {
@@ -216,6 +222,30 @@ export const ProjectsListPage: React.FC = () => {
                         </button>
                     );
                 })}
+            </div>
+
+            {/* Buscador por nombre de proyecto (o cliente) */}
+            <div className="mb-4">
+                <div className="relative max-w-md">
+                    <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder={t('project.list.search_placeholder')}
+                        className="w-full pl-10 pr-9 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                    />
+                    {searchQuery && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                            aria-label={t('common.clear') || 'Limpiar'}
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Filtros (pestañas) + vista */}
