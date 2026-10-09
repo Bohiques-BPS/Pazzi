@@ -832,6 +832,7 @@ export interface Task {
     priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
     remindAt?: string | null;  // ISO datetime del recordatorio (campana + correo)
     parentTaskId?: string | null; // subtarea: id de la tarea padre (árbol de tareas)
+    attachments?: { url: string; name?: string }[]; // imágenes adjuntas
 }
 
 export interface TaskComment {

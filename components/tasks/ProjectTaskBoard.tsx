@@ -11,8 +11,9 @@ import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { AiTaskAssistant } from '../ai/AiTaskAssistant';
 import { PlusIcon, DocumentTextIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
-import { tasksService } from '../../services/tasks';
+import { tasksService, type TaskAttachment } from '../../services/tasks';
 import { projectsService } from '../../services/projects';
+import { uploadImage } from '../../services/upload';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -32,7 +33,33 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [colMenuFor, setColMenuFor] = useState<string | null>(null);
     const [deleteCol, setDeleteCol] = useState<string | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
+    // Imágenes pegadas/adjuntas al crear una tarea rápida.
+    const [newTaskImages, setNewTaskImages] = useState<TaskAttachment[]>([]);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const { currentUser } = useAuth();
+
+    // Sube las imágenes de un portapapeles/archivos y las añade a la tarea en creación.
+    const handleImageFiles = async (files: File[]) => {
+        const images = files.filter(f => f.type.startsWith('image/'));
+        if (!images.length) return;
+        setUploadingImage(true);
+        try {
+            for (const file of images) {
+                if (file.size > 5 * 1024 * 1024) { toast.error(`"${file.name || 'imagen'}" supera 5 MB.`); continue; }
+                const url = await uploadImage(file);
+                setNewTaskImages(prev => [...prev, { url, name: file.name || 'imagen' }]);
+            }
+        } catch {
+            toast.error('No se pudo subir la imagen.');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleCreatePaste = (e: React.ClipboardEvent) => {
+        const files = Array.from(e.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
+        if (files.length) { e.preventDefault(); handleImageFiles(files); }
+    };
     // "Asignármelas a mí": al crear tareas rápidas, auto-asignarlas al usuario. Preferencia por dispositivo.
     const [assignSelf, setAssignSelf] = useState<boolean>(() => { try { return localStorage.getItem('pazzi_assign_self') === '1'; } catch { return false; } });
     const toggleAssignSelf = (v: boolean) => { setAssignSelf(v); try { localStorage.setItem('pazzi_assign_self', v ? '1' : '0'); } catch { /* noop */ } };
@@ -329,6 +356,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         try {
             const saved = await tasksService.create({
                 projectId, title: newTaskTitle, status: status as any, section: activeSection || undefined,
+                ...(newTaskImages.length ? { attachments: newTaskImages } : {}),
                 ...(assignSelf && myAssigneeId ? { assignedEmployeeIds: [myAssigneeId] } : {}),
             });
             setTasks(prev => [...prev, {
@@ -339,6 +367,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             toast.error(t('cmpx.task.create_error'));
         }
         setNewTaskTitle('');
+        setNewTaskImages([]);
         setIsCreatingInStatus(null);
     };
 
@@ -423,7 +452,35 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     // (así hacer clic en el check o el micrófono NO cierra el formulario).
                                     onBlur={(e) => { if (!newTaskTitle.trim() && !(e.currentTarget.closest('[data-create-block]')?.contains(e.relatedTarget as Node))) setIsCreatingInStatus(null); }}
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status); } }}
+                                    onPaste={handleCreatePaste}
                                 />
+                                {/* Imágenes pegadas (Ctrl+V) o adjuntas */}
+                                <div className="mt-2">
+                                    {newTaskImages.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-1">
+                                            {newTaskImages.map((img, i) => (
+                                                <div key={i} className="relative group">
+                                                    <img src={img.url} alt={img.name || 'imagen'} className="w-14 h-14 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
+                                                    <button
+                                                        type="button"
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => setNewTaskImages(prev => prev.filter((_, j) => j !== i))}
+                                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
+                                                        aria-label="Quitar imagen"
+                                                    >✕</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <label
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        className="inline-flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer hover:text-primary"
+                                        title="Pega una imagen (Ctrl+V) o selecciónala"
+                                    >
+                                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
+                                        🖼️ {uploadingImage ? 'Subiendo…' : 'Pegar o adjuntar imagen'}
+                                    </label>
+                                </div>
                                 <label
                                     // Evita que el clic en el check/texto le quite el foco al textarea (eso cerraba el
                                     // formulario cuando el título estaba vacío). El toggle del checkbox igual ocurre.
@@ -443,7 +500,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                 </div>
                             </div>
                         ) : (
-                            <button onClick={() => setIsCreatingInStatus(status)} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
+                            <button onClick={() => { setNewTaskTitle(''); setNewTaskImages([]); setIsCreatingInStatus(status); }} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
                                 <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
                             </button>
                         )}

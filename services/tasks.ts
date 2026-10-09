@@ -3,9 +3,16 @@ import { api } from './api';
 // OJO: deben coincidir EXACTO con el enum TaskStatus de types.ts (así los filtra el tablero).
 export type TaskStatus = 'Tareas por realizar' | 'En progreso' | 'Para aprobar' | 'Hecho';
 
+export interface TaskAttachment {
+  url: string;
+  name?: string;
+}
+
 export interface TaskPayload {
   title: string;
   description?: string;
+  /** Imágenes adjuntas a la tarea. */
+  attachments?: TaskAttachment[];
   projectId?: string;
   status?: TaskStatus;
   section?: string | null;
@@ -55,6 +62,7 @@ export interface TaskRecord {
   order?: number;
   archived: boolean;
   comments?: TaskCommentRecord[];
+  attachments?: TaskAttachment[];
   createdAt: string;
   updatedAt: string;
 }

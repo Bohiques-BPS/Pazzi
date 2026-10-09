@@ -98,6 +98,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
                             </span>
                         )}
 
+                        {/* Imágenes adjuntas */}
+                        {Array.isArray((task as any).attachments) && (task as any).attachments.length > 0 && (
+                            <span className="flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded gap-0.5 bg-neutral-100 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-300" title="Imágenes adjuntas">
+                                🖼️ {(task as any).attachments.length}
+                            </span>
+                        )}
+
                         {/* Comment count */}
                         {commentCount > 0 && (
                             <span className="flex items-center text-xs text-gray-500 dark:text-gray-400 gap-0.5">

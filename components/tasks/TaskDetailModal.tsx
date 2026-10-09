@@ -7,7 +7,8 @@ import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES 
 import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon, DeleteIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
 import { MicButton } from '../ui/MicButton';
-import { tasksService, type TaskCommentRecord, type ChecklistItem, type TaskSolution } from '../../services/tasks';
+import { tasksService, type TaskCommentRecord, type ChecklistItem, type TaskSolution, type TaskAttachment } from '../../services/tasks';
+import { uploadImage } from '../../services/upload';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -68,6 +69,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [addingSubtask, setAddingSubtask] = useState(false);
     const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
+    const [attachments, setAttachments] = useState<TaskAttachment[]>(((task as any).attachments as TaskAttachment[]) || []);
+    const [uploadingImg, setUploadingImg] = useState(false);
 
     // Solo se pueden asignar tareas a personas ASIGNADAS al proyecto. La asignación del proyecto
     // guarda User.id; los empleados enlazan con userId (o su propio id según el flujo), así que
@@ -139,8 +142,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 priority: priority || null,
                 section: section.trim() || null,
                 remindAt: remindAtIso,
+                attachments,
             });
-            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null, remindAt: remindAtIso } as any);
+            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null, remindAt: remindAtIso, attachments } as any);
             toast.success(t('cmpx.task.updated_ok'));
             onClose();
         } catch (err) {
@@ -194,6 +198,28 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('cmpx.task.delete_error'));
         }
+    };
+
+    const handleImageFiles = async (files: File[]) => {
+        const images = files.filter(f => f.type.startsWith('image/'));
+        if (!images.length) return;
+        setUploadingImg(true);
+        try {
+            for (const file of images) {
+                if (file.size > 5 * 1024 * 1024) { toast.error(`"${file.name || 'imagen'}" supera 5 MB.`); continue; }
+                const url = await uploadImage(file);
+                setAttachments(prev => [...prev, { url, name: file.name || 'imagen' }]);
+            }
+        } catch {
+            toast.error('No se pudo subir la imagen.');
+        } finally {
+            setUploadingImg(false);
+        }
+    };
+
+    const handleAttachPaste = (e: React.ClipboardEvent) => {
+        const files = Array.from(e.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
+        if (files.length) { e.preventDefault(); handleImageFiles(files); }
     };
 
     const handleAddComment = async () => {
@@ -460,6 +486,38 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                         onChange={setDescription}
                         placeholder={t('cmpx.task.description_ph')}
                     />
+                </div>
+
+                {/* Imágenes adjuntas (pegar con Ctrl+V o seleccionar) */}
+                <div onPaste={handleAttachPaste}>
+                    <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">🖼️ Imágenes</label>
+                        <label className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer" title="Pega una imagen (Ctrl+V) o selecciónala">
+                            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
+                            {uploadingImg ? 'Subiendo…' : '+ Adjuntar'}
+                        </label>
+                    </div>
+                    {attachments.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {attachments.map((img, i) => (
+                                <div key={i} className="relative group">
+                                    <a href={img.url} target="_blank" rel="noreferrer" title={img.name || 'imagen'}>
+                                        <img src={img.url} alt={img.name || 'imagen'} className="w-20 h-20 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
+                                    </a>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))}
+                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
+                                        aria-label="Quitar imagen"
+                                    >✕</button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md px-3 py-3 text-center">
+                            Pega una imagen aquí (Ctrl+V) o usa “+ Adjuntar”.
+                        </p>
+                    )}
                 </div>
 
                 <fieldset className="border dark:border-neutral-600 p-3 rounded">
