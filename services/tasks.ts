@@ -64,6 +64,8 @@ export interface TaskRecord {
   archived: boolean;
   comments?: TaskCommentRecord[];
   attachments?: TaskAttachment[];
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
+  approvalRequestedByUserId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,6 +118,10 @@ export const tasksService = {
   /** Notifica a los encargados del proyecto que la tarea necesita aprobación. */
   requestApproval: (id: string) =>
     api.post<{ notified: number }>(`/tasks/${id}/request-approval`, {}),
+
+  /** Aprueba o rechaza una tarea pendiente; notifica al solicitante. */
+  respondApproval: (id: string, decision: 'approved' | 'rejected', note?: string) =>
+    api.post<any>(`/tasks/${id}/approval-decision`, { decision, ...(note ? { note } : {}) }).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
   addChecklistItem: (taskId: string, text: string, assignedUserId?: string | null) =>
     api.post<ChecklistItem>(`/tasks/${taskId}/checklist`, assignedUserId ? { text, assignedUserId } : { text }),

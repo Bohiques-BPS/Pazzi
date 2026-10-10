@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Task, TaskStatus, Employee } from '../../types';
@@ -69,6 +70,23 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [neverAskCheck, setNeverAskCheck] = useState(false);
     const neverAskAssign = () => { try { return localStorage.getItem('pazzi_never_ask_assign') === '1'; } catch { return false; } };
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    // Deep-link: abrir una tarea concreta cuando la URL trae ?task=<id> (p.ej. desde una notificación).
+    const [searchParams, setSearchParams] = useSearchParams();
+    const openedFromUrlRef = useRef<string | null>(null);
+    useEffect(() => {
+        const taskParam = searchParams.get('task');
+        if (!taskParam || openedFromUrlRef.current === taskParam) return;
+        const found = tasks.find(t => t.id === taskParam);
+        if (found) {
+            openedFromUrlRef.current = taskParam;
+            setSelectedTask(found);
+            // Limpia el parámetro para no reabrir al navegar/cerrar.
+            const next = new URLSearchParams(searchParams);
+            next.delete('task');
+            setSearchParams(next, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, tasks]);
     // Sección/área activa ('' = Todas).
     const [activeSection, setActiveSection] = useState('');
     // Secciones persistidas del proyecto (se guardan en la DB aunque no tengan tareas).

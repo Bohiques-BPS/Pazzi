@@ -833,6 +833,8 @@ export interface Task {
     remindAt?: string | null;  // ISO datetime del recordatorio (campana + correo)
     parentTaskId?: string | null; // subtarea: id de la tarea padre (árbol de tareas)
     attachments?: { url: string; name?: string }[]; // imágenes adjuntas
+    approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
+    approvalRequestedByUserId?: string | null;
 }
 
 export interface TaskComment {

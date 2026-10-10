@@ -3,6 +3,7 @@ import { Modal, ConfirmationModal } from '../Modal';
 import { Task } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon, DeleteIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
@@ -34,6 +35,7 @@ const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onOpenTask }) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
+    const { can } = usePermissions();
     const { getAllEmployees, projects, tasks: allTasks, setTasks } = useData();
     const [title, setTitle] = useState(task.title);
     const [description, setDescription] = useState(task.description || '');
@@ -69,6 +71,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
     const [aiAdding, setAiAdding] = useState(false);
     const [requestingApproval, setRequestingApproval] = useState(false);
+    const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected' | null>((task as any).approvalStatus ?? null);
+    const [respondingApproval, setRespondingApproval] = useState(false);
+    // Quién puede aprobar/rechazar: gerentes o quien gestione tareas/edite proyectos.
+    const canApprove = can('tasks.manage') || can('projects.edit');
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [addingSubtask, setAddingSubtask] = useState(false);
     const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
@@ -167,11 +173,30 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         setRequestingApproval(true);
         try {
             const res = await tasksService.requestApproval(task.id);
+            setApprovalStatus('pending');
+            setTasks(prev => prev.map(tk => tk.id === task.id ? ({ ...tk, approvalStatus: 'pending' } as any) : tk));
             toast.success(res.notified > 0 ? `Se notificó a ${res.notified} encargado(s) que la tarea necesita aprobación.` : 'Solicitud de aprobación enviada.');
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : 'No se pudo solicitar la aprobación.');
         } finally {
             setRequestingApproval(false);
+        }
+    };
+
+    const handleRespondApproval = async (decision: 'approved' | 'rejected') => {
+        setRespondingApproval(true);
+        try {
+            const updated = await tasksService.respondApproval(task.id, decision);
+            // Refleja el nuevo estado/columna en el estado global.
+            setTasks(prev => prev.map(tk => tk.id === task.id
+                ? ({ ...tk, approvalStatus: decision, status: (updated as any).status ?? tk.status } as any)
+                : tk));
+            toast.success(decision === 'approved' ? 'Tarea aprobada. Se notificó al solicitante.' : 'Tarea rechazada. Se notificó al solicitante.');
+            onClose();
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo registrar la decisión.');
+        } finally {
+            setRespondingApproval(false);
         }
     };
 
@@ -819,9 +844,31 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
 
                 <div className="flex justify-between items-center pt-4 border-t dark:border-neutral-700">
                     <div className="flex gap-2 flex-wrap">
-                        <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Notifica a los encargados del proyecto que esta tarea necesita aprobación">
-                            🔔 {requestingApproval ? 'Enviando…' : 'Solicitar aprobación'}
-                        </button>
+                        {/* Aprobación: solicitar, aprobar/rechazar (encargados), o estado final. */}
+                        {approvalStatus === 'pending' ? (
+                            canApprove ? (
+                                <>
+                                    <button onClick={() => handleRespondApproval('approved')} disabled={respondingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 flex items-center disabled:opacity-50`}>
+                                        ✅ {respondingApproval ? '…' : 'Aprobar'}
+                                    </button>
+                                    <button onClick={() => handleRespondApproval('rejected')} disabled={respondingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 flex items-center disabled:opacity-50`}>
+                                        ❌ {respondingApproval ? '…' : 'Rechazar'}
+                                    </button>
+                                </>
+                            ) : (
+                                <span className="inline-flex items-center text-sm font-medium text-amber-600 dark:text-amber-400 px-2 py-1">⏳ Pendiente de aprobación</span>
+                            )
+                        ) : approvalStatus === 'approved' ? (
+                            <span className="inline-flex items-center text-sm font-medium text-green-700 dark:text-green-300 px-2 py-1">✅ Aprobada</span>
+                        ) : approvalStatus === 'rejected' ? (
+                            <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Volver a solicitar aprobación">
+                                ❌ Rechazada · {requestingApproval ? 'Enviando…' : 'Reenviar'}
+                            </button>
+                        ) : (
+                            <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Notifica a los encargados del proyecto que esta tarea necesita aprobación">
+                                🔔 {requestingApproval ? 'Enviando…' : 'Solicitar aprobación'}
+                            </button>
+                        )}
                         <button onClick={handleArchive} className={`${BUTTON_SECONDARY_SM_CLASSES} text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center`}>
                             <ArchiveBoxIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.archive')}
                         </button>
