@@ -32,13 +32,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
 
     const hasFooter = commentCount > 0 || assignedEmployees.length > 0 || dueDateStr || (checklistSummary && checklistSummary.total > 0) || (subtaskSummary && subtaskSummary.total > 0);
 
+    // Portada tipo Trello: primera imagen adjunta como banner superior.
+    const attachments = Array.isArray((task as any).attachments) ? (task as any).attachments as { url: string; name?: string }[] : [];
+    const coverUrl = attachments[0]?.url || null;
+
     return (
         <div
             {...props}
-            className={`bg-white dark:bg-slate-700 p-3 rounded-lg shadow hover:shadow-lg cursor-grab border-b-2 border-transparent transition-all duration-150 ${
+            className={`bg-white dark:bg-slate-700 rounded-lg shadow hover:shadow-lg cursor-grab border-b-2 border-transparent transition-all duration-150 overflow-hidden ${
                 isOverdue ? 'border-l-4 border-l-red-500' : isDueSoon ? 'border-l-4 border-l-amber-400' : ''
             }`}
         >
+            {/* Portada (banner) */}
+            {coverUrl && (
+                <div className="relative">
+                    <img src={coverUrl} alt={attachments[0]?.name || 'imagen'} className="w-full h-28 object-cover" />
+                    {attachments.length > 1 && (
+                        <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/55 text-white flex items-center gap-0.5">
+                            🖼️ {attachments.length}
+                        </span>
+                    )}
+                </div>
+            )}
+            <div className="p-3">
             {/* Priority badge */}
             {priorityCfg && (
                 <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mb-1.5 ${priorityCfg.cls}`}>
@@ -98,10 +114,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
                             </span>
                         )}
 
-                        {/* Imágenes adjuntas */}
-                        {Array.isArray((task as any).attachments) && (task as any).attachments.length > 0 && (
+                        {/* Imágenes adjuntas (badge solo si NO hay portada; la portada ya muestra el conteo) */}
+                        {!coverUrl && attachments.length > 0 && (
                             <span className="flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded gap-0.5 bg-neutral-100 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-300" title="Imágenes adjuntas">
-                                🖼️ {(task as any).attachments.length}
+                                🖼️ {attachments.length}
                             </span>
                         )}
 
@@ -138,6 +154,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Task, TaskStatus, Employee } from '../../types';
@@ -36,6 +36,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     // Imágenes pegadas/adjuntas al crear una tarea rápida.
     const [newTaskImages, setNewTaskImages] = useState<TaskAttachment[]>([]);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const createFileInputRef = useRef<HTMLInputElement>(null);
     const { currentUser } = useAuth();
 
     // Sube las imágenes de un portapapeles/archivos y las añade a la tarea en creación.
@@ -450,7 +451,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                     autoFocus
                                     // Solo cerrar si el título está vacío Y el foco sale del bloque de creación
                                     // (así hacer clic en el check o el micrófono NO cierra el formulario).
-                                    onBlur={(e) => { if (!newTaskTitle.trim() && !(e.currentTarget.closest('[data-create-block]')?.contains(e.relatedTarget as Node))) setIsCreatingInStatus(null); }}
+                                    onBlur={(e) => { if (!newTaskTitle.trim() && newTaskImages.length === 0 && !uploadingImage && !(e.currentTarget.closest('[data-create-block]')?.contains(e.relatedTarget as Node))) setIsCreatingInStatus(null); }}
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status); } }}
                                     onPaste={handleCreatePaste}
                                 />
@@ -472,14 +473,16 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                             ))}
                                         </div>
                                     )}
-                                    <label
+                                    <button
+                                        type="button"
                                         onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => createFileInputRef.current?.click()}
                                         className="inline-flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer hover:text-primary"
                                         title="Pega una imagen (Ctrl+V) o selecciónala"
                                     >
-                                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
                                         🖼️ {uploadingImage ? 'Subiendo…' : 'Pegar o adjuntar imagen'}
-                                    </label>
+                                    </button>
+                                    <input ref={createFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
                                 </div>
                                 <label
                                     // Evita que el clic en el check/texto le quite el foco al textarea (eso cerraba el

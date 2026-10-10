@@ -1,1 +1,0 @@
-import{ai as o}from"./index-BvsfJ_9B.js";const r={adjustStock:(t,s)=>o.post(`/products/${t}/adjust-stock`,s),transferStock:(t,s)=>o.post(`/products/${t}/transfer-stock`,s),getLogs:t=>o.get("/inventory/logs",t),getCurrentStock:t=>o.get("/inventory/stock",t),setAllStock:t=>o.post("/inventory/set-all-stock",t)};export{r as i};
