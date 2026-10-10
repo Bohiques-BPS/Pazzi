@@ -3,7 +3,7 @@ import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProjectStatus, Employee, UserRole } from '../../types';
 import { ChatMessageItem } from './ChatMessageItem';
-import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon, DocumentArrowUpIcon } from '../../components/icons';
+import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon, DocumentArrowUpIcon, MagnifyingGlassIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord } from '../../services/chat';
@@ -54,6 +54,24 @@ export const ProjectChatPage: React.FC = () => {
         }
         return baseProjects;
     }, [allProjectsContext, currentUser, isEmployeeView, can]);
+
+    // Buscador de chats: por nombre de proyecto, nombre/empresa/alias del cliente.
+    const [chatSearch, setChatSearch] = useState('');
+    const displayProjects = useMemo(() => {
+        const q = chatSearch.trim().toLowerCase();
+        if (!q) return activeProjects;
+        return activeProjects.filter(p => {
+            const c: any = getClientById(p.clientId);
+            const hay = [
+                p.name,
+                c ? `${c.name || ''} ${c.lastName || ''}` : '',
+                c?.companyName,
+                c?.displayName,
+                c?.alias,
+            ].filter(Boolean).join(' ').toLowerCase();
+            return hay.includes(q);
+        });
+    }, [activeProjects, chatSearch, getClientById]);
 
     const selectedProject = selectedProjectId ? allProjectsContext.find(p => p.id === selectedProjectId) : null;
 
@@ -218,11 +236,25 @@ export const ProjectChatPage: React.FC = () => {
         <div className="flex h-full bg-white dark:bg-neutral-800 shadow-lg rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
             {/* Sidebar: Project List */}
             <div className="w-full sm:w-1/3 md:w-1/4 border-r border-neutral-200 dark:border-neutral-700 flex flex-col">
-                <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
+                <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 space-y-3">
                     <h2 className="text-lg font-semibold text-primary">{t('pm2x.chat.projects')}</h2>
+                    {/* Buscador de chats: proyecto, cliente, empresa, alias */}
+                    <div className="relative">
+                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            value={chatSearch}
+                            onChange={e => setChatSearch(e.target.value)}
+                            placeholder={t('pm2x.chat.search_ph') || 'Buscar por proyecto, cliente, empresa…'}
+                            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                        />
+                        {chatSearch && (
+                            <button type="button" onClick={() => setChatSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200" aria-label={t('common.clear') || 'Limpiar'}>✕</button>
+                        )}
+                    </div>
                 </div>
                 <div className="flex-grow overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
-                    {activeProjects.length > 0 ? activeProjects.map(project => (
+                    {displayProjects.length > 0 ? displayProjects.map(project => (
                         <button
                             key={project.id}
                             onClick={() => { setSelectedProjectId(project.id); markProjectChatRead(project.id); }}
@@ -246,7 +278,7 @@ export const ProjectChatPage: React.FC = () => {
                              </span>
                         </button>
                     )) : (
-                        <p className="p-3 text-xs text-center text-neutral-500 dark:text-neutral-400">{t('pm2x.chat.no_projects')}</p>
+                        <p className="p-3 text-xs text-center text-neutral-500 dark:text-neutral-400">{chatSearch.trim() ? (t('pm2x.chat.no_results') || 'Sin resultados para la búsqueda.') : t('pm2x.chat.no_projects')}</p>
                     )}
                 </div>
             </div>
