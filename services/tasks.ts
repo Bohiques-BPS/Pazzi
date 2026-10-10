@@ -34,6 +34,7 @@ export interface TaskCommentRecord {
   text: string;
   timestamp: string;
   senderName?: string;
+  imageUrl?: string | null;
 }
 
 export interface ChecklistItem {
@@ -102,8 +103,8 @@ export const tasksService = {
   update: (id: string, data: Partial<TaskPayload>) =>
     api.put<any>(`/tasks/${id}`, data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
-  addComment: (id: string, text: string) =>
-    api.post<TaskCommentRecord>(`/tasks/${id}/comments`, { text }),
+  addComment: (id: string, text: string, imageUrl?: string | null) =>
+    api.post<TaskCommentRecord>(`/tasks/${id}/comments`, { text, ...(imageUrl ? { imageUrl } : {}) }),
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/tasks/${id}`),

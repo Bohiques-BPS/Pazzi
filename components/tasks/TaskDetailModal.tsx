@@ -53,6 +53,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [section, setSection] = useState<string>(task.section || '');
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<TaskCommentRecord[]>(((task as any).comments as TaskCommentRecord[]) || []);
+    const [commentImage, setCommentImage] = useState<string | null>(null);
+    const [uploadingCommentImg, setUploadingCommentImg] = useState(false);
+    const commentFileRef = React.useRef<HTMLInputElement>(null);
     const [submitting, setSubmitting] = useState(false);
     const [sendingComment, setSendingComment] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -222,14 +225,35 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         if (files.length) { e.preventDefault(); handleImageFiles(files); }
     };
 
+    const handleCommentImageFiles = async (files: File[]) => {
+        const image = files.filter(f => f.type.startsWith('image/'))[0];
+        if (!image) return;
+        if (image.size > 5 * 1024 * 1024) { toast.error('La imagen supera 5 MB.'); return; }
+        setUploadingCommentImg(true);
+        try {
+            const url = await uploadImage(image);
+            setCommentImage(url);
+        } catch {
+            toast.error('No se pudo subir la imagen.');
+        } finally {
+            setUploadingCommentImg(false);
+        }
+    };
+
+    const handleCommentPaste = (e: React.ClipboardEvent) => {
+        const files = Array.from(e.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
+        if (files.length) { e.preventDefault(); handleCommentImageFiles(files); }
+    };
+
     const handleAddComment = async () => {
         const text = newComment.trim();
-        if (!text || !currentUser) return;
+        if ((!text && !commentImage) || !currentUser) return;
         setSendingComment(true);
         try {
-            const comment = await tasksService.addComment(task.id, text);
+            const comment = await tasksService.addComment(task.id, text, commentImage);
             setComments(prev => [...prev, comment]);
             setNewComment('');
+            setCommentImage(null);
         } catch (err) {
             // Los 4xx comunes y 5xx ya los muestra el handler global (useApiErrorToasts).
             // Aquí solo cubrimos validación (400/422) para no duplicar el toast.
@@ -738,21 +762,56 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                     <span className="font-semibold text-primary/80 dark:text-accent/80">{comment.senderName || t('cmpx.common.user')}</span>
                                     <span className="text-xs text-neutral-400">{new Date(comment.timestamp).toLocaleString()}</span>
                                 </div>
-                                <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{comment.text}</p>
+                                {comment.text && <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{comment.text}</p>}
+                                {comment.imageUrl && (
+                                    <a href={comment.imageUrl} target="_blank" rel="noreferrer" className="inline-block mt-1">
+                                        <img src={comment.imageUrl} alt="imagen" className="max-h-40 rounded border border-neutral-200 dark:border-neutral-600" />
+                                    </a>
+                                )}
                             </div>
                         )) : <p className="text-sm text-center text-neutral-500">{t('cmpx.task.no_comments')}</p>}
                     </div>
-                    <div className="flex items-center space-x-2 mt-3">
+
+                    {/* Previsualización de la imagen adjunta al comentario */}
+                    {commentImage && (
+                        <div className="mt-3 relative inline-block">
+                            <img src={commentImage} alt="adjunto" className="h-20 rounded border border-neutral-300 dark:border-neutral-600" />
+                            <button
+                                type="button"
+                                onClick={() => setCommentImage(null)}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
+                                aria-label="Quitar imagen"
+                            >✕</button>
+                        </div>
+                    )}
+                    <div className="flex items-stretch gap-2 mt-3">
                         <input
                             type="text"
                             value={newComment}
                             onChange={e => setNewComment(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddComment(); } }}
+                            onPaste={handleCommentPaste}
                             placeholder={t('cmpx.task.comment_ph')}
                             className={inputFormStyle + " flex-grow"}
                             disabled={sendingComment}
                         />
-                        <button onClick={handleAddComment} className={BUTTON_SECONDARY_SM_CLASSES} disabled={sendingComment || !newComment.trim()}>
+                        <input ref={commentFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { handleCommentImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
+                        <button
+                            type="button"
+                            onClick={() => commentFileRef.current?.click()}
+                            disabled={uploadingCommentImg || sendingComment}
+                            title="Adjuntar o pegar una imagen"
+                            className="flex-shrink-0 px-3 rounded-md border border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-center disabled:opacity-50"
+                        >
+                            {uploadingCommentImg ? '…' : '🖼️'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleAddComment}
+                            disabled={sendingComment || (!newComment.trim() && !commentImage)}
+                            className="flex-shrink-0 px-4 rounded-md bg-primary text-white hover:bg-primary/90 flex items-center justify-center disabled:opacity-50"
+                            aria-label="Enviar comentario"
+                        >
                             <PaperAirplaneIcon className="w-4 h-4" />
                         </button>
                     </div>
