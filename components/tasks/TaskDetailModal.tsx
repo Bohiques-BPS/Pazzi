@@ -71,6 +71,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
     const [aiAdding, setAiAdding] = useState(false);
     const [requestingApproval, setRequestingApproval] = useState(false);
+    const [zoomImage, setZoomImage] = useState<string | null>(null);
     const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected' | null>((task as any).approvalStatus ?? null);
     const [respondingApproval, setRespondingApproval] = useState(false);
     // Quién puede aprobar/rechazar: gerentes o quien gestione tareas/edite proyectos.
@@ -550,9 +551,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                         <div className="flex flex-wrap gap-2 mt-2">
                             {attachments.map((img, i) => (
                                 <div key={i} className="relative group">
-                                    <a href={img.url} target="_blank" rel="noreferrer" title={img.name || 'imagen'}>
-                                        <img src={img.url} alt={img.name || 'imagen'} className="w-20 h-20 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
-                                    </a>
+                                    <button type="button" onClick={() => setZoomImage(img.url)} title={img.name || 'imagen'} className="block">
+                                        <img src={img.url} alt={img.name || 'imagen'} className="w-20 h-20 object-cover rounded border border-neutral-300 dark:border-neutral-600 cursor-zoom-in" />
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))}
@@ -789,9 +790,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                                 </div>
                                 {comment.text && <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{comment.text}</p>}
                                 {comment.imageUrl && (
-                                    <a href={comment.imageUrl} target="_blank" rel="noreferrer" className="inline-block mt-1">
-                                        <img src={comment.imageUrl} alt="imagen" className="max-h-40 rounded border border-neutral-200 dark:border-neutral-600" />
-                                    </a>
+                                    <button type="button" onClick={() => setZoomImage(comment.imageUrl!)} className="inline-block mt-1">
+                                        <img src={comment.imageUrl} alt="imagen" className="max-h-40 rounded border border-neutral-200 dark:border-neutral-600 cursor-zoom-in" />
+                                    </button>
                                 )}
                             </div>
                         )) : <p className="text-sm text-center text-neutral-500">{t('cmpx.task.no_comments')}</p>}
@@ -911,6 +912,23 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             message={subtaskToDelete ? `¿Eliminar la subtarea "${subtaskToDelete.title}"? Esta acción no se puede deshacer.` : ''}
             confirmButtonText={t('pmx.common.yes_delete')}
         />
+        {/* Visor de imagen (zoom en la misma página, sin abrir otra pestaña) */}
+        {zoomImage && (
+            <div
+                className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
+                onClick={() => setZoomImage(null)}
+                role="dialog"
+                aria-label="Imagen ampliada"
+            >
+                <img src={zoomImage} alt="imagen ampliada" className="max-w-full max-h-full object-contain rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />
+                <button
+                    type="button"
+                    onClick={() => setZoomImage(null)}
+                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-neutral-800 text-xl flex items-center justify-center shadow hover:bg-white"
+                    aria-label="Cerrar"
+                >✕</button>
+            </div>
+        )}
         </>
     );
 };
