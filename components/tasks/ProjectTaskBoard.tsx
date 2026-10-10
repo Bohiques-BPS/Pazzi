@@ -10,7 +10,7 @@ import { MicButton } from '../ui/MicButton';
 import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { AiTaskAssistant } from '../ai/AiTaskAssistant';
 import { PlusIcon, DocumentTextIcon } from '../icons';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { tasksService, type TaskAttachment } from '../../services/tasks';
 import { projectsService } from '../../services/projects';
 import { uploadImage } from '../../services/upload';
@@ -364,12 +364,13 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 ...saved,
                 assignedEmployeeIds: saved.assignedEmployeeIds || [],
             } as unknown as Task]);
+            // Solo al crear con éxito se limpia y cierra el modal (si falla, no se pierde lo escrito).
+            setNewTaskTitle('');
+            setNewTaskImages([]);
+            setIsCreatingInStatus(null);
         } catch {
             toast.error(t('cmpx.task.create_error'));
         }
-        setNewTaskTitle('');
-        setNewTaskImages([]);
-        setIsCreatingInStatus(null);
     };
 
     return (
@@ -439,74 +440,10 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                </div>
                            </span>
                         </h3>
-                        {/* Crear tarea SIEMPRE arriba de la columna (no hay que hacer scroll hasta el final). */}
-                        {isCreatingInStatus === status ? (
-                             <div className="mb-2 p-1" data-create-block>
-                                <textarea
-                                    value={newTaskTitle}
-                                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                                    placeholder={t('cmpx.task.title_ph')}
-                                    className="w-full p-2 text-sm border-neutral-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-neutral-600 dark:border-neutral-500"
-                                    rows={3}
-                                    autoFocus
-                                    // Solo cerrar si el título está vacío Y el foco sale del bloque de creación
-                                    // (así hacer clic en el check o el micrófono NO cierra el formulario).
-                                    onBlur={(e) => { if (!newTaskTitle.trim() && newTaskImages.length === 0 && !uploadingImage && !(e.currentTarget.closest('[data-create-block]')?.contains(e.relatedTarget as Node))) setIsCreatingInStatus(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTask(status); } }}
-                                    onPaste={handleCreatePaste}
-                                />
-                                {/* Imágenes pegadas (Ctrl+V) o adjuntas */}
-                                <div className="mt-2">
-                                    {newTaskImages.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-1">
-                                            {newTaskImages.map((img, i) => (
-                                                <div key={i} className="relative group">
-                                                    <img src={img.url} alt={img.name || 'imagen'} className="w-14 h-14 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
-                                                    <button
-                                                        type="button"
-                                                        onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() => setNewTaskImages(prev => prev.filter((_, j) => j !== i))}
-                                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
-                                                        aria-label="Quitar imagen"
-                                                    >✕</button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => createFileInputRef.current?.click()}
-                                        className="inline-flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer hover:text-primary"
-                                        title="Pega una imagen (Ctrl+V) o selecciónala"
-                                    >
-                                        🖼️ {uploadingImage ? 'Subiendo…' : 'Pegar o adjuntar imagen'}
-                                    </button>
-                                    <input ref={createFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
-                                </div>
-                                <label
-                                    // Evita que el clic en el check/texto le quite el foco al textarea (eso cerraba el
-                                    // formulario cuando el título estaba vacío). El toggle del checkbox igual ocurre.
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    className="mt-2 mb-3 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none"
-                                >
-                                    <input type="checkbox" checked={assignSelf} onChange={e => toggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary flex-shrink-0" />
-                                    Asignármelas a mí automáticamente
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => handleCreateTask(status)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('cmpx.task.add_task_btn')}</button>
-                                    <MicButton
-                                        value={newTaskTitle}
-                                        onChange={setNewTaskTitle}
-                                        title="Dictar el título de la tarea"
-                                    />
-                                </div>
-                            </div>
-                        ) : (
-                            <button onClick={() => { setNewTaskTitle(''); setNewTaskImages([]); setIsCreatingInStatus(status); }} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
-                                <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
-                            </button>
-                        )}
+                        {/* Crear tarea en un modal (más tolerante al clic; no se cierra al subir imagen). */}
+                        <button onClick={() => { setNewTaskTitle(''); setNewTaskImages([]); setIsCreatingInStatus(status); }} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
+                            <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
+                        </button>
                         <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
                             {tasksInColumn.map(task => {
                                 const commentCount = taskComments.filter(c => c.taskId === task.id).length;
@@ -564,6 +501,82 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                     onOpenTask={(tk) => setSelectedTask(tk)}
                 />
             )}
+
+            {/* Crear tarea (modal): tolerante al clic, no se cierra al subir imágenes. */}
+            <Modal
+                isOpen={isCreatingInStatus !== null}
+                onClose={() => { setIsCreatingInStatus(null); setNewTaskTitle(''); setNewTaskImages([]); }}
+                title={`${t('cmpx.task.add_task') || 'Añadir tarea'}${isCreatingInStatus ? ` · ${isCreatingInStatus}` : ''}`}
+                size="lg"
+            >
+                <div className="space-y-4" onPaste={handleCreatePaste}>
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('cmpx.task.title_label') || 'Título'}</label>
+                        <div className="flex items-start gap-2">
+                            <textarea
+                                value={newTaskTitle}
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                placeholder={t('cmpx.task.title_ph')}
+                                className={inputFormStyle + ' flex-1'}
+                                rows={3}
+                                autoFocus
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (isCreatingInStatus) handleCreateTask(isCreatingInStatus); } }}
+                            />
+                            <MicButton value={newTaskTitle} onChange={setNewTaskTitle} title="Dictar el título de la tarea" />
+                        </div>
+                        <p className="text-xs text-neutral-400 mt-1">Enter para crear · Shift+Enter para salto de línea</p>
+                    </div>
+
+                    {/* Imágenes (pegar con Ctrl+V o adjuntar) */}
+                    <div>
+                        <div className="flex items-center justify-between">
+                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">🖼️ Imágenes</label>
+                            <button
+                                type="button"
+                                onClick={() => createFileInputRef.current?.click()}
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                title="Pega una imagen (Ctrl+V) o selecciónala"
+                            >
+                                {uploadingImage ? 'Subiendo…' : '+ Adjuntar'}
+                            </button>
+                            <input ref={createFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
+                        </div>
+                        {newTaskImages.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {newTaskImages.map((img, i) => (
+                                    <div key={i} className="relative group">
+                                        <img src={img.url} alt={img.name || 'imagen'} className="w-20 h-20 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
+                                        <button
+                                            type="button"
+                                            onClick={() => setNewTaskImages(prev => prev.filter((_, j) => j !== i))}
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
+                                            aria-label="Quitar imagen"
+                                        >✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md px-3 py-3 text-center">
+                                Pega una imagen aquí (Ctrl+V) o usa “+ Adjuntar”.
+                            </p>
+                        )}
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
+                        <input type="checkbox" checked={assignSelf} onChange={e => toggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary flex-shrink-0" />
+                        Asignármelas a mí automáticamente
+                    </label>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t dark:border-neutral-700">
+                        <button type="button" onClick={() => { setIsCreatingInStatus(null); setNewTaskTitle(''); setNewTaskImages([]); }} className={BUTTON_SECONDARY_SM_CLASSES}>
+                            {t('common.cancel') || 'Cancelar'}
+                        </button>
+                        <button type="button" onClick={() => isCreatingInStatus && handleCreateTask(isCreatingInStatus)} disabled={uploadingImage} className={BUTTON_PRIMARY_SM_CLASSES}>
+                            {uploadingImage ? 'Subiendo imagen…' : (t('cmpx.task.add_task_btn') || 'Añadir tarea')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
             <InputModal
                 isOpen={sectionModalOpen}
                 title={t('cmpx.task.new_section_title') || 'Nueva sección'}
