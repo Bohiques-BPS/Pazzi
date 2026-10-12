@@ -81,6 +81,7 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
         ...((m as any).subModulesProject || []),
         ...((m as any).subModulesPOS || []),
         ...((m as any).subModulesEcommerce || []),
+        ...((m as any).subModulesLeads || []),
         ...((m as any).subModulesAdmin || []),
       ];
       for (const item of lists) {

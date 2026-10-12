@@ -72,6 +72,8 @@ const RolesListPage = lazyNamed(() => import('./pages/pm/RolesListPage'), 'Roles
 const ProjectsListPage = lazyNamed(() => import('./pages/pm/ProjectsListPage'), 'ProjectsListPage');
 const ModuleHubPage = lazyNamed(() => import('./pages/ModuleHubPage'), 'ModuleHubPage');
 const NotificationsPage = lazyNamed(() => import('./pages/NotificationsPage'), 'NotificationsPage');
+const LeadsPage = lazyNamed(() => import('./pages/leads/LeadsPage'), 'LeadsPage');
+const LeadsReportsPage = lazyNamed(() => import('./pages/leads/LeadsReportsPage'), 'LeadsReportsPage');
 const ProjectDetailPage = lazyNamed(() => import('./pages/pm/ProjectDetailPage'), 'ProjectDetailPage');
 const ProjectCalendarPage = lazyNamed(() => import('./pages/pm/ProjectCalendarPage'), 'ProjectCalendarPage');
 const ProjectChatPage = lazyNamed(() => import('./pages/pm/ProjectChatPage'), 'ProjectChatPage');
@@ -433,6 +435,8 @@ const AppContent: React.FC = () => {
                 <Route path="/configuration" element={<ConfigurationPage />} /> {/* New Route */}
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/leads" element={<LeadsPage />} />
+                <Route path="/leads/reports" element={<LeadsReportsPage />} />
                 <Route path="/" element={<DashboardHomePage />} />
 
                 {/* E-commerce Client Routes */}

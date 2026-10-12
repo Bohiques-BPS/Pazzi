@@ -39,6 +39,7 @@ export const ModuleHubPage: React.FC = () => {
       ...((cfg as any).subModulesProject || []),
       ...((cfg as any).subModulesPOS || []),
       ...((cfg as any).subModulesEcommerce || []),
+      ...((cfg as any).subModulesLeads || []),
       ...((cfg as any).subModulesAdmin || []),
     ];
     const out: HubItem[] = [];

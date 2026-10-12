@@ -626,9 +626,24 @@ export const APP_MODULES_CONFIG = [
     subModulesTienda: [] as SidebarItemConfig[],
     subModulesAdmin: [] as SidebarItemConfig[],
   },
-  { 
-    name: AppModule.ADMINISTRACION, 
-    path: '/admin/dashboard', 
+  {
+    name: AppModule.LEADS,
+    path: '/leads',
+    icon: UserGroupIcon,
+    subModulesProject: [] as SidebarItemConfig[],
+    subModulesPOS: [] as SidebarItemConfig[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [] as SidebarItemConfig[],
+    subModulesLeads: [
+      { type: 'link', name: 'Leads', path: '/leads', icon: UserGroupIcon, permission: 'leads.view' },
+      { type: 'link', name: 'Reportes de Leads', path: '/leads/reports', icon: ChartBarIcon, permission: 'leads.viewReports' },
+    ] as SidebarItemConfig[],
+  },
+  {
+    name: AppModule.ADMINISTRACION,
+    path: '/admin/dashboard',
     icon: ShieldCheckIcon,
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [] as SidebarItemConfig[],
@@ -670,6 +685,7 @@ export const TOGGLEABLE_MODULES: AppModule[] = [
   AppModule.PROJECT_MANAGEMENT,
   AppModule.POS,
   AppModule.ECOMMERCE,
+  AppModule.LEADS,
 ];
 
 // Prefijo de ruta → módulo, para saber a qué módulo pertenece una URL.
@@ -682,6 +698,7 @@ const MODULE_PATH_PREFIX: Array<{ prefix: string; module: AppModule }> = [
   { prefix: '/pm', module: AppModule.PROJECT_MANAGEMENT },
   { prefix: '/pos', module: AppModule.POS },
   { prefix: '/ecommerce', module: AppModule.ECOMMERCE },
+  { prefix: '/leads', module: AppModule.LEADS },
   { prefix: '/admin', module: AppModule.ADMINISTRACION },
 ];
 

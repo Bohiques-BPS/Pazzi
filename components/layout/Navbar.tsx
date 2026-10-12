@@ -223,6 +223,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     [AppModule.PROJECT_MANAGEMENT]: 'bg-blue-500',
     [AppModule.POS]: 'bg-teal-500',
     [AppModule.ECOMMERCE]: 'bg-amber-500',
+    [AppModule.LEADS]: 'bg-rose-500',
     [AppModule.ADMINISTRACION]: 'bg-slate-600',
     [AppModule.PROJECT_CLIENT_DASHBOARD]: 'bg-gray-500', 
   };

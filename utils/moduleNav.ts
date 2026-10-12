@@ -6,6 +6,7 @@ export const MODULE_SLUG: Record<string, AppModule> = {
   proyectos: AppModule.PROJECT_MANAGEMENT,
   pos: AppModule.POS,
   ecommerce: AppModule.ECOMMERCE,
+  leads: AppModule.LEADS,
   admin: AppModule.ADMINISTRACION,
 };
 

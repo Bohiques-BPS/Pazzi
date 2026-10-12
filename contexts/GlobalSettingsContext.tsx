@@ -119,6 +119,7 @@ export const TRANSLATIONS = {
         'module.Gestión de Proyectos': 'Gestión de Proyectos',
         'module.Punto de Venta': 'Punto de Venta',
         'module.E-commerce': 'E-commerce',
+        'module.Leads': 'Leads',
         'module.Administración': 'Administración',
         'module.Portal Cliente': 'Portal Cliente',
 
@@ -3459,6 +3460,7 @@ export const TRANSLATIONS = {
         'module.Gestión de Proyectos': 'Project Management',
         'module.Punto de Venta': 'Point of Sale',
         'module.E-commerce': 'E-commerce',
+        'module.Leads': 'Leads',
         'module.Administración': 'Administration',
         'module.Portal Cliente': 'Client Portal',
         'Productos': 'Products',

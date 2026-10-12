@@ -735,8 +735,45 @@ export enum AppModule {
     PROJECT_MANAGEMENT = 'Gestión de Proyectos',
     POS = 'Punto de Venta',
     ECOMMERCE = 'E-commerce',
+    LEADS = 'Leads',
     ADMINISTRACION = 'Administración',
     PROJECT_CLIENT_DASHBOARD = 'Portal Cliente',
+}
+
+// --- CRM / Leads ---
+export interface PipelineStage { id: string; storeOwnerId?: string; pipelineId: string; name: string; order: number; type: 'open' | 'won' | 'lost'; color?: string | null; probability?: number | null; }
+export interface Pipeline { id: string; name: string; isDefault: boolean; order: number; archived?: boolean; stages: PipelineStage[]; }
+export interface LeadSource { id: string; name: string; active?: boolean; }
+export interface LeadActivity { id: string; leadId: string; type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'note' | 'task'; title?: string | null; body?: string | null; dueAt?: string | null; done: boolean; doneAt?: string | null; attachments?: { url: string; name?: string }[] | null; createdByName?: string | null; createdAt: string; }
+export interface LeadNote { id: string; leadId: string; text: string; imageUrl?: string | null; authorName?: string | null; createdAt: string; }
+export interface LeadStageHistory { id: string; leadId: string; fromStageId?: string | null; toStageId: string; byUserId?: string | null; at: string; }
+export interface Lead {
+    id: string;
+    name: string;
+    lastName?: string | null;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    whatsapp?: string | null;
+    pipelineId: string;
+    stageId: string;
+    status: 'open' | 'won' | 'lost';
+    lostReason?: string | null;
+    value?: number | null;
+    currency?: string | null;
+    probability?: number | null;
+    assignedUserId?: string | null;
+    sourceId?: string | null;
+    notes?: string | null;
+    nextActionAt?: string | null;
+    lastActivityAt?: string | null;
+    convertedClientId?: string | null;
+    order: number;
+    createdAt: string;
+    updatedAt?: string;
+    activities?: LeadActivity[];
+    leadNotes?: LeadNote[];
+    history?: LeadStageHistory[];
 }
 
 
