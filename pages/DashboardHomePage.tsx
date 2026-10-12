@@ -33,8 +33,9 @@ function buildRouteMeta(): Record<string, { label: string; Icon: React.Component
     const map: Record<string, { label: string; Icon: React.ComponentType<{ className?: string }> | null }> = {};
     for (const mod of APP_MODULES_CONFIG) {
         const allLinks: SubModuleLink[] = [];
-        const addLinks = (items: typeof mod.subModulesTienda) => {
-            for (const item of items) {
+        // Algunos módulos no declaran todas las listas (p.ej. subModulesLeads solo existe en Leads).
+        const addLinks = (items: typeof mod.subModulesTienda | undefined) => {
+            for (const item of items || []) {
                 if (item.type === 'link') allLinks.push(item);
                 else if (item.type === 'group') item.children.forEach(c => allLinks.push(c));
             }
