@@ -274,7 +274,12 @@ const hexToRgb = (hex: string): [number, number, number] => {
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
 
-export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
+/**
+ * Genera el PDF del recibo/factura. Por defecto lo descarga (doc.save). Con `{ returnBlob: true }`
+ * devuelve el Blob sin descargar: lo usa la página pública de pago para abrirlo de forma fiable en
+ * móviles (Safari iOS bloquea la descarga si ocurre después de esperas asíncronas).
+ */
+export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig, opts?: { returnBlob?: boolean }): Promise<Blob | void> {
     const { jsPDF } = await import('jspdf');
     const isLetter = cfg.paperSize === 'letter';
     const doc = new jsPDF({ unit: 'mm', format: isLetter ? 'letter' : [80, 200] });
@@ -345,6 +350,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
         if (sale.changeDue && sale.changeDue > 0) totRow(`${L('change', 'Cambio')}:`, money(sale.changeDue));
         const footerText = dz.footerText != null ? dz.footerText : '¡Gracias por su preferencia!';
         if (footerText) { doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(150); doc.text(footerText, W / 2, doc.internal.pageSize.getHeight() - 20, { align: 'center' }); }
+        if (opts?.returnBlob) return doc.output('blob');
         doc.save(`factura-${sale.saleNumber}.pdf`);
         return;
     }
@@ -393,6 +399,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
         y += 3; doc.line(M, y, W - M, y); y += 4;
         [cfg.returnPolicyText, cfg.thankYouText, cfg.paymentTermsText].forEach(txt => { if (txt) center(txt, 8); });
         if (cfg.showBarcode) { y += 2; center(num, 12, true); }
+        if (opts?.returnBlob) return doc.output('blob');
         doc.save(`factura-${num}.pdf`);
         return;
     }
@@ -426,6 +433,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig) {
     sale.payments.forEach(p => row(p.method + (p.reference ? ` (${p.reference})` : ''), money(p.amount)));
     if (sale.changeDue && sale.changeDue > 0) row('Cambio', money(sale.changeDue), true);
     if (cfg.showFooter && cfg.footerNote) { y += 4; center(cfg.footerNote, 8); }
+    if (opts?.returnBlob) return doc.output('blob');
     doc.save(`factura-${sale.saleNumber}.pdf`);
 }
 

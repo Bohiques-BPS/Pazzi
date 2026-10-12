@@ -11,6 +11,7 @@ import { MoneyInput } from '../ui/MoneyInput';
 import { Modal } from '../Modal';
 import { inputFormStyle, INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { DeleteIcon, DocumentTextIcon } from '../icons';
 
 interface Props {
   leadId: string;
@@ -187,15 +188,18 @@ export const LeadItemsTab: React.FC<Props> = ({ leadId, canEdit, canEstimate, la
   };
 
   const estimateDisabledReason = savedCount === 0 ? t('leads.detail.estimate.need_items') : dirty ? t('leads.detail.estimate.need_save') : '';
-  const cell = 'px-2 py-1.5';
+  // Mismas clases que DataTable (cabecera gris, mayúsculas, filas con hover).
+  const th = 'px-3 py-2 text-sm font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider whitespace-nowrap';
+  const cell = 'px-3 py-2';
+  const label = 'block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1';
 
-  if (loading) return <p className="text-xs text-neutral-400">{t('leads.common.loading')}</p>;
+  if (loading) return <p className="text-sm text-neutral-400 text-center py-4">{t('leads.common.loading')}</p>;
 
   return (
     <div className="space-y-3">
       {justCreatedId && (
-        <div className="flex items-center justify-between gap-2 flex-wrap rounded-md border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-3 py-2 text-sm">
-          <span className="text-green-800 dark:text-green-300">✓ {t('leads.detail.estimate.created_banner')}</span>
+        <div className="flex items-center justify-between gap-2 flex-wrap p-3 rounded-md bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-700 text-sm">
+          <span className="flex items-center gap-2 font-medium text-green-800 dark:text-green-300"><DocumentTextIcon className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />{t('leads.detail.estimate.created_banner')}</span>
           <button type="button" onClick={() => onOpenEstimate(justCreatedId)} className="font-semibold text-green-800 dark:text-green-300 hover:underline">{t('leads.detail.estimate.view')}</button>
         </div>
       )}
@@ -205,30 +209,30 @@ export const LeadItemsTab: React.FC<Props> = ({ leadId, canEdit, canEstimate, la
       )}
 
       {rows.length === 0 ? (
-        <p className="text-xs text-neutral-400 py-2">{canEdit ? t('leads.detail.items.empty') : t('leads.detail.items.empty_readonly')}</p>
+        <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 py-4">{canEdit ? t('leads.detail.items.empty') : t('leads.detail.items.empty_readonly')}</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-neutral-200 dark:border-neutral-700">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 dark:bg-neutral-700/40 text-xs text-neutral-500 dark:text-neutral-400">
+        <div className="min-w-0 overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
+            <thead className="bg-neutral-50 dark:bg-neutral-900">
               <tr>
-                <th className={`${cell} text-left font-medium`}>{t('leads.detail.items.col_product')}</th>
-                <th className={`${cell} text-right font-medium w-20`}>{t('leads.detail.items.col_qty')}</th>
-                <th className={`${cell} text-right font-medium w-32`}>{t('leads.detail.items.col_price')}</th>
-                <th className={`${cell} text-left font-medium w-44`}>{t('leads.detail.items.col_discount')}</th>
-                <th className={`${cell} text-right font-medium w-28`}>{t('leads.detail.items.col_total')}</th>
-                {canEdit && <th className={`${cell} w-8`} />}
+                <th className={`${th} text-left`}>{t('leads.detail.items.col_product')}</th>
+                <th className={`${th} text-right w-20`}>{t('leads.detail.items.col_qty')}</th>
+                <th className={`${th} text-right w-32`}>{t('leads.detail.items.col_price')}</th>
+                <th className={`${th} text-left w-44`}>{t('leads.detail.items.col_discount')}</th>
+                <th className={`${th} text-right w-28`}>{t('leads.detail.items.col_total')}</th>
+                {canEdit && <th className={`${th} w-10`} />}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
               {rows.map(r => (
-                <tr key={r.key} className="border-t border-neutral-100 dark:border-neutral-700/60">
-                  <td className={`${cell} text-neutral-700 dark:text-neutral-200`}><span translate="no">{productName(r)}</span></td>
-                  <td className={`${cell} text-right`}>
+                <tr key={r.key} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/60">
+                  <td className={`${cell} text-sm text-neutral-700 dark:text-neutral-200`}><span translate="no">{productName(r)}</span></td>
+                  <td className={`${cell} text-right text-sm text-neutral-700 dark:text-neutral-200`}>
                     {canEdit
                       ? <input type="number" min={1} step={1} value={r.quantity} onChange={e => patchRow(r.key, { quantity: e.target.value })} className={`${INPUT_SM_CLASSES} w-full text-right`} />
                       : <span translate="no">{r.quantity}</span>}
                   </td>
-                  <td className={`${cell} text-right`}>
+                  <td className={`${cell} text-right text-sm text-neutral-700 dark:text-neutral-200`}>
                     {canEdit
                       ? <MoneyInput value={r.unitPrice} onChange={v => patchRow(r.key, { unitPrice: v })} className={`${INPUT_SM_CLASSES} w-full text-right`} />
                       : <span translate="no">{money(Number(r.unitPrice) || 0)}</span>}
@@ -246,26 +250,26 @@ export const LeadItemsTab: React.FC<Props> = ({ leadId, canEdit, canEstimate, la
                         )}
                       </div>
                     ) : (
-                      <span className="text-neutral-500 dark:text-neutral-400" translate="no">
+                      <span className="text-sm text-neutral-500 dark:text-neutral-400" translate="no">
                         {r.discountType && Number(r.discountValue) > 0 ? (r.discountType === 'percentage' ? `${r.discountValue}%` : money(Number(r.discountValue))) : '—'}
                       </span>
                     )}
                   </td>
-                  <td className={`${cell} text-right font-semibold text-neutral-800 dark:text-neutral-100`}><span translate="no">{money(rowTotal(r))}</span></td>
+                  <td className={`${cell} text-right text-sm font-semibold text-neutral-800 dark:text-neutral-100 whitespace-nowrap`}><span translate="no">{money(rowTotal(r))}</span></td>
                   {canEdit && (
                     <td className={`${cell} text-center`}>
-                      <button type="button" onClick={() => removeRow(r.key)} className="text-neutral-400 hover:text-red-500 p-0.5" aria-label={t('leads.detail.items.remove')} title={t('leads.detail.items.remove')}>✕</button>
+                      <button type="button" onClick={() => removeRow(r.key)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1" aria-label={t('leads.detail.items.remove')} title={t('leads.detail.items.remove')}><DeleteIcon className="w-5 h-5" /></button>
                     </td>
                   )}
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/40">
-                <td colSpan={4} className={`${cell} text-right text-neutral-600 dark:text-neutral-300`}>
-                  {t('leads.detail.items.subtotal')} <span className="text-[11px] text-neutral-400">({t('leads.detail.items.subtotal_hint')})</span>
+            <tfoot className="bg-neutral-50 dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700">
+              <tr>
+                <td colSpan={4} className={`${cell} text-right text-sm text-neutral-600 dark:text-neutral-300`}>
+                  <span className="font-medium uppercase tracking-wider">{t('leads.detail.items.subtotal')}</span> <span className="text-xs text-neutral-400">({t('leads.detail.items.subtotal_hint')})</span>
                 </td>
-                <td className={`${cell} text-right font-bold text-neutral-800 dark:text-neutral-100`}><span translate="no">{money(subtotal)}</span></td>
+                <td className={`${cell} text-right text-base font-bold text-neutral-800 dark:text-neutral-100 whitespace-nowrap`}><span translate="no">{money(subtotal)}</span></td>
                 {canEdit && <td />}
               </tr>
             </tfoot>
@@ -273,11 +277,11 @@ export const LeadItemsTab: React.FC<Props> = ({ leadId, canEdit, canEstimate, la
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+      <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
         <div className="flex items-center gap-3 flex-wrap text-sm">
           {canEdit && (
-            <label className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
-              <input type="checkbox" checked={syncValue} onChange={e => setSyncValue(e.target.checked)} className="h-4 w-4" />
+            <label className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300 cursor-pointer">
+              <input type="checkbox" checked={syncValue} onChange={e => setSyncValue(e.target.checked)} className="h-4 w-4 text-primary rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 focus:ring-primary" />
               {t('leads.detail.items.sync_value')}
             </label>
           )}
@@ -286,12 +290,12 @@ export const LeadItemsTab: React.FC<Props> = ({ leadId, canEdit, canEstimate, la
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {canEdit && dirty && <span className="text-xs text-amber-600 dark:text-amber-400">{t('leads.detail.items.unsaved')}</span>}
+          {canEdit && dirty && <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">{t('leads.detail.items.unsaved')}</span>}
           {canEdit && dirty && (
             <button type="button" onClick={() => setRows(savedRows)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.detail.items.discard')}</button>
           )}
           {canEstimate && (
-            <button type="button" onClick={openEstimateModal} disabled={!!estimateDisabledReason} title={estimateDisabledReason || undefined} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50 disabled:cursor-not-allowed`}>{t('leads.detail.estimate.create_btn')}</button>
+            <button type="button" onClick={openEstimateModal} disabled={!!estimateDisabledReason} title={estimateDisabledReason || undefined} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center disabled:opacity-50 disabled:cursor-not-allowed`}><DocumentTextIcon className="w-4 h-4 mr-1" />{t('leads.detail.estimate.create_btn')}</button>
           )}
           {canEdit && (
             <button type="button" onClick={handleSave} disabled={saving || !dirty} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50 disabled:cursor-not-allowed`}>{saving ? t('leads.common.saving') : t('leads.detail.items.save')}</button>
@@ -301,25 +305,25 @@ export const LeadItemsTab: React.FC<Props> = ({ leadId, canEdit, canEstimate, la
 
       {/* Crear cotización */}
       <Modal isOpen={estOpen} onClose={() => !estCreating && setEstOpen(false)} title={t('leads.detail.estimate.title')} size="sm">
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-sm text-neutral-600 dark:text-neutral-300">{t('leads.detail.estimate.intro', { count: savedCount })}</p>
           {activeBranches.length > 1 && (
             <div>
-              <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{t('leads.detail.estimate.branch')}</label>
+              <label className={label}>{t('leads.detail.estimate.branch')}</label>
               <select value={estBranch} onChange={e => setEstBranch(e.target.value)} className={inputFormStyle}>
                 {activeBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{t('leads.detail.estimate.expiry_days')}</label>
+            <label className={label}>{t('leads.detail.estimate.expiry_days')}</label>
             <input type="number" min={1} max={365} value={estDays} onChange={e => setEstDays(e.target.value)} className={inputFormStyle} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{t('leads.detail.estimate.notes')}</label>
+            <label className={label}>{t('leads.detail.estimate.notes')}</label>
             <textarea rows={2} value={estNotes} onChange={e => setEstNotes(e.target.value)} className={inputFormStyle + ' !h-auto'} />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-700">
             <button type="button" onClick={() => setEstOpen(false)} disabled={estCreating} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
             <button type="button" onClick={handleCreateEstimate} disabled={estCreating} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{estCreating ? t('leads.detail.estimate.creating') : t('leads.detail.estimate.create')}</button>
           </div>

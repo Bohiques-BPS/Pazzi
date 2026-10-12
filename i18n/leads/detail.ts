@@ -37,7 +37,7 @@ export const es: Record<string, string> = {
   'leads.detail.created_in': 'Creado en',
   // Footer
   'leads.detail.convert': '⇄ Convertir en cliente',
-  'leads.detail.send_template_btn': '📨 Enviar plantilla',
+  'leads.detail.send_template_btn': 'Enviar plantilla',
   // Motivo de pérdida
   'leads.detail.lost_title': 'Marcar como perdido',
   'leads.detail.lost_reason_label': 'Motivo de la pérdida',
@@ -75,7 +75,7 @@ export const es: Record<string, string> = {
   'leads.detail.items.discard': 'Descartar',
   'leads.detail.items.remove': 'Quitar producto',
   // Cotización
-  'leads.detail.estimate.create_btn': '📄 Crear cotización',
+  'leads.detail.estimate.create_btn': 'Crear cotización',
   'leads.detail.estimate.need_items': 'Guarda al menos un producto para crear la cotización.',
   'leads.detail.estimate.need_save': 'Guarda los cambios de productos antes de crear la cotización.',
   'leads.detail.estimate.title': 'Crear cotización',
@@ -164,7 +164,7 @@ export const en: Record<string, string> = {
   'leads.detail.no_history': 'No stage changes.',
   'leads.detail.created_in': 'Created in',
   'leads.detail.convert': '⇄ Convert to client',
-  'leads.detail.send_template_btn': '📨 Send template',
+  'leads.detail.send_template_btn': 'Send template',
   'leads.detail.lost_title': 'Mark as lost',
   'leads.detail.lost_reason_label': 'Reason for loss',
   'leads.detail.lost_other': 'Other (type it)…',
@@ -219,7 +219,7 @@ export const en: Record<string, string> = {
   'leads.detail.items.unsaved': 'Unsaved changes',
   'leads.detail.items.discard': 'Discard',
   'leads.detail.items.remove': 'Remove product',
-  'leads.detail.estimate.create_btn': '📄 Create estimate',
+  'leads.detail.estimate.create_btn': 'Create estimate',
   'leads.detail.estimate.need_items': 'Save at least one product to create the estimate.',
   'leads.detail.estimate.need_save': 'Save your product changes before creating the estimate.',
   'leads.detail.estimate.title': 'Create estimate',

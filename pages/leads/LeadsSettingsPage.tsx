@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pipeline, PipelineStage, LeadSource, LeadTag, LeadCustomField, LeadSettings, LeadCustomFieldType } from '../../types';
 import { useLeadAssignees } from '../../components/leads/useLeadAssignees';
@@ -8,12 +8,22 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ConfirmationModal } from '../../components/Modal';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { DataTable, TableColumn } from '../../components/DataTable';
 import { TagChip } from '../../components/leads/TagChip';
-import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import {
+  ArrowUturnLeftIcon, ArrowUpIcon, ArrowDownIcon, DeleteIcon, PlusIcon, ClockIcon, BellIcon, TagIcon,
+  ListBulletIcon, ExclamationTriangleIcon, Squares2X2Icon, FireIcon, SparklesIcon, DocumentTextIcon, InformationCircleIcon,
+} from '../../components/icons';
+import { inputFormStyle, INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { timezoneOptions } from '../../utils/timezones';
-import { RulesTab, TemplatesTab, TeamsTab, IntegrationsTab, GoalsTab } from './LeadsAutomationTabs';
+import {
+  RulesTab, TemplatesTab, TeamsTab, IntegrationsTab, GoalsTab,
+  SettingsCard, PlainTable, Toggle, TH_CLASSES, TD_CLASSES, TR_CLASSES, TABLE_IN_CARD,
+  BADGE, BADGE_NEUTRAL, LABEL_CLASSES, BTN_ICON, ROW_DELETE_BTN, ADD_ROW, BOX,
+} from './LeadsAutomationTabs';
 
 type Tab = 'pipelines' | 'sources' | 'tags' | 'fields' | 'lost' | 'form' | 'automation' | 'rules' | 'templates' | 'teams' | 'integrations' | 'goals';
 // Las etiquetas se traducen al renderizar (labelKey → t()).
@@ -34,6 +44,7 @@ const TABS: { key: Tab; labelKey: string }[] = [
 const PALETTE = ['#64748b', '#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f59e0b', '#16a34a', '#14b8a6', '#dc2626'];
 const FIELD_TYPES: LeadCustomFieldType[] = ['text', 'number', 'date', 'select', 'checkbox', 'url'];
 const fieldTypeKey = (v: LeadCustomFieldType) => `leads.settings.field_type.${v}`;
+const CHECKBOX = 'h-4 w-4 text-primary rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 focus:ring-primary';
 
 const err = (e: unknown, fallback: string) => toast.error(e instanceof ApiError ? e.message : fallback);
 
@@ -42,7 +53,7 @@ const ColorPicker: React.FC<{ value?: string | null; onChange: (c: string) => vo
   return (
     <div className="flex flex-wrap gap-1">
       {PALETTE.map(c => (
-        <button key={c} type="button" onClick={() => onChange(c)} className={`w-5 h-5 rounded-full border-2 ${value === c ? 'border-neutral-800 dark:border-white scale-110' : 'border-transparent'}`} style={{ background: c }} aria-label={t('leads.settings.color_aria', { color: c })} />
+        <button key={c} type="button" onClick={() => onChange(c)} className={`w-5 h-5 rounded-full border-2 transition-transform ${value === c ? 'border-neutral-800 dark:border-white scale-110' : 'border-transparent hover:scale-110'}`} style={{ background: c }} aria-label={t('leads.settings.color_aria', { color: c })} />
       ))}
     </div>
   );
@@ -90,20 +101,27 @@ export const LeadsSettingsPage: React.FC = () => {
   const pipeline = pipelines.find(p => p.id === pipelineId);
 
   return (
-    <div className="max-w-5xl">
-      <div className="flex items-center justify-between gap-3 mb-4">
+    <div className="space-y-6">
+      {/* Cabecera */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
         <div>
-          <button type="button" onClick={() => navigate('/leads')} className="text-sm text-primary hover:underline">{t('leads.settings.back')}</button>
-          <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 mt-1">{t('leads.settings.title')}</h1>
+          <button type="button" onClick={() => navigate('/leads')} className="flex items-center text-sm text-primary hover:text-secondary p-1 -ml-1 mb-1">
+            <ArrowUturnLeftIcon className="w-4 h-4" />
+            <span className="ml-1">{t('leads.settings.back')}</span>
+          </button>
+          <h1 className="text-3xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.settings.title')}</h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.subtitle')}</p>
         </div>
       </div>
-      <div className="flex gap-1 flex-wrap border-b border-neutral-200 dark:border-neutral-700 mb-5">
+
+      {/* Pestañas */}
+      <div className="flex border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
         {TABS.map(tb => (
-          <button key={tb.key} onClick={() => setTab(tb.key)} className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px ${tab === tb.key ? 'border-primary text-primary dark:text-teal-300' : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>{t(tb.labelKey)}</button>
+          <button key={tb.key} type="button" onClick={() => setTab(tb.key)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${tab === tb.key ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>{t(tb.labelKey)}</button>
         ))}
       </div>
 
-      <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
+      <div className="space-y-6">
         {tab === 'pipelines' && (
           <PipelinesTab
             pipelines={pipelines} pipeline={pipeline} pipelineId={pipelineId} setPipelineId={setPipelineId}
@@ -173,59 +191,69 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.common.pipeline')}</label>
-          <select value={pipelineId} onChange={e => setPipelineId(e.target.value)} className={inputFormStyle + ' !w-56'}>
-            {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}{p.isDefault ? t('leads.settings.pipelines.default_suffix') : ''}</option>)}
-          </select>
+    <>
+      <SettingsCard title={t('leads.settings.tab.pipelines')} icon={<Squares2X2Icon className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={LABEL_CLASSES}>{t('leads.common.pipeline')}</label>
+            <select value={pipelineId} onChange={e => setPipelineId(e.target.value)} className={inputFormStyle}>
+              {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}{p.isDefault ? t('leads.settings.pipelines.default_suffix') : ''}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={LABEL_CLASSES}>{t('leads.settings.pipelines.new_label')}</label>
+            <div className="flex items-center gap-2">
+              <input value={newPipeline} onChange={e => setNewPipeline(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addPipeline(); }} placeholder={t('leads.settings.pipelines.new_placeholder')} className={inputFormStyle + ' flex-1'} />
+              <button onClick={addPipeline} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON} flex-shrink-0`}><PlusIcon className="w-4 h-4" />{t('leads.settings.pipelines.create_btn')}</button>
+            </div>
+          </div>
         </div>
-        <div className="flex items-end gap-2">
-          <input value={newPipeline} onChange={e => setNewPipeline(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addPipeline(); }} placeholder={t('leads.settings.pipelines.new_placeholder')} className={inputFormStyle + ' !w-56'} />
-          <button onClick={addPipeline} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.pipelines.create_btn')}</button>
-        </div>
-      </div>
+
+        {pipeline && (
+          <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+            <label className={LABEL_CLASSES}>{t('leads.settings.pipelines.name_label')}</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={pipeName} onChange={e => setPipeName(e.target.value)} className={inputFormStyle + ' !w-72 max-w-full'} />
+              <button onClick={() => savePipeline({ name: pipeName.trim() })} disabled={!pipeName.trim() || pipeName === pipeline.name} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{t('leads.settings.pipelines.rename')}</button>
+              {!pipeline.isDefault && <button onClick={() => savePipeline({ isDefault: true })} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.pipelines.make_default')}</button>}
+              {pipelines.length > 1 && (
+                <button onClick={() => askConfirm({ title: t('leads.settings.pipelines.delete_title'), message: t('leads.settings.pipelines.delete_msg', { name: pipeline.name }), run: async () => { try { await leadsService.deletePipeline(pipeline.id); await reload(); toast.success(t('leads.settings.pipelines.deleted')); } catch (e) { err(e, t('leads.settings.err.delete')); } } })}
+                  className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 sm:ml-auto`}><DeleteIcon className="w-4 h-4" />{t('leads.settings.pipelines.delete_title')}</button>
+              )}
+            </div>
+          </div>
+        )}
+      </SettingsCard>
 
       {pipeline && (
-        <>
-          <div className="flex flex-wrap items-end gap-2 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/40">
-            <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.settings.pipelines.name_label')}</label>
-              <input value={pipeName} onChange={e => setPipeName(e.target.value)} className={inputFormStyle + ' !w-56'} />
-            </div>
-            <button onClick={() => savePipeline({ name: pipeName.trim() })} disabled={!pipeName.trim() || pipeName === pipeline.name} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.pipelines.rename')}</button>
-            {!pipeline.isDefault && <button onClick={() => savePipeline({ isDefault: true })} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.pipelines.make_default')}</button>}
-            {pipelines.length > 1 && (
-              <button onClick={() => askConfirm({ title: t('leads.settings.pipelines.delete_title'), message: t('leads.settings.pipelines.delete_msg', { name: pipeline.name }), run: async () => { try { await leadsService.deletePipeline(pipeline.id); await reload(); toast.success(t('leads.settings.pipelines.deleted')); } catch (e) { err(e, t('leads.settings.err.delete')); } } })}
-                className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 ml-auto`}>{t('leads.settings.pipelines.delete_title')}</button>
-            )}
+        <SettingsCard title={t('leads.settings.stages.title')} subtitle={t('leads.settings.stages.help')} icon={<ListBulletIcon className="w-5 h-5" />}>
+          <PlainTable head={<>
+            <th className={TH_CLASSES}>{t('leads.settings.col.order')}</th>
+            <th className={TH_CLASSES}>{t('leads.settings.col.color')}</th>
+            <th className={TH_CLASSES}>{t('leads.settings.col.name')}</th>
+            <th className={TH_CLASSES}>{t('leads.settings.col.type')}</th>
+            <th className={TH_CLASSES}>{t('leads.common.probability')}</th>
+            <th className={TH_CLASSES}>{t('common.actions')}</th>
+          </>}>
+            {stages.map((s, i) => (
+              <StageRow key={s.id} stage={s} index={i} total={stages.length} others={stages.filter(x => x.id !== s.id)}
+                onMove={move} onUpdate={updateStage}
+                onDelete={(moveTo) => askConfirm({ title: t('leads.settings.stages.delete_title'), message: t('leads.settings.stages.delete_msg', { name: s.name, target: stages.find(x => x.id === moveTo)?.name || t('leads.settings.stages.other_stage') }), run: async () => { try { await leadsService.deleteStage(s.id, moveTo); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })}
+              />
+            ))}
+          </PlainTable>
+          <div className={ADD_ROW}>
+            <input value={newStage.name} onChange={e => setNewStage(p => ({ ...p, name: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addStage(); }} placeholder={t('leads.settings.stages.new_placeholder')} className={inputFormStyle + ' !w-64 max-w-full'} />
+            <select value={newStage.type} onChange={e => setNewStage(p => ({ ...p, type: e.target.value as any }))} className={inputFormStyle + ' !w-auto'}>
+              <option value="open">{t('leads.common.stage_type.open')}</option>
+              <option value="won">{t('leads.settings.stages.type_won_close')}</option>
+              <option value="lost">{t('leads.settings.stages.type_lost_close')}</option>
+            </select>
+            <button onClick={addStage} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.stages.add_btn')}</button>
           </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 mb-2">{t('leads.settings.stages.title')}</h3>
-            <ul className="space-y-2">
-              {stages.map((s, i) => (
-                <StageRow key={s.id} stage={s} index={i} total={stages.length} others={stages.filter(x => x.id !== s.id)}
-                  onMove={move} onUpdate={updateStage}
-                  onDelete={(moveTo) => askConfirm({ title: t('leads.settings.stages.delete_title'), message: t('leads.settings.stages.delete_msg', { name: s.name, target: stages.find(x => x.id === moveTo)?.name || t('leads.settings.stages.other_stage') }), run: async () => { try { await leadsService.deleteStage(s.id, moveTo); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })}
-                />
-              ))}
-            </ul>
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              <input value={newStage.name} onChange={e => setNewStage(p => ({ ...p, name: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addStage(); }} placeholder={t('leads.settings.stages.new_placeholder')} className={inputFormStyle + ' !w-56'} />
-              <select value={newStage.type} onChange={e => setNewStage(p => ({ ...p, type: e.target.value as any }))} className={inputFormStyle + ' !w-auto'}>
-                <option value="open">{t('leads.common.stage_type.open')}</option>
-                <option value="won">{t('leads.settings.stages.type_won_close')}</option>
-                <option value="lost">{t('leads.settings.stages.type_lost_close')}</option>
-              </select>
-              <button onClick={addStage} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.settings.stages.add_btn')}</button>
-            </div>
-            <p className="text-xs text-neutral-400 mt-2">{t('leads.settings.stages.help')}</p>
-          </div>
-        </>
+        </SettingsCard>
       )}
-    </div>
+    </>
   );
 };
 
@@ -237,36 +265,55 @@ const StageRow: React.FC<{ stage: PipelineStage; index: number; total: number; o
   const [moveTo, setMoveTo] = useState(others[0]?.id || '');
   const [showColors, setShowColors] = useState(false);
   useEffect(() => { setName(stage.name); setProb(stage.probability != null ? String(stage.probability) : ''); }, [stage.name, stage.probability]);
+  const orderBtn = 'p-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-primary hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent';
   return (
-    <li className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-neutral-200 dark:border-neutral-700">
-      <div className="flex flex-col">
-        <button type="button" onClick={() => onMove(index, -1)} disabled={index === 0} className="text-xs leading-none px-1 disabled:opacity-30" aria-label={t('leads.settings.stages.move_up')}>▲</button>
-        <button type="button" onClick={() => onMove(index, 1)} disabled={index === total - 1} className="text-xs leading-none px-1 disabled:opacity-30" aria-label={t('leads.settings.stages.move_down')}>▼</button>
-      </div>
-      <div className="relative">
-        <button type="button" onClick={() => setShowColors(v => !v)} className="w-6 h-6 rounded-full border border-neutral-300" style={{ background: stage.color || '#94a3b8' }} aria-label={t('leads.settings.stages.color_aria')} />
-        {showColors && <div className="absolute z-20 top-8 left-0 p-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg w-40"><ColorPicker value={stage.color} onChange={c => { setShowColors(false); onUpdate(stage, { color: c }); }} /></div>}
-      </div>
-      <input value={name} onChange={e => setName(e.target.value)} onBlur={() => { if (name.trim() && name !== stage.name) onUpdate(stage, { name: name.trim() }); }} className={inputFormStyle + ' !w-48 !py-1.5'} />
-      <select value={stage.type} onChange={e => onUpdate(stage, { type: e.target.value as any })} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'}>
-        <option value="open">{t('leads.common.stage_type.open')}</option>
-        <option value="won">{t('leads.common.status.won')}</option>
-        <option value="lost">{t('leads.common.status.lost')}</option>
-      </select>
-      <div className="flex items-center gap-1">
-        <input type="number" min={0} max={100} value={prob} onChange={e => setProb(e.target.value)} onBlur={() => { const v = prob === '' ? null : Math.max(0, Math.min(100, Number(prob))); if (v !== (stage.probability ?? null)) onUpdate(stage, { probability: v }); }} className={inputFormStyle + ' !w-20 !py-1.5'} placeholder="%" />
-        <span className="text-xs text-neutral-400">%</span>
-      </div>
-      {total > 1 && (
-        <div className="flex items-center gap-1 ml-auto">
-          <select value={moveTo} onChange={e => setMoveTo(e.target.value)} className="text-xs rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 py-1 px-1" title={t('leads.settings.stages.move_to_title')}>
-            {others.map(o => <option key={o.id} value={o.id}>→ {o.name}</option>)}
-          </select>
-          <button type="button" onClick={() => onDelete(moveTo)} className="text-red-500 hover:text-red-700 text-sm px-1" aria-label={t('leads.settings.stages.delete_aria', { name: stage.name })}>🗑</button>
+    <tr className={TR_CLASSES}>
+      <td className={`${TD_CLASSES} whitespace-nowrap`}>
+        <div className="flex items-center gap-0.5">
+          <button type="button" onClick={() => onMove(index, -1)} disabled={index === 0} className={orderBtn} aria-label={t('leads.settings.stages.move_up')} title={t('leads.settings.stages.move_up')}><ArrowUpIcon className="w-4 h-4" /></button>
+          <button type="button" onClick={() => onMove(index, 1)} disabled={index === total - 1} className={orderBtn} aria-label={t('leads.settings.stages.move_down')} title={t('leads.settings.stages.move_down')}><ArrowDownIcon className="w-4 h-4" /></button>
         </div>
-      )}
-    </li>
+      </td>
+      <td className={TD_CLASSES}>
+        <div className="relative">
+          <button type="button" onClick={() => setShowColors(v => !v)} className="w-6 h-6 rounded-full border border-neutral-300 dark:border-neutral-600 shadow-sm" style={{ background: stage.color || '#94a3b8' }} aria-label={t('leads.settings.stages.color_aria')} />
+          {showColors && <div className="absolute z-20 top-8 left-0 p-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg w-40"><ColorPicker value={stage.color} onChange={c => { setShowColors(false); onUpdate(stage, { color: c }); }} /></div>}
+        </div>
+      </td>
+      <td className={TD_CLASSES}>
+        <input value={name} onChange={e => setName(e.target.value)} onBlur={() => { if (name.trim() && name !== stage.name) onUpdate(stage, { name: name.trim() }); }} className={INPUT_SM_CLASSES + ' w-48'} />
+      </td>
+      <td className={TD_CLASSES}>
+        <select value={stage.type} onChange={e => onUpdate(stage, { type: e.target.value as any })} className={INPUT_SM_CLASSES}>
+          <option value="open">{t('leads.common.stage_type.open')}</option>
+          <option value="won">{t('leads.common.status.won')}</option>
+          <option value="lost">{t('leads.common.status.lost')}</option>
+        </select>
+      </td>
+      <td className={TD_CLASSES}>
+        <div className="flex items-center gap-1">
+          <input type="number" min={0} max={100} value={prob} onChange={e => setProb(e.target.value)} onBlur={() => { const v = prob === '' ? null : Math.max(0, Math.min(100, Number(prob))); if (v !== (stage.probability ?? null)) onUpdate(stage, { probability: v }); }} className={INPUT_SM_CLASSES + ' w-20 text-right'} placeholder="%" />
+          <span className="text-sm text-neutral-400">%</span>
+        </div>
+      </td>
+      <td className={`${TD_CLASSES} whitespace-nowrap`}>
+        {total > 1 && (
+          <div className="flex items-center gap-1">
+            <select value={moveTo} onChange={e => setMoveTo(e.target.value)} className={INPUT_SM_CLASSES + ' max-w-[180px]'} title={t('leads.settings.stages.move_to_title')}>
+              {others.map(o => <option key={o.id} value={o.id}>→ {o.name}</option>)}
+            </select>
+            <button type="button" onClick={() => onDelete(moveTo)} className={ROW_DELETE_BTN} aria-label={t('leads.settings.stages.delete_aria', { name: stage.name })} title={t('leads.settings.stages.delete_title')}><DeleteIcon className="w-5 h-5" /></button>
+          </div>
+        )}
+      </td>
+    </tr>
   );
+};
+
+const InlineName: React.FC<{ value: string; onSave: (v: string) => void }> = ({ value, onSave }) => {
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  return <input value={v} onChange={e => setV(e.target.value)} onBlur={() => { if (v.trim() && v !== value) onSave(v.trim()); }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className={INPUT_SM_CLASSES + ' w-64 max-w-full'} />;
 };
 
 // ── Fuentes ──
@@ -274,27 +321,28 @@ const SourcesTab: React.FC<{ sources: LeadSource[]; reload: () => Promise<void>;
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const add = async () => { if (!name.trim()) return; try { await leadsService.createSource(name.trim()); setName(''); await reload(); } catch (e) { err(e, t('leads.settings.err.create')); } };
+  const columns: TableColumn<LeadSource>[] = [
+    { header: t('leads.settings.col.name'), accessor: s => <InlineName value={s.name} onSave={async (v) => { try { await leadsService.updateSource(s.id, { name: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />, sortable: true, sortKey: 'name', sortValue: s => s.name },
+    { header: t('leads.settings.sources.active'), accessor: s => <Toggle checked={s.active !== false} label={t('leads.settings.sources.active')} onChange={async v => { try { await leadsService.updateSource(s.id, { active: v }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} />, sortable: true, sortKey: 'active', sortValue: s => (s.active !== false ? 1 : 0) },
+  ];
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.sources.help')}</p>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
-        {sources.map(s => (
-          <li key={s.id} className="flex items-center gap-2 py-2">
-            <InlineName value={s.name} onSave={async (v) => { try { await leadsService.updateSource(s.id, { name: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />
-            <label className="flex items-center gap-1 text-xs text-neutral-500 ml-auto"><input type="checkbox" checked={s.active !== false} onChange={async e => { try { await leadsService.updateSource(s.id, { active: e.target.checked }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} className="h-4 w-4" /> {t('leads.settings.sources.active')}</label>
-            <button type="button" onClick={() => askConfirm({ title: t('leads.settings.sources.delete_title'), message: t('leads.settings.sources.delete_msg', { name: s.name }), run: async () => { try { await leadsService.deleteSource(s.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className="text-red-500 hover:text-red-700 text-sm px-1" aria-label={t('leads.settings.delete_item_aria', { name: s.name })}>🗑</button>
-          </li>
-        ))}
-      </ul>
-      <div className="flex gap-2"><input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder={t('leads.settings.sources.new_placeholder')} className={inputFormStyle + ' !w-64'} /><button onClick={add} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.settings.add_btn')}</button></div>
-    </div>
+    <SettingsCard title={t('leads.settings.tab.sources')} subtitle={t('leads.settings.sources.help')} icon={<FireIcon className="w-5 h-5" />}>
+      <DataTable<LeadSource>
+        tableId="leads_settings_sources"
+        data={sources}
+        columns={columns}
+        containerClassName={TABLE_IN_CARD}
+        searchable={false} filterable={false} paginated={false}
+        actions={s => (
+          <button type="button" onClick={() => askConfirm({ title: t('leads.settings.sources.delete_title'), message: t('leads.settings.sources.delete_msg', { name: s.name }), run: async () => { try { await leadsService.deleteSource(s.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className={ROW_DELETE_BTN} aria-label={t('leads.settings.delete_item_aria', { name: s.name })} title={t('leads.common.delete')}><DeleteIcon className="w-5 h-5" /></button>
+        )}
+      />
+      <div className={ADD_ROW}>
+        <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder={t('leads.settings.sources.new_placeholder')} className={inputFormStyle + ' !w-72 max-w-full'} />
+        <button onClick={add} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.add_btn')}</button>
+      </div>
+    </SettingsCard>
   );
-};
-
-const InlineName: React.FC<{ value: string; onSave: (v: string) => void }> = ({ value, onSave }) => {
-  const [v, setV] = useState(value);
-  useEffect(() => setV(value), [value]);
-  return <input value={v} onChange={e => setV(e.target.value)} onBlur={() => { if (v.trim() && v !== value) onSave(v.trim()); }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className={inputFormStyle + ' !w-64 !py-1.5'} />;
 };
 
 // ── Etiquetas ──
@@ -303,26 +351,33 @@ const TagsTab: React.FC<{ tags: LeadTag[]; reload: () => Promise<void>; askConfi
   const [name, setName] = useState('');
   const [color, setColor] = useState(PALETTE[1]);
   const add = async () => { if (!name.trim()) return; try { await leadsService.createTag(name.trim(), color); setName(''); await reload(); } catch (e) { err(e, t('leads.settings.err.create')); } };
+  const columns: TableColumn<LeadTag>[] = [
+    { header: t('leads.settings.col.preview'), accessor: tag => <TagChip tag={tag} />, sortable: true, sortKey: 'name', sortValue: tag => tag.name },
+    { header: t('leads.settings.col.name'), accessor: tag => <InlineName value={tag.name} onSave={async (v) => { try { await leadsService.updateTag(tag.id, { name: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} /> },
+    { header: t('leads.settings.col.color'), accessor: tag => <ColorPicker value={tag.color} onChange={async c => { try { await leadsService.updateTag(tag.id, { color: c }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} /> },
+  ];
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.tags.help')}</p>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
-        {tags.length === 0 && <li className="py-3 text-sm text-neutral-400">{t('leads.settings.tags.empty')}</li>}
-        {tags.map(tag => (
-          <li key={tag.id} className="flex flex-wrap items-center gap-3 py-2">
-            <TagChip tag={tag} />
-            <InlineName value={tag.name} onSave={async (v) => { try { await leadsService.updateTag(tag.id, { name: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />
-            <ColorPicker value={tag.color} onChange={async c => { try { await leadsService.updateTag(tag.id, { color: c }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />
-            <button type="button" onClick={() => askConfirm({ title: t('leads.settings.tags.delete_title'), message: t('leads.settings.tags.delete_msg', { name: tag.name }), run: async () => { try { await leadsService.deleteTag(tag.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className="text-red-500 hover:text-red-700 text-sm px-1 ml-auto" aria-label={t('leads.settings.delete_item_aria', { name: tag.name })}>🗑</button>
-          </li>
-        ))}
-      </ul>
-      <div className="flex flex-wrap items-center gap-2">
-        <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder={t('leads.settings.tags.new_placeholder')} className={inputFormStyle + ' !w-56'} />
+    <SettingsCard title={t('leads.settings.tab.tags')} subtitle={t('leads.settings.tags.help')} icon={<TagIcon className="w-5 h-5" />}>
+      {tags.length === 0 ? (
+        <EmptyState icon={<TagIcon className="w-12 h-12" />} title={t('leads.settings.tags.empty')} className="!py-8" />
+      ) : (
+        <DataTable<LeadTag>
+          tableId="leads_settings_tags"
+          data={tags}
+          columns={columns}
+          containerClassName={TABLE_IN_CARD}
+          searchable={false} filterable={false} paginated={false}
+          actions={tag => (
+            <button type="button" onClick={() => askConfirm({ title: t('leads.settings.tags.delete_title'), message: t('leads.settings.tags.delete_msg', { name: tag.name }), run: async () => { try { await leadsService.deleteTag(tag.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className={ROW_DELETE_BTN} aria-label={t('leads.settings.delete_item_aria', { name: tag.name })} title={t('leads.common.delete')}><DeleteIcon className="w-5 h-5" /></button>
+          )}
+        />
+      )}
+      <div className={ADD_ROW}>
+        <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder={t('leads.settings.tags.new_placeholder')} className={inputFormStyle + ' !w-64 max-w-full'} />
         <ColorPicker value={color} onChange={setColor} />
-        <button onClick={add} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.settings.add_btn')}</button>
+        <button onClick={add} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.add_btn')}</button>
       </div>
-    </div>
+    </SettingsCard>
   );
 };
 
@@ -337,31 +392,38 @@ const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<voi
     try { await leadsService.createCustomField({ label: draft.label.trim(), type: draft.type, options, required: draft.required }); setDraft({ label: '', type: 'text', options: '', required: false }); await reload(); }
     catch (e) { err(e, t('leads.settings.err.create')); }
   };
+  const columns: TableColumn<LeadCustomField>[] = [
+    { header: t('leads.settings.col.name'), accessor: f => <InlineName value={f.label} onSave={async (v) => { try { await leadsService.updateCustomField(f.id, { label: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />, sortable: true, sortKey: 'label', sortValue: f => f.label },
+    { header: t('leads.settings.col.type'), accessor: f => <span className={`${BADGE} ${BADGE_NEUTRAL}`}>{FIELD_TYPES.includes(f.type) ? t(fieldTypeKey(f.type)) : ''}</span>, sortable: true, sortKey: 'type', sortValue: f => f.type },
+    { header: t('leads.settings.col.options'), accessor: f => <span className="block text-sm text-neutral-500 dark:text-neutral-400 truncate max-w-[240px]">{f.type === 'select' ? (f.options || []).join(', ') : '—'}</span> },
+    { header: t('leads.settings.required'), accessor: f => <input type="checkbox" checked={!!f.required} onChange={async e => { try { await leadsService.updateCustomField(f.id, { required: e.target.checked }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} className={CHECKBOX} aria-label={t('leads.settings.required')} />, sortable: true, sortKey: 'required', sortValue: f => (f.required ? 1 : 0) },
+  ];
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.fields.help')}</p>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
-        {fields.length === 0 && <li className="py-3 text-sm text-neutral-400">{t('leads.settings.fields.empty')}</li>}
-        {fields.map(f => (
-          <li key={f.id} className="flex flex-wrap items-center gap-3 py-2">
-            <InlineName value={f.label} onSave={async (v) => { try { await leadsService.updateCustomField(f.id, { label: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />
-            <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">{FIELD_TYPES.includes(f.type) ? t(fieldTypeKey(f.type)) : ''}</span>
-            {f.type === 'select' && <span className="text-xs text-neutral-500 truncate max-w-[220px]">{(f.options || []).join(', ')}</span>}
-            <label className="flex items-center gap-1 text-xs text-neutral-500"><input type="checkbox" checked={!!f.required} onChange={async e => { try { await leadsService.updateCustomField(f.id, { required: e.target.checked }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} className="h-4 w-4" /> {t('leads.settings.required')}</label>
-            <button type="button" onClick={() => askConfirm({ title: t('leads.settings.fields.delete_title'), message: t('leads.settings.fields.delete_msg', { name: f.label }), run: async () => { try { await leadsService.deleteCustomField(f.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className="text-red-500 hover:text-red-700 text-sm px-1 ml-auto" aria-label={t('leads.settings.delete_item_aria', { name: f.label })}>🗑</button>
-          </li>
-        ))}
-      </ul>
-      <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/40">
-        <input value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} placeholder={t('leads.settings.fields.name_placeholder')} className={inputFormStyle + ' !w-52'} />
+    <SettingsCard title={t('leads.settings.tab.fields')} subtitle={t('leads.settings.fields.help')} icon={<DocumentTextIcon className="w-5 h-5" />}>
+      {fields.length === 0 ? (
+        <EmptyState icon={<DocumentTextIcon className="w-12 h-12" />} title={t('leads.settings.fields.empty')} className="!py-8" />
+      ) : (
+        <DataTable<LeadCustomField>
+          tableId="leads_settings_fields"
+          data={fields}
+          columns={columns}
+          containerClassName={TABLE_IN_CARD}
+          searchable={false} filterable={false} paginated={false}
+          actions={f => (
+            <button type="button" onClick={() => askConfirm({ title: t('leads.settings.fields.delete_title'), message: t('leads.settings.fields.delete_msg', { name: f.label }), run: async () => { try { await leadsService.deleteCustomField(f.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className={ROW_DELETE_BTN} aria-label={t('leads.settings.delete_item_aria', { name: f.label })} title={t('leads.common.delete')}><DeleteIcon className="w-5 h-5" /></button>
+          )}
+        />
+      )}
+      <div className={ADD_ROW}>
+        <input value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} placeholder={t('leads.settings.fields.name_placeholder')} className={inputFormStyle + ' !w-60 max-w-full'} />
         <select value={draft.type} onChange={e => setDraft(d => ({ ...d, type: e.target.value as LeadCustomFieldType }))} className={inputFormStyle + ' !w-auto'}>
           {FIELD_TYPES.map(ft => <option key={ft} value={ft}>{t(fieldTypeKey(ft))}</option>)}
         </select>
-        {draft.type === 'select' && <input value={draft.options} onChange={e => setDraft(d => ({ ...d, options: e.target.value }))} placeholder={t('leads.settings.fields.options_placeholder')} className={inputFormStyle + ' !w-56'} />}
-        <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={draft.required} onChange={e => setDraft(d => ({ ...d, required: e.target.checked }))} className="h-4 w-4" /> {t('leads.settings.required')}</label>
-        <button onClick={add} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.settings.fields.add_btn')}</button>
+        {draft.type === 'select' && <input value={draft.options} onChange={e => setDraft(d => ({ ...d, options: e.target.value }))} placeholder={t('leads.settings.fields.options_placeholder')} className={inputFormStyle + ' !w-60 max-w-full'} />}
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer"><input type="checkbox" checked={draft.required} onChange={e => setDraft(d => ({ ...d, required: e.target.checked }))} className={CHECKBOX} /> {t('leads.settings.required')}</label>
+        <button onClick={add} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.fields.add_btn')}</button>
       </div>
-    </div>
+    </SettingsCard>
   );
 };
 
@@ -376,19 +438,27 @@ const LostReasonsTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSe
     try { const s = await leadsService.updateSettings({ lostReasons: next }); setSettings(s); setList(s.lostReasons); toast.success(t('leads.settings.lost.saved')); }
     catch (e) { err(e, t('leads.settings.err.save')); } finally { setSaving(false); }
   };
+  const rows = list.map((reason, i) => ({ id: String(i), reason }));
+  const columns: TableColumn<{ id: string; reason: string }>[] = [
+    { header: t('leads.settings.col.reason'), accessor: 'reason', noWrap: false },
+  ];
   return (
-    <div className="space-y-3 max-w-xl">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.lost.help')}</p>
-      <ul className="space-y-1">
-        {list.map((r, i) => (
-          <li key={`${r}-${i}`} className="flex items-center gap-2 py-1 px-2 rounded border border-neutral-200 dark:border-neutral-700">
-            <span className="flex-1 text-sm text-neutral-700 dark:text-neutral-200">{r}</span>
-            <button type="button" onClick={() => save(list.filter((_, j) => j !== i))} disabled={saving} className="text-red-500 hover:text-red-700 text-sm" aria-label={t('leads.settings.lost.remove_aria', { name: r })}>✕</button>
-          </li>
-        ))}
-      </ul>
-      <div className="flex gap-2"><input value={item} onChange={e => setItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && item.trim()) { save([...list, item.trim()]); setItem(''); } }} placeholder={t('leads.settings.lost.new_placeholder')} className={inputFormStyle + ' !w-64'} /><button onClick={() => { if (item.trim()) { save([...list, item.trim()]); setItem(''); } }} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.settings.add_btn')}</button></div>
-    </div>
+    <SettingsCard title={t('leads.settings.tab.lost')} subtitle={t('leads.settings.lost.help')} icon={<ExclamationTriangleIcon className="w-5 h-5" />}>
+      <DataTable<{ id: string; reason: string }>
+        tableId="leads_settings_lost"
+        data={rows}
+        columns={columns}
+        containerClassName={TABLE_IN_CARD}
+        searchable={false} filterable={false} paginated={false}
+        actions={r => (
+          <button type="button" onClick={() => save(list.filter((_, j) => String(j) !== r.id))} disabled={saving} className={`${ROW_DELETE_BTN} disabled:opacity-50`} aria-label={t('leads.settings.lost.remove_aria', { name: r.reason })} title={t('leads.common.delete')}><DeleteIcon className="w-5 h-5" /></button>
+        )}
+      />
+      <div className={ADD_ROW}>
+        <input value={item} onChange={e => setItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && item.trim()) { save([...list, item.trim()]); setItem(''); } }} placeholder={t('leads.settings.lost.new_placeholder')} className={inputFormStyle + ' !w-72 max-w-full'} />
+        <button onClick={() => { if (item.trim()) { save([...list, item.trim()]); setItem(''); } }} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON} disabled:opacity-50`}><PlusIcon className="w-4 h-4" />{t('leads.settings.add_btn')}</button>
+      </div>
+    </SettingsCard>
   );
 };
 
@@ -418,55 +488,74 @@ const FormTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSettings)
   const regenerate = async () => { try { const r = await leadsService.regenerateFormToken(); setSettings({ ...settings, formToken: r.formToken }); toast.success(t('leads.settings.form.regenerated')); } catch (e) { err(e, t('leads.settings.err.regenerate')); } };
 
   return (
-    <div className="space-y-4 max-w-2xl">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.form.help')}</p>
-      <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={draft.formEnabled} onChange={e => setDraft(d => ({ ...d, formEnabled: e.target.checked }))} className="h-4 w-4" /> {t('leads.settings.form.enabled')}</label>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div><label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.settings.form.title_label')}</label><input value={draft.formTitle} onChange={e => setDraft(d => ({ ...d, formTitle: e.target.value }))} placeholder={t('leads.settings.form.title_placeholder')} className={inputFormStyle} /></div>
-        <div><label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.settings.form.success_label')}</label><input value={draft.formSuccessMessage} onChange={e => setDraft(d => ({ ...d, formSuccessMessage: e.target.value }))} placeholder={t('leads.settings.form.success_placeholder')} className={inputFormStyle} /></div>
-        <div><label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.common.pipeline')}</label>
-          <select value={draft.formPipelineId} onChange={e => setDraft(d => ({ ...d, formPipelineId: e.target.value, formStageId: '' }))} className={inputFormStyle}>
-            <option value="">{t('leads.settings.form.default_pipeline')}</option>
-            {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+    <>
+      <SettingsCard
+        title={t('leads.settings.tab.form')}
+        subtitle={t('leads.settings.form.help')}
+        icon={<DocumentTextIcon className="w-5 h-5" />}
+      >
+        <div className={`${BOX} flex items-center justify-between gap-4 mb-4 ${draft.formEnabled ? 'bg-green-50 dark:bg-green-900/20 !border-green-300 dark:!border-green-700' : 'bg-neutral-50 dark:bg-neutral-900'}`}>
+          <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.form.enabled')}</p>
+          <Toggle checked={draft.formEnabled} onChange={v => setDraft(d => ({ ...d, formEnabled: v }))} label={t('leads.settings.form.enabled')} />
         </div>
-        <div><label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.settings.form.initial_stage')}</label>
-          <select value={draft.formStageId} onChange={e => setDraft(d => ({ ...d, formStageId: e.target.value }))} className={inputFormStyle}>
-            <option value="">{t('leads.settings.form.first_stage')}</option>
-            {(pipe?.stages || []).filter(s => s.type === 'open').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label className={LABEL_CLASSES}>{t('leads.settings.form.title_label')}</label><input value={draft.formTitle} onChange={e => setDraft(d => ({ ...d, formTitle: e.target.value }))} placeholder={t('leads.settings.form.title_placeholder')} className={inputFormStyle} /></div>
+          <div><label className={LABEL_CLASSES}>{t('leads.settings.form.success_label')}</label><input value={draft.formSuccessMessage} onChange={e => setDraft(d => ({ ...d, formSuccessMessage: e.target.value }))} placeholder={t('leads.settings.form.success_placeholder')} className={inputFormStyle} /></div>
+          <div><label className={LABEL_CLASSES}>{t('leads.common.pipeline')}</label>
+            <select value={draft.formPipelineId} onChange={e => setDraft(d => ({ ...d, formPipelineId: e.target.value, formStageId: '' }))} className={inputFormStyle}>
+              <option value="">{t('leads.settings.form.default_pipeline')}</option>
+              {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div><label className={LABEL_CLASSES}>{t('leads.settings.form.initial_stage')}</label>
+            <select value={draft.formStageId} onChange={e => setDraft(d => ({ ...d, formStageId: e.target.value }))} className={inputFormStyle}>
+              <option value="">{t('leads.settings.form.first_stage')}</option>
+              {(pipe?.stages || []).filter(s => s.type === 'open').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div className="sm:col-span-2"><label className={LABEL_CLASSES}>{t('leads.settings.form.assign_to')}</label>
+            <select value={draft.formAssigneeId} onChange={e => setDraft(d => ({ ...d, formAssigneeId: e.target.value }))} className={inputFormStyle}>
+              <option value="">{t('leads.settings.form.nobody')}</option>
+              {assignees.map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="sm:col-span-2"><label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.settings.form.assign_to')}</label>
-          <select value={draft.formAssigneeId} onChange={e => setDraft(d => ({ ...d, formAssigneeId: e.target.value }))} className={inputFormStyle}>
-            <option value="">{t('leads.settings.form.nobody')}</option>
-            {assignees.map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
-          </select>
+        <div className="flex justify-end pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-700">
+          <button onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('leads.common.saving') : t('leads.common.save')}</button>
         </div>
-      </div>
-      <button onClick={save} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('leads.common.saving') : t('leads.common.save')}</button>
+      </SettingsCard>
 
       {link && (
-        <div className="space-y-3 border-t dark:border-neutral-700 pt-4">
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.settings.form.public_link')}</label>
-            <div className="flex gap-2">
-              <input readOnly value={link} className={inputFormStyle + ' flex-1 font-mono text-xs'} onFocus={e => e.currentTarget.select()} />
-              <button onClick={() => copy(link)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.copy')}</button>
-              <a href={link} target="_blank" rel="noreferrer" className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.open')}</a>
+        <SettingsCard title={t('leads.settings.form.public_link')} icon={<InformationCircleIcon className="w-5 h-5" />}>
+          <div className="space-y-4">
+            <div>
+              <label className={LABEL_CLASSES}>{t('leads.settings.form.public_link')}</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input readOnly value={link} className={inputFormStyle + ' flex-1 min-w-[220px] font-mono !text-sm'} onFocus={e => e.currentTarget.select()} />
+                <button onClick={() => copy(link)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.copy')}</button>
+                <a href={link} target="_blank" rel="noreferrer" className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.open')}</a>
+              </div>
+              {!draft.formEnabled && (
+                <div className="mt-2 p-3 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700 flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <p className="text-sm text-amber-800 dark:text-amber-300">{t('leads.settings.form.disabled_warning')}</p>
+                </div>
+              )}
             </div>
-            {!draft.formEnabled && <p className="text-xs text-amber-600 mt-1">{t('leads.settings.form.disabled_warning')}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1">{t('leads.settings.form.embed_label')}</label>
-            <div className="flex gap-2">
-              <textarea readOnly rows={3} value={embed} className={inputFormStyle + ' flex-1 font-mono text-xs'} onFocus={e => e.currentTarget.select()} />
-              <button onClick={() => copy(embed)} className={BUTTON_SECONDARY_SM_CLASSES + ' self-start'}>{t('leads.settings.form.copy')}</button>
+            <div>
+              <label className={LABEL_CLASSES}>{t('leads.settings.form.embed_label')}</label>
+              <div className="flex flex-wrap items-start gap-2">
+                <textarea readOnly rows={3} value={embed} className={inputFormStyle + ' !h-auto flex-1 min-w-[220px] font-mono !text-sm'} onFocus={e => e.currentTarget.select()} />
+                <button onClick={() => copy(embed)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.copy')}</button>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-neutral-200 dark:border-neutral-700">
+              <button onClick={regenerate} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50`}>{t('leads.settings.form.regenerate')}</button>
             </div>
           </div>
-          <button onClick={regenerate} className="text-xs text-red-600 dark:text-red-400 hover:underline">{t('leads.settings.form.regenerate')}</button>
-        </div>
+        </SettingsCard>
       )}
-    </div>
+    </>
   );
 };
 
@@ -482,46 +571,47 @@ const AutomationTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSet
   const { currentUser } = useAuth();
   const isManager = currentUser?.role === 'MANAGER';
   return (
-    <div className="space-y-5 max-w-2xl">
-      <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
-        <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">🕒 {t('leads.settings.tz.title')}</h3>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('leads.settings.tz.help')}</p>
-        <div className="flex flex-wrap items-center gap-2 mt-2">
-          <select
-            value={globalSettings.timezone || 'America/Puerto_Rico'}
-            disabled={!isManager}
-            onChange={e => { updateGlobalSettings({ timezone: e.target.value }); toast.success(t('leads.settings.tz.saved')); }}
-            className={inputFormStyle + ' !w-auto'}
-          >
-            {timezoneOptions(globalSettings.timezone).map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-          </select>
-          {!isManager && <span className="text-xs text-neutral-500">{t('leads.settings.tz.manager_only')}</span>}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <SettingsCard title={t('leads.settings.tz.title')} subtitle={t('leads.settings.tz.help')} icon={<ClockIcon className="w-5 h-5" />}>
+        <select
+          value={globalSettings.timezone || 'America/Puerto_Rico'}
+          disabled={!isManager}
+          onChange={e => { updateGlobalSettings({ timezone: e.target.value }); toast.success(t('leads.settings.tz.saved')); }}
+          className={inputFormStyle}
+        >
+          {timezoneOptions(globalSettings.timezone).map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+        </select>
+        {!isManager && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('leads.settings.tz.manager_only')}</p>}
+      </SettingsCard>
+
+      <SettingsCard title={t('leads.settings.automation.cold_title')} subtitle={t('leads.settings.automation.cold_help')} icon={<FireIcon className="w-5 h-5" />}>
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="number" min={1} max={365} value={coldDays} onChange={e => setColdDays(e.target.value)} className={inputFormStyle + ' !w-28'} />
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.automation.days')}</span>
+          <button onClick={() => { const n = Math.max(1, Math.min(365, Number(coldDays) || 7)); update({ coldDays: n }); }} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.common.save')}</button>
         </div>
-      </div>
-      <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
-        <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.automation.cold_title')}</h3>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('leads.settings.automation.cold_help')}</p>
-        <div className="flex items-center gap-2 mt-2">
-          <input type="number" min={1} max={365} value={coldDays} onChange={e => setColdDays(e.target.value)} className={inputFormStyle + ' !w-24'} />
-          <span className="text-sm text-neutral-500">{t('leads.settings.automation.days')}</span>
-          <button onClick={() => { const n = Math.max(1, Math.min(365, Number(coldDays) || 7)); update({ coldDays: n }); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.save')}</button>
+      </SettingsCard>
+
+      <SettingsCard title={t('leads.settings.automation.capture_title')} icon={<SparklesIcon className="w-5 h-5" />}>
+        <div className="space-y-3">
+          <div className={`${BOX} flex items-start justify-between gap-4`}>
+            <div>
+              <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.automation.ecommerce_title')}</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{t('leads.settings.automation.ecommerce_help')}</p>
+            </div>
+            <Toggle checked={settings.ecommerceToLead} onChange={v => update({ ecommerceToLead: v })} label={t('leads.settings.automation.ecommerce_title')} />
+          </div>
+          <div className={`${BOX} flex items-start justify-between gap-4`}>
+            <div>
+              <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.automation.whatsapp_title')}</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{t('leads.settings.automation.whatsapp_help')}</p>
+            </div>
+            <Toggle checked={settings.whatsappToLead} onChange={v => update({ whatsappToLead: v })} label={t('leads.settings.automation.whatsapp_title')} />
+          </div>
         </div>
-      </div>
-      <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 space-y-3">
-        <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.automation.capture_title')}</h3>
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" checked={settings.ecommerceToLead} onChange={e => update({ ecommerceToLead: e.target.checked })} className="h-4 w-4 mt-0.5" />
-          <span><strong>{t('leads.settings.automation.ecommerce_title')}</strong> <span className="text-neutral-500 dark:text-neutral-400">{t('leads.settings.automation.ecommerce_help')}</span></span>
-        </label>
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" checked={settings.whatsappToLead} onChange={e => update({ whatsappToLead: e.target.checked })} className="h-4 w-4 mt-0.5" />
-          <span><strong>{t('leads.settings.automation.whatsapp_title')}</strong> <span className="text-neutral-500 dark:text-neutral-400">{t('leads.settings.automation.whatsapp_help')}</span></span>
-        </label>
-      </div>
-      <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
-        <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.automation.reminders_title')}</h3>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('leads.settings.automation.reminders_help')}</p>
-      </div>
+      </SettingsCard>
+
+      <SettingsCard title={t('leads.settings.automation.reminders_title')} subtitle={t('leads.settings.automation.reminders_help')} icon={<BellIcon className="w-5 h-5" />} />
     </div>
   );
 };

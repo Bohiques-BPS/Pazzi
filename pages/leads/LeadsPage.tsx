@@ -16,8 +16,27 @@ import { ImportModal, ImportFieldDef } from '../../components/ui/ImportModal';
 import { LeadDetailModal } from '../../components/leads/LeadDetailModal';
 import { TagChip } from '../../components/leads/TagChip';
 import { useLeadAssignees } from '../../components/leads/useLeadAssignees';
-import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
-import { PlusIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon } from '../../components/icons';
+import { DataTable, TableColumn } from '../../components/DataTable';
+import { inputFormStyle, INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import {
+  PlusIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon, Cog6ToothIcon, DocumentArrowUpIcon, DocumentArrowDownIcon,
+  DeleteIcon, ArrowUturnLeftIcon, ChevronLeftIcon, ChartBarIcon, UserIcon, TagIcon, ArrowPathIcon, ClockIcon,
+  CalendarDaysIcon, ExclamationTriangleIcon,
+} from '../../components/icons';
+
+/** Etiqueta de campo de formulario (mismo estilo que el resto de modales de la app). */
+const FIELD_LABEL_CLS = 'block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1';
+/** Pie de modal estándar (Cancelar / Acción). */
+const MODAL_FOOTER_CLS = 'flex justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-700 mt-4';
+/** Badge de estado (mismo estilo que los badges del dashboard de proyectos). */
+const STATUS_BADGE_CLS: Record<Lead['status'], string> = {
+  won: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  lost: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  open: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300',
+};
+/** Chip pequeño de las tarjetas (mismo estilo que los chips de TaskCard). */
+const CARD_CHIP_CLS = 'flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded gap-0.5';
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 
 const money = (n?: number | null) => n != null ? `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '';
 const DAY = 86400000;
@@ -368,10 +387,7 @@ export const LeadsPage: React.FC = () => {
   };
 
   // ── Selección y acciones masivas ──
-  const toggleCheck = (id: string) => setChecked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const allChecked = filtered.length > 0 && filtered.every(l => checked.has(l.id));
-  const toggleAll = () => setChecked(allChecked ? new Set() : new Set(filtered.map(l => l.id)));
-
+  // (La selección de la vista lista la gestiona DataTable vía selectedIds/onSelectionChange sobre `checked`.)
   const runBulk = async (action: 'assign' | 'stage' | 'tag' | 'untag' | 'delete', extra?: any) => {
     const ids = Array.from(checked);
     if (!ids.length) return;
@@ -416,178 +432,354 @@ export const LeadsPage: React.FC = () => {
   const filtersActive = !!(search || filterAssignee || filterStatus || filterTag || filterSource || onlyCold);
   const clearFilters = () => { setSearch(''); setFilterAssignee(''); setFilterStatus(''); setFilterTag(''); setFilterSource(''); setOnlyCold(false); };
 
-  const selectCls = inputFormStyle + ' !w-auto !py-1.5 text-sm';
+  const selectCls = INPUT_SM_CLASSES;
+  const statusLabel = (s: Lead['status']) => t(s === 'won' ? 'leads.common.status.won' : s === 'lost' ? 'leads.common.status.lost' : 'leads.common.status.open');
+  const tagNamesOf = (ids?: string[]) => (ids || []).map(id => tags.find(tg => tg.id === id)?.name).filter(Boolean).join(', ');
+
+  // ── Columnas de la vista lista (DataTable estándar) ──
+  const listColumns: TableColumn<Lead>[] = [
+    {
+      header: t('leads.board.col.name'),
+      sortKey: 'name',
+      sortValue: l => `${l.name} ${l.lastName || ''}`.trim(),
+      filterValue: l => `${l.name} ${l.lastName || ''} ${l.companyName || ''}`,
+      filterType: 'text',
+      accessor: l => (
+        <div className="min-w-0">
+          <p className="font-medium text-neutral-800 dark:text-neutral-100 flex items-center gap-1.5">
+            <span translate="no">{l.name} {l.lastName}</span>
+            {isCold(l) && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" title={t('leads.board.no_followup')}><span translate="no">{t('leads.board.cold_badge')}</span></span>}
+          </p>
+          {l.companyName && <p className="text-xs text-neutral-500 dark:text-neutral-400"><span translate="no">{l.companyName}</span></p>}
+        </div>
+      ),
+    },
+    {
+      header: t('leads.common.stage'),
+      sortKey: 'stage',
+      sortValue: l => { const i = stages.findIndex(s => s.id === l.stageId); return i < 0 ? null : i; },
+      filterValue: l => stages.find(s => s.id === l.stageId)?.name || '',
+      accessor: l => {
+        const st = stages.find(s => s.id === l.stageId);
+        return <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: st?.color || '#94a3b8' }} /><span translate="no">{st?.name || '—'}</span></span>;
+      },
+    },
+    {
+      header: t('leads.common.value'),
+      sortKey: 'value',
+      sortValue: l => l.value ?? null,
+      filterType: 'none',
+      className: 'tabular-nums',
+      accessor: l => l.value != null ? <span className="font-semibold">{money(l.value)}</span> : '—',
+    },
+    {
+      header: t('leads.common.assignee'),
+      sortKey: 'assignee',
+      sortValue: l => empName(l.assignedUserId),
+      accessor: l => <span className="text-neutral-600 dark:text-neutral-300"><span translate="no">{empName(l.assignedUserId)}</span></span>,
+    },
+    {
+      header: t('leads.common.tags'),
+      sortKey: 'tags',
+      sortable: false,
+      filterValue: l => tagNamesOf(l.tagIds),
+      filterType: 'text',
+      noWrap: false,
+      accessor: l => (l.tagIds || []).length ? (
+        <div className="flex flex-wrap gap-1">{(l.tagIds || []).map(id => { const tg = tags.find(x => x.id === id); return tg ? <TagChip key={id} tag={tg} small /> : null; })}</div>
+      ) : <span className="text-neutral-400">—</span>,
+    },
+    {
+      header: t('leads.board.col.status'),
+      sortKey: 'status',
+      sortValue: l => l.status,
+      filterValue: l => statusLabel(l.status),
+      accessor: l => <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${STATUS_BADGE_CLS[l.status] || STATUS_BADGE_CLS.open}`}><span translate="no">{statusLabel(l.status)}</span></span>,
+    },
+    {
+      header: t('leads.board.col.next_action'),
+      sortKey: 'nextActionAt',
+      sortValue: l => l.nextActionAt ? new Date(l.nextActionAt).getTime() : null,
+      filterType: 'none',
+      accessor: l => {
+        if (!l.nextActionAt) return <span className="text-neutral-400">—</span>;
+        const overdue = l.status === 'open' && new Date(l.nextActionAt).getTime() < Date.now();
+        return <span className={`text-sm ${overdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-500 dark:text-neutral-400'}`}>{new Date(l.nextActionAt).toLocaleDateString()}</span>;
+      },
+    },
+  ];
+
+  // ── Columnas de la papelera ──
+  const trashDaysLeft = (l: Lead) => {
+    const deletedAt = l.archivedAt ? new Date(l.archivedAt) : null;
+    return deletedAt ? Math.max(0, TRASH_DAYS - Math.floor((Date.now() - deletedAt.getTime()) / DAY)) : TRASH_DAYS;
+  };
+  const trashColumns: TableColumn<Lead>[] = [
+    {
+      header: t('leads.board.col.name'),
+      sortKey: 'name',
+      sortValue: l => `${l.name} ${l.lastName || ''}`.trim(),
+      filterType: 'text',
+      accessor: l => <span className="font-medium text-neutral-800 dark:text-neutral-100"><span translate="no">{l.name} {l.lastName}</span></span>,
+    },
+    {
+      header: t('leads.common.company'),
+      sortKey: 'companyName',
+      sortValue: l => l.companyName || '',
+      filterType: 'text',
+      accessor: l => <span className="text-neutral-500 dark:text-neutral-400"><span translate="no">{l.companyName || '—'}</span></span>,
+    },
+    {
+      header: t('leads.common.value'),
+      sortKey: 'value',
+      sortValue: l => l.value ?? null,
+      filterType: 'none',
+      className: 'tabular-nums',
+      accessor: l => l.value != null ? money(l.value) : '—',
+    },
+    {
+      header: t('leads.board.trash.col.deleted'),
+      sortKey: 'archivedAt',
+      sortValue: l => l.archivedAt ? new Date(l.archivedAt).getTime() : null,
+      filterType: 'none',
+      accessor: l => <span className="text-neutral-500 dark:text-neutral-400">{l.archivedAt ? new Date(l.archivedAt).toLocaleDateString() : '—'}</span>,
+    },
+    {
+      header: t('leads.board.trash.col.days_left'),
+      sortKey: 'daysLeft',
+      sortValue: l => trashDaysLeft(l),
+      filterType: 'none',
+      accessor: l => {
+        const left = trashDaysLeft(l);
+        return (
+          <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${left <= 3 ? STATUS_BADGE_CLS.lost : STATUS_BADGE_CLS.open}`}>
+            <span translate="no">{left === 0 ? t('leads.board.trash.today') : t('leads.board.trash.days_left', { n: left })}</span>
+          </span>
+        );
+      },
+    },
+  ];
+
+  const statusTabs: { value: '' | 'open' | 'won' | 'lost'; label: string }[] = [
+    { value: '', label: t('leads.board.filter.all') },
+    { value: 'open', label: t('leads.common.status.open_pl') },
+    { value: 'won', label: t('leads.common.status.won_pl') },
+    { value: 'lost', label: t('leads.common.status.lost_pl') },
+  ];
+  const headerBtnCls = `${BUTTON_SECONDARY_SM_CLASSES} inline-flex items-center gap-1.5 flex-shrink-0`;
+  const bulkBtnCls = `${BUTTON_SECONDARY_SM_CLASSES} inline-flex items-center gap-1.5`;
+  const emptyBlock = (title: string) => (
+    <div className="text-center py-16 bg-white dark:bg-neutral-800 rounded-lg shadow-sm">
+      <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">{title}</h3>
+    </div>
+  );
 
   return (
     <div>
       {/* Cabecera */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.common.leads')}</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.common.leads')}</h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
             <span translate="no">{t('leads.board.summary', { n: filtered.length, value: money(totals.openValue) || '$0' })}</span>
             {totals.overdue > 0 && <span translate="no" className="ml-2 text-red-600 dark:text-red-400">{t('leads.board.overdue_count', { n: totals.overdue })}</span>}
             {totals.cold > 0 && <button type="button" translate="no" onClick={() => { setOnlyCold(true); setFilterStatus('open'); }} className="ml-2 text-amber-600 dark:text-amber-400 hover:underline">{t('leads.board.cold_count', { n: totals.cold })}</button>}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {can('leads.managePipeline') && <button onClick={() => navigate('/leads/settings')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.configure')}</button>}
-          {can('leads.import') && <button onClick={() => setShowImport(true)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.import')}</button>}
-          {can('leads.export') && <button onClick={exportExcel} disabled={!filtered.length} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.export')}</button>}
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          {can('leads.managePipeline') && (
+            <button onClick={() => navigate('/leads/settings')} className={headerBtnCls} title={t('leads.board.configure')} aria-label={t('leads.board.configure')}>
+              <Cog6ToothIcon className="w-5 h-5" /><span className="hidden md:inline">{t('leads.board.configure')}</span>
+            </button>
+          )}
+          {can('leads.import') && (
+            <button onClick={() => setShowImport(true)} className={headerBtnCls} title={t('leads.board.import')} aria-label={t('leads.board.import')}>
+              <DocumentArrowUpIcon className="w-5 h-5" /><span className="hidden md:inline">{t('leads.board.import')}</span>
+            </button>
+          )}
+          {can('leads.export') && (
+            <button onClick={exportExcel} disabled={!filtered.length} className={`${headerBtnCls} disabled:opacity-50 disabled:cursor-not-allowed`} title={t('leads.board.export')} aria-label={t('leads.board.export')}>
+              <DocumentArrowDownIcon className="w-5 h-5" /><span className="hidden md:inline">{t('leads.board.export')}</span>
+            </button>
+          )}
           {canDelete && (
             <button
               onClick={() => trashMode ? exitTrash() : enterTrash()}
-              className={trashMode ? BUTTON_PRIMARY_SM_CLASSES : BUTTON_SECONDARY_SM_CLASSES}
+              className={`${trashMode ? BUTTON_PRIMARY_SM_CLASSES : BUTTON_SECONDARY_SM_CLASSES} inline-flex items-center gap-1.5 flex-shrink-0`}
               title={t('leads.board.trash.tooltip')}
+              aria-label={t('leads.board.trash.button')}
               aria-pressed={trashMode}
             >
-              <span translate="no">{trash && trash.length > 0 ? t('leads.board.trash.button_count', { n: trash.length }) : t('leads.board.trash.button')}</span>
+              <DeleteIcon className="w-5 h-5" />
+              <span translate="no" className="hidden md:inline">{trash && trash.length > 0 ? t('leads.board.trash.button_count', { n: trash.length }) : t('leads.board.trash.button')}</span>
+              {trash && trash.length > 0 && <span translate="no" className="md:hidden text-sm tabular-nums">{trash.length}</span>}
             </button>
           )}
           {can('leads.create') && (
-            <button onClick={() => { setCreatePrefill(null); setShowCreate(true); }} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon className="w-5 h-5" /> {t('leads.board.new_lead')}</button>
+            <button onClick={() => { setCreatePrefill(null); setShowCreate(true); }} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
+              <PlusIcon className="w-5 h-5" /> {t('leads.board.new_lead')}
+            </button>
           )}
         </div>
       </div>
 
       {/* Mis metas del mes */}
       {myGoals && myGoals.goals.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 mb-4 p-2.5 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700">
-          <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">{t('leads.board.my_goals')}</span>
-          {myGoals.goals.map(g => (
-            <div key={g.metric} className="flex items-center gap-2 min-w-[180px]" title={`${g.actual} / ${g.target}`}>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{t(g.metric === 'won_count' ? 'leads.common.metric_short.won_count' : g.metric === 'won_value' ? 'leads.common.metric_short.won_value' : g.metric === 'activities' ? 'leads.common.metric_short.activities' : 'leads.common.metric_short.new_leads')}</span>
-              <div className="h-2 flex-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, g.pct)}%`, background: g.pct >= 100 ? '#16a34a' : g.pct >= 60 ? '#f59e0b' : '#0D9488' }} />
+        <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0"><ChartBarIcon className="w-4 h-4" /></span>
+            <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.board.my_goals')}</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {myGoals.goals.map(g => (
+              <div key={g.metric} className="min-w-0" title={`${g.actual} / ${g.target}`}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 truncate">{t(g.metric === 'won_count' ? 'leads.common.metric_short.won_count' : g.metric === 'won_value' ? 'leads.common.metric_short.won_value' : g.metric === 'activities' ? 'leads.common.metric_short.activities' : 'leads.common.metric_short.new_leads')}</p>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums flex-shrink-0">{g.pct}%</span>
+                </div>
+                <div className="mt-2 h-1.5 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, g.pct)}%`, background: g.pct >= 100 ? '#16a34a' : g.pct >= 60 ? '#f59e0b' : '#0D9488' }} />
+                </div>
               </div>
-              <span className="text-[11px] tabular-nums text-neutral-600 dark:text-neutral-300">{g.pct}%</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
       {/* Filtros */}
       {!trashMode && (
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="relative">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('leads.board.search_placeholder')} className={inputFormStyle + ' pl-8 !w-64 !py-1.5 text-sm'} />
-        </div>
-        {pipelines.length > 1 && (
-          <select value={pipeline?.id || ''} onChange={e => changePipeline(e.target.value)} className={selectCls} title={t('leads.common.pipeline')}>
-            {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        )}
-        <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className={selectCls}>
-          <option value="">{t('leads.board.filter.all_assignees')}</option>
-          {currentUser && <option value={currentUser.id}>{t('leads.board.filter.my_leads')}</option>}
-          <option value="none">{t('leads.common.unassigned')}</option>
-          {assignees.filter(a => a.uid !== currentUser?.id).map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
-        </select>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className={selectCls}>
-          <option value="">{t('leads.board.filter.all_statuses')}</option>
-          <option value="open">{t('leads.common.status.open_pl')}</option>
-          <option value="won">{t('leads.common.status.won_pl')}</option>
-          <option value="lost">{t('leads.common.status.lost_pl')}</option>
-        </select>
-        {tags.length > 0 && (
-          <select value={filterTag} onChange={e => setFilterTag(e.target.value)} className={selectCls}>
-            <option value="">{t('leads.board.filter.all_tags')}</option>
-            {tags.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
-          </select>
-        )}
-        <select value={filterSource} onChange={e => setFilterSource(e.target.value)} className={selectCls}>
-          <option value="">{t('leads.board.filter.all_sources')}</option>
-          {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <label className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
-          <input type="checkbox" checked={onlyCold} onChange={e => setOnlyCold(e.target.checked)} className="h-4 w-4" /> <span translate="no">{t('leads.board.filter.only_cold', { days: coldDays })}</span>
-        </label>
-        {filtersActive && <button type="button" onClick={clearFilters} className="text-xs text-primary hover:underline">{t('leads.board.filter.clear')}</button>}
-        <div className="ml-auto flex items-center bg-neutral-100 dark:bg-neutral-700 p-0.5 rounded-md">
-          <button onClick={() => setViewPersist('board')} className={`p-1.5 rounded-md ${view === 'board' ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300'}`} title={t('leads.board.view.board')} aria-label={t('leads.board.view.board_aria')}><Squares2X2Icon className="w-5 h-5" /></button>
-          <button onClick={() => setViewPersist('list')} className={`p-1.5 rounded-md ${view === 'list' ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300'}`} title={t('leads.board.view.list')} aria-label={t('leads.board.view.list_aria')}><ListBulletIcon className="w-5 h-5" /></button>
-        </div>
-      </div>
+        <>
+          {/* Buscador (mismo estilo que Proyectos) */}
+          <div className="mb-4">
+            <div className="relative max-w-md">
+              <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={t('leads.board.search_placeholder')}
+                className="w-full pl-10 pr-9 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                  aria-label={t('leads.board.search_clear')}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filtros secundarios (selects compactos, como en Productos) */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {pipelines.length > 1 && (
+              <select value={pipeline?.id || ''} onChange={e => changePipeline(e.target.value)} className={selectCls} title={t('leads.common.pipeline')} aria-label={t('leads.common.pipeline')}>
+                {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            )}
+            <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className={selectCls} aria-label={t('leads.common.assignee')}>
+              <option value="">{t('leads.board.filter.all_assignees')}</option>
+              {currentUser && <option value={currentUser.id}>{t('leads.board.filter.my_leads')}</option>}
+              <option value="none">{t('leads.common.unassigned')}</option>
+              {assignees.filter(a => a.uid !== currentUser?.id).map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
+            </select>
+            {tags.length > 0 && (
+              <select value={filterTag} onChange={e => setFilterTag(e.target.value)} className={selectCls} aria-label={t('leads.common.tags')}>
+                <option value="">{t('leads.board.filter.all_tags')}</option>
+                {tags.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
+              </select>
+            )}
+            <select value={filterSource} onChange={e => setFilterSource(e.target.value)} className={selectCls} aria-label={t('leads.common.source')}>
+              <option value="">{t('leads.board.filter.all_sources')}</option>
+              {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <label className="h-9 inline-flex items-center gap-2 px-2.5 text-sm text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm cursor-pointer select-none">
+              <input type="checkbox" checked={onlyCold} onChange={e => setOnlyCold(e.target.checked)} className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary" />
+              <span translate="no">{t('leads.board.filter.only_cold', { days: coldDays })}</span>
+            </label>
+            {filtersActive && <button type="button" onClick={clearFilters} className="text-sm text-primary hover:underline flex-shrink-0">{t('leads.board.filter.clear')}</button>}
+          </div>
+
+          {/* Estado (pestañas) + vista */}
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap">
+              {statusTabs.map(s => {
+                const activeTab = filterStatus === s.value;
+                return (
+                  <button
+                    key={s.value || 'all'}
+                    type="button"
+                    onClick={() => setFilterStatus(s.value)}
+                    className={`px-3.5 py-1.5 text-sm font-medium rounded-full transition-colors ${activeTab ? 'bg-primary text-white shadow-sm' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                    aria-pressed={activeTab}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center bg-neutral-100 dark:bg-neutral-700 p-0.5 rounded-md flex-shrink-0">
+              <button onClick={() => setViewPersist('board')} className={`p-1.5 rounded-md ${view === 'board' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} title={t('leads.board.view.board')} aria-label={t('leads.board.view.board_aria')}><Squares2X2Icon className="w-5 h-5" /></button>
+              <button onClick={() => setViewPersist('list')} className={`p-1.5 rounded-md ${view === 'list' ? 'bg-primary text-white shadow' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'}`} title={t('leads.board.view.list')} aria-label={t('leads.board.view.list_aria')}><ListBulletIcon className="w-5 h-5" /></button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Barra de acciones masivas */}
       {!trashMode && checked.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-primary/10 border border-primary/30">
-          <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300">{t('leads.board.bulk.selected', { n: checked.size })}</span>
-          {can('leads.assign') && <button onClick={() => { setBulkModal('assign'); setBulkValue(''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.assign')}</button>}
-          {(can('leads.changeStage') || can('leads.edit')) && <button onClick={() => { setBulkModal('stage'); setBulkValue(stages[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.move_stage')}</button>}
-          {can('leads.edit') && tags.length > 0 && <button onClick={() => { setBulkModal('tag'); setBulkValue(tags[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.tag')}</button>}
-          {can('leads.delete') && <button onClick={() => setConfirmBulkDelete(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400`}>{t('leads.board.bulk.delete')}</button>}
-          <button onClick={() => setChecked(new Set())} className="ml-auto text-xs text-neutral-500 hover:underline">{t('leads.board.bulk.clear_selection')}</button>
+        <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-xl bg-primary/10 border border-primary/30">
+          <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300 mr-1">{t('leads.board.bulk.selected', { n: checked.size })}</span>
+          {can('leads.assign') && <button onClick={() => { setBulkModal('assign'); setBulkValue(''); }} className={bulkBtnCls}><UserIcon className="w-4 h-4" />{t('leads.board.bulk.assign')}</button>}
+          {(can('leads.changeStage') || can('leads.edit')) && <button onClick={() => { setBulkModal('stage'); setBulkValue(stages[0]?.id || ''); }} className={bulkBtnCls}><ArrowPathIcon className="w-4 h-4" />{t('leads.board.bulk.move_stage')}</button>}
+          {can('leads.edit') && tags.length > 0 && <button onClick={() => { setBulkModal('tag'); setBulkValue(tags[0]?.id || ''); }} className={bulkBtnCls}><TagIcon className="w-4 h-4" />{t('leads.board.bulk.tag')}</button>}
+          {can('leads.delete') && <button onClick={() => setConfirmBulkDelete(true)} className={`${bulkBtnCls} !text-red-600 dark:!text-red-400`}><DeleteIcon className="w-4 h-4" />{t('leads.board.bulk.delete')}</button>}
+          <button onClick={() => setChecked(new Set())} className="ml-auto text-sm text-neutral-500 dark:text-neutral-400 hover:underline">{t('leads.board.bulk.clear_selection')}</button>
         </div>
       )}
 
-      {loading ? <LoadingSkeleton variant="cards" count={4} /> : trashMode ? (
+      {loading ? (view === 'list' && !trashMode ? <LoadingSkeleton variant="table" rows={8} /> : <LoadingSkeleton variant="cards" count={4} />) : trashMode ? (
         <div>
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <button onClick={exitTrash} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.trash.back')}</button>
-            <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.board.trash.title')}</h2>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <button onClick={exitTrash} className={`${BUTTON_SECONDARY_SM_CLASSES} inline-flex items-center gap-1.5`}><ChevronLeftIcon className="w-4 h-4" />{t('leads.board.trash.back')}</button>
+            <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.board.trash.title')}</h2>
             {pipelines.length > 1 && (
-              <select value={pipeline?.id || ''} onChange={e => changePipeline(e.target.value)} className={selectCls + ' ml-auto'} title={t('leads.common.pipeline')}>
+              <select value={pipeline?.id || ''} onChange={e => changePipeline(e.target.value)} className={selectCls + ' ml-auto'} title={t('leads.common.pipeline')} aria-label={t('leads.common.pipeline')}>
                 {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             )}
           </div>
-          <p className="mb-3 text-xs px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60">
-            ⏳ {t('leads.board.trash.notice')}
-          </p>
+          <div className="mb-4 flex items-start gap-2 text-sm px-3 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60">
+            <ClockIcon className="w-5 h-5 flex-shrink-0" />
+            <span>{t('leads.board.trash.notice')}</span>
+          </div>
           {trashChecked.size > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-primary/10 border border-primary/30">
-              <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300">{t('leads.board.bulk.selected', { n: trashChecked.size })}</span>
-              <button disabled={trashBusy} onClick={() => restoreLeads(Array.from(trashChecked))} className={BUTTON_SECONDARY_SM_CLASSES}>♻️ {t('leads.board.trash.restore')}</button>
-              <button disabled={trashBusy} onClick={() => setConfirmPurge(Array.from(trashChecked))} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400`}>{t('leads.board.trash.purge')}</button>
-              <button onClick={() => setTrashChecked(new Set())} className="ml-auto text-xs text-neutral-500 hover:underline">{t('leads.board.bulk.clear_selection')}</button>
+            <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-xl bg-primary/10 border border-primary/30">
+              <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300 mr-1">{t('leads.board.bulk.selected', { n: trashChecked.size })}</span>
+              <button disabled={trashBusy} onClick={() => restoreLeads(Array.from(trashChecked))} className={`${bulkBtnCls} disabled:opacity-50`}><ArrowUturnLeftIcon className="w-4 h-4" />{t('leads.board.trash.restore')}</button>
+              <button disabled={trashBusy} onClick={() => setConfirmPurge(Array.from(trashChecked))} className={`${bulkBtnCls} !text-red-600 dark:!text-red-400 disabled:opacity-50`}><DeleteIcon className="w-4 h-4" />{t('leads.board.trash.purge')}</button>
+              <button onClick={() => setTrashChecked(new Set())} className="ml-auto text-sm text-neutral-500 dark:text-neutral-400 hover:underline">{t('leads.board.bulk.clear_selection')}</button>
             </div>
           )}
-          {trashLoading && trash === null ? <LoadingSkeleton variant="cards" count={2} /> : (() => {
-            const rows = trash || [];
-            const allTrashChecked = rows.length > 0 && rows.every(l => trashChecked.has(l.id));
-            return (
-              <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700">
-                    <tr>
-                      <th className="px-3 py-2.5 w-8"><input type="checkbox" checked={allTrashChecked} onChange={() => setTrashChecked(allTrashChecked ? new Set() : new Set(rows.map(l => l.id)))} className="h-4 w-4" aria-label={t('leads.board.select_all')} /></th>
-                      {['leads.board.col.name', 'leads.common.company', 'leads.common.value', 'leads.board.trash.col.deleted', 'leads.board.trash.col.days_left', 'leads.board.trash.col.actions'].map(k => t(k)).map(h => (
-                        <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
-                    {rows.map(l => {
-                      const deletedAt = l.archivedAt ? new Date(l.archivedAt) : null;
-                      const left = deletedAt ? Math.max(0, TRASH_DAYS - Math.floor((Date.now() - deletedAt.getTime()) / DAY)) : TRASH_DAYS;
-                      return (
-                        <tr key={l.id} className={trashChecked.has(l.id) ? 'bg-primary/5' : ''}>
-                          <td className="px-3 py-2"><input type="checkbox" checked={trashChecked.has(l.id)} onChange={() => setTrashChecked(prev => { const n = new Set(prev); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })} className="h-4 w-4" aria-label={t('leads.board.select_one', { name: l.name })} /></td>
-                          <td className="px-3 py-2 text-neutral-800 dark:text-neutral-100 whitespace-nowrap"><span translate="no">{l.name} {l.lastName}</span></td>
-                          <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400"><span translate="no">{l.companyName || '—'}</span></td>
-                          <td className="px-3 py-2 tabular-nums">{l.value != null ? money(l.value) : '—'}</td>
-                          <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{deletedAt ? deletedAt.toLocaleDateString() : '—'}</td>
-                          <td className={`px-3 py-2 whitespace-nowrap text-xs ${left <= 3 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-500 dark:text-neutral-400'}`}>
-                            <span translate="no">{left === 0 ? t('leads.board.trash.today') : t('leads.board.trash.days_left', { n: left })}</span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-2 whitespace-nowrap">
-                              <button disabled={trashBusy} onClick={() => restoreLeads([l.id])} className="text-xs font-medium text-primary dark:text-teal-300 hover:underline disabled:opacity-50">♻️ {t('leads.board.trash.restore')}</button>
-                              <button disabled={trashBusy} onClick={() => setConfirmPurge([l.id])} className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline disabled:opacity-50">{t('leads.board.trash.purge')}</button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {rows.length === 0 && <tr><td colSpan={7} className="px-3 py-10 text-center text-neutral-400">{t('leads.board.trash.empty')}</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
+          {trashLoading && trash === null ? <LoadingSkeleton variant="table" rows={4} /> : (trash || []).length === 0 ? emptyBlock(t('leads.board.trash.empty')) : (
+            <DataTable<Lead>
+              tableId="leads-trash"
+              data={trash || []}
+              columns={trashColumns}
+              searchable={false}
+              selectedIds={Array.from(trashChecked)}
+              onSelectionChange={ids => setTrashChecked(new Set(ids))}
+              actions={l => (
+                <div className="flex space-x-1">
+                  <button disabled={trashBusy} onClick={() => restoreLeads([l.id])} className="text-primary hover:text-secondary dark:text-teal-300 p-1 disabled:opacity-30 disabled:cursor-not-allowed" title={t('leads.board.trash.restore')} aria-label={t('leads.board.trash.restore')}><ArrowUturnLeftIcon className="w-5 h-5" /></button>
+                  <button disabled={trashBusy} onClick={() => setConfirmPurge([l.id])} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 p-1 disabled:opacity-30 disabled:cursor-not-allowed" title={t('leads.board.trash.purge')} aria-label={t('leads.board.trash.purge')}><DeleteIcon className="w-5 h-5" /></button>
+                </div>
+              )}
+            />
+          )}
         </div>
       ) : view === 'board' ? (
         <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 items-start snap-x snap-mandatory md:snap-none scroll-smooth -mx-1 px-1">
@@ -596,23 +788,25 @@ export const LeadsPage: React.FC = () => {
             const total = list.reduce((a, l) => a + (l.value || 0), 0);
             return (
               <div key={stage.id} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleDrop(stage.id); }} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-[85vw] max-w-[20rem] sm:w-72 flex-shrink-0 max-h-[75vh] snap-start">
-                <div className="mb-2 px-2">
-                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex justify-between items-center text-sm gap-2">
-                    <span className="flex items-center gap-1.5 min-w-0"><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: stage.color || '#94a3b8' }} /><span className="truncate" translate="no">{stage.name}</span></span>
-                    <span translate="no" className="text-xs text-gray-500 flex-shrink-0">{list.length}</span>
+                <div className="mb-3 px-2">
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex justify-between items-center text-lg gap-1">
+                    <span className="flex items-center gap-2 min-w-0"><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: stage.color || '#94a3b8' }} /><span className="truncate" translate="no" title={stage.name}>{stage.name}</span></span>
+                    <span translate="no" className="text-sm text-gray-500 flex-shrink-0">{list.length}</span>
                   </h3>
-                  {total > 0 && <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">{money(total)}{stage.type === 'open' && stage.probability != null ? t('leads.board.weighted', { value: money(total * (stage.probability / 100)) }) : ''}</p>}
+                  {total > 0 && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5"><span translate="no">{money(total)}{stage.type === 'open' && stage.probability != null ? t('leads.board.weighted', { value: money(total * (stage.probability / 100)) }) : ''}</span></p>}
                 </div>
-                <div className="space-y-2 overflow-y-auto flex-grow min-h-[80px] p-1">
+                <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
                   {list.map(lead => {
-                    const overdue = lead.status === 'open' && lead.nextActionAt && new Date(lead.nextActionAt).getTime() < Date.now();
+                    const overdue = lead.status === 'open' && !!lead.nextActionAt && new Date(lead.nextActionAt).getTime() < Date.now();
                     const cold = isCold(lead);
+                    const assigneeLabel = empName(lead.assignedUserId);
+                    const showChips = !!lead.nextActionAt || (!!lead.expectedCloseAt && lead.status === 'open') || cold;
                     return (
                       <div key={lead.id} draggable={canMove}
                         onDragStart={e => { if (!canMove) return; e.dataTransfer.setData('text/plain', lead.id); e.dataTransfer.effectAllowed = 'move'; setDraggedId(lead.id); }}
                         onDragEnd={() => setDraggedId(null)}
                         onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop(stage.id, lead.id); }} onClick={() => setSelected(lead)}
-                        className={`relative bg-white dark:bg-slate-700 p-3 rounded-lg shadow hover:shadow-lg cursor-pointer border-l-4 ${draggedId === lead.id ? 'opacity-50' : ''}`} style={{ borderLeftColor: stage.color || '#94a3b8' }}>
+                        className={`relative bg-white dark:bg-slate-700 rounded-lg shadow hover:shadow-lg ${canMove ? 'cursor-grab' : 'cursor-pointer'} border-l-4 transition-all duration-150 overflow-hidden ${draggedId === lead.id ? 'opacity-50' : ''}`} style={{ borderLeftColor: stage.color || '#94a3b8' }}>
                         {compact && canMove && (
                           <button
                             type="button"
@@ -625,65 +819,63 @@ export const LeadsPage: React.FC = () => {
                             aria-label={t('leads.board.move.button')}
                           >⇄</button>
                         )}
-                        <p className={`text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate ${compact && canMove ? 'pr-9' : ''}`}><span translate="no">{lead.name} {lead.lastName}</span></p>
-                        {lead.companyName && <p className={`text-xs text-neutral-500 dark:text-neutral-400 truncate ${compact && canMove ? 'pr-9' : ''}`}><span translate="no">{lead.companyName}</span></p>}
-                        {(lead.tagIds || []).length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {(lead.tagIds || []).slice(0, 3).map(id => { const t = tags.find(x => x.id === id); return t ? <TagChip key={id} tag={t} small /> : null; })}
-                            {(lead.tagIds || []).length > 3 && <span className="text-[10px] text-neutral-400">+{(lead.tagIds || []).length - 3}</span>}
+                        <div className="p-3">
+                          <p className={`text-sm font-medium text-neutral-800 dark:text-neutral-100 leading-snug truncate ${compact && canMove ? 'pr-9' : ''}`}><span translate="no">{lead.name} {lead.lastName}</span></p>
+                          {lead.companyName && <p className={`text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate ${compact && canMove ? 'pr-9' : ''}`}><span translate="no">{lead.companyName}</span></p>}
+                          {(lead.tagIds || []).length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {(lead.tagIds || []).slice(0, 3).map(id => { const tg = tags.find(x => x.id === id); return tg ? <TagChip key={id} tag={tg} small /> : null; })}
+                              {(lead.tagIds || []).length > 3 && <span className="text-[10px] text-neutral-400">+{(lead.tagIds || []).length - 3}</span>}
+                            </div>
+                          )}
+                          {showChips && (
+                            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                              {lead.nextActionAt && (
+                                <span className={`${CARD_CHIP_CLS} ${overdue ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'}`}>
+                                  {overdue ? <ExclamationTriangleIcon className="w-3 h-3" /> : <ClockIcon className="w-3 h-3" />}
+                                  {new Date(lead.nextActionAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              {lead.expectedCloseAt && lead.status === 'open' && (
+                                <span className={`${CARD_CHIP_CLS} bg-neutral-100 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-300`}>
+                                  <CalendarDaysIcon className="w-3 h-3" />
+                                  {new Date(lead.expectedCloseAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              {cold && <span className={`${CARD_CHIP_CLS} bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300`} title={t('leads.board.no_recent_activity')}><span translate="no">{t('leads.board.cold_badge')}</span></span>}
+                            </div>
+                          )}
+                          <div className="mt-2.5 flex items-center justify-between gap-2">
+                            {lead.value != null ? <span className="text-sm font-bold text-primary dark:text-teal-300 tabular-nums">{money(lead.value)}</span> : <span />}
+                            <span className="flex items-center gap-1.5 min-w-0" title={assigneeLabel}>
+                              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate max-w-[110px]"><span translate="no">{assigneeLabel}</span></span>
+                              <span className={`h-5 w-5 rounded-full ring-2 ring-white dark:ring-slate-700 text-[9px] font-bold flex items-center justify-center flex-shrink-0 ${lead.assignedUserId ? 'bg-primary text-white' : 'bg-neutral-200 text-neutral-500 dark:bg-neutral-600 dark:text-neutral-300'}`} aria-hidden>
+                                <span translate="no">{lead.assignedUserId ? initials(assigneeLabel) : '–'}</span>
+                              </span>
+                            </span>
                           </div>
-                        )}
-                        <div className="flex items-center justify-between mt-2 gap-2">
-                          {lead.value != null ? <span className="text-xs font-bold text-primary dark:text-teal-300">{money(lead.value)}</span> : <span />}
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300 truncate max-w-[120px]"><span translate="no">{empName(lead.assignedUserId)}</span></span>
-                        </div>
-                        <div className="flex flex-wrap gap-x-2 mt-1">
-                          {lead.nextActionAt && <span className={`text-[10px] ${overdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>⏰ {new Date(lead.nextActionAt).toLocaleDateString()}</span>}
-                          {lead.expectedCloseAt && lead.status === 'open' && <span className="text-[10px] text-neutral-500 dark:text-neutral-400">🎯 {new Date(lead.expectedCloseAt).toLocaleDateString()}</span>}
-                          {cold && <span className="text-[10px] text-sky-600 dark:text-sky-400" title={t('leads.board.no_recent_activity')}>{t('leads.board.cold_badge')}</span>}
                         </div>
                       </div>
                     );
                   })}
-                  {list.length === 0 && <p className="text-[11px] text-neutral-400 text-center py-4">{compact ? '—' : t('leads.board.drop_here')}</p>}
+                  {list.length === 0 && <p className="text-xs text-neutral-400 text-center py-4">{compact ? '—' : t('leads.board.drop_here')}</p>}
                 </div>
               </div>
             );
           })}
         </div>
+      ) : filtered.length === 0 ? (
+        emptyBlock(filtersActive ? t('leads.board.empty_filtered') : t('leads.board.empty'))
       ) : (
-        <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700">
-              <tr>
-                <th className="px-3 py-2.5 w-8"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="h-4 w-4" aria-label={t('leads.board.select_all')} /></th>
-                {['leads.board.col.name', 'leads.common.company', 'leads.common.stage', 'leads.common.value', 'leads.common.assignee', 'leads.common.tags', 'leads.board.col.status', 'leads.board.col.next_action'].map(k => t(k)).map(h => (
-                  <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
-              {filtered.map(l => {
-                const st = stages.find(s => s.id === l.stageId);
-                const overdue = l.status === 'open' && l.nextActionAt && new Date(l.nextActionAt).getTime() < Date.now();
-                return (
-                  <tr key={l.id} onClick={() => setSelected(l)} className={`hover:bg-neutral-50 dark:hover:bg-neutral-700/30 cursor-pointer ${checked.has(l.id) ? 'bg-primary/5' : ''}`}>
-                    <td className="px-3 py-2" onClick={e => e.stopPropagation()}><input type="checkbox" checked={checked.has(l.id)} onChange={() => toggleCheck(l.id)} className="h-4 w-4" aria-label={t('leads.board.select_one', { name: l.name })} /></td>
-                    <td className="px-3 py-2 text-neutral-800 dark:text-neutral-100"><span translate="no">{l.name} {l.lastName}</span>{isCold(l) && <span className="ml-1 text-[10px]" title={t('leads.board.no_followup')}>❄️</span>}</td>
-                    <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{l.companyName || '—'}</td>
-                    <td className="px-3 py-2"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: st?.color || '#94a3b8' }} />{st?.name || '—'}</span></td>
-                    <td className="px-3 py-2 tabular-nums">{l.value != null ? money(l.value) : '—'}</td>
-                    <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{empName(l.assignedUserId)}</td>
-                    <td className="px-3 py-2"><div className="flex flex-wrap gap-1">{(l.tagIds || []).map(id => { const t = tags.find(x => x.id === id); return t ? <TagChip key={id} tag={t} small /> : null; })}</div></td>
-                    <td className="px-3 py-2">{l.status === 'won' ? `✅ ${t('leads.common.status.won')}` : l.status === 'lost' ? `❌ ${t('leads.common.status.lost')}` : `🟦 ${t('leads.common.status.open')}`}</td>
-                    <td className={`px-3 py-2 text-xs ${overdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-500'}`}>{l.nextActionAt ? new Date(l.nextActionAt).toLocaleDateString() : '—'}</td>
-                  </tr>
-                );
-              })}
-              {filtered.length === 0 && <tr><td colSpan={9} className="px-3 py-10 text-center text-neutral-400">{filtersActive ? t('leads.board.empty_filtered') : t('leads.board.empty')}</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <DataTable<Lead>
+          tableId="leads-list"
+          data={filtered}
+          columns={listColumns}
+          searchable={false}
+          onRowClick={l => setSelected(l)}
+          selectedIds={Array.from(checked)}
+          onSelectionChange={ids => setChecked(new Set(ids))}
+        />
       )}
 
       {selected && (
@@ -735,26 +927,35 @@ export const LeadsPage: React.FC = () => {
 
       {/* Acciones masivas */}
       <Modal isOpen={!!bulkModal} onClose={() => setBulkModal(null)} title={bulkModal === 'assign' ? t('leads.board.bulk.title_assign') : bulkModal === 'stage' ? t('leads.board.bulk.title_stage') : t('leads.board.bulk.title_tag')} size="sm">
-        <div className="space-y-3">
-          <p className="text-sm text-neutral-600 dark:text-neutral-300"><span translate="no">{t('leads.board.bulk.count_selected', { n: checked.size })}</span></p>
+        <div>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4"><span translate="no">{t('leads.board.bulk.count_selected', { n: checked.size })}</span></p>
           {bulkModal === 'assign' && (
-            <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
-              <option value="">{t('leads.common.unassigned')}</option>
-              {assignees.map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
-            </select>
+            <div>
+              <label htmlFor="leads-bulk-value" className={FIELD_LABEL_CLS}>{t('leads.common.assignee')}</label>
+              <select id="leads-bulk-value" value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
+                <option value="">{t('leads.common.unassigned')}</option>
+                {assignees.map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
+              </select>
+            </div>
           )}
           {bulkModal === 'stage' && (
-            <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
-              {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <div>
+              <label htmlFor="leads-bulk-value" className={FIELD_LABEL_CLS}>{t('leads.common.stage')}</label>
+              <select id="leads-bulk-value" value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
+                {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
           )}
           {bulkModal === 'tag' && (
-            <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
-              {tags.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
-            </select>
+            <div>
+              <label htmlFor="leads-bulk-value" className={FIELD_LABEL_CLS}>{t('leads.common.tags')}</label>
+              <select id="leads-bulk-value" value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
+                {tags.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
+              </select>
+            </div>
           )}
-          <div className="flex justify-end gap-2">
-            {bulkModal === 'tag' && <button onClick={() => runBulk('untag', { tagId: bulkValue })} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.untag')}</button>}
+          <div className={MODAL_FOOTER_CLS}>
+            {bulkModal === 'tag' && <button onClick={() => runBulk('untag', { tagId: bulkValue })} className={`${BUTTON_SECONDARY_SM_CLASSES} mr-auto`}>{t('leads.board.bulk.untag')}</button>}
             <button onClick={() => setBulkModal(null)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
             <button
               onClick={() => bulkModal === 'assign' ? runBulk('assign', { userId: bulkValue || null }) : bulkModal === 'stage' ? runBulk('stage', { stageId: bulkValue }) : runBulk('tag', { tagId: bulkValue })}
@@ -784,7 +985,7 @@ export const LeadsPage: React.FC = () => {
                   <span translate="no" className="font-semibold">{ml.name} {ml.lastName}</span>
                   {ml.companyName && <span translate="no" className="text-neutral-400"> · {ml.companyName}</span>}
                 </p>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {stages.map(s => {
                     const current = s.id === ml.stageId;
                     return (
@@ -793,15 +994,16 @@ export const LeadsPage: React.FC = () => {
                         type="button"
                         disabled={current}
                         onClick={() => { setMoveForId(null); moveLead(ml.id, s.id); }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-3 rounded-lg text-left text-sm border transition ${current
+                        className={`w-full flex items-center gap-2.5 px-3 py-3 rounded-lg text-left text-sm border transition-colors ${current
                           ? 'border-primary/40 bg-primary/10 text-primary dark:text-teal-300 font-semibold cursor-default'
-                          : 'border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 active:bg-neutral-100 dark:active:bg-neutral-700'}`}
+                          : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 active:bg-neutral-100 dark:active:bg-neutral-700'}`}
                       >
-                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: s.color || '#94a3b8' }} />
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color || '#94a3b8' }} />
                         <span translate="no" className="flex-1 truncate">{s.name}</span>
-                        {s.type === 'won' && <span aria-hidden>✅</span>}
-                        {s.type === 'lost' && <span aria-hidden>❌</span>}
-                        {current && <span className="text-[11px] font-semibold">✓ {t('leads.board.move.current')}</span>}
+                        {(s.type === 'won' || s.type === 'lost') && (
+                          <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${STATUS_BADGE_CLS[s.type]}`}><span translate="no">{statusLabel(s.type)}</span></span>
+                        )}
+                        {current && <span className="text-[11px] font-semibold flex-shrink-0">✓ {t('leads.board.move.current')}</span>}
                       </button>
                     );
                   })}
@@ -889,17 +1091,17 @@ const CreateLeadModal: React.FC<{
     finally { setSaving(false); }
   };
 
-  const lbl = (text: string) => <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{text}</label>;
+  const lbl = (text: string) => <label className={FIELD_LABEL_CLS}>{text}</label>;
 
   return (
     <Modal isOpen={true} onClose={onClose} title={t('leads.board.new_lead')} size="lg">
-      <div className="space-y-3">
+      <div className="space-y-4">
         {clientId && (
-          <p className="text-xs px-2.5 py-1.5 rounded-md bg-primary/10 text-primary dark:text-teal-300 border border-primary/30">
-            🔗 <span translate="no">{t('leads.board.create.linked_client', { name: prefill?.clientLabel || clientId })}</span>
+          <p className="text-sm px-3 py-2 rounded-lg bg-primary/10 text-primary dark:text-teal-300 border border-primary/30">
+            <span translate="no">{t('leads.board.create.linked_client', { name: prefill?.clientLabel || clientId })}</span>
           </p>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>{lbl(t('leads.board.create.name_required_label'))}<input autoFocus value={f.name} onChange={e => set('name', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.last_name'))}<input value={f.lastName} onChange={e => set('lastName', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.company'))}<input value={f.companyName} onChange={e => set('companyName', e.target.value)} className={inputFormStyle} /></div>
@@ -940,7 +1142,7 @@ const CreateLeadModal: React.FC<{
           {customFields.map(fd => (
             <div key={fd.id}>{lbl(`${fd.label}${fd.required ? ' *' : ''}`)}
               {fd.type === 'checkbox' ? (
-                <label className="flex items-center gap-2 text-sm mt-2"><input type="checkbox" checked={!!cf[fd.id]} onChange={e => setCf(p => ({ ...p, [fd.id]: e.target.checked }))} className="h-4 w-4" /> {t('leads.common.yes')}</label>
+                <label className="flex items-center gap-2 text-sm mt-2 text-neutral-700 dark:text-neutral-200"><input type="checkbox" checked={!!cf[fd.id]} onChange={e => setCf(p => ({ ...p, [fd.id]: e.target.checked }))} className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary" /> {t('leads.common.yes')}</label>
               ) : fd.type === 'select' ? (
                 <select value={cf[fd.id] ?? ''} onChange={e => setCf(p => ({ ...p, [fd.id]: e.target.value }))} className={inputFormStyle}><option value="">—</option>{(fd.options || []).map(o => <option key={o} value={o}>{o}</option>)}</select>
               ) : (
@@ -948,11 +1150,11 @@ const CreateLeadModal: React.FC<{
               )}
             </div>
           ))}
-          <div className="sm:col-span-2">{lbl(t('leads.common.notes'))}<textarea rows={2} value={f.notes} onChange={e => set('notes', e.target.value)} className={inputFormStyle} /></div>
+          <div className="sm:col-span-2">{lbl(t('leads.common.notes'))}<textarea rows={2} value={f.notes} onChange={e => set('notes', e.target.value)} className={`${inputFormStyle} !h-auto`} /></div>
         </div>
         {dups.length > 0 && (
           <div className="rounded-lg border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-900/20 p-3" role="status" translate="no">
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">{t('leads.board.dup.title')}</p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-200"><ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0" />{t('leads.board.dup.title')}</p>
             <p className="text-xs text-amber-700 dark:text-amber-300/90 mb-2">{t('leads.board.dup.hint')}</p>
             <ul className="space-y-1.5">
               {dups.slice(0, 3).map(d => {
@@ -980,9 +1182,9 @@ const CreateLeadModal: React.FC<{
             {dups.length > 3 && <p className="text-[11px] text-amber-700 dark:text-amber-300/80 mt-1.5"><span translate="no">{t('leads.board.dup.more', { n: dups.length - 3 })}</span></p>}
           </div>
         )}
-        <div className="flex justify-end gap-2 pt-2 border-t dark:border-neutral-700">
+        <div className={MODAL_FOOTER_CLS}>
           <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
-          <button onClick={submit} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('leads.board.create.creating') : t('leads.board.create.submit')}</button>
+          <button onClick={submit} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-60`}>{saving ? t('leads.board.create.creating') : t('leads.board.create.submit')}</button>
         </div>
       </div>
     </Modal>

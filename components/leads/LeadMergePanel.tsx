@@ -4,6 +4,7 @@ import { leadsService } from '../../services/leads';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ConfirmationModal } from '../Modal';
+import { ExclamationTriangleIcon, ChevronDownIcon } from '../icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface Props {
@@ -17,7 +18,9 @@ interface Props {
 
 const fullName = (x: { name: string; lastName?: string | null }) => `${x.name || ''} ${x.lastName || ''}`.trim();
 
-/** Banner ámbar con posibles duplicados del lead y acción "Fusionar aquí". */
+const BADGE = 'inline-flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full';
+
+/** Alerta ámbar (estilo estándar de la app) con posibles duplicados del lead y acción "Fusionar aquí". */
 export const LeadMergePanel: React.FC<Props> = ({ lead, canMerge, stageName, onMerged }) => {
   const { t } = useTranslation();
   const [dups, setDups] = useState<LeadDuplicate[]>([]);
@@ -56,30 +59,36 @@ export const LeadMergePanel: React.FC<Props> = ({ lead, canMerge, stageName, onM
       : 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300';
 
   return (
-    <div className="rounded-md border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-900/20 text-sm">
-      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left">
-        <span className="font-semibold text-amber-800 dark:text-amber-300">⚠️ {t('leads.detail.dup.banner', { count: dups.length })}</span>
-        <span className="text-xs text-amber-700 dark:text-amber-400">{open ? t('leads.detail.dup.hide') : t('leads.detail.dup.show')} {open ? '▲' : '▼'}</span>
+    <div className="rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700">
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-3 p-3 text-left">
+        <span className="flex items-center gap-3 min-w-0">
+          <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <span className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('leads.detail.dup.banner', { count: dups.length })}</span>
+        </span>
+        <span className="flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 flex-shrink-0">
+          {open ? t('leads.detail.dup.hide') : t('leads.detail.dup.show')}
+          <ChevronDownIcon className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
       </button>
       {open && (
-        <ul className="border-t border-amber-200 dark:border-amber-800/60 divide-y divide-amber-200 dark:divide-amber-800/60">
+        <ul className="border-t border-amber-200 dark:border-amber-700 divide-y divide-amber-200 dark:divide-amber-700/60">
           {dups.map(d => (
-            <li key={d.id} className="flex items-center justify-between gap-2 px-3 py-2 flex-wrap">
+            <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5 flex-wrap">
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-neutral-800 dark:text-neutral-100" translate="no">{fullName(d)}</span>
-                  {d.companyName && <span className="text-neutral-500 dark:text-neutral-400" translate="no">· {d.companyName}</span>}
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-800/60 dark:text-amber-200">{t(`leads.detail.dup.reason.${d.reason}`)}</span>
-                  <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${statusCls(d.status)}`}>{t(`leads.common.status.${d.status}`)}</span>
+                  <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100" translate="no">{fullName(d)}</span>
+                  {d.companyName && <span className="text-sm text-neutral-500 dark:text-neutral-400" translate="no">· {d.companyName}</span>}
+                  <span className={`${BADGE} bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300`}>{t(`leads.detail.dup.reason.${d.reason}`)}</span>
+                  <span className={`${BADGE} ${statusCls(d.status)}`}>{t(`leads.common.status.${d.status}`)}</span>
                 </div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   <span translate="no">{[d.email, d.phone || d.whatsapp].filter(Boolean).join(' · ') || '—'}</span>
                   {' · '}{stageName(d.stageId)}
                   {' · '}{t('leads.detail.dup.created', { date: new Date(d.createdAt).toLocaleDateString() })}
-                </div>
+                </p>
               </div>
               {canMerge && (
-                <button type="button" onClick={() => setConfirmFor(d)} disabled={!!mergingId} className="flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50">
+                <button type="button" onClick={() => setConfirmFor(d)} disabled={!!mergingId} className="flex-shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm py-1.5 px-3 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 focus:ring-offset-1 dark:focus:ring-offset-neutral-800 disabled:opacity-50">
                   {mergingId === d.id ? t('leads.detail.dup.merging') : t('leads.detail.dup.merge_here')}
                 </button>
               )}

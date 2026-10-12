@@ -6,7 +6,12 @@ import type { Pipeline, GoalProgressRow } from '../../types';
 import { goalLabel } from './LeadsAutomationTabs';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { MiniChart } from '../../components/pm/MiniChart';
-import { inputFormStyle } from '../../constants';
+import { DataTable, TableColumn } from '../../components/DataTable';
+import {
+  ClipboardDocumentListIcon, BanknotesIcon, XMarkIcon, ChartPieIcon, StarIcon, ChartBarIcon, ClockIcon,
+  CalendarDaysIcon, TagIcon, ExclamationTriangleIcon, UsersIcon,
+} from '../../components/icons';
+import { INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,25 +20,78 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 type Preset = 'all' | '30' | '90' | 'month' | 'year' | 'custom';
 
-const Card: React.FC<{ title: string; children: React.ReactNode; subtitle?: string }> = ({ title, subtitle, children }) => (
+// Paleta del dashboard de Gestión (ProjectsDashboardPage).
+const PRIMARY = '#0D9488';
+const PRIMARY_LIGHT = '#5EEAD4';
+
+// Tabla dentro de una Card: sin la sombra propia de DataTable, con el borde de la app.
+const TABLE_IN_CARD = '!shadow-none border border-neutral-200 dark:border-neutral-700 overflow-hidden';
+
+const pct = (value: number, max: number) => (max > 0 ? Math.max(2, Math.min(100, (value / max) * 100)) : 0);
+
+/** KPI con el mismo diseño que ProjectsDashboardPage. */
+const KpiCard: React.FC<{ label: string; value: string; sub?: string; icon: React.ReactNode }> = ({ label, value, sub, icon }) => (
   <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
-    <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">{title}</h2>
-    {subtitle && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{subtitle}</p>}
-    <div className="mt-3">{children}</div>
+    <div className="flex items-start justify-between">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</p>
+      <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">{icon}</span>
+    </div>
+    <div className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 mt-2 tabular-nums">{value}</div>
+    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{sub || ' '}</p>
   </div>
 );
 
-const Bar: React.FC<{ label: string; value: number; max: number; color?: string; right: string }> = ({ label, value, max, color, right }) => (
-  <div className="py-1">
-    <div className="flex justify-between text-sm mb-0.5 gap-2">
-      <span className="text-neutral-700 dark:text-neutral-200 truncate">{label}</span>
-      <span className="text-neutral-500 dark:text-neutral-400 tabular-nums flex-shrink-0">{right}</span>
+/** Card de sección con el mismo diseño que ProjectsDashboardPage (+ acción opcional a la derecha). */
+const Card: React.FC<{ title: string; subtitle?: string; icon?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }> = ({ title, subtitle, icon, action, children }) => (
+  <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm min-w-0">
+    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div className="flex items-center gap-2 min-w-0">
+        {icon && <span className="text-neutral-400 flex-shrink-0">{icon}</span>}
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">{title}</h2>
+          {subtitle && <p className="text-xs text-neutral-400 dark:text-neutral-500">{subtitle}</p>}
+        </div>
+      </div>
+      {action}
     </div>
-    <div className="h-2.5 w-full bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-      <div className="h-full rounded-full" style={{ width: `${max > 0 ? Math.max(2, (value / max) * 100) : 0}%`, background: color || '#0D9488' }} />
+    {children}
+  </div>
+);
+
+const Empty: React.FC<{ text: string }> = ({ text }) => (
+  <p className="text-sm text-neutral-400 text-center py-6">{text}</p>
+);
+
+/** Fila con barra de progreso al estilo del dashboard (h-1.5, rounded-full). */
+const BarRow: React.FC<{ label: React.ReactNode; value: number; max: number; color?: string; right: string; dot?: string | null }> = ({ label, value, max, color, right, dot }) => (
+  <div className="py-2 px-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700/40 transition-colors">
+    <div className="flex items-center justify-between gap-3 mb-1.5">
+      <span className="flex items-center gap-2 min-w-0">
+        {dot !== undefined && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dot || '#9CA3AF' }} />}
+        <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate">{label}</span>
+      </span>
+      <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums flex-shrink-0">{right}</span>
+    </div>
+    <div className="h-1.5 w-full bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+      <div className="h-full rounded-full" style={{ width: `${pct(value, max)}%`, background: color || PRIMARY }} />
     </div>
   </div>
 );
+
+/** Número + mini barra para columnas de tabla. */
+const InlineBar: React.FC<{ value: number; max: number; color?: string }> = ({ value, max, color }) => (
+  <div className="flex items-center gap-2 min-w-[120px]">
+    <span className="w-8 text-right tabular-nums">{value}</span>
+    <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+      <div className="h-full rounded-full" style={{ width: `${pct(value, max)}%`, background: color || PRIMARY }} />
+    </div>
+  </div>
+);
+
+type PerfRow = PerformanceReport['rows'][number] & { id: string };
+type SourceRow = SourcesReport['rows'][number] & { id: string };
+type LostRow = LostReasonsReport['rows'][number] & { id: string };
+type ForecastRow = ForecastReport['rows'][number] & { id: string };
 
 export const LeadsReportsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -97,23 +155,71 @@ export const LeadsReportsPage: React.FC = () => {
   const lostMax = Math.max(1, ...(lost?.rows || []).map(s => s.count));
   const stageMax = Math.max(1, ...(stageTime?.rows || []).map(s => s.avgDays));
 
+  // Filas con id estable para DataTable.
+  const perfRows: PerfRow[] = useMemo(() => (perf?.rows || []).map((r, i) => ({ ...r, id: r.userId || `row-${i}` })), [perf]);
+  const sourceRows: SourceRow[] = useMemo(() => (sources?.rows || []).map((r, i) => ({ ...r, id: r.sourceId || `src-${i}` })), [sources]);
+  const lostRows: LostRow[] = useMemo(() => (lost?.rows || []).map((r, i) => ({ ...r, id: `${r.reason}-${i}` })), [lost]);
+  const forecastRows: ForecastRow[] = useMemo(() => (forecast?.rows || []).map(r => ({ ...r, id: r.month })), [forecast]);
+  const stageRows = (stageTime?.rows || []).filter(r => r.type !== 'won' && r.type !== 'lost');
+
+  const perfColumns: TableColumn<PerfRow>[] = [
+    { header: t('leads.common.assignee'), accessor: r => <span translate="no">{r.name}</span>, sortKey: 'name', sortable: true, sortValue: r => r.name, filterType: 'none' },
+    { header: t('leads.common.status.open_pl'), accessor: 'open', className: 'tabular-nums' },
+    { header: t('leads.common.status.won_pl'), accessor: r => <span className="text-green-700 dark:text-green-400">{r.won}</span>, sortKey: 'won', sortable: true, sortValue: r => r.won, className: 'tabular-nums' },
+    { header: t('leads.common.status.lost_pl'), accessor: r => <span className="text-red-600 dark:text-red-400">{r.lost}</span>, sortKey: 'lost', sortable: true, sortValue: r => r.lost, className: 'tabular-nums' },
+    { header: t('leads.reports.kpi.conversion'), accessor: r => `${r.conversion}%`, sortKey: 'conversion', sortable: true, sortValue: r => r.conversion, className: 'tabular-nums' },
+    { header: t('leads.common.metric.won_value'), accessor: r => money(r.value), sortKey: 'value', sortable: true, sortValue: r => r.value, className: 'tabular-nums' },
+    { header: t('leads.common.metric.activities'), accessor: 'activities', className: 'tabular-nums' },
+  ];
+
+  const sourceColumns: TableColumn<SourceRow>[] = [
+    { header: t('leads.reports.sources.source'), accessor: r => <span translate="no">{r.name}</span>, sortKey: 'name', sortable: true, sortValue: r => r.name },
+    { header: t('leads.common.leads'), accessor: r => <InlineBar value={r.total} max={sourcesMax} />, sortKey: 'total', sortable: true, sortValue: r => r.total },
+    { header: t('leads.reports.kpi.conversion'), accessor: r => `${r.conversion}%`, sortKey: 'conversion', sortable: true, sortValue: r => r.conversion, className: 'tabular-nums' },
+    { header: t('leads.common.metric.won_value'), accessor: r => money(r.wonValue), sortKey: 'wonValue', sortable: true, sortValue: r => r.wonValue, className: 'tabular-nums' },
+  ];
+
+  const lostColumns: TableColumn<LostRow>[] = [
+    { header: t('leads.reports.lost.reason'), accessor: r => <span translate="no">{r.reason}</span>, sortKey: 'reason', sortable: true, sortValue: r => r.reason, noWrap: false },
+    { header: t('leads.common.leads'), accessor: r => <InlineBar value={r.count} max={lostMax} color="#dc2626" />, sortKey: 'count', sortable: true, sortValue: r => r.count },
+    { header: t('leads.common.value'), accessor: r => money(r.value), sortKey: 'value', sortable: true, sortValue: r => r.value, className: 'tabular-nums' },
+  ];
+
+  const forecastColumns: TableColumn<ForecastRow>[] = [
+    { header: t('leads.reports.forecast.month'), accessor: 'month' },
+    { header: t('leads.common.leads'), accessor: 'count', className: 'tabular-nums' },
+    { header: t('leads.common.value'), accessor: r => money(r.value), sortKey: 'value', sortable: true, sortValue: r => r.value, className: 'tabular-nums' },
+    { header: t('leads.reports.forecast.weighted'), accessor: r => money(r.weighted), sortKey: 'weighted', sortable: true, sortValue: r => r.weighted, className: 'tabular-nums' },
+  ];
+
+  const tableProps = { searchable: false, filterable: false, paginated: false, containerClassName: TABLE_IN_CARD } as const;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {/* Cabecera */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.reports.title')}</h1>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            🕒 <span translate="no">{t('leads.reports.tz_note', { tz: reportTz })}</span>{' '}
-            <button type="button" onClick={() => navigate('/leads/settings?tab=automation')} className="text-primary hover:underline">{t('leads.reports.tz_change')}</button>
+          <h1 className="text-3xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.reports.title')}</h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            <span translate="no">{t('leads.reports.tz_note', { tz: reportTz })}</span>{' '}
+            <button type="button" onClick={() => navigate('/leads/settings?tab=automation')} className="text-primary font-medium hover:underline">{t('leads.reports.tz_change')}</button>
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
-          {pipelines.length > 1 && (
-            <select value={pipelineId} onChange={e => setPipelineId(e.target.value)} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'}>
+      </div>
+
+      {/* Filtros (mismo estilo que Reportes POS) */}
+      <div className="flex flex-wrap gap-2 items-end bg-neutral-50 dark:bg-neutral-700/50 p-3 rounded-md">
+        {pipelines.length > 1 && (
+          <div>
+            <label htmlFor="leads-reports-pipeline" className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('leads.common.pipeline')}</label>
+            <select id="leads-reports-pipeline" value={pipelineId} onChange={e => setPipelineId(e.target.value)} className={INPUT_SM_CLASSES}>
               {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-          )}
-          <select value={preset} onChange={e => setPreset(e.target.value as Preset)} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'}>
+          </div>
+        )}
+        <div>
+          <label htmlFor="leads-reports-range" className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('leads.reports.range.label')}</label>
+          <select id="leads-reports-range" value={preset} onChange={e => setPreset(e.target.value as Preset)} className={INPUT_SM_CLASSES}>
             <option value="all">{t('leads.reports.range.all')}</option>
             <option value="30">{t('leads.reports.range.last30')}</option>
             <option value="90">{t('leads.reports.range.last90')}</option>
@@ -121,50 +227,48 @@ export const LeadsReportsPage: React.FC = () => {
             <option value="year">{t('leads.reports.range.year')}</option>
             <option value="custom">{t('leads.reports.range.custom')}</option>
           </select>
-          {preset === 'custom' && (
-            <>
-              <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'} aria-label={t('leads.reports.range.from')} />
-              <input type="date" value={to} onChange={e => setTo(e.target.value)} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'} aria-label={t('leads.reports.range.to')} />
-            </>
-          )}
         </div>
+        {preset === 'custom' && (
+          <>
+            <div>
+              <label htmlFor="leads-reports-from" className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('leads.reports.range.from')}</label>
+              <input id="leads-reports-from" type="date" value={from} onChange={e => setFrom(e.target.value)} className={INPUT_SM_CLASSES} />
+            </div>
+            <div>
+              <label htmlFor="leads-reports-to" className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('leads.reports.range.to')}</label>
+              <input id="leads-reports-to" type="date" value={to} onChange={e => setTo(e.target.value)} className={INPUT_SM_CLASSES} />
+            </div>
+          </>
+        )}
+        <p className="basis-full text-xs text-neutral-500 dark:text-neutral-400">{t('leads.reports.range_hint')}</p>
       </div>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 -mt-4">{t('leads.reports.range_hint')}</p>
 
-      {loading ? <div className="space-y-4"><LoadingSkeleton variant="block" /><LoadingSkeleton variant="table" rows={5} /></div> : (
+      {loading ? (
+        <div className="space-y-6"><LoadingSkeleton variant="cards" count={4} /><LoadingSkeleton variant="table" rows={5} /></div>
+      ) : (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: t('leads.common.status.open_pl'), value: String(totals?.open ?? 0), sub: money(totals?.openValue ?? 0) },
-              { label: t('leads.common.status.won_pl'), value: String(totals?.won ?? 0), sub: money(totals?.wonValue ?? 0) },
-              { label: t('leads.common.status.lost_pl'), value: String(totals?.lost ?? 0), sub: '' },
-              { label: t('leads.reports.kpi.conversion'), value: `${totals?.conversion ?? 0}%`, sub: t('leads.reports.kpi.conversion_sub') },
-            ].map((k, i) => (
-              <div key={i} className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">{k.label}</p>
-                <p className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 mt-1 tabular-nums">{k.value}</p>
-                {k.sub && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{k.sub}</p>}
-              </div>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard label={t('leads.common.status.open_pl')} value={String(totals?.open ?? 0)} sub={money(totals?.openValue ?? 0)} icon={<ClipboardDocumentListIcon className="w-4 h-4" />} />
+            <KpiCard label={t('leads.common.status.won_pl')} value={String(totals?.won ?? 0)} sub={money(totals?.wonValue ?? 0)} icon={<BanknotesIcon className="w-4 h-4" />} />
+            <KpiCard label={t('leads.common.status.lost_pl')} value={String(totals?.lost ?? 0)} icon={<XMarkIcon className="w-4 h-4" />} />
+            <KpiCard label={t('leads.reports.kpi.conversion')} value={`${totals?.conversion ?? 0}%`} sub={t('leads.reports.kpi.conversion_sub')} icon={<ChartPieIcon className="w-4 h-4" />} />
           </div>
 
           {/* Metas del mes */}
-          <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.reports.goals.title')}</h2>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{t('leads.reports.goals.hint')}</p>
-              </div>
-              <input type="month" value={goalPeriod} onChange={e => e.target.value && setGoalPeriod(e.target.value)} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'} />
-            </div>
-            {goals.length === 0 ? <p className="text-sm text-neutral-400 mt-3">{t('leads.reports.goals.empty')}</p> : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+          <Card
+            title={t('leads.reports.goals.title')}
+            subtitle={t('leads.reports.goals.hint')}
+            icon={<StarIcon className="w-5 h-5" />}
+            action={<input type="month" value={goalPeriod} onChange={e => e.target.value && setGoalPeriod(e.target.value)} className={INPUT_SM_CLASSES} aria-label={t('leads.reports.goals.title')} />}
+          >
+            {goals.length === 0 ? <Empty text={t('leads.reports.goals.empty')} /> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {goals.map(r => (
-                  <div key={r.userId} className="p-3 rounded-lg border border-neutral-100 dark:border-neutral-700">
-                    <p className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 mb-1"><span translate="no">{r.name}</span></p>
+                  <div key={r.userId} className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
+                    <p className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 px-2 mb-1 truncate"><span translate="no">{r.name}</span></p>
                     {r.goals.map(g => (
-                      <Bar key={g.metric} label={goalLabel(t, g.metric)} value={Math.min(g.actual, g.target)} max={g.target}
+                      <BarRow key={g.metric} label={goalLabel(t, g.metric)} value={Math.min(g.actual, g.target)} max={g.target}
                         color={g.pct >= 100 ? '#16a34a' : g.pct >= 60 ? '#f59e0b' : '#dc2626'}
                         right={`${g.metric === 'won_value' ? money(g.actual) : g.actual} / ${g.metric === 'won_value' ? money(g.target) : g.target} · ${g.pct}%`} />
                     ))}
@@ -172,89 +276,67 @@ export const LeadsReportsPage: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card title={t('leads.reports.funnel.title')} subtitle={t('leads.reports.funnel.subtitle', { value: money(totals?.weightedPipeline ?? 0) })}>
-              {(funnel?.funnel || []).map(s => (
-                <Bar key={s.stageId} label={s.name} value={s.count} max={funnelMax} color={s.color || undefined} right={`${s.count} · ${money(s.value)}`} />
-              ))}
-              {!(funnel?.funnel || []).length && <p className="text-sm text-neutral-400">{t('leads.reports.no_data')}</p>}
+            <Card title={t('leads.reports.funnel.title')} subtitle={t('leads.reports.funnel.subtitle', { value: money(totals?.weightedPipeline ?? 0) })} icon={<ChartBarIcon className="w-5 h-5" />}>
+              {(funnel?.funnel || []).length === 0 ? <Empty text={t('leads.reports.no_data')} /> : (
+                <div className="space-y-0.5">
+                  {(funnel?.funnel || []).map(s => (
+                    <BarRow key={s.stageId} label={<span translate="no">{s.name}</span>} dot={s.color || null} value={s.count} max={funnelMax} right={`${s.count} · ${money(s.value)}`} />
+                  ))}
+                </div>
+              )}
             </Card>
 
-            <Card title={t('leads.reports.stage_time.title')} subtitle={t('leads.reports.stage_time.subtitle')}>
-              {(stageTime?.rows || []).filter(r => r.type !== 'won' && r.type !== 'lost').map(r => (
-                <Bar key={r.stageId} label={r.name} value={r.avgDays} max={stageMax} color="#6366f1" right={r.samples ? t('leads.reports.stage_time.right', { days: r.avgDays, samples: r.samples }) : '—'} />
-              ))}
-              {!(stageTime?.rows || []).length && <p className="text-sm text-neutral-400">{t('leads.reports.no_data')}</p>}
+            <Card title={t('leads.reports.stage_time.title')} subtitle={t('leads.reports.stage_time.subtitle')} icon={<ClockIcon className="w-5 h-5" />}>
+              {stageRows.length === 0 ? <Empty text={t('leads.reports.no_data')} /> : (
+                <div className="space-y-0.5">
+                  {stageRows.map(r => (
+                    <BarRow key={r.stageId} label={<span translate="no">{r.name}</span>} value={r.avgDays} max={stageMax} color={PRIMARY_LIGHT} right={r.samples ? t('leads.reports.stage_time.right', { days: r.avgDays, samples: r.samples }) : '—'} />
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 
-          <Card title={t('leads.reports.forecast.title')} subtitle={t('leads.reports.forecast.subtitle')}>
-            {(forecast?.rows || []).length > 0 ? (
-              <>
+          <Card title={t('leads.reports.forecast.title')} subtitle={t('leads.reports.forecast.subtitle')} icon={<CalendarDaysIcon className="w-5 h-5" />}>
+            {forecastRows.length === 0 ? <Empty text={t('leads.reports.forecast.empty')} /> : (
+              <div className="space-y-4">
                 <MiniChart
-                  labels={(forecast?.rows || []).map(r => { const [y, m] = r.month.split('-'); return `${MONTHS[Number(m) - 1]} ${y.slice(2)}`; })}
+                  labels={forecastRows.map(r => { const [y, m] = r.month.split('-'); return `${MONTHS[Number(m) - 1]} ${y.slice(2)}`; })}
                   series={[
-                    { label: t('leads.common.value'), color: '#0D9488', values: (forecast?.rows || []).map(r => r.value) },
-                    { label: t('leads.reports.forecast.weighted'), color: '#6366f1', values: (forecast?.rows || []).map(r => r.weighted) },
+                    { label: t('leads.common.value'), color: PRIMARY, values: forecastRows.map(r => r.value) },
+                    { label: t('leads.reports.forecast.weighted'), color: PRIMARY_LIGHT, values: forecastRows.map(r => r.weighted) },
                   ]}
                   area
                   height={210}
                   formatY={(n) => money(n)}
                 />
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead><tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400"><th className="py-1.5 pr-3">{t('leads.reports.forecast.month')}</th><th className="py-1.5 pr-3">{t('leads.common.leads')}</th><th className="py-1.5 pr-3">{t('leads.common.value')}</th><th className="py-1.5">{t('leads.reports.forecast.weighted')}</th></tr></thead>
-                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
-                      {(forecast?.rows || []).map(r => (
-                        <tr key={r.month}><td className="py-1.5 pr-3">{r.month}</td><td className="py-1.5 pr-3 tabular-nums">{r.count}</td><td className="py-1.5 pr-3 tabular-nums">{money(r.value)}</td><td className="py-1.5 tabular-nums">{money(r.weighted)}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : <p className="text-sm text-neutral-400">{t('leads.reports.forecast.empty')}</p>}
+                <DataTable<ForecastRow> data={forecastRows} columns={forecastColumns} tableId="leads-reports-forecast" {...tableProps} />
+              </div>
+            )}
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card title={t('leads.reports.sources.title')} subtitle={t('leads.reports.sources.subtitle')}>
-              {(sources?.rows || []).map(r => (
-                <Bar key={r.sourceId} label={r.name} value={r.total} max={sourcesMax} color="#0ea5e9" right={t('leads.reports.sources.right', { total: r.total, conversion: r.conversion, value: money(r.wonValue) })} />
-              ))}
-              {!(sources?.rows || []).length && <p className="text-sm text-neutral-400">{t('leads.reports.no_data')}</p>}
+            <Card title={t('leads.reports.sources.title')} subtitle={t('leads.reports.sources.subtitle')} icon={<TagIcon className="w-5 h-5" />}>
+              {sourceRows.length === 0 ? <Empty text={t('leads.reports.no_data')} /> : (
+                <DataTable<SourceRow> data={sourceRows} columns={sourceColumns} tableId="leads-reports-sources" {...tableProps} />
+              )}
             </Card>
 
-            <Card title={t('leads.reports.lost.title')}>
-              {(lost?.rows || []).map(r => (
-                <Bar key={r.reason} label={r.reason} value={r.count} max={lostMax} color="#dc2626" right={`${r.count} · ${money(r.value)}`} />
-              ))}
-              {!(lost?.rows || []).length && <p className="text-sm text-neutral-400">{t('leads.reports.lost.empty')}</p>}
+            <Card title={t('leads.reports.lost.title')} icon={<ExclamationTriangleIcon className="w-5 h-5" />}>
+              {lostRows.length === 0 ? <Empty text={t('leads.reports.lost.empty')} /> : (
+                <DataTable<LostRow> data={lostRows} columns={lostColumns} tableId="leads-reports-lost" {...tableProps} />
+              )}
             </Card>
           </div>
 
-          <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-x-auto shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 p-5 pb-3">{t('leads.reports.perf.title')}</h2>
-            <table className="min-w-full text-sm">
-              <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-y border-neutral-200 dark:border-neutral-700">
-                <tr>{[t('leads.common.assignee'), t('leads.common.status.open_pl'), t('leads.common.status.won_pl'), t('leads.common.status.lost_pl'), t('leads.reports.kpi.conversion'), t('leads.common.metric.won_value'), t('leads.common.metric.activities')].map(h => <th key={h} className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
-                {(perf?.rows || []).map((r, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-2 text-neutral-800 dark:text-neutral-100"><span translate="no">{r.name}</span></td>
-                    <td className="px-4 py-2 tabular-nums">{r.open}</td>
-                    <td className="px-4 py-2 tabular-nums text-green-700 dark:text-green-400">{r.won}</td>
-                    <td className="px-4 py-2 tabular-nums text-red-600 dark:text-red-400">{r.lost}</td>
-                    <td className="px-4 py-2 tabular-nums">{r.conversion}%</td>
-                    <td className="px-4 py-2 tabular-nums">{money(r.value)}</td>
-                    <td className="px-4 py-2 tabular-nums">{r.activities}</td>
-                  </tr>
-                ))}
-                {(perf?.rows || []).length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-neutral-400">{t('leads.reports.no_data')}</td></tr>}
-              </tbody>
-            </table>
-          </div>
+          <Card title={t('leads.reports.perf.title')} icon={<UsersIcon className="w-5 h-5" />}>
+            {perfRows.length === 0 ? <Empty text={t('leads.reports.no_data')} /> : (
+              <DataTable<PerfRow> data={perfRows} columns={perfColumns} tableId="leads-reports-perf" {...tableProps} />
+            )}
+          </Card>
         </>
       )}
     </div>

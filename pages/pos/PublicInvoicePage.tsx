@@ -7,7 +7,7 @@ import { AthMovilPhonePay } from '../../components/pos/AthMovilPhonePay';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
-import { ApiError } from '../../services/api';
+import { ApiError, API_URL } from '../../services/api';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
@@ -104,8 +104,35 @@ export const PublicInvoicePage: React.FC = () => {
 
     // Descarga el PDF generado en el navegador (mismo diseño del correo). Antes usaba el endpoint
     // del servidor, que devolvía 502 cuando el backend se quedaba sin memoria en Render.
-    const downloadPDF = () => {
-        if (inv && cfg) generatePDF(saleFrom(inv), cfg);
+    // Safari en iPhone/iPad bloquea descargas que ocurren tras esperas asíncronas (carga de jsPDF,
+    // logo…): allí se abre una pestaña EN EL MISMO CLIC y luego se le carga el PDF. Si la
+    // generación falla, se usa el PDF del servidor como respaldo.
+    const [pdfBusy, setPdfBusy] = useState(false);
+    const downloadPDF = async () => {
+        if (!inv || !cfg || pdfBusy) return;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const win = isIOS ? window.open('', '_blank') : null;
+        const fileName = `factura-${inv.number || inv.id.slice(0, 8)}.pdf`;
+        const serverPdf = `${API_URL}/public/invoices/${encodeURIComponent(token || '')}/pdf`;
+        setPdfBusy(true);
+        try {
+            const blob = await generatePDF(saleFrom(inv), cfg, { returnBlob: true });
+            if (!(blob instanceof Blob)) throw new Error('PDF vacío');
+            const url = URL.createObjectURL(blob);
+            if (win) {
+                win.location.href = url;
+            } else {
+                const a = document.createElement('a');
+                a.href = url; a.download = fileName; a.rel = 'noopener';
+                document.body.appendChild(a); a.click(); a.remove();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch (e) {
+            console.error('PDF local falló, usando el del servidor:', e);
+            if (win) win.location.href = serverPdf; else window.open(serverPdf, '_blank') || (window.location.href = serverPdf);
+        } finally {
+            setPdfBusy(false);
+        }
     };
 
     if (loading) {
@@ -219,7 +246,7 @@ export const PublicInvoicePage: React.FC = () => {
                                 <div className="flex justify-between"><span className="text-neutral-600 dark:text-neutral-300">{t('pay.paid')}</span><span className="font-semibold text-green-700 dark:text-green-300 tabular-nums">{money(inv.amountPaid || inv.total)}</span></div>
                                 {inv.paidReference && <div className="flex justify-between"><span className="text-neutral-500">{t('pay.ref')}</span><span className="text-neutral-500 tabular-nums">{inv.paidReference}</span></div>}
                             </div>
-                            <button onClick={downloadPDF} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-md flex items-center justify-center gap-2">
+                            <button onClick={downloadPDF} disabled={pdfBusy} className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-md flex items-center justify-center gap-2">
                                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
                                 {t('pay.download_pdf')}
                             </button>
