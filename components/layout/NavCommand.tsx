@@ -40,7 +40,7 @@ const CREATE_ACTIONS: CreateAction[] = [
   { id: 'product',  label: 'Agregar producto',   en: 'Add product',       path: '/tienda/products?new=1',        module: AppModule.TIENDA,              perm: 'products.view' },
   { id: 'sale',     label: 'Abrir caja / cobrar', en: 'Open register / sell', path: '/pos/cashier',               module: AppModule.POS,                 perm: 'pos.access' },
   { id: 'invoice',  label: 'Nueva factura',       en: 'New invoice',        path: '/pos/invoices?new=1',           module: AppModule.POS,                 perm: 'pos.viewHistory' },
-  { id: 'estimate', label: 'Nueva cotización',    en: 'New estimate',       path: '/pos/estimates?new=1',          module: AppModule.POS,                 perm: 'pos.viewHistory' },
+  { id: 'estimate', label: 'Nueva cotización',    en: 'New estimate',       path: '/pos/estimates?new=1',          module: AppModule.POS,                 perm: 'estimates.manage' },
   { id: 'recurring',label: 'Nuevo pago recurrente', en: 'New recurring payment', path: '/pos/recurring?new=1',     module: AppModule.POS,                 perm: 'pos.viewHistory' },
   { id: 'client',   label: 'Nuevo cliente',       en: 'New client',         path: '/tienda/clients?new=1',         module: AppModule.TIENDA,              perm: 'clients.view' },
   { id: 'supplierOrder', label: 'Pedido a proveedor', en: 'Supplier order',  path: '/tienda/supplier-orders?new=1', module: AppModule.POS,                 perm: 'supplierOrders.manage' },

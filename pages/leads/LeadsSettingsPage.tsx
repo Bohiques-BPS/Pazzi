@@ -11,7 +11,8 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { TagChip } from '../../components/leads/TagChip';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { timezoneOptions } from '../../utils/timezones';
 import { RulesTab, TemplatesTab, TeamsTab, IntegrationsTab, GoalsTab } from './LeadsAutomationTabs';
 
 type Tab = 'pipelines' | 'sources' | 'tags' | 'fields' | 'lost' | 'form' | 'automation' | 'rules' | 'templates' | 'teams' | 'integrations' | 'goals';
@@ -51,7 +52,11 @@ export const LeadsSettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const { can } = usePermissions();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('pipelines');
+  // ?tab=<clave> abre una pestaña concreta (p.ej. desde Reportes → zona horaria).
+  const [tab, setTab] = useState<Tab>(() => {
+    const q = new URLSearchParams(window.location.search).get('tab') as Tab | null;
+    return q && TABS.some(x => x.key === q) ? q : 'pipelines';
+  });
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [sources, setSources] = useState<LeadSource[]>([]);
@@ -472,8 +477,27 @@ const AutomationTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSet
   const update = async (data: Partial<LeadSettings>) => {
     try { const s = await leadsService.updateSettings(data); setSettings(s); toast.success(t('leads.settings.saved')); } catch (e) { err(e, t('leads.settings.err.save')); }
   };
+  // Zona horaria del negocio (GlobalSettings, la misma de Configuración): define "hoy", meses de metas y rangos de reportes.
+  const { settings: globalSettings, updateSettings: updateGlobalSettings } = useGlobalSettings();
+  const { currentUser } = useAuth();
+  const isManager = currentUser?.role === 'MANAGER';
   return (
     <div className="space-y-5 max-w-2xl">
+      <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
+        <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">🕒 {t('leads.settings.tz.title')}</h3>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('leads.settings.tz.help')}</p>
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <select
+            value={globalSettings.timezone || 'America/Puerto_Rico'}
+            disabled={!isManager}
+            onChange={e => { updateGlobalSettings({ timezone: e.target.value }); toast.success(t('leads.settings.tz.saved')); }}
+            className={inputFormStyle + ' !w-auto'}
+          >
+            {timezoneOptions(globalSettings.timezone).map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+          </select>
+          {!isManager && <span className="text-xs text-neutral-500">{t('leads.settings.tz.manager_only')}</span>}
+        </div>
+      </div>
       <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-700">
         <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.automation.cold_title')}</h3>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('leads.settings.automation.cold_help')}</p>

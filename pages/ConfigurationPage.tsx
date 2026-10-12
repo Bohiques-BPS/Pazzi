@@ -8,6 +8,7 @@ import { Theme } from '../types';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
 import { ClockIcon, WrenchScrewdriverIcon, EyeIcon, ArrowPathIcon, SunIcon, MoonIcon, ExclamationTriangleIcon } from '../components/icons';
 import { toast } from '../hooks/useToast';
+import { timezoneOptions } from '../utils/timezones';
 
 export const ConfigurationPage: React.FC = () => {
     const { settings, updateSettings } = useGlobalSettings();
@@ -35,15 +36,7 @@ export const ConfigurationPage: React.FC = () => {
         updateSettings({ timezone: e.target.value });
     };
 
-    const timezones = [
-        { value: 'UTC', label: 'UTC (Tiempo Universal)' },
-        { value: 'America/Puerto_Rico', label: 'Puerto Rico (AST)' },
-        { value: 'America/New_York', label: 'New York (EST/EDT)' },
-        { value: 'America/Chicago', label: 'Chicago (CST/CDT)' },
-        { value: 'America/Denver', label: 'Denver (MST/MDT)' },
-        { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)' },
-        { value: 'Europe/Madrid', label: 'Madrid (CET/CEST)' },
-    ];
+    const timezones = timezoneOptions(settings.timezone);
 
     return (
         <div className="max-w-3xl mx-auto p-4">

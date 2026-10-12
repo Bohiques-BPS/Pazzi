@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Lead, Pipeline, LeadSource, LeadTag, LeadCustomField, GoalProgressRow } from '../../types';
+import { Lead, Pipeline, LeadSource, LeadTag, LeadCustomField, GoalProgressRow, LeadDuplicate } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { leadsService } from '../../services/leads';
+import { clientsService } from '../../services/clients';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { Modal, ConfirmationModal } from '../../components/Modal';
@@ -20,6 +21,27 @@ import { PlusIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon } from '.
 
 const money = (n?: number | null) => n != null ? `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '';
 const DAY = 86400000;
+/** Días que un lead permanece en la papelera antes de purgarse automáticamente. */
+const TRASH_DAYS = 30;
+
+/** Táctil o pantalla angosta: el drag & drop HTML5 no funciona, se ofrece el botón "mover de etapa". */
+const detectCompact = () => {
+  try { return window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768; } catch { return false; }
+};
+const useCompactLayout = () => {
+  const [compact, setCompact] = useState(detectCompact);
+  useEffect(() => {
+    const update = () => setCompact(detectCompact());
+    let mq: MediaQueryList | null = null;
+    try { mq = window.matchMedia('(pointer: coarse)'); mq.addEventListener?.('change', update); } catch { mq = null; }
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      try { mq?.removeEventListener?.('change', update); } catch { /* noop */ }
+    };
+  }, []);
+  return compact;
+};
 
 type TFn = (key: string, params?: Record<string, string | number>) => string;
 
@@ -84,6 +106,17 @@ export const LeadsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const openedRef = React.useRef<string | null>(null);
   const [myGoals, setMyGoals] = useState<GoalProgressRow | null>(null);
+  const compact = useCompactLayout();
+  const [moveForId, setMoveForId] = useState<string | null>(null);
+  // Papelera
+  const canDelete = can('leads.delete');
+  const [trashMode, setTrashMode] = useState(false);
+  const [trash, setTrash] = useState<Lead[] | null>(null); // null = aún no se conoce
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashBusy, setTrashBusy] = useState(false);
+  const [trashChecked, setTrashChecked] = useState<Set<string>>(new Set());
+  const [confirmPurge, setConfirmPurge] = useState<string[] | null>(null);
+  const currentPidRef = React.useRef('');
   useEffect(() => {
     leadsService.goalsProgress().then(r => setMyGoals(r.rows.find(x => x.userId === currentUser?.id) || null)).catch(() => {});
   }, [currentUser?.id]);
@@ -107,8 +140,28 @@ export const LeadsPage: React.FC = () => {
   };
 
   const loadLeads = async (pid: string) => {
+    currentPidRef.current = pid;
     const rows = await leadsService.list({ pipelineId: pid });
     setLeads(rows);
+  };
+
+  // Papelera del pipeline actual. Silenciosa salvo que se pida explícitamente (al abrirla).
+  const loadTrash = async (pid: string, opts?: { spinner?: boolean; notifyError?: boolean }) => {
+    if (!canDelete || !pid) return;
+    if (opts?.spinner) setTrashLoading(true);
+    try {
+      const rows = await leadsService.list({ pipelineId: pid, archived: '1' });
+      if (currentPidRef.current !== pid) return; // cambió de pipeline mientras cargaba
+      const list = (rows || []).filter(l => !!l.archivedAt);
+      setTrash(list);
+      setTrashChecked(prev => {
+        if (!prev.size) return prev;
+        const ids = new Set(list.map(l => l.id));
+        return new Set(Array.from(prev).filter(id => ids.has(id)));
+      });
+    } catch (err) {
+      if (opts?.notifyError) toast.error(err instanceof ApiError ? err.message : t('leads.board.trash.load_error'));
+    } finally { if (opts?.spinner) setTrashLoading(false); }
   };
 
   useEffect(() => {
@@ -119,7 +172,7 @@ export const LeadsPage: React.FC = () => {
         const def = cfg.pipelines.find(p => p.isDefault) || cfg.pipelines[0];
         const pid = def?.id || '';
         setPipelineId(pid);
-        if (pid) await loadLeads(pid);
+        if (pid) { await loadLeads(pid); loadTrash(pid); }
       } catch (err) {
         toast.error(err instanceof ApiError ? err.message : t('leads.board.load_error'));
       } finally { setLoading(false); }
@@ -129,7 +182,53 @@ export const LeadsPage: React.FC = () => {
 
   const changePipeline = async (pid: string) => {
     setPipelineId(pid); setChecked(new Set());
+    currentPidRef.current = pid;
+    setTrash(null); setTrashChecked(new Set());
+    loadTrash(pid, { spinner: trashMode, notifyError: trashMode });
     try { await loadLeads(pid); } catch { /* noop */ }
+  };
+
+  const enterTrash = () => {
+    setTrashMode(true); setChecked(new Set()); setTrashChecked(new Set());
+    loadTrash(pipeline?.id || '', { spinner: trash === null, notifyError: true });
+  };
+  const exitTrash = () => { setTrashMode(false); setTrashChecked(new Set()); };
+
+  const removeFromTrash = (ids: string[]) => {
+    const gone = new Set(ids);
+    setTrash(prev => prev ? prev.filter(l => !gone.has(l.id)) : prev);
+    setTrashChecked(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
+  };
+
+  const restoreLeads = async (ids: string[]) => {
+    if (!ids.length) return;
+    setTrashBusy(true);
+    try {
+      let n = ids.length;
+      if (ids.length === 1) await leadsService.restore(ids[0]);
+      else n = (await leadsService.bulk(ids, 'restore')).affected;
+      toast.success(t('leads.board.trash.restored', { n }));
+      removeFromTrash(ids);
+      await loadLeads(pipeline?.id || '');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t('leads.board.trash.error'));
+      loadTrash(pipeline?.id || '');
+    } finally { setTrashBusy(false); }
+  };
+
+  const purgeLeads = async (ids: string[]) => {
+    if (!ids.length) return;
+    setTrashBusy(true);
+    try {
+      let n = ids.length;
+      if (ids.length === 1) await leadsService.purge(ids[0]);
+      else n = (await leadsService.bulk(ids, 'purge')).affected;
+      toast.success(t('leads.board.trash.purged', { n }));
+      removeFromTrash(ids);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t('leads.board.trash.error'));
+      loadTrash(pipeline?.id || '');
+    } finally { setTrashBusy(false); }
   };
 
   // Deep-links: ?lead=<id> abre la ficha; ?cold=1 activa el filtro de leads fríos.
@@ -162,19 +261,19 @@ export const LeadsPage: React.FC = () => {
     const cid = searchParams.get('clientId') || '';
     const next = new URLSearchParams(searchParams); next.delete('new'); next.delete('clientId'); setSearchParams(next, { replace: true });
     if (!can('leads.create')) return;
-    let prefill: CreatePrefill | null = null;
-    if (cid) {
-      const c = clients.find(x => x.id === cid);
-      prefill = c
-        ? {
-            clientId: cid,
-            clientLabel: `${c.name || ''} ${c.lastName || ''}`.trim() || c.companyName || c.email || cid,
-            name: c.name || '', lastName: c.lastName || '', companyName: c.companyName || '', email: c.email || '', phone: c.phone || '',
-          }
-        : { clientId: cid };
-    }
-    setCreatePrefill(prefill);
-    setShowCreate(true);
+    const fromClient = (c: { name?: string | null; lastName?: string | null; companyName?: string | null; email?: string | null; phone?: string | null }): CreatePrefill => ({
+      clientId: cid,
+      clientLabel: `${c.name || ''} ${c.lastName || ''}`.trim() || c.companyName || c.email || cid,
+      name: c.name || '', lastName: c.lastName || '', companyName: c.companyName || '', email: c.email || '', phone: c.phone || '',
+    });
+    if (!cid) { setCreatePrefill(null); setShowCreate(true); return; }
+    const c = clients.find(x => x.id === cid);
+    if (c) { setCreatePrefill(fromClient(c)); setShowCreate(true); return; }
+    // Clientes aún no cargados en memoria: se pide al servidor.
+    clientsService.getById(cid)
+      .then(rec => setCreatePrefill(fromClient(rec as any)))
+      .catch(() => setCreatePrefill({ clientId: cid }))
+      .finally(() => setShowCreate(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, loading]);
 
@@ -216,6 +315,8 @@ export const LeadsPage: React.FC = () => {
   const onDeleted = (id: string) => {
     setLeads(prev => prev.filter(l => l.id !== id));
     setChecked(prev => { if (!prev.has(id)) return prev; const n = new Set(prev); n.delete(id); return n; });
+    // Eliminar = enviar a la papelera: se refresca su contador.
+    loadTrash(pipeline?.id || '');
   };
 
   // La selección masiva solo cuenta lo que se ve: al cambiar filtros se descartan los ocultos.
@@ -231,9 +332,15 @@ export const LeadsPage: React.FC = () => {
   const canMove = can('leads.changeStage') || can('leads.edit');
 
   // ── Drag & drop: soltar en columna (mueve al final) o sobre una tarjeta (inserta antes de ella).
-  const handleDrop = async (stageId: string, beforeLeadId?: string) => {
+  const handleDrop = (stageId: string, beforeLeadId?: string) => {
     const id = draggedId; setDraggedId(null);
-    if (!id || id === beforeLeadId) return;
+    if (!id) return;
+    moveLead(id, stageId, beforeLeadId);
+  };
+
+  // Lógica común de mover (drag & drop en escritorio y botón "mover de etapa" en táctil/móvil).
+  const moveLead = async (id: string, stageId: string, beforeLeadId?: string) => {
+    if (id === beforeLeadId) return;
     const lead = leads.find(l => l.id === id);
     if (!lead) return;
     const st = stages.find(s => s.id === stageId);
@@ -270,9 +377,10 @@ export const LeadsPage: React.FC = () => {
     if (!ids.length) return;
     try {
       const r = await leadsService.bulk(ids, action, extra);
-      toast.success(t('leads.board.bulk.updated', { n: r.affected }));
+      toast.success(t(action === 'delete' ? 'leads.board.bulk.trashed' : 'leads.board.bulk.updated', { n: r.affected }));
       setChecked(new Set()); setBulkModal(null); setBulkValue('');
       await loadLeads(pipeline?.id || '');
+      if (action === 'delete') loadTrash(pipeline?.id || '');
     } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.board.bulk.error')); }
   };
 
@@ -326,6 +434,16 @@ export const LeadsPage: React.FC = () => {
           {can('leads.managePipeline') && <button onClick={() => navigate('/leads/settings')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.configure')}</button>}
           {can('leads.import') && <button onClick={() => setShowImport(true)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.import')}</button>}
           {can('leads.export') && <button onClick={exportExcel} disabled={!filtered.length} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.export')}</button>}
+          {canDelete && (
+            <button
+              onClick={() => trashMode ? exitTrash() : enterTrash()}
+              className={trashMode ? BUTTON_PRIMARY_SM_CLASSES : BUTTON_SECONDARY_SM_CLASSES}
+              title={t('leads.board.trash.tooltip')}
+              aria-pressed={trashMode}
+            >
+              <span translate="no">{trash && trash.length > 0 ? t('leads.board.trash.button_count', { n: trash.length }) : t('leads.board.trash.button')}</span>
+            </button>
+          )}
           {can('leads.create') && (
             <button onClick={() => { setCreatePrefill(null); setShowCreate(true); }} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon className="w-5 h-5" /> {t('leads.board.new_lead')}</button>
           )}
@@ -349,6 +467,7 @@ export const LeadsPage: React.FC = () => {
       )}
 
       {/* Filtros */}
+      {!trashMode && (
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative">
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
@@ -390,9 +509,10 @@ export const LeadsPage: React.FC = () => {
           <button onClick={() => setViewPersist('list')} className={`p-1.5 rounded-md ${view === 'list' ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300'}`} title={t('leads.board.view.list')} aria-label={t('leads.board.view.list_aria')}><ListBulletIcon className="w-5 h-5" /></button>
         </div>
       </div>
+      )}
 
       {/* Barra de acciones masivas */}
-      {checked.size > 0 && (
+      {!trashMode && checked.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-primary/10 border border-primary/30">
           <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300">{t('leads.board.bulk.selected', { n: checked.size })}</span>
           {can('leads.assign') && <button onClick={() => { setBulkModal('assign'); setBulkValue(''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.assign')}</button>}
@@ -403,13 +523,79 @@ export const LeadsPage: React.FC = () => {
         </div>
       )}
 
-      {loading ? <LoadingSkeleton variant="cards" count={4} /> : view === 'board' ? (
-        <div className="flex gap-4 overflow-x-auto pb-2 items-start">
+      {loading ? <LoadingSkeleton variant="cards" count={4} /> : trashMode ? (
+        <div>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <button onClick={exitTrash} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.trash.back')}</button>
+            <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.board.trash.title')}</h2>
+            {pipelines.length > 1 && (
+              <select value={pipeline?.id || ''} onChange={e => changePipeline(e.target.value)} className={selectCls + ' ml-auto'} title={t('leads.common.pipeline')}>
+                {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            )}
+          </div>
+          <p className="mb-3 text-xs px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60">
+            ⏳ {t('leads.board.trash.notice')}
+          </p>
+          {trashChecked.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-primary/10 border border-primary/30">
+              <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300">{t('leads.board.bulk.selected', { n: trashChecked.size })}</span>
+              <button disabled={trashBusy} onClick={() => restoreLeads(Array.from(trashChecked))} className={BUTTON_SECONDARY_SM_CLASSES}>♻️ {t('leads.board.trash.restore')}</button>
+              <button disabled={trashBusy} onClick={() => setConfirmPurge(Array.from(trashChecked))} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400`}>{t('leads.board.trash.purge')}</button>
+              <button onClick={() => setTrashChecked(new Set())} className="ml-auto text-xs text-neutral-500 hover:underline">{t('leads.board.bulk.clear_selection')}</button>
+            </div>
+          )}
+          {trashLoading && trash === null ? <LoadingSkeleton variant="cards" count={2} /> : (() => {
+            const rows = trash || [];
+            const allTrashChecked = rows.length > 0 && rows.every(l => trashChecked.has(l.id));
+            return (
+              <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700">
+                    <tr>
+                      <th className="px-3 py-2.5 w-8"><input type="checkbox" checked={allTrashChecked} onChange={() => setTrashChecked(allTrashChecked ? new Set() : new Set(rows.map(l => l.id)))} className="h-4 w-4" aria-label={t('leads.board.select_all')} /></th>
+                      {['leads.board.col.name', 'leads.common.company', 'leads.common.value', 'leads.board.trash.col.deleted', 'leads.board.trash.col.days_left', 'leads.board.trash.col.actions'].map(k => t(k)).map(h => (
+                        <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60">
+                    {rows.map(l => {
+                      const deletedAt = l.archivedAt ? new Date(l.archivedAt) : null;
+                      const left = deletedAt ? Math.max(0, TRASH_DAYS - Math.floor((Date.now() - deletedAt.getTime()) / DAY)) : TRASH_DAYS;
+                      return (
+                        <tr key={l.id} className={trashChecked.has(l.id) ? 'bg-primary/5' : ''}>
+                          <td className="px-3 py-2"><input type="checkbox" checked={trashChecked.has(l.id)} onChange={() => setTrashChecked(prev => { const n = new Set(prev); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })} className="h-4 w-4" aria-label={t('leads.board.select_one', { name: l.name })} /></td>
+                          <td className="px-3 py-2 text-neutral-800 dark:text-neutral-100 whitespace-nowrap"><span translate="no">{l.name} {l.lastName}</span></td>
+                          <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400"><span translate="no">{l.companyName || '—'}</span></td>
+                          <td className="px-3 py-2 tabular-nums">{l.value != null ? money(l.value) : '—'}</td>
+                          <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{deletedAt ? deletedAt.toLocaleDateString() : '—'}</td>
+                          <td className={`px-3 py-2 whitespace-nowrap text-xs ${left <= 3 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                            <span translate="no">{left === 0 ? t('leads.board.trash.today') : t('leads.board.trash.days_left', { n: left })}</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <button disabled={trashBusy} onClick={() => restoreLeads([l.id])} className="text-xs font-medium text-primary dark:text-teal-300 hover:underline disabled:opacity-50">♻️ {t('leads.board.trash.restore')}</button>
+                              <button disabled={trashBusy} onClick={() => setConfirmPurge([l.id])} className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline disabled:opacity-50">{t('leads.board.trash.purge')}</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {rows.length === 0 && <tr><td colSpan={7} className="px-3 py-10 text-center text-neutral-400">{t('leads.board.trash.empty')}</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </div>
+      ) : view === 'board' ? (
+        <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 items-start snap-x snap-mandatory md:snap-none scroll-smooth -mx-1 px-1">
           {stages.map(stage => {
             const list = byStage[stage.id] || [];
             const total = list.reduce((a, l) => a + (l.value || 0), 0);
             return (
-              <div key={stage.id} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleDrop(stage.id); }} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[75vh]">
+              <div key={stage.id} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleDrop(stage.id); }} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-[85vw] max-w-[20rem] sm:w-72 flex-shrink-0 max-h-[75vh] snap-start">
                 <div className="mb-2 px-2">
                   <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex justify-between items-center text-sm gap-2">
                     <span className="flex items-center gap-1.5 min-w-0"><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: stage.color || '#94a3b8' }} /><span className="truncate" translate="no">{stage.name}</span></span>
@@ -426,9 +612,21 @@ export const LeadsPage: React.FC = () => {
                         onDragStart={e => { if (!canMove) return; e.dataTransfer.setData('text/plain', lead.id); e.dataTransfer.effectAllowed = 'move'; setDraggedId(lead.id); }}
                         onDragEnd={() => setDraggedId(null)}
                         onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop(stage.id, lead.id); }} onClick={() => setSelected(lead)}
-                        className={`bg-white dark:bg-slate-700 p-3 rounded-lg shadow hover:shadow-lg cursor-pointer border-l-4 ${draggedId === lead.id ? 'opacity-50' : ''}`} style={{ borderLeftColor: stage.color || '#94a3b8' }}>
-                        <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate"><span translate="no">{lead.name} {lead.lastName}</span></p>
-                        {lead.companyName && <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate"><span translate="no">{lead.companyName}</span></p>}
+                        className={`relative bg-white dark:bg-slate-700 p-3 rounded-lg shadow hover:shadow-lg cursor-pointer border-l-4 ${draggedId === lead.id ? 'opacity-50' : ''}`} style={{ borderLeftColor: stage.color || '#94a3b8' }}>
+                        {compact && canMove && (
+                          <button
+                            type="button"
+                            draggable={false}
+                            onClick={e => { e.stopPropagation(); setMoveForId(lead.id); }}
+                            onMouseDown={e => e.stopPropagation()}
+                            onTouchStart={e => e.stopPropagation()}
+                            className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center rounded-md text-base leading-none text-neutral-500 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-600 hover:bg-neutral-200 dark:hover:bg-neutral-500 active:scale-95"
+                            title={t('leads.board.move.button')}
+                            aria-label={t('leads.board.move.button')}
+                          >⇄</button>
+                        )}
+                        <p className={`text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate ${compact && canMove ? 'pr-9' : ''}`}><span translate="no">{lead.name} {lead.lastName}</span></p>
+                        {lead.companyName && <p className={`text-xs text-neutral-500 dark:text-neutral-400 truncate ${compact && canMove ? 'pr-9' : ''}`}><span translate="no">{lead.companyName}</span></p>}
                         {(lead.tagIds || []).length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {(lead.tagIds || []).slice(0, 3).map(id => { const t = tags.find(x => x.id === id); return t ? <TagChip key={id} tag={t} small /> : null; })}
@@ -447,7 +645,7 @@ export const LeadsPage: React.FC = () => {
                       </div>
                     );
                   })}
-                  {list.length === 0 && <p className="text-[11px] text-neutral-400 text-center py-4">{t('leads.board.drop_here')}</p>}
+                  {list.length === 0 && <p className="text-[11px] text-neutral-400 text-center py-4">{compact ? '—' : t('leads.board.drop_here')}</p>}
                 </div>
               </div>
             );
@@ -517,6 +715,12 @@ export const LeadsPage: React.FC = () => {
           prefill={createPrefill}
           onClose={() => { setShowCreate(false); setCreatePrefill(null); }}
           onCreated={(lead) => { setLeads(prev => [lead, ...prev]); setShowCreate(false); setCreatePrefill(null); setSelected(lead); }}
+          onOpenExisting={(id) => {
+            setShowCreate(false); setCreatePrefill(null);
+            if (trashMode) exitTrash();
+            // Mismo mecanismo que el deep-link ?lead=<id> (lo busca en otro pipeline si hace falta).
+            const next = new URLSearchParams(searchParams); next.set('lead', id); setSearchParams(next, { replace: true });
+          }}
         />
       )}
 
@@ -559,7 +763,54 @@ export const LeadsPage: React.FC = () => {
           </div>
         </div>
       </Modal>
-      <ConfirmationModal isOpen={confirmBulkDelete} onClose={() => setConfirmBulkDelete(false)} onConfirm={() => { setConfirmBulkDelete(false); runBulk('delete'); }} title={t('leads.board.bulk.delete_title')} message={t('leads.board.bulk.delete_message', { n: checked.size })} confirmButtonText={t('leads.common.delete')} />
+      <ConfirmationModal isOpen={confirmBulkDelete} onClose={() => setConfirmBulkDelete(false)} onConfirm={() => { setConfirmBulkDelete(false); runBulk('delete'); }} title={t('leads.board.bulk.delete_title')} message={t('leads.board.bulk.delete_message', { n: checked.size })} confirmButtonText={t('leads.board.bulk.delete_confirm')} />
+      <ConfirmationModal
+        isOpen={!!confirmPurge}
+        onClose={() => setConfirmPurge(null)}
+        onConfirm={() => { const ids = confirmPurge || []; setConfirmPurge(null); purgeLeads(ids); }}
+        title={t('leads.board.trash.purge_title')}
+        message={t('leads.board.trash.purge_message', { n: confirmPurge?.length || 0 })}
+        confirmButtonText={t('leads.board.trash.purge')}
+      />
+
+      {/* Mover de etapa sin arrastrar (táctil / móvil) */}
+      {(() => {
+        const ml = moveForId ? leads.find(l => l.id === moveForId) : null;
+        return (
+          <Modal isOpen={!!ml} onClose={() => setMoveForId(null)} title={t('leads.board.move.title')} size="sm">
+            {ml && (
+              <div className="space-y-3">
+                <p className="text-sm text-neutral-600 dark:text-neutral-300 truncate">
+                  <span translate="no" className="font-semibold">{ml.name} {ml.lastName}</span>
+                  {ml.companyName && <span translate="no" className="text-neutral-400"> · {ml.companyName}</span>}
+                </p>
+                <div className="space-y-1">
+                  {stages.map(s => {
+                    const current = s.id === ml.stageId;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={current}
+                        onClick={() => { setMoveForId(null); moveLead(ml.id, s.id); }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-3 rounded-lg text-left text-sm border transition ${current
+                          ? 'border-primary/40 bg-primary/10 text-primary dark:text-teal-300 font-semibold cursor-default'
+                          : 'border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 active:bg-neutral-100 dark:active:bg-neutral-700'}`}
+                      >
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: s.color || '#94a3b8' }} />
+                        <span translate="no" className="flex-1 truncate">{s.name}</span>
+                        {s.type === 'won' && <span aria-hidden>✅</span>}
+                        {s.type === 'lost' && <span aria-hidden>❌</span>}
+                        {current && <span className="text-[11px] font-semibold">✓ {t('leads.board.move.current')}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
     </div>
   );
 };
@@ -576,7 +827,9 @@ const CreateLeadModal: React.FC<{
   prefill?: CreatePrefill | null;
   onClose: () => void;
   onCreated: (lead: Lead) => void;
-}> = ({ pipeline, sources, tags, customFields, assignees, canAssign, currentUserId, prefill, onClose, onCreated }) => {
+  /** Abre la ficha de un lead existente (aviso de posibles duplicados). */
+  onOpenExisting: (id: string) => void;
+}> = ({ pipeline, sources, tags, customFields, assignees, canAssign, currentUserId, prefill, onClose, onCreated, onOpenExisting }) => {
   const { t } = useTranslation();
   const openStages = (pipeline?.stages || []).filter(s => s.type === 'open');
   const clientId = prefill?.clientId || '';
@@ -589,6 +842,31 @@ const CreateLeadModal: React.FC<{
   const [cf, setCf] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const set = (k: string, v: string) => setF(p => ({ ...p, [k]: v }));
+
+  // ── Aviso de posibles duplicados (no bloquea la creación). Debounce de 400ms; errores se ignoran.
+  const [dups, setDups] = useState<LeadDuplicate[]>([]);
+  useEffect(() => {
+    const email = f.email.trim();
+    const phone = f.phone.trim();
+    const name = f.name.trim();
+    const company = f.companyName.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+    const phoneOk = phone.replace(/\D/g, '').length >= 7;
+    const nameOk = name.length >= 2 && company.length >= 2;
+    if (!emailOk && !phoneOk && !nameOk) { setDups([]); return; }
+    let cancelled = false;
+    const h = window.setTimeout(() => {
+      leadsService.checkDuplicates({
+        email: emailOk ? email : undefined,
+        phone: phoneOk ? phone : undefined,
+        name: nameOk ? name : undefined,
+        companyName: nameOk ? company : undefined,
+      })
+        .then(rows => { if (!cancelled) setDups(Array.isArray(rows) ? rows : []); })
+        .catch(() => { /* silencioso */ });
+    }, 400);
+    return () => { cancelled = true; window.clearTimeout(h); };
+  }, [f.email, f.phone, f.name, f.companyName]);
 
   const submit = async () => {
     if (!f.name.trim()) { toast.error(t('leads.board.create.name_required')); return; }
@@ -672,6 +950,36 @@ const CreateLeadModal: React.FC<{
           ))}
           <div className="sm:col-span-2">{lbl(t('leads.common.notes'))}<textarea rows={2} value={f.notes} onChange={e => set('notes', e.target.value)} className={inputFormStyle} /></div>
         </div>
+        {dups.length > 0 && (
+          <div className="rounded-lg border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-900/20 p-3" role="status" translate="no">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">{t('leads.board.dup.title')}</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300/90 mb-2">{t('leads.board.dup.hint')}</p>
+            <ul className="space-y-1.5">
+              {dups.slice(0, 3).map(d => {
+                const contact = d.reason === 'phone' ? (d.phone || d.email) : (d.email || d.phone);
+                return (
+                  <li key={d.id} className="flex items-center gap-2 text-xs bg-white/70 dark:bg-neutral-900 rounded-md px-2 py-1.5 border border-amber-200 dark:border-amber-800/50">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+                        <span translate="no">{d.name} {d.lastName || ''}</span>
+                        {d.companyName && <span translate="no" className="font-normal text-neutral-500 dark:text-neutral-400"> · {d.companyName}</span>}
+                      </p>
+                      <p className="text-neutral-500 dark:text-neutral-400 truncate">
+                        {contact && <span translate="no">{contact} · </span>}
+                        <span>{t(d.status === 'won' ? 'leads.common.status.won' : d.status === 'lost' ? 'leads.common.status.lost' : 'leads.common.status.open')}</span>
+                      </p>
+                    </div>
+                    <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-800/50 text-amber-900 dark:text-amber-100 whitespace-nowrap">
+                      {t(d.reason === 'email' ? 'leads.board.dup.reason.email' : d.reason === 'phone' ? 'leads.board.dup.reason.phone' : 'leads.board.dup.reason.name')}
+                    </span>
+                    <button type="button" onClick={() => onOpenExisting(d.id)} className="flex-shrink-0 text-xs font-semibold text-primary dark:text-teal-300 hover:underline">{t('leads.board.dup.view')}</button>
+                  </li>
+                );
+              })}
+            </ul>
+            {dups.length > 3 && <p className="text-[11px] text-amber-700 dark:text-amber-300/80 mt-1.5"><span translate="no">{t('leads.board.dup.more', { n: dups.length - 3 })}</span></p>}
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2 border-t dark:border-neutral-700">
           <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
           <button onClick={submit} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('leads.board.create.creating') : t('leads.board.create.submit')}</button>

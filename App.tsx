@@ -74,6 +74,7 @@ const ModuleHubPage = lazyNamed(() => import('./pages/ModuleHubPage'), 'ModuleHu
 const NotificationsPage = lazyNamed(() => import('./pages/NotificationsPage'), 'NotificationsPage');
 const LeadsPage = lazyNamed(() => import('./pages/leads/LeadsPage'), 'LeadsPage');
 const LeadsReportsPage = lazyNamed(() => import('./pages/leads/LeadsReportsPage'), 'LeadsReportsPage');
+const LeadsAgendaPage = lazyNamed(() => import('./pages/leads/LeadsAgendaPage'), 'LeadsAgendaPage');
 const LeadsSettingsPage = lazyNamed(() => import('./pages/leads/LeadsSettingsPage'), 'LeadsSettingsPage');
 const PublicLeadFormPage = lazyNamed(() => import('./pages/leads/PublicLeadFormPage'), 'PublicLeadFormPage');
 const ProjectDetailPage = lazyNamed(() => import('./pages/pm/ProjectDetailPage'), 'ProjectDetailPage');
@@ -439,6 +440,7 @@ const AppContent: React.FC = () => {
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/leads" element={<LeadsPage />} />
+                <Route path="/leads/agenda" element={<LeadsAgendaPage />} />
                 <Route path="/leads/reports" element={<LeadsReportsPage />} />
                 <Route path="/leads/settings" element={<LeadsSettingsPage />} />
                 <Route path="/" element={<DashboardHomePage />} />

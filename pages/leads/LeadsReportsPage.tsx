@@ -7,7 +7,8 @@ import { goalLabel } from './LeadsAutomationTabs';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { MiniChart } from '../../components/pm/MiniChart';
 import { inputFormStyle } from '../../constants';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { useNavigate } from 'react-router-dom';
 
 const money = (n: number) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -36,6 +37,10 @@ const Bar: React.FC<{ label: string; value: number; max: number; color?: string;
 
 export const LeadsReportsPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { settings: globalSettings } = useGlobalSettings();
+  // Los rangos de fechas se calculan en el servidor con la zona horaria del negocio.
+  const [reportTz, setReportTz] = useState(globalSettings.timezone || 'America/Puerto_Rico');
   const MONTHS = useMemo(() => t('leads.reports.months_short').split(','), [t]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [pipelineId, setPipelineId] = useState('');
@@ -66,6 +71,7 @@ export const LeadsReportsPage: React.FC = () => {
   useEffect(() => {
     leadsService.getConfig().then(cfg => {
       setPipelines(cfg.pipelines);
+      if (cfg.settings?.timezone) setReportTz(cfg.settings.timezone);
       setPipelineId((cfg.pipelines.find(p => p.isDefault) || cfg.pipelines[0])?.id || '');
     }).catch(() => setLoading(false));
   }, []);
@@ -94,7 +100,13 @@ export const LeadsReportsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.reports.title')}</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.reports.title')}</h1>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+            🕒 <span translate="no">{t('leads.reports.tz_note', { tz: reportTz })}</span>{' '}
+            <button type="button" onClick={() => navigate('/leads/settings?tab=automation')} className="text-primary hover:underline">{t('leads.reports.tz_change')}</button>
+          </p>
+        </div>
         <div className="flex flex-wrap items-end gap-2">
           {pipelines.length > 1 && (
             <select value={pipelineId} onChange={e => setPipelineId(e.target.value)} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'}>

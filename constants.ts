@@ -638,6 +638,7 @@ export const APP_MODULES_CONFIG = [
     subModulesAdmin: [] as SidebarItemConfig[],
     subModulesLeads: [
       { type: 'link', name: 'Leads', path: '/leads', icon: UserGroupIcon, permission: 'leads.view' },
+      { type: 'link', name: 'Agenda de Leads', path: '/leads/agenda', icon: CalendarDaysIcon, permission: 'leads.view' },
       { type: 'link', name: 'Reportes de Leads', path: '/leads/reports', icon: ChartBarIcon, permission: 'leads.viewReports' },
       { type: 'link', name: 'Configuración del CRM', path: '/leads/settings', icon: Squares2X2Icon, permission: 'leads.managePipeline' },
     ] as SidebarItemConfig[],

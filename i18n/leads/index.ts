@@ -7,6 +7,7 @@
  *  - settings:   LeadsSettingsPage
  *  - automation: LeadsAutomationTabs (reglas, plantillas, equipos, integraciones, metas)
  *  - reports:    LeadsReportsPage + PublicLeadFormPage
+ *  - agenda:     LeadsAgendaPage (actividades pendientes del vendedor)
  */
 import * as common from './common';
 import * as board from './board';
@@ -14,8 +15,9 @@ import * as detail from './detail';
 import * as settings from './settings';
 import * as automation from './automation';
 import * as reports from './reports';
+import * as agenda from './agenda';
 
-const parts = [common, board, detail, settings, automation, reports];
+const parts = [common, board, detail, settings, automation, reports, agenda];
 
 export const LEADS_I18N: { es: Record<string, string>; en: Record<string, string> } = {
   es: Object.assign({}, ...parts.map(p => p.es)),

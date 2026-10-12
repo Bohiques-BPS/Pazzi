@@ -114,6 +114,10 @@ export const es: Record<string, string> = {
   'leads.settings.form.embed_label': 'Código para incrustar en tu web',
   'leads.settings.form.regenerate': 'Regenerar enlace (invalida el actual)',
   // Captura y seguimiento
+  'leads.settings.tz.title': 'Zona horaria del negocio',
+  'leads.settings.tz.help': 'Define qué es "hoy" en la agenda, los meses de las metas y los rangos de fechas de los reportes. Es la misma zona horaria de Configuración y aplica a todo el negocio.',
+  'leads.settings.tz.saved': 'Zona horaria actualizada.',
+  'leads.settings.tz.manager_only': 'Solo el gerente puede cambiarla.',
   'leads.settings.automation.cold_title': '❄️ Leads sin seguimiento',
   'leads.settings.automation.cold_help': 'Si un lead abierto pasa estos días sin actividad, se marca como "frío" y su responsable recibe un aviso.',
   'leads.settings.automation.days': 'días',
@@ -241,6 +245,10 @@ export const en: Record<string, string> = {
   'leads.settings.form.embed_label': 'Code to embed on your website',
   'leads.settings.form.regenerate': 'Regenerate link (invalidates the current one)',
   // Capture & follow-up
+  'leads.settings.tz.title': 'Business time zone',
+  'leads.settings.tz.help': 'Defines what "today" means in the agenda, goal months and report date ranges. It is the same time zone as in Settings and applies to the whole business.',
+  'leads.settings.tz.saved': 'Time zone updated.',
+  'leads.settings.tz.manager_only': 'Only the manager can change it.',
   'leads.settings.automation.cold_title': '❄️ Leads without follow-up',
   'leads.settings.automation.cold_help': 'If an open lead goes this many days without activity, it is marked as "cold" and its owner gets a notification.',
   'leads.settings.automation.days': 'days',

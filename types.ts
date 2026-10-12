@@ -787,6 +787,13 @@ export interface GoalProgressRow { userId: string; name: string; goals: { metric
 export interface LeadActivity { id: string; leadId: string; type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'note' | 'task'; title?: string | null; body?: string | null; dueAt?: string | null; done: boolean; doneAt?: string | null; attachments?: { url: string; name?: string }[] | null; createdByName?: string | null; createdAt: string; }
 export interface LeadNote { id: string; leadId: string; text: string; imageUrl?: string | null; authorName?: string | null; createdAt: string; }
 export interface LeadStageHistory { id: string; leadId: string; fromStageId?: string | null; toStageId: string; byUserId?: string | null; at: string; }
+/** Producto/partida de un lead (oportunidad). productId = producto del catálogo. */
+export interface LeadItem { id?: string; productId: string; name?: string; quantity: number; unitPrice: number; discountType?: 'percentage' | 'fixed' | null; discountValue?: number | null; }
+/** Posible duplicado de un lead (mismo correo, teléfono o nombre+empresa). */
+export interface LeadDuplicate { id: string; name: string; lastName?: string | null; companyName?: string | null; email?: string | null; phone?: string | null; whatsapp?: string | null; status: 'open' | 'won' | 'lost'; stageId: string; assignedUserId?: string | null; createdAt: string; reason: 'email' | 'phone' | 'name'; }
+/** Actividad pendiente en la agenda del vendedor, con el lead al que pertenece. */
+export interface LeadAgendaItem extends LeadActivity { lead: { id: string; name: string; lastName?: string | null; companyName?: string | null; stageId: string; assignedUserId?: string | null; phone?: string | null; whatsapp?: string | null; email?: string | null } }
+export interface LeadAgenda { timezone: string; overdue: LeadAgendaItem[]; today: LeadAgendaItem[]; week: LeadAgendaItem[]; upcoming: LeadAgendaItem[] }
 export interface Lead {
     id: string;
     name: string;
@@ -810,6 +817,10 @@ export interface Lead {
     convertedClientId?: string | null;
     /** Cliente existente al que pertenece la oportunidad (lead creado desde la ficha del cliente). */
     clientId?: string | null;
+    /** Papelera: fecha en que se envió (null = activo). Se purga a los 30 días. */
+    archivedAt?: string | null;
+    /** Última cotización creada desde el lead. */
+    lastEstimateId?: string | null;
     expectedCloseAt?: string | null;
     customFields?: Record<string, any> | null;
     tagIds?: string[];

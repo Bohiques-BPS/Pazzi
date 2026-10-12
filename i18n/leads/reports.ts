@@ -2,6 +2,8 @@
 export const es: Record<string, string> = {
   // LeadsReportsPage
   'leads.reports.title': 'Reportes de Leads',
+  'leads.reports.tz_note': 'Fechas en la zona horaria del negocio: {tz}.',
+  'leads.reports.tz_change': 'Cambiar',
   'leads.reports.range.all': 'Todo el tiempo',
   'leads.reports.range.last30': 'Últimos 30 días',
   'leads.reports.range.last90': 'Últimos 90 días',
@@ -57,6 +59,8 @@ export const es: Record<string, string> = {
 export const en: Record<string, string> = {
   // LeadsReportsPage
   'leads.reports.title': 'Lead Reports',
+  'leads.reports.tz_note': "Dates use the business time zone: {tz}.",
+  'leads.reports.tz_change': 'Change',
   'leads.reports.range.all': 'All time',
   'leads.reports.range.last30': 'Last 30 days',
   'leads.reports.range.last90': 'Last 90 days',

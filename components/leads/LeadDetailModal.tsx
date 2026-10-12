@@ -12,6 +12,8 @@ import { toast } from '../../hooks/useToast';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { DeleteIcon, PaperAirplaneIcon } from '../icons';
 import { TagChip } from './TagChip';
+import { LeadItemsTab } from './LeadItemsTab';
+import { LeadMergePanel } from './LeadMergePanel';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface Props {
@@ -46,6 +48,14 @@ const toLocalInput = (iso?: string | null, withTime = true) => {
   return withTime ? `${date}T${p(d.getHours())}:${p(d.getMinutes())}` : date;
 };
 
+const formFromLead = (l: Lead) => ({
+  name: l.name || '', lastName: l.lastName || '', companyName: l.companyName || '',
+  email: l.email || '', phone: l.phone || '', whatsapp: l.whatsapp || '',
+  value: l.value != null ? String(l.value) : '', probability: l.probability != null ? String(l.probability) : '',
+  sourceId: l.sourceId || '', notes: l.notes || '',
+  nextActionAt: toLocalInput(l.nextActionAt), expectedCloseAt: toLocalInput(l.expectedCloseAt, false),
+});
+
 export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines, sources, tags, customFields, lostReasons, onClose, onChanged, onDeleted, onTagCreated }) => {
   const { setClients } = useData();
   const { can } = usePermissions();
@@ -57,15 +67,11 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const [activities, setActivities] = useState<LeadActivity[]>(initialLead.activities || []);
   const [leadNotes, setLeadNotes] = useState<LeadNote[]>(initialLead.leadNotes || []);
   const [loadingDetail, setLoadingDetail] = useState(true);
-  const [tab, setTab] = useState<'activity' | 'notes' | 'history'>('activity');
+  const [tab, setTab] = useState<'activity' | 'notes' | 'history' | 'products'>('activity');
+  const [itemCount, setItemCount] = useState(0);
+  const [itemsReloadKey, setItemsReloadKey] = useState(0);
 
-  const [form, setForm] = useState({
-    name: initialLead.name || '', lastName: initialLead.lastName || '', companyName: initialLead.companyName || '',
-    email: initialLead.email || '', phone: initialLead.phone || '', whatsapp: initialLead.whatsapp || '',
-    value: initialLead.value != null ? String(initialLead.value) : '', probability: initialLead.probability != null ? String(initialLead.probability) : '',
-    sourceId: initialLead.sourceId || '', notes: initialLead.notes || '',
-    nextActionAt: toLocalInput(initialLead.nextActionAt), expectedCloseAt: toLocalInput(initialLead.expectedCloseAt, false),
-  });
+  const [form, setForm] = useState(() => formFromLead(initialLead));
   const [cf, setCf] = useState<Record<string, any>>(initialLead.customFields || {});
   const [tagIds, setTagIds] = useState<string[]>(initialLead.tagIds || []);
   const [newTag, setNewTag] = useState('');
@@ -97,6 +103,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const canAssign = can('leads.assign');
   const canStage = can('leads.changeStage') || can('leads.edit');
   const canConvert = can('leads.convert');
+  const canEstimate = canEdit && can('estimates.manage');
+  const canMerge = canEdit && can('leads.delete');
 
   const pipeline = useMemo(() => pipelines.find(p => p.id === lead.pipelineId) || pipelines[0], [pipelines, lead.pipelineId]);
   const stages = pipeline?.stages || [];
@@ -287,6 +295,41 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     setTplOpen(false);
   };
 
+  // ── Productos / cotización ──
+  const handleValueSynced = (value: number | null) => {
+    patchLead({ value });
+    setForm(f => ({ ...f, value: value != null ? String(value) : '' }));
+  };
+  const handleEstimateCreated = (res: { estimateId: string; clientId: string; clientCreated: boolean }) => {
+    patchLead({ lastEstimateId: res.estimateId, ...(res.clientId ? { clientId: res.clientId } : {}) });
+    refreshActivities(); // el backend registra la cotización como actividad
+    // Cliente nuevo: recarga la lista para que "Ver cliente →" lo encuentre.
+    if (res.clientCreated) api.get<any[]>('/clients').then(list => { if (Array.isArray(list)) setClients(list as any); }).catch(() => {});
+  };
+  const openEstimate = (estimateId: string) => {
+    onClose();
+    navigate(`/pos/estimates?estimate=${encodeURIComponent(estimateId)}`);
+  };
+
+  // ── Duplicados: fusión ──
+  const handleMerged = (merged: Lead, sourceId: string) => {
+    setLead(prev => ({ ...prev, ...merged }));
+    onChanged(merged);
+    onDeleted(sourceId);
+    setForm(formFromLead(merged));
+    setTagIds(merged.tagIds || []);
+    setCf(merged.customFields || {});
+    setItemsReloadKey(k => k + 1);
+    leadsService.get(lead.id).then(full => {
+      setLead(full);
+      setActivities(full.activities || []);
+      setLeadNotes(full.leadNotes || []);
+      setTagIds(full.tagIds || []);
+      setCf(full.customFields || {});
+      setForm(formFromLead(full));
+    }).catch(() => {});
+  };
+
   const statusBadge = lead.status === 'won'
     ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">{t('leads.common.status.won')}</span>
     : lead.status === 'lost'
@@ -322,6 +365,9 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     <>
       <Modal isOpen={true} onClose={onClose} title={t('leads.detail.title')} size="3xl">
         <div className="space-y-5">
+          {/* Posibles duplicados */}
+          <LeadMergePanel lead={lead} canMerge={canMerge} stageName={stageName} onMerged={handleMerged} />
+
           {/* Cabecera */}
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="min-w-0">
@@ -409,8 +455,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
 
           {/* Pestañas: actividad / notas / historial */}
           <div className="border-t dark:border-neutral-700 pt-3">
-            <div className="flex gap-1 mb-3">
-              {([['activity', t('leads.detail.tab.activities', { count: activities.length })], ['notes', t('leads.detail.tab.notes', { count: leadNotes.length })], ['history', t('leads.detail.tab.history')]] as const).map(([k, l]) => (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {([['activity', t('leads.detail.tab.activities', { count: activities.length })], ['notes', t('leads.detail.tab.notes', { count: leadNotes.length })], ['history', t('leads.detail.tab.history')], ['products', t('leads.detail.tab.products', { count: itemCount })]] as const).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-md text-sm font-medium ${tab === k ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>{l}</button>
               ))}
             </div>
@@ -493,6 +539,21 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                 ))}
               </ul>
             )}
+
+            {/* Productos: siempre montado (oculto) para cargar el conteo y no perder cambios sin guardar al cambiar de pestaña. */}
+            <div className={tab === 'products' ? '' : 'hidden'}>
+              <LeadItemsTab
+                leadId={lead.id}
+                canEdit={canEdit}
+                canEstimate={canEstimate}
+                lastEstimateId={lead.lastEstimateId}
+                reloadKey={itemsReloadKey}
+                onCountChange={setItemCount}
+                onValueSynced={handleValueSynced}
+                onEstimateCreated={handleEstimateCreated}
+                onOpenEstimate={openEstimate}
+              />
+            </div>
           </div>
 
           {/* Footer */}

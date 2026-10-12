@@ -1,12 +1,12 @@
 import { api, API_URL } from './api';
-import type { Lead, Pipeline, PipelineStage, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField, LeadSettings, LeadRule, LeadRuleRun, LeadTemplate, SalesTeam, LeadWebhook, LeadApiKey, SalesGoal, GoalProgressRow, GoalMetric } from '../types';
+import type { Lead, Pipeline, PipelineStage, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField, LeadSettings, LeadRule, LeadRuleRun, LeadTemplate, SalesTeam, LeadWebhook, LeadApiKey, SalesGoal, GoalProgressRow, GoalMetric, LeadItem, LeadDuplicate, LeadAgenda } from '../types';
 
 export interface LeadConfig {
   pipelines: Pipeline[];
   sources: LeadSource[];
   tags: LeadTag[];
   customFields: LeadCustomField[];
-  settings: { coldDays: number; lostReasons: string[] };
+  settings: { coldDays: number; lostReasons: string[]; timezone?: string };
 }
 
 export interface LeadFilters {
@@ -21,6 +21,8 @@ export interface LeadFilters {
   limit?: number;
   /** Leads de un cliente: vinculados, convertidos en él o con su mismo correo. */
   clientId?: string;
+  /** '1' = papelera (leads eliminados en los últimos 30 días). */
+  archived?: '1';
 }
 
 export interface ReportRange { from?: string; to?: string; pipelineId?: string; }
@@ -37,7 +39,8 @@ export interface StageTimeReport { rows: { stageId: string; name: string; type?:
 export interface ForecastReport { rows: { month: string; count: number; value: number; weighted: number }[]; }
 export interface LostReasonsReport { rows: { reason: string; count: number; value: number }[]; }
 export interface ImportResultDto { created: number; updated?: number; failedCount: number; failed: { row: number; error: string }[]; }
-export type BulkAction = 'assign' | 'stage' | 'tag' | 'untag' | 'delete';
+/** 'delete' = enviar a la papelera; 'restore' = sacar de la papelera; 'purge' = eliminar definitivamente (solo en papelera). */
+export type BulkAction = 'assign' | 'stage' | 'tag' | 'untag' | 'delete' | 'restore' | 'purge';
 
 const clean = (o?: Record<string, any>) => {
   if (!o) return undefined;
@@ -75,7 +78,27 @@ export const leadsService = {
   get: (id: string) => api.get<Lead>(`/leads/${id}`),
   create: (data: Partial<Lead>) => api.post<Lead>('/leads', data),
   update: (id: string, data: Partial<Lead>) => api.put<Lead>(`/leads/${id}`, data),
-  remove: (id: string) => api.delete<{ deleted: boolean }>(`/leads/${id}`),
+  /** Envía a la papelera (se puede restaurar durante 30 días). */
+  remove: (id: string) => api.delete<{ archived: boolean }>(`/leads/${id}`),
+  restore: (id: string) => api.post<Lead>(`/leads/${id}/restore`, {}),
+  /** Elimina definitivamente (solo leads que ya están en la papelera). */
+  purge: (id: string) => api.delete<{ deleted: boolean }>(`/leads/${id}/permanent`),
+  // Duplicados y fusión
+  checkDuplicates: (q: { email?: string; phone?: string; name?: string; companyName?: string; excludeId?: string }) =>
+    api.get<LeadDuplicate[]>('/leads/duplicates/check', clean(q as any)),
+  duplicatesOf: (id: string) => api.get<LeadDuplicate[]>(`/leads/${id}/duplicates`),
+  /** Fusiona `sourceId` dentro de `id` (actividades, notas, historial, etiquetas, productos; completa datos vacíos) y elimina el origen. */
+  merge: (id: string, sourceId: string) => api.post<Lead>(`/leads/${id}/merge`, { sourceId }),
+  // Productos del lead y cotización
+  getItems: (id: string) => api.get<LeadItem[]>(`/leads/${id}/items`),
+  /** Reemplaza las partidas. syncValue=true → el valor del lead pasa a ser el subtotal. */
+  saveItems: (id: string, items: LeadItem[], syncValue?: boolean) =>
+    api.put<{ items: LeadItem[]; value: number | null }>(`/leads/${id}/items`, { items, syncValue: !!syncValue }),
+  /** Crea una cotización (Estimado, Borrador) con las partidas; vincula o crea el cliente. */
+  createEstimate: (id: string, opts?: { branchId?: string; expiryDays?: number; notes?: string }) =>
+    api.post<{ estimateId: string; clientId: string; clientCreated: boolean }>(`/leads/${id}/estimate`, opts || {}),
+  // Agenda del vendedor
+  agenda: (scope: 'mine' | 'all' = 'mine') => api.get<LeadAgenda>('/leads/agenda', { scope }),
   moveStage: (id: string, stageId: string, opts?: { lostReason?: string; order?: number }) =>
     api.post<Lead>(`/leads/${id}/stage`, { stageId, ...opts }),
   reorder: (ids: string[]) => api.put<{ ok: boolean }>('/leads/reorder', { ids }),

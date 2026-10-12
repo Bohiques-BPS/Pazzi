@@ -209,6 +209,35 @@ export const EstimatesListPage: React.FC = () => {
         setShowFormModal(true);
     };
 
+    // Enlace directo a una cotización (?estimate=<id>), p. ej. desde un lead del CRM.
+    // Si aún no está en DataContext (recién creada en otra pantalla), recarga la lista una vez.
+    const deepLinkRefetched = React.useRef<string | null>(null);
+    useEffect(() => {
+        const id = estSearchParams.get('estimate');
+        if (!id) return;
+        const clearParam = () => {
+            const next = new URLSearchParams(estSearchParams);
+            next.delete('estimate');
+            setEstSearchParams(next, { replace: true });
+        };
+        const found = estimates.find(e => e.id === id);
+        if (found) { openModalForEdit(found); clearParam(); return; }
+        if (deepLinkRefetched.current === id) return;
+        deepLinkRefetched.current = id;
+        estimatesService.getAll()
+            .then(list => {
+                if (!Array.isArray(list)) { clearParam(); return; }
+                // Fusiona (no reemplaza) para no recortar la lista si el endpoint pagina distinto.
+                setEstimates(prev => {
+                    const known = new Set(prev.map(e => e.id));
+                    const fresh = (list as unknown as Estimate[]).filter(e => !known.has(e.id));
+                    return fresh.length ? [...fresh, ...prev] : prev;
+                });
+                if (!list.some(e => e.id === id)) clearParam(); // no existe o sin acceso
+            })
+            .catch(() => clearParam());
+    }, [estSearchParams, estimates]); // eslint-disable-line
+
     const requestDelete = (estimateId: string) => {
         setItemToDeleteId(estimateId);
         setShowDeleteConfirmModal(true);
