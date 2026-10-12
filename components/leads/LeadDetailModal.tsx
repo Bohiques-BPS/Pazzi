@@ -6,7 +6,8 @@ import { useData } from '../../contexts/DataContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { leadsService } from '../../services/leads';
 import { uploadImage } from '../../services/upload';
-import { ApiError } from '../../services/api';
+import { api, ApiError } from '../../services/api';
+import { useLeadAssignees } from './useLeadAssignees';
 import { toast } from '../../hooks/useToast';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { DeleteIcon, PaperAirplaneIcon } from '../icons';
@@ -44,7 +45,7 @@ const toLocalInput = (iso?: string | null, withTime = true) => {
 };
 
 export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines, sources, tags, customFields, lostReasons, onClose, onChanged, onDeleted, onTagCreated }) => {
-  const { getAllEmployees } = useData();
+  const { setClients } = useData();
   const { can } = usePermissions();
   const navigate = useNavigate();
 
@@ -98,10 +99,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const allStages = useMemo(() => pipelines.flatMap(p => p.stages), [pipelines]);
   const stageName = (id?: string | null) => allStages.find(s => s.id === id)?.name || '—';
 
-  const assigneeOptions = useMemo(() => {
-    const emps = getAllEmployees() as any[];
-    return emps.map(e => ({ uid: (e.userId || e.id) as string, name: `${e.name || ''} ${e.lastName || ''}`.trim() || e.email }));
-  }, [getAllEmployees]);
+  const assigneeOptions = useLeadAssignees();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -116,7 +114,20 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     return () => { cancelled = true; };
   }, [initialLead.id]);
 
-  const patchLead = (next: Partial<Lead>) => { const merged = { ...lead, ...next } as Lead; setLead(merged); onChanged(merged); };
+  // Funcional: una respuesta lenta no debe pisar cambios hechos mientras tanto (etapa/responsable).
+  const patchLead = (next: Partial<Lead>) => {
+    setLead(prev => ({ ...prev, ...next } as Lead));
+    onChanged({ id: lead.id, ...next } as Lead);
+    if (Object.prototype.hasOwnProperty.call(next, 'nextActionAt')) setForm(f => ({ ...f, nextActionAt: toLocalInput(next.nextActionAt) }));
+  };
+
+  /** Etiquetas: se guardan al instante (como etapa y responsable). */
+  const saveTags = async (nextIds: string[]) => {
+    const prevIds = tagIds;
+    setTagIds(nextIds);
+    try { const updated = await leadsService.update(lead.id, { tagIds: nextIds } as any); patchLead({ tagIds: updated.tagIds }); }
+    catch (err) { setTagIds(prevIds); toast.error(err instanceof ApiError ? err.message : 'No se pudo guardar la etiqueta.'); }
+  };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('El nombre es obligatorio.'); return; }
@@ -128,7 +139,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
         name: form.name.trim(), lastName: form.lastName || null, companyName: form.companyName || null,
         email: form.email || null, phone: form.phone || null, whatsapp: form.whatsapp || null,
         value: form.value ? Number(form.value) : null,
-        probability: form.probability !== '' ? Math.max(0, Math.min(100, Number(form.probability))) : null,
+        probability: form.probability !== '' ? Math.max(0, Math.min(100, Math.round(Number(form.probability)))) : null,
         sourceId: form.sourceId || null, notes: form.notes || null,
         nextActionAt: form.nextActionAt ? new Date(form.nextActionAt).toISOString() : null,
         expectedCloseAt: form.expectedCloseAt ? new Date(form.expectedCloseAt + 'T12:00:00').toISOString() : null,
@@ -152,7 +163,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
 
   const onStageSelect = (stageId: string) => {
     const st = stages.find(s => s.id === stageId);
-    if (st?.type === 'lost') { setAskLostFor(stageId); setLostChoice(lostReasons[0] || ''); setLostOther(''); return; }
+    if (st?.type === 'lost') { setAskLostFor(stageId); setLostChoice(lostReasons[0] || '__other'); setLostOther(''); return; }
     doMoveStage(stageId);
   };
 
@@ -167,6 +178,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       const won = stages.find(s => s.type === 'won');
       patchLead({ status: 'won', convertedClientId: res.clientId, ...(won ? { stageId: won.id } : {}) });
       toast.success(res.alreadyConverted ? 'Este lead ya era cliente.' : 'Lead convertido en cliente.');
+      // Recarga la lista de clientes para que "Ver cliente →" encuentre el nuevo.
+      api.get<any[]>('/clients').then(list => { if (Array.isArray(list)) setClients(list as any); }).catch(() => {});
     } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo convertir.'); }
   };
 
@@ -176,7 +189,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo eliminar.'); }
   };
 
-  const addTagById = (id: string) => { if (id && !tagIds.includes(id)) setTagIds(prev => [...prev, id]); };
+  const addTagById = (id: string) => { if (id && !tagIds.includes(id)) saveTags([...tagIds, id]); };
   const createAndAddTag = async () => {
     const name = newTag.trim();
     if (!name) return;
@@ -320,7 +333,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             <div className="flex flex-wrap items-center gap-1.5">
               {tagIds.map(id => {
                 const t = tags.find(x => x.id === id);
-                return t ? <TagChip key={id} tag={t} onRemove={canEdit ? () => setTagIds(prev => prev.filter(x => x !== id)) : undefined} /> : null;
+                return t ? <TagChip key={id} tag={t} onRemove={canEdit ? () => saveTags(tagIds.filter(x => x !== id)) : undefined} /> : null;
               })}
               {canEdit && (
                 <>
@@ -501,7 +514,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
           {lostChoice === '__other' && <input value={lostOther} onChange={e => setLostOther(e.target.value)} className={inputFormStyle} placeholder="Describe el motivo" autoFocus />}
           <div className="flex justify-end gap-2">
             <button onClick={() => setAskLostFor(null)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-            <button onClick={() => { const s = askLostFor!; setAskLostFor(null); doMoveStage(s, (lostChoice === '__other' ? lostOther.trim() : lostChoice) || undefined); }} className={BUTTON_PRIMARY_SM_CLASSES}>Confirmar</button>
+            <button disabled={!(lostChoice === '__other' ? lostOther.trim() : lostChoice)} onClick={() => { const s = askLostFor!; setAskLostFor(null); doMoveStage(s, (lostChoice === '__other' ? lostOther.trim() : lostChoice) || undefined); }} className={BUTTON_PRIMARY_SM_CLASSES}>Confirmar</button>
           </div>
         </div>
       </Modal>

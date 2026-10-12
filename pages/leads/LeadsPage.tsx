@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { Lead, Pipeline, LeadSource, LeadTag, LeadCustomField, GoalProgressRow } from '../../types';
-import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { leadsService } from '../../services/leads';
@@ -13,6 +12,7 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { ImportModal, ImportFieldDef } from '../../components/ui/ImportModal';
 import { LeadDetailModal } from '../../components/leads/LeadDetailModal';
 import { TagChip } from '../../components/leads/TagChip';
+import { useLeadAssignees } from '../../components/leads/useLeadAssignees';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { PlusIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon } from '../../components/icons';
 
@@ -30,13 +30,12 @@ const IMPORT_FIELDS: ImportFieldDef[] = [
   { key: 'source', label: 'Fuente', aliases: ['origen', 'source', 'canal'] },
   { key: 'stage', label: 'Etapa', aliases: ['estado', 'stage', 'status', 'fase'] },
   { key: 'assigneeEmail', label: 'Correo del responsable', aliases: ['responsable', 'vendedor', 'asignado', 'owner'] },
-  { key: 'expectedCloseAt', label: 'Cierre estimado', aliases: ['fecha cierre', 'close date', 'cierre'] },
+  { key: 'expectedCloseAt', label: 'Cierre estimado', type: 'date', aliases: ['fecha cierre', 'close date', 'cierre'] },
   { key: 'tags', label: 'Etiquetas (separadas por coma)', aliases: ['etiquetas', 'tags'] },
   { key: 'notes', label: 'Notas', aliases: ['nota', 'notas', 'comentarios', 'observaciones', 'notes'] },
 ];
 
 export const LeadsPage: React.FC = () => {
-  const { getAllEmployees } = useData();
   const { currentUser } = useAuth();
   const { can } = usePermissions();
   const navigate = useNavigate();
@@ -76,10 +75,10 @@ export const LeadsPage: React.FC = () => {
   const stages = pipeline?.stages || [];
   const setViewPersist = (v: 'board' | 'list') => { setView(v); try { localStorage.setItem('pazzi_leads_view', v); } catch { /* noop */ } };
 
-  const assignees = useMemo(() => (getAllEmployees() as any[]).map(e => ({ uid: (e.userId || e.id) as string, name: `${e.name || ''} ${e.lastName || ''}`.trim() || e.email })), [getAllEmployees]);
-  const empName = (uid?: string | null) => {
+  const assignees = useLeadAssignees();
+  const empName = (uid?: string | null, forExport = false) => {
     if (!uid) return 'Sin asignar';
-    if (uid === currentUser?.id) return 'Yo';
+    if (uid === currentUser?.id && !forExport) return 'Yo';
     return assignees.find(a => a.uid === uid)?.name || 'Responsable';
   };
 
@@ -123,7 +122,9 @@ export const LeadsPage: React.FC = () => {
       const next = new URLSearchParams(searchParams); next.delete('cold'); setSearchParams(next, { replace: true });
     }
     const lid = searchParams.get('lead');
-    if (!lid || openedRef.current === lid) return;
+    // Sin ?lead= se "olvida" el último abierto, para que otra notificación del mismo lead vuelva a abrirlo.
+    if (!lid) { openedRef.current = null; return; }
+    if (openedRef.current === lid) return;
     const found = leads.find(l => l.id === lid);
     const open = (l: Lead) => {
       openedRef.current = lid;
@@ -173,7 +174,22 @@ export const LeadsPage: React.FC = () => {
   }, [filtered, leads, coldDays]);
 
   const onChanged = (lead: Lead) => setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, ...lead } : l));
-  const onDeleted = (id: string) => setLeads(prev => prev.filter(l => l.id !== id));
+  const onDeleted = (id: string) => {
+    setLeads(prev => prev.filter(l => l.id !== id));
+    setChecked(prev => { if (!prev.has(id)) return prev; const n = new Set(prev); n.delete(id); return n; });
+  };
+
+  // La selección masiva solo cuenta lo que se ve: al cambiar filtros se descartan los ocultos.
+  useEffect(() => {
+    setChecked(prev => {
+      if (!prev.size) return prev;
+      const visible = new Set(filtered.map(l => l.id));
+      const n = new Set(Array.from(prev).filter(id => visible.has(id)));
+      return n.size === prev.size ? prev : n;
+    });
+  }, [filtered]);
+
+  const canMove = can('leads.changeStage') || can('leads.edit');
 
   // ── Drag & drop: soltar en columna (mueve al final) o sobre una tarjeta (inserta antes de ella).
   const handleDrop = async (stageId: string, beforeLeadId?: string) => {
@@ -188,7 +204,8 @@ export const LeadsPage: React.FC = () => {
       toast.warning('Elige el motivo de pérdida en la ficha del lead.');
       return;
     }
-    const column = (byStage[stageId] || []).filter(l => l.id !== id);
+    // Se reordena la columna COMPLETA (sin filtros); si no, los leads ocultos por un filtro chocarían de posición.
+    const column = leads.filter(l => l.stageId === stageId && l.id !== id).sort((a, b) => a.order - b.order);
     const idx = beforeLeadId ? column.findIndex(l => l.id === beforeLeadId) : -1;
     const ordered = [...column];
     ordered.splice(idx >= 0 ? idx : ordered.length, 0, { ...lead, stageId });
@@ -229,7 +246,7 @@ export const LeadsPage: React.FC = () => {
       const base: Record<string, any> = {
         Nombre: l.name, Apellido: l.lastName || '', Empresa: l.companyName || '', Correo: l.email || '', Teléfono: l.phone || '',
         WhatsApp: l.whatsapp || '', Etapa: stageName(l.stageId), Estado: l.status === 'won' ? 'Ganado' : l.status === 'lost' ? 'Perdido' : 'Abierto',
-        'Motivo pérdida': l.lostReason || '', Valor: l.value ?? '', Probabilidad: l.probability ?? '', Responsable: empName(l.assignedUserId),
+        'Motivo pérdida': l.lostReason || '', Valor: l.value ?? '', Probabilidad: l.probability ?? '', Responsable: empName(l.assignedUserId, true),
         Fuente: srcName(l.sourceId), Etiquetas: tagNames(l.tagIds),
         'Cierre estimado': l.expectedCloseAt ? new Date(l.expectedCloseAt).toLocaleDateString() : '',
         'Próxima acción': l.nextActionAt ? new Date(l.nextActionAt).toLocaleString() : '',
@@ -257,9 +274,9 @@ export const LeadsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Leads</h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-            {filtered.length} lead(s) · abierto {money(totals.openValue) || '$0'}
-            {totals.overdue > 0 && <span className="ml-2 text-red-600 dark:text-red-400">· {totals.overdue} con acción vencida</span>}
-            {totals.cold > 0 && <button type="button" onClick={() => { setOnlyCold(true); setFilterStatus('open'); }} className="ml-2 text-amber-600 dark:text-amber-400 hover:underline">· {totals.cold} sin seguimiento</button>}
+            <span translate="no">{filtered.length} lead(s) · abierto {money(totals.openValue) || '$0'}</span>
+            {totals.overdue > 0 && <span translate="no" className="ml-2 text-red-600 dark:text-red-400">· {totals.overdue} con acción vencida</span>}
+            {totals.cold > 0 && <button type="button" translate="no" onClick={() => { setOnlyCold(true); setFilterStatus('open'); }} className="ml-2 text-amber-600 dark:text-amber-400 hover:underline">· {totals.cold} sin seguimiento</button>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -334,7 +351,7 @@ export const LeadsPage: React.FC = () => {
       {/* Barra de acciones masivas */}
       {checked.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-primary/10 border border-primary/30">
-          <span className="text-sm font-semibold text-primary dark:text-teal-300">{checked.size} seleccionado(s)</span>
+          <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300">{checked.size} seleccionado(s)</span>
           {can('leads.assign') && <button onClick={() => { setBulkModal('assign'); setBulkValue(''); }} className={BUTTON_SECONDARY_SM_CLASSES}>👤 Asignar</button>}
           {(can('leads.changeStage') || can('leads.edit')) && <button onClick={() => { setBulkModal('stage'); setBulkValue(stages[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>➡️ Mover etapa</button>}
           {can('leads.edit') && tags.length > 0 && <button onClick={() => { setBulkModal('tag'); setBulkValue(tags[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>🏷️ Etiquetar</button>}
@@ -349,11 +366,11 @@ export const LeadsPage: React.FC = () => {
             const list = byStage[stage.id] || [];
             const total = list.reduce((a, l) => a + (l.value || 0), 0);
             return (
-              <div key={stage.id} onDragOver={e => e.preventDefault()} onDrop={() => handleDrop(stage.id)} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[75vh]">
+              <div key={stage.id} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleDrop(stage.id); }} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[75vh]">
                 <div className="mb-2 px-2">
                   <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex justify-between items-center text-sm gap-2">
                     <span className="flex items-center gap-1.5 min-w-0"><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: stage.color || '#94a3b8' }} /><span className="truncate" translate="no">{stage.name}</span></span>
-                    <span className="text-xs text-gray-500 flex-shrink-0">{list.length}</span>
+                    <span translate="no" className="text-xs text-gray-500 flex-shrink-0">{list.length}</span>
                   </h3>
                   {total > 0 && <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">{money(total)}{stage.type === 'open' && stage.probability != null ? ` · pond. ${money(total * (stage.probability / 100))}` : ''}</p>}
                 </div>
@@ -362,7 +379,10 @@ export const LeadsPage: React.FC = () => {
                     const overdue = lead.status === 'open' && lead.nextActionAt && new Date(lead.nextActionAt).getTime() < Date.now();
                     const cold = isCold(lead);
                     return (
-                      <div key={lead.id} draggable onDragStart={() => setDraggedId(lead.id)} onDragOver={e => e.preventDefault()} onDrop={e => { e.stopPropagation(); handleDrop(stage.id, lead.id); }} onClick={() => setSelected(lead)}
+                      <div key={lead.id} draggable={canMove}
+                        onDragStart={e => { if (!canMove) return; e.dataTransfer.setData('text/plain', lead.id); e.dataTransfer.effectAllowed = 'move'; setDraggedId(lead.id); }}
+                        onDragEnd={() => setDraggedId(null)}
+                        onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop(stage.id, lead.id); }} onClick={() => setSelected(lead)}
                         className={`bg-white dark:bg-slate-700 p-3 rounded-lg shadow hover:shadow-lg cursor-pointer border-l-4 ${draggedId === lead.id ? 'opacity-50' : ''}`} style={{ borderLeftColor: stage.color || '#94a3b8' }}>
                         <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate"><span translate="no">{lead.name} {lead.lastName}</span></p>
                         {lead.companyName && <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate"><span translate="no">{lead.companyName}</span></p>}

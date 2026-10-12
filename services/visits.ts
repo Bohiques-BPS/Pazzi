@@ -1,6 +1,6 @@
 import { api } from './api';
 
-export type VisitStatus = 'Programado' | 'En Curso' | 'Completado' | 'Cancelado';
+export type VisitStatus = 'Programado' | 'En Curso' | 'Completado' | 'Reagendado' | 'Cancelado';
 
 export interface VisitPayload {
   title: string;

@@ -116,6 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
       ...(mod.subModulesProject || []),
       ...(mod.subModulesPOS || []),
       ...(mod.subModulesEcommerce || []),
+      ...(mod.subModulesLeads || []),
     ];
     const keys: string[] = [];
     for (const item of lists) {
@@ -156,6 +157,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
           ...(mod.subModulesProject || []),
           ...(mod.subModulesPOS || []),
           ...(mod.subModulesEcommerce || []),
+          ...((mod as any).subModulesLeads || []),
         ];
         for (const item of lists) {
           const links = item.type === 'group' ? item.children : [item];

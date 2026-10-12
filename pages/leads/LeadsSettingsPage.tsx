@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pipeline, PipelineStage, LeadSource, LeadTag, LeadCustomField, LeadSettings, LeadCustomFieldType } from '../../types';
-import { useData } from '../../contexts/DataContext';
+import { useLeadAssignees } from '../../components/leads/useLeadAssignees';
 import { usePermissions } from '../../hooks/usePermissions';
 import { leadsService } from '../../services/leads';
 import { ApiError } from '../../services/api';
@@ -46,7 +46,6 @@ const ColorPicker: React.FC<{ value?: string | null; onChange: (c: string) => vo
 export const LeadsSettingsPage: React.FC = () => {
   const { can } = usePermissions();
   const navigate = useNavigate();
-  const { getAllEmployees } = useData();
   const [tab, setTab] = useState<Tab>('pipelines');
   const [loading, setLoading] = useState(true);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -59,11 +58,7 @@ export const LeadsSettingsPage: React.FC = () => {
 
   const { currentUser } = useAuth();
   // Responsables posibles: colaboradores con cuenta (User.id) + el usuario actual (p.ej. el gerente).
-  const assignees = useMemo(() => {
-    const list = (getAllEmployees() as any[]).filter(e => e.userId || e.id).map(e => ({ uid: (e.userId || e.id) as string, name: `${e.name || ''} ${e.lastName || ''}`.trim() || e.email }));
-    if (currentUser && !list.some(a => a.uid === currentUser.id)) list.unshift({ uid: currentUser.id, name: `${currentUser.name || ''} ${(currentUser as any).lastName || ''}`.trim() || 'Yo' });
-    return list;
-  }, [getAllEmployees, currentUser]);
+  const assignees = useLeadAssignees();
 
   const reload = async () => {
     const [cfg, s] = await Promise.all([leadsService.getConfig(), leadsService.getSettings()]);

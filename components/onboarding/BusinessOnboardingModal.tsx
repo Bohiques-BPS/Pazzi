@@ -35,7 +35,7 @@ export const BusinessOnboardingModal: React.FC = () => {
     const { pathname } = useLocation();
     // Nunca mostrar el onboarding en páginas PÚBLICAS (pago de factura, activación, tienda, login):
     // ahí entra un cliente/visitante, no el dueño del negocio.
-    const isPublicRoute = /^\/(pay|activate|store|login|register)(\/|$)/.test(pathname);
+    const isPublicRoute = /^\/(pay|activate|store|login|register|f)(\/|$)/.test(pathname);
     const isManager = currentUser?.role === UserRole.MANAGER;
     const localKey = `pazzi_onboarded_${currentUser?.id || 'anon'}`;
 

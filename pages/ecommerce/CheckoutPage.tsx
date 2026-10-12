@@ -37,10 +37,10 @@ const PaymentMethodSelector: React.FC<{
                     onClick={() => onSelectMethod(option.id)}
                     className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all duration-200 focus:outline-none
                         ${selectedMethod === option.id
-                            ? `border-transparent ring-2 ring-offset-1 dark:ring-offset-neutral-800 shadow-md ring-[${primaryColor}]`
+                            ? `border-transparent ring-2 ring-offset-1 dark:ring-offset-neutral-800 shadow-md`
                             : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500 hover:shadow-sm'
                         }`}
-                    style={selectedMethod === option.id ? { borderColor: primaryColor } : {}}
+                    style={selectedMethod === option.id ? ({ borderColor: primaryColor, '--tw-ring-color': primaryColor } as React.CSSProperties) : {}}
                 >
                     <span className={`font-medium text-sm ${selectedMethod === option.id ? '' : 'text-neutral-700 dark:text-neutral-200'}`}
                           style={selectedMethod === option.id ? { color: primaryColor } : {}}

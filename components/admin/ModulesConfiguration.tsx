@@ -9,6 +9,7 @@ import {
     BriefcaseIcon,
     CashBillIcon,
     ShoppingCartIcon,
+    UserGroupIcon,
 } from '../icons';
 
 // Metadatos de presentación por módulo apagable.
@@ -28,6 +29,10 @@ const MODULE_META: Record<string, { icon: React.ComponentType<{ className?: stri
     [AppModule.ECOMMERCE]: {
         icon: ShoppingCartIcon,
         description: 'Tienda online, pedidos web, proveedores y configuración de la tienda.',
+    },
+    [AppModule.LEADS]: {
+        icon: UserGroupIcon,
+        description: 'CRM de leads: embudo de ventas, seguimiento, automatizaciones, formulario web y reportes.',
     },
 };
 

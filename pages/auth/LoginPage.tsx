@@ -62,7 +62,7 @@ export const LoginPage: React.FC = () => {
             try {
                 const parsedModule = JSON.parse(lastStoredModuleString) as AppModule;
                 // Ensure the stored module is valid for a manager
-                if ([AppModule.PROJECT_MANAGEMENT, AppModule.POS, AppModule.ECOMMERCE, AppModule.TIENDA].includes(parsedModule)) {
+                if ([AppModule.PROJECT_MANAGEMENT, AppModule.POS, AppModule.ECOMMERCE, AppModule.TIENDA, AppModule.LEADS].includes(parsedModule)) {
                     initialModuleForManager = parsedModule;
                 }
             } catch (e) {

@@ -57,7 +57,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, val
         const q = query.toLowerCase();
         return products.filter(p =>
             p.name.toLowerCase().includes(q) ||
-            (p.sku && String(p.sku).toLowerCase().includes(q)) ||
+            ((p as any).sku && String((p as any).sku).toLowerCase().includes(q)) ||
             (p.skus && p.skus.some((s: string) => s.toLowerCase().includes(q)))
         ).slice(0, 50);
     }, [products, query]);

@@ -44,6 +44,7 @@ function buildRouteMeta(): Record<string, { label: string; Icon: React.Component
         addLinks(mod.subModulesPOS);
         addLinks(mod.subModulesEcommerce);
         addLinks(mod.subModulesAdmin);
+        addLinks((mod as any).subModulesLeads);
         for (const link of allLinks) {
             map[link.path] = {
                 label: link.name,
@@ -255,6 +256,7 @@ export const DashboardHomePage: React.FC = () => {
                         module.name === AppModule.PROJECT_MANAGEMENT ? 'gestión de proyectos.' :
                         module.name === AppModule.POS ? 'punto de venta.' :
                         module.name === AppModule.ECOMMERCE ? 'e-commerce admin.' :
+                        module.name === AppModule.LEADS ? 'CRM de leads: embudo de ventas, seguimiento y reportes.' :
                         `${module.name.toLowerCase()}.`;
 
                     return (
