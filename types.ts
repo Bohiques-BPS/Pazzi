@@ -744,6 +744,23 @@ export enum AppModule {
 export interface PipelineStage { id: string; storeOwnerId?: string; pipelineId: string; name: string; order: number; type: 'open' | 'won' | 'lost'; color?: string | null; probability?: number | null; }
 export interface Pipeline { id: string; name: string; isDefault: boolean; order: number; archived?: boolean; stages: PipelineStage[]; }
 export interface LeadSource { id: string; name: string; active?: boolean; }
+export interface LeadTag { id: string; name: string; color?: string | null; }
+export type LeadCustomFieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'url';
+export interface LeadCustomField { id: string; label: string; type: LeadCustomFieldType; options?: string[] | null; required?: boolean; order: number; }
+export interface LeadSettings {
+    storeOwnerId: string;
+    formEnabled: boolean;
+    formToken?: string | null;
+    formPipelineId?: string | null;
+    formStageId?: string | null;
+    formAssigneeId?: string | null;
+    formTitle?: string | null;
+    formSuccessMessage?: string | null;
+    coldDays: number;
+    ecommerceToLead: boolean;
+    whatsappToLead: boolean;
+    lostReasons: string[];
+}
 export interface LeadActivity { id: string; leadId: string; type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'note' | 'task'; title?: string | null; body?: string | null; dueAt?: string | null; done: boolean; doneAt?: string | null; attachments?: { url: string; name?: string }[] | null; createdByName?: string | null; createdAt: string; }
 export interface LeadNote { id: string; leadId: string; text: string; imageUrl?: string | null; authorName?: string | null; createdAt: string; }
 export interface LeadStageHistory { id: string; leadId: string; fromStageId?: string | null; toStageId: string; byUserId?: string | null; at: string; }
@@ -768,6 +785,11 @@ export interface Lead {
     nextActionAt?: string | null;
     lastActivityAt?: string | null;
     convertedClientId?: string | null;
+    expectedCloseAt?: string | null;
+    customFields?: Record<string, any> | null;
+    tagIds?: string[];
+    wonAt?: string | null;
+    lostAt?: string | null;
     order: number;
     createdAt: string;
     updatedAt?: string;

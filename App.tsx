@@ -74,6 +74,8 @@ const ModuleHubPage = lazyNamed(() => import('./pages/ModuleHubPage'), 'ModuleHu
 const NotificationsPage = lazyNamed(() => import('./pages/NotificationsPage'), 'NotificationsPage');
 const LeadsPage = lazyNamed(() => import('./pages/leads/LeadsPage'), 'LeadsPage');
 const LeadsReportsPage = lazyNamed(() => import('./pages/leads/LeadsReportsPage'), 'LeadsReportsPage');
+const LeadsSettingsPage = lazyNamed(() => import('./pages/leads/LeadsSettingsPage'), 'LeadsSettingsPage');
+const PublicLeadFormPage = lazyNamed(() => import('./pages/leads/PublicLeadFormPage'), 'PublicLeadFormPage');
 const ProjectDetailPage = lazyNamed(() => import('./pages/pm/ProjectDetailPage'), 'ProjectDetailPage');
 const ProjectCalendarPage = lazyNamed(() => import('./pages/pm/ProjectCalendarPage'), 'ProjectCalendarPage');
 const ProjectChatPage = lazyNamed(() => import('./pages/pm/ProjectChatPage'), 'ProjectChatPage');
@@ -207,7 +209,7 @@ const AppContent: React.FC = () => {
     if (loading) return;
 
     const isAuthPath = ['/login', '/register', '/forgot-password'].some(p => location.pathname.startsWith(p));
-    const isPublicPath = ['/', '/checkout'].some(p => location.pathname.startsWith(p)) || /^\/store(\/[^/]+)?$/.test(location.pathname) || /^\/order-confirmation(\/[^/]+)?$/.test(location.pathname) || /^\/pay\/[^/]+$/.test(location.pathname);
+    const isPublicPath = ['/', '/checkout'].some(p => location.pathname.startsWith(p)) || /^\/store(\/[^/]+)?$/.test(location.pathname) || /^\/order-confirmation(\/[^/]+)?$/.test(location.pathname) || /^\/pay\/[^/]+$/.test(location.pathname) || /^\/f\/[^/]+$/.test(location.pathname);
 
     if (!currentUser && !isAuthPath && !isPublicPath) {
         navigate('/login');
@@ -417,6 +419,7 @@ const AppContent: React.FC = () => {
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
         <Route path="/pay/:token" element={<PublicInvoicePage />} />
         <Route path="/enroll/:token" element={<PublicEnrollPage />} />
+        <Route path="/f/:token" element={<PublicLeadFormPage />} />
         {/* Páginas legales públicas (para registro de app OAuth y pie de la tienda). */}
         <Route path="/privacy" element={<LegalPage variant="privacy" />} />
         <Route path="/privacidad" element={<LegalPage variant="privacy" />} />
@@ -437,6 +440,7 @@ const AppContent: React.FC = () => {
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/leads" element={<LeadsPage />} />
                 <Route path="/leads/reports" element={<LeadsReportsPage />} />
+                <Route path="/leads/settings" element={<LeadsSettingsPage />} />
                 <Route path="/" element={<DashboardHomePage />} />
 
                 {/* E-commerce Client Routes */}
