@@ -10,16 +10,23 @@ import { ConfirmationModal } from '../../components/Modal';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { TagChip } from '../../components/leads/TagChip';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { useAuth } from '../../contexts/AuthContext';
+import { RulesTab, TemplatesTab, TeamsTab, IntegrationsTab, GoalsTab } from './LeadsAutomationTabs';
 
-type Tab = 'pipelines' | 'sources' | 'tags' | 'fields' | 'lost' | 'form' | 'automation';
+type Tab = 'pipelines' | 'sources' | 'tags' | 'fields' | 'lost' | 'form' | 'automation' | 'rules' | 'templates' | 'teams' | 'integrations' | 'goals';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'pipelines', label: 'Pipelines y etapas' },
   { key: 'sources', label: 'Fuentes' },
   { key: 'tags', label: 'Etiquetas' },
   { key: 'fields', label: 'Campos personalizados' },
   { key: 'lost', label: 'Motivos de pérdida' },
+  { key: 'rules', label: '⚡ Automatizaciones' },
+  { key: 'templates', label: 'Plantillas' },
+  { key: 'teams', label: 'Equipos' },
+  { key: 'goals', label: 'Metas' },
   { key: 'form', label: 'Formulario web' },
-  { key: 'automation', label: 'Automatización' },
+  { key: 'automation', label: 'Captura y seguimiento' },
+  { key: 'integrations', label: 'Integraciones / API' },
 ];
 const PALETTE = ['#64748b', '#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f59e0b', '#16a34a', '#14b8a6', '#dc2626'];
 const FIELD_TYPES: { v: LeadCustomFieldType; l: string }[] = [
@@ -50,7 +57,13 @@ export const LeadsSettingsPage: React.FC = () => {
   const [pipelineId, setPipelineId] = useState('');
   const [confirm, setConfirm] = useState<null | { title: string; message: string; run: () => void }>(null);
 
-  const assignees = useMemo(() => (getAllEmployees() as any[]).map(e => ({ uid: (e.userId || e.id) as string, name: `${e.name || ''} ${e.lastName || ''}`.trim() || e.email })), [getAllEmployees]);
+  const { currentUser } = useAuth();
+  // Responsables posibles: colaboradores con cuenta (User.id) + el usuario actual (p.ej. el gerente).
+  const assignees = useMemo(() => {
+    const list = (getAllEmployees() as any[]).filter(e => e.userId || e.id).map(e => ({ uid: (e.userId || e.id) as string, name: `${e.name || ''} ${e.lastName || ''}`.trim() || e.email }));
+    if (currentUser && !list.some(a => a.uid === currentUser.id)) list.unshift({ uid: currentUser.id, name: `${currentUser.name || ''} ${(currentUser as any).lastName || ''}`.trim() || 'Yo' });
+    return list;
+  }, [getAllEmployees, currentUser]);
 
   const reload = async () => {
     const [cfg, s] = await Promise.all([leadsService.getConfig(), leadsService.getSettings()]);
@@ -98,6 +111,11 @@ export const LeadsSettingsPage: React.FC = () => {
         {tab === 'lost' && settings && <LostReasonsTab settings={settings} setSettings={setSettings} />}
         {tab === 'form' && settings && <FormTab settings={settings} setSettings={setSettings} pipelines={pipelines} assignees={assignees} />}
         {tab === 'automation' && settings && <AutomationTab settings={settings} setSettings={setSettings} />}
+        {tab === 'rules' && <RulesTab pipelines={pipelines} sources={sources} tags={tags} assignees={assignees} />}
+        {tab === 'templates' && <TemplatesTab />}
+        {tab === 'teams' && settings && <TeamsTab assignees={assignees} settings={settings} setSettings={setSettings} />}
+        {tab === 'goals' && <GoalsTab assignees={assignees} />}
+        {tab === 'integrations' && <IntegrationsTab isManager={currentUser?.role === 'MANAGER'} />}
       </div>
 
       <ConfirmationModal

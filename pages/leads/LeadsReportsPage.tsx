@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   leadsService, FunnelReport, PerformanceReport, SourcesReport, StageTimeReport, ForecastReport, LostReasonsReport,
 } from '../../services/leads';
-import type { Pipeline } from '../../types';
+import type { Pipeline, GoalProgressRow } from '../../types';
+import { GOAL_LABEL } from './LeadsAutomationTabs';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { MiniChart } from '../../components/pm/MiniChart';
 import { inputFormStyle } from '../../constants';
@@ -46,6 +47,9 @@ export const LeadsReportsPage: React.FC = () => {
   const [stageTime, setStageTime] = useState<StageTimeReport | null>(null);
   const [forecast, setForecast] = useState<ForecastReport | null>(null);
   const [lost, setLost] = useState<LostReasonsReport | null>(null);
+  const [goalPeriod, setGoalPeriod] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
+  const [goals, setGoals] = useState<GoalProgressRow[]>([]);
+  useEffect(() => { leadsService.goalsProgress(goalPeriod).then(r => setGoals(r.rows)).catch(() => setGoals([])); }, [goalPeriod]);
 
   const range = useMemo(() => {
     const now = new Date();
@@ -129,6 +133,31 @@ export const LeadsReportsPage: React.FC = () => {
                 {k.sub && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{k.sub}</p>}
               </div>
             ))}
+          </div>
+
+          {/* Metas del mes */}
+          <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">🎯 Metas</h2>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">Se configuran en Configuración del CRM → Metas.</p>
+              </div>
+              <input type="month" value={goalPeriod} onChange={e => e.target.value && setGoalPeriod(e.target.value)} className={inputFormStyle + ' !w-auto !py-1.5 text-sm'} />
+            </div>
+            {goals.length === 0 ? <p className="text-sm text-neutral-400 mt-3">Sin metas para este mes.</p> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                {goals.map(r => (
+                  <div key={r.userId} className="p-3 rounded-lg border border-neutral-100 dark:border-neutral-700">
+                    <p className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 mb-1"><span translate="no">{r.name}</span></p>
+                    {r.goals.map(g => (
+                      <Bar key={g.metric} label={GOAL_LABEL[g.metric]} value={Math.min(g.actual, g.target)} max={g.target}
+                        color={g.pct >= 100 ? '#16a34a' : g.pct >= 60 ? '#f59e0b' : '#dc2626'}
+                        right={`${g.metric === 'won_value' ? money(g.actual) : g.actual} / ${g.metric === 'won_value' ? money(g.target) : g.target} · ${g.pct}%`} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

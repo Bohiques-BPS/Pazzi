@@ -760,7 +760,30 @@ export interface LeadSettings {
     ecommerceToLead: boolean;
     whatsappToLead: boolean;
     lostReasons: string[];
+    defaultTeamId?: string | null;
 }
+export type LeadTrigger = 'lead_created' | 'stage_changed' | 'lead_won' | 'lead_lost' | 'lead_assigned' | 'no_activity';
+export interface LeadRuleConditions { pipelineId?: string | null; stageId?: string | null; sourceId?: string | null; tagId?: string | null; minValue?: number | null; maxValue?: number | null; days?: number | null; }
+export type LeadRuleAction =
+    | { type: 'assign'; userId: string }
+    | { type: 'round_robin'; teamId: string }
+    | { type: 'add_tag'; tagId: string }
+    | { type: 'remove_tag'; tagId: string }
+    | { type: 'move_stage'; stageId: string }
+    | { type: 'create_activity'; activityType: string; body?: string; dueInHours?: number }
+    | { type: 'notify'; target: 'assignee' | 'managers' | 'user'; userId?: string; message: string }
+    | { type: 'send_email'; templateId: string }
+    | { type: 'send_whatsapp'; templateId: string }
+    | { type: 'webhook'; url: string };
+export interface LeadRule { id: string; name: string; active: boolean; trigger: LeadTrigger; conditions?: LeadRuleConditions | null; actions: LeadRuleAction[]; order: number; runCount: number; lastRunAt?: string | null; }
+export interface LeadRuleRun { id: string; ruleId: string; leadId: string; leadName?: string; trigger: string; ok: boolean; detail?: string | null; at: string; }
+export interface LeadTemplate { id: string; channel: 'email' | 'whatsapp'; name: string; subject?: string | null; body: string; }
+export interface SalesTeam { id: string; name: string; memberUserIds: string[]; mode: 'round_robin' | 'balanced'; active: boolean; }
+export interface LeadWebhook { id: string; url: string; events: string[]; secret: string; active: boolean; lastStatus?: number | null; lastError?: string | null; lastAt?: string | null; }
+export interface LeadApiKey { id: string; name: string; prefix: string; lastUsedAt?: string | null; revokedAt?: string | null; createdAt: string; key?: string; }
+export type GoalMetric = 'won_count' | 'won_value' | 'activities' | 'new_leads';
+export interface SalesGoal { id: string; userId: string; period: string; metric: GoalMetric; target: number; }
+export interface GoalProgressRow { userId: string; name: string; goals: { metric: GoalMetric; target: number; actual: number; pct: number }[]; }
 export interface LeadActivity { id: string; leadId: string; type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'note' | 'task'; title?: string | null; body?: string | null; dueAt?: string | null; done: boolean; doneAt?: string | null; attachments?: { url: string; name?: string }[] | null; createdByName?: string | null; createdAt: string; }
 export interface LeadNote { id: string; leadId: string; text: string; imageUrl?: string | null; authorName?: string | null; createdAt: string; }
 export interface LeadStageHistory { id: string; leadId: string; fromStageId?: string | null; toStageId: string; byUserId?: string | null; at: string; }

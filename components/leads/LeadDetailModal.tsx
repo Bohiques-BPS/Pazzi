@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal, ConfirmationModal } from '../Modal';
-import { Lead, Pipeline, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField } from '../../types';
+import { Lead, Pipeline, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField, LeadTemplate } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { leadsService } from '../../services/leads';
@@ -80,6 +80,13 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const [actBody, setActBody] = useState('');
   const [actDue, setActDue] = useState('');
   const [addingAct, setAddingAct] = useState(false);
+
+  // Enviar plantilla (correo / WhatsApp)
+  const [tplOpen, setTplOpen] = useState(false);
+  const [templates, setTemplates] = useState<LeadTemplate[]>([]);
+  const [tplId, setTplId] = useState('');
+  const [tplPreview, setTplPreview] = useState<{ channel: string; subject: string; body: string; to?: string | null } | null>(null);
+  const [tplSending, setTplSending] = useState(false);
 
   const canEdit = can('leads.edit');
   const canAssign = can('leads.assign');
@@ -230,6 +237,37 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       setLeadNotes(prev => [note, ...prev]);
       setNoteText(''); setNoteImage(null);
     } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo añadir la nota.'); }
+  };
+
+  const openTemplates = async () => {
+    setTplOpen(true); setTplId(''); setTplPreview(null);
+    try { setTemplates(await leadsService.listTemplates()); } catch { setTemplates([]); }
+  };
+  const pickTemplate = async (id: string) => {
+    setTplId(id); setTplPreview(null);
+    if (!id) return;
+    try { setTplPreview(await leadsService.previewTemplate(id, lead.id)); } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo generar la vista previa.'); }
+  };
+  const refreshActivities = () => leadsService.get(lead.id).then(full => { setActivities(full.activities || []); patchLead({ lastActivityAt: full.lastActivityAt }); }).catch(() => {});
+  const sendTpl = async () => {
+    if (!tplId) return;
+    setTplSending(true);
+    try {
+      const r = await leadsService.sendTemplate(lead.id, tplId);
+      toast.success(r.detail || 'Enviado.');
+      setTplOpen(false);
+      refreshActivities();
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo enviar.'); }
+    finally { setTplSending(false); }
+  };
+  /** Alternativa sin API de WhatsApp: abre wa.me con el texto y lo registra como actividad. */
+  const openWhatsappWithText = async () => {
+    if (!tplPreview) return;
+    const phone = (lead.whatsapp || lead.phone || '').replace(/\D/g, '');
+    if (!phone) { toast.error('El lead no tiene teléfono.'); return; }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(tplPreview.body)}`, '_blank', 'noopener');
+    try { await leadsService.addActivity(lead.id, { type: 'whatsapp', title: templates.find(t => t.id === tplId)?.name || 'WhatsApp', body: tplPreview.body, done: true }); refreshActivities(); } catch { /* noop */ }
+    setTplOpen(false);
   };
 
   const statusBadge = lead.status === 'won'
@@ -445,6 +483,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                 <a href={`https://wa.me/${(lead.whatsapp || lead.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300`}>💬 WhatsApp</a>
               )}
               {lead.email && <a href={`mailto:${lead.email}`} className={BUTTON_SECONDARY_SM_CLASSES}>✉️ Correo</a>}
+              {canEdit && (lead.email || lead.phone || lead.whatsapp) && <button type="button" onClick={openTemplates} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary dark:text-teal-300`}>📨 Enviar plantilla</button>}
             </div>
             <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
           </div>
@@ -464,6 +503,35 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             <button onClick={() => setAskLostFor(null)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
             <button onClick={() => { const s = askLostFor!; setAskLostFor(null); doMoveStage(s, (lostChoice === '__other' ? lostOther.trim() : lostChoice) || undefined); }} className={BUTTON_PRIMARY_SM_CLASSES}>Confirmar</button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Enviar plantilla */}
+      <Modal isOpen={tplOpen} onClose={() => setTplOpen(false)} title="Enviar plantilla" size="lg">
+        <div className="space-y-3">
+          {templates.length === 0 ? (
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">No hay plantillas. Créalas en Leads → Configuración del CRM → Plantillas.</p>
+          ) : (
+            <select value={tplId} onChange={e => pickTemplate(e.target.value)} className={inputFormStyle}>
+              <option value="">— Elige una plantilla —</option>
+              {templates.filter(t => t.channel !== 'email' || lead.email).filter(t => t.channel !== 'whatsapp' || lead.whatsapp || lead.phone).map(t => (
+                <option key={t.id} value={t.id}>{t.channel === 'email' ? '✉️' : '💬'} {t.name}</option>
+              ))}
+            </select>
+          )}
+          {tplPreview && (
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 bg-neutral-50 dark:bg-neutral-900/40 text-sm">
+              <p className="text-xs text-neutral-500 mb-1">Para: <span translate="no">{tplPreview.to || '—'}</span></p>
+              {tplPreview.channel === 'email' && <p className="font-semibold text-neutral-800 dark:text-neutral-100 mb-1">{tplPreview.subject}</p>}
+              <p className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-200">{tplPreview.body}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 flex-wrap">
+            <button onClick={() => setTplOpen(false)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+            {tplPreview?.channel === 'whatsapp' && <button onClick={openWhatsappWithText} className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300`}>Abrir en WhatsApp</button>}
+            <button onClick={sendTpl} disabled={!tplPreview || tplSending} className={BUTTON_PRIMARY_SM_CLASSES}>{tplSending ? 'Enviando…' : tplPreview?.channel === 'whatsapp' ? 'Enviar por API' : 'Enviar correo'}</button>
+          </div>
+          {tplPreview?.channel === 'whatsapp' && <p className="text-[11px] text-neutral-500">"Enviar por API" usa tu WhatsApp Business configurado (solo dentro de las 24 h del último mensaje del cliente). "Abrir en WhatsApp" abre el chat con el texto listo y lo registra en el historial.</p>}
         </div>
       </Modal>
 

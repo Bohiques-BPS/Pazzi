@@ -1,5 +1,5 @@
 import { api, API_URL } from './api';
-import type { Lead, Pipeline, PipelineStage, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField, LeadSettings } from '../types';
+import type { Lead, Pipeline, PipelineStage, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField, LeadSettings, LeadRule, LeadRuleRun, LeadTemplate, SalesTeam, LeadWebhook, LeadApiKey, SalesGoal, GoalProgressRow, GoalMetric } from '../types';
 
 export interface LeadConfig {
   pipelines: Pipeline[];
@@ -97,6 +97,39 @@ export const leadsService = {
   stageTime: (r?: ReportRange) => api.get<StageTimeReport>('/leads/reports/stage-time', clean(r as any)),
   forecast: () => api.get<ForecastReport>('/leads/reports/forecast'),
   lostReasons: (r?: ReportRange) => api.get<LostReasonsReport>('/leads/reports/lost-reasons', clean(r as any)),
+
+  // Fase 3 — automatizaciones
+  listRules: () => api.get<LeadRule[]>('/leads/automation/rules'),
+  createRule: (data: Partial<LeadRule>) => api.post<LeadRule>('/leads/automation/rules', data),
+  updateRule: (id: string, data: Partial<LeadRule>) => api.put<LeadRule>(`/leads/automation/rules/${id}`, data),
+  deleteRule: (id: string) => api.delete<any>(`/leads/automation/rules/${id}`),
+  listRuns: (ruleId?: string) => api.get<LeadRuleRun[]>('/leads/automation/runs', ruleId ? { ruleId } : undefined),
+  // Plantillas
+  listTemplates: () => api.get<LeadTemplate[]>('/leads/templates'),
+  createTemplate: (data: Partial<LeadTemplate>) => api.post<LeadTemplate>('/leads/templates', data),
+  updateTemplate: (id: string, data: Partial<LeadTemplate>) => api.put<LeadTemplate>(`/leads/templates/${id}`, data),
+  deleteTemplate: (id: string) => api.delete<any>(`/leads/templates/${id}`),
+  previewTemplate: (id: string, leadId: string) => api.get<{ channel: string; subject: string; body: string; to?: string | null }>(`/leads/templates/${id}/preview`, { leadId }),
+  sendTemplate: (leadId: string, templateId: string) => api.post<{ ok: boolean; detail: string }>(`/leads/${leadId}/send-template`, { templateId }),
+  // Equipos
+  listTeams: () => api.get<SalesTeam[]>('/leads/teams'),
+  createTeam: (data: Partial<SalesTeam>) => api.post<SalesTeam>('/leads/teams', data),
+  updateTeam: (id: string, data: Partial<SalesTeam>) => api.put<SalesTeam>(`/leads/teams/${id}`, data),
+  deleteTeam: (id: string) => api.delete<any>(`/leads/teams/${id}`),
+  setDefaultTeam: (teamId: string | null) => api.put<{ defaultTeamId: string | null }>('/leads/settings/default-team', { teamId }),
+  // Integraciones
+  listWebhooks: () => api.get<{ events: string[]; webhooks: LeadWebhook[] }>('/leads/webhooks'),
+  createWebhook: (data: { url: string; events: string[]; active?: boolean }) => api.post<LeadWebhook>('/leads/webhooks', data),
+  updateWebhook: (id: string, data: Partial<LeadWebhook>) => api.put<LeadWebhook>(`/leads/webhooks/${id}`, data),
+  deleteWebhook: (id: string) => api.delete<any>(`/leads/webhooks/${id}`),
+  testWebhook: (id: string) => api.post<{ status: number; error?: string }>(`/leads/webhooks/${id}/test`, {}),
+  listApiKeys: () => api.get<LeadApiKey[]>('/leads/api-keys'),
+  createApiKey: (name: string) => api.post<LeadApiKey>('/leads/api-keys', { name }),
+  revokeApiKey: (id: string) => api.post<any>(`/leads/api-keys/${id}/revoke`, {}),
+  // Metas
+  listGoals: (period?: string) => api.get<SalesGoal[]>('/leads/goals', period ? { period } : undefined),
+  upsertGoal: (data: { userId: string; period: string; metric: GoalMetric; target: number }) => api.put<any>('/leads/goals', data),
+  goalsProgress: (period?: string) => api.get<{ period: string; rows: GoalProgressRow[] }>('/leads/goals/progress', period ? { period } : undefined),
 };
 
 // ── Formulario web público (sin auth) ──

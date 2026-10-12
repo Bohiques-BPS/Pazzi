@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Lead, Pipeline, LeadSource, LeadTag, LeadCustomField } from '../../types';
+import { Lead, Pipeline, LeadSource, LeadTag, LeadCustomField, GoalProgressRow } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -67,6 +67,10 @@ export const LeadsPage: React.FC = () => {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const openedRef = React.useRef<string | null>(null);
+  const [myGoals, setMyGoals] = useState<GoalProgressRow | null>(null);
+  useEffect(() => {
+    leadsService.goalsProgress().then(r => setMyGoals(r.rows.find(x => x.userId === currentUser?.id) || null)).catch(() => {});
+  }, [currentUser?.id]);
 
   const pipeline = useMemo(() => pipelines.find(p => p.id === pipelineId) || pipelines.find(p => p.isDefault) || pipelines[0], [pipelines, pipelineId]);
   const stages = pipeline?.stages || [];
@@ -267,6 +271,22 @@ export const LeadsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Mis metas del mes */}
+      {myGoals && myGoals.goals.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-4 p-2.5 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700">
+          <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">🎯 Mis metas del mes</span>
+          {myGoals.goals.map(g => (
+            <div key={g.metric} className="flex items-center gap-2 min-w-[180px]" title={`${g.actual} / ${g.target}`}>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{g.metric === 'won_count' ? 'Ganados' : g.metric === 'won_value' ? 'Valor' : g.metric === 'activities' ? 'Actividades' : 'Nuevos'}</span>
+              <div className="h-2 flex-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, g.pct)}%`, background: g.pct >= 100 ? '#16a34a' : g.pct >= 60 ? '#f59e0b' : '#0D9488' }} />
+              </div>
+              <span className="text-[11px] tabular-nums text-neutral-600 dark:text-neutral-300">{g.pct}%</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
