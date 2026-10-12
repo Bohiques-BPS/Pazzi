@@ -116,7 +116,8 @@ export interface UpdateRecurringInput {
 export const recurringService = {
     create: (data: CreateRecurringInput) => api.post<{ recurring: RecurringPayment }>('/payments/recurring', data),
     update: (id: string, data: UpdateRecurringInput) => api.put<{ recurring: RecurringPayment }>(`/payments/recurring/${id}`, data),
-    chargeNow: (id: string) => api.post<{ status: string; message: string; reference?: string }>(`/payments/recurring/${id}/charge`),
+    /** force=true: el usuario confirmó cobrar aunque hubo un cobro hace pocos minutos (409 RECENT_CHARGE). */
+    chargeNow: (id: string, force = false) => api.post<{ status: string; message: string; reference?: string }>(`/payments/recurring/${id}/charge`, { force }),
     setStatus: (id: string, action: 'pause' | 'resume' | 'cancel') => api.post<RecurringPayment>(`/payments/recurring/${id}/${action}`),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/payments/recurring/${id}/restore`),

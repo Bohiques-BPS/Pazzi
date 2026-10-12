@@ -351,14 +351,31 @@ export const RecurringPaymentsPage: React.FC = () => {
         } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
     };
 
-    const chargeNow = async (rp: RecurringPayment) => {
+    // "Cobrar ahora" mueve dinero real: siempre pide confirmación, un solo cobro a la vez, y si el
+    // servidor detecta un cobro reciente (409 RECENT_CHARGE) pide una segunda confirmación explícita.
+    const [chargeConfirm, setChargeConfirm] = useState<null | { rp: RecurringPayment; force: boolean; warning?: string }>(null);
+    const [charging, setCharging] = useState(false);
+    const chargeNow = (rp: RecurringPayment) => { if (!charging) setChargeConfirm({ rp, force: false }); };
+    const runCharge = async () => {
+        if (!chargeConfirm || charging) return;
+        const { rp, force } = chargeConfirm;
+        setCharging(true);
+        const loadingId = toast.loading(t('posx.recurring.confirmCharge.processing'));
         try {
-            const r = await recurringService.chargeNow(rp.id);
+            const r = await recurringService.chargeNow(rp.id, force);
+            setChargeConfirm(null);
             if (rp.mode === 'invoice_link') toast.success(r.message || t('posx.recurring.toast.invoiceSent'));
             else if (r.status === 'approved') toast.success(t('posx.recurring.toast.chargeApproved', { ref: r.reference || '—' }));
             else toast.warning(t('posx.recurring.toast.chargeResult', { status: r.status, message: r.message }));
             load();
-        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
+        } catch (err) {
+            if (err instanceof ApiError && err.code === 'RECENT_CHARGE') {
+                setChargeConfirm({ rp, force: true, warning: err.message });
+            } else {
+                setChargeConfirm(null);
+                toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error'));
+            }
+        } finally { toast.dismiss(loadingId); setCharging(false); }
     };
 
     const copyLink = (token: string, enroll = false) => {
@@ -727,7 +744,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                                 {isInvoice && (rp.graceDays ?? 0) > 0 && <span>· {t('posx.recurring.graceLabel', { days: rp.graceDays ?? 0 })}</span>}
                             </div>
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                {rp.status !== 'cancelled' && <button onClick={() => chargeNow(rp)} className="text-xs text-primary hover:underline">{isInvoice ? t('posx.recurring.action.sendInvoiceNow') : t('posx.recurring.action.chargeNow')}</button>}
+                                {rp.status !== 'cancelled' && rp.status !== 'completed' && <button onClick={() => chargeNow(rp)} disabled={charging} className="text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-wait">{isInvoice ? t('posx.recurring.action.sendInvoiceNow') : t('posx.recurring.action.chargeNow')}</button>}
                                 {showDeleted ? (
                                     <button onClick={() => confirmRestore(rp.id)} className="text-xs text-green-600 hover:underline">{t('common.restore')}</button>
                                 ) : (<>
@@ -779,6 +796,27 @@ export const RecurringPaymentsPage: React.FC = () => {
                 title={t('posx.recurring.action.cancel')}
                 confirmButtonText={t('posx.recurring.action.cancel')}
                 message={t('posx.recurring.confirm.cancel')}
+            />
+            <ConfirmationModal
+                isOpen={!!chargeConfirm}
+                onClose={() => { if (!charging) setChargeConfirm(null); }}
+                onConfirm={runCharge}
+                title={chargeConfirm?.rp.mode === 'invoice_link' ? t('posx.recurring.confirmCharge.invoiceTitle') : t('posx.recurring.confirmCharge.title')}
+                confirmButtonText={charging
+                    ? t('posx.recurring.confirmCharge.processing')
+                    : chargeConfirm?.force ? t('posx.recurring.confirmCharge.chargeAgain')
+                    : chargeConfirm?.rp.mode === 'invoice_link' ? t('posx.recurring.confirmCharge.invoiceConfirm') : t('posx.recurring.confirmCharge.confirm')}
+                message={chargeConfirm ? (
+                    <div className="space-y-2">
+                        {chargeConfirm.warning && (
+                            <p className="p-2.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-sm font-medium">{chargeConfirm.warning}</p>
+                        )}
+                        <p>{chargeConfirm.rp.mode === 'invoice_link' ? t('posx.recurring.confirmCharge.invoiceMessage') : t('posx.recurring.confirmCharge.message')}</p>
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                            <span translate="no">{chargeConfirm.rp.clientName || ''} ·<strong>${Number(chargeConfirm.rp.amount || 0).toFixed(2)}</strong>{chargeConfirm.rp.mode !== 'invoice_link' && chargeConfirm.rp.cardLast4 ? ` · •••• ${chargeConfirm.rp.cardLast4}` : ''}</span>
+                        </p>
+                    </div>
+                ) : ''}
             />
             <ConfirmationModal
                 isOpen={!!toDelete}
