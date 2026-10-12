@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useData } from '../../contexts/DataContext';
 import { useModules } from '../../hooks/useModules';
+import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { SidebarItemConfig } from '../../constants';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext'; // Import hook
 import { AppModule, UserRole, Notification } from '../../types';
@@ -49,6 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   const { canAny } = usePermissions();
   const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData();
   const { isModuleEnabled } = useModules();
+  const { canAccessModule } = useModuleAccess();
   const { t } = useTranslation(); // Use hook
   const { settings } = useGlobalSettings();
   const navigate = useNavigate();
@@ -109,41 +111,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     navigate('/login');
   };
 
-  // Reúne todos los permisos declarados en los enlaces de un módulo (aplanando grupos).
-  const modulePermissionKeys = (mod: any): string[] => {
-    const lists: SidebarItemConfig[] = [
-      ...(mod.subModulesTienda || []),
-      ...(mod.subModulesProject || []),
-      ...(mod.subModulesPOS || []),
-      ...(mod.subModulesEcommerce || []),
-      ...(mod.subModulesLeads || []),
-    ];
-    const keys: string[] = [];
-    for (const item of lists) {
-      const links = item.type === 'group' ? item.children : [item];
-      for (const l of links) {
-        if ((l as any).permission) {
-          const p = (l as any).permission;
-          keys.push(...(Array.isArray(p) ? p : [p]));
-        }
-      }
-    }
-    return keys;
-  };
-
-  const availableModulesForSelector = APP_MODULES_CONFIG.filter(mod => {
-    // Interruptor maestro por negocio: si el módulo está apagado, no aparece para nadie.
-    if (!isModuleEnabled(mod.name)) return false;
-    if (currentUser?.role === UserRole.MANAGER) {
-      return mod.name !== AppModule.PROJECT_CLIENT_DASHBOARD;
-    }
-    if (currentUser?.role === UserRole.EMPLOYEE) {
-      // El empleado ve un módulo si tiene AL MENOS un permiso de alguno de sus enlaces.
-      const keys = modulePermissionKeys(mod);
-      return keys.length > 0 && canAny(...keys);
-    }
-    return false;
-  });
+  // Misma regla que el Home y las rutas (hooks/useModuleAccess): apagado → nadie; gerente → todos;
+  // colaborador → si tiene al menos un permiso de alguno de los enlaces del módulo.
+  const availableModulesForSelector = APP_MODULES_CONFIG.filter(mod => canAccessModule(mod.name as AppModule));
 
 
   const getModuleBasePath = (moduleName: AppModule) => {

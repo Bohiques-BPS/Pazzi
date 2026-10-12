@@ -6,6 +6,7 @@ import { APP_MODULES_CONFIG, SubModuleLink, getModuleForPath } from '../constant
 import { GuidedTour, TourStep } from '../components/GuidedTour';
 import { useAuth } from '../contexts/AuthContext';
 import { useModules } from '../hooks/useModules';
+import { useModuleAccess } from '../hooks/useModuleAccess';
 import { PlusIcon, ListBulletIcon, BriefcaseIcon, CubeIcon, CashBillIcon, FireIcon } from '../components/icons';
 import { getTopVisitedPaths, getTrackedPageCount } from '../utils/pageTracker';
 
@@ -96,6 +97,8 @@ export const DashboardHomePage: React.FC = () => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     const { isModuleEnabled } = useModules();
+    // Tarjetas de módulos: solo las que el usuario puede abrir (mismo criterio que el selector de módulos).
+    const { canAccessModule } = useModuleAccess();
 
     const [isTourActive, setIsTourActive] = useState(false);
     const [currentTourStep, setCurrentTourStep] = useState(0);
@@ -151,6 +154,16 @@ export const DashboardHomePage: React.FC = () => {
             return {};
         }
     }, [currentUser?.id, refreshCount]);
+
+    // Si el módulo "actual" quedó en uno sin acceso (p.ej. tras intentar abrir Leads sin permisos),
+    // el menú lateral saldría vacío: se cambia al primer módulo permitido.
+    useEffect(() => {
+        if (!appContextValue || !currentUser) return;
+        if (canAccessModule(appContextValue.currentModule)) return;
+        const first = APP_MODULES_CONFIG.find(m => canAccessModule(m.name as AppModule));
+        if (first) appContextValue.setCurrentModule(first.name as AppModule);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [appContextValue?.currentModule, currentUser, canAccessModule]);
 
     if (!appContextValue) return <div>Loading...</div>;
     const { currentModule, setCurrentModule } = appContextValue;
@@ -251,7 +264,7 @@ export const DashboardHomePage: React.FC = () => {
 
             {/* Module cards */}
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                {APP_MODULES_CONFIG.filter(m => m.name !== AppModule.PROJECT_CLIENT_DASHBOARD && isModuleEnabled(m.name)).map(module => {
+                {APP_MODULES_CONFIG.filter(m => canAccessModule(m.name as AppModule)).map(module => {
                     const descriptionText =
                         module.name === AppModule.TIENDA ? 'gestión de productos, clientes, inventario y más.' :
                         module.name === AppModule.PROJECT_MANAGEMENT ? 'gestión de proyectos.' :

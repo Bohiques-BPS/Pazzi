@@ -9,6 +9,7 @@ import { AppModule } from '../../types'; // Adjusted path
 import { APP_MODULES_CONFIG, getModuleForPath } from '../../constants'; // Adjusted path
 import { useAuth } from '../../contexts/AuthContext';
 import { useModules } from '../../hooks/useModules';
+import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { recordPageVisit } from '../../utils/pageTracker';
 
 export const MainLayout: React.FC = () => {
@@ -16,6 +17,7 @@ export const MainLayout: React.FC = () => {
   const appContextValue = useAppContext();
   const { currentUser } = useAuth();
   const { isModuleEnabled } = useModules();
+  const { canAccessModule, canAccessPath } = useModuleAccess();
 
   if (!appContextValue) {
       return <div>Error: AppContext not found.</div>;
@@ -45,8 +47,14 @@ export const MainLayout: React.FC = () => {
     const moduleForPath = getModuleForPath(location.pathname);
     if (moduleForPath && !isModuleEnabled(moduleForPath)) {
       navigate('/', { replace: true });
+      return;
     }
-  }, [location.pathname, isModuleEnabled, navigate]);
+    // CRM de Leads: un colaborador sin permisos del módulo (o de esa página concreta: reportes,
+    // configuración…) no entra por URL directa; vuelve al inicio en vez de ver errores 403.
+    if (moduleForPath === AppModule.LEADS && currentUser && (!canAccessModule(AppModule.LEADS) || !canAccessPath(AppModule.LEADS, location.pathname))) {
+      navigate('/', { replace: true });
+    }
+  }, [location.pathname, isModuleEnabled, navigate, currentUser, canAccessModule, canAccessPath]);
 
   // Track page visits for dynamic quick access on the dashboard
   useEffect(() => {
