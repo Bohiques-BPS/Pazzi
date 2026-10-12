@@ -19,6 +19,8 @@ export interface LeadFilters {
   cold?: '1';
   q?: string;
   limit?: number;
+  /** Leads de un cliente: vinculados, convertidos en él o con su mismo correo. */
+  clientId?: string;
 }
 
 export interface ReportRange { from?: string; to?: string; pipelineId?: string; }
@@ -138,7 +140,7 @@ export const publicLeadForm = {
     const res = await fetch(`${API_URL}/public/lead-form/${encodeURIComponent(token)}`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || 'Formulario no disponible');
-    return data as { title: string; successMessage: string; businessName: string; logoUrl: string };
+    return data as { title: string; successMessage: string; businessName: string; logoUrl: string; language?: 'es' | 'en' };
   },
   submit: async (token: string, body: Record<string, any>) => {
     const res = await fetch(`${API_URL}/public/lead-form/${encodeURIComponent(token)}`, {

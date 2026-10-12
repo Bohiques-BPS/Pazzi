@@ -808,6 +808,8 @@ export interface Lead {
     nextActionAt?: string | null;
     lastActivityAt?: string | null;
     convertedClientId?: string | null;
+    /** Cliente existente al que pertenece la oportunidad (lead creado desde la ficha del cliente). */
+    clientId?: string | null;
     expectedCloseAt?: string | null;
     customFields?: Record<string, any> | null;
     tagIds?: string[];

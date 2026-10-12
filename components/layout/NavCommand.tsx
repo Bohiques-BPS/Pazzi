@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { PlusIcon } from '../icons';
+import { leadsService } from '../../services/leads';
 
 interface NavEntry { id: string; module: AppModule; name: string; path: string; Icon?: React.ComponentType<any>; }
 
@@ -19,6 +20,7 @@ const SCOPES: Scope[] = [
   { key: 'producto', label: 'Producto', en: 'Product',  module: AppModule.TIENDA,             perm: 'products.view' },
   { key: 'proyecto', label: 'Proyecto', en: 'Project',  module: AppModule.PROJECT_MANAGEMENT, perm: 'projects.view' },
   { key: 'factura',  label: 'Factura',  en: 'Invoice',  module: AppModule.POS,                perm: 'pos.viewHistory' },
+  { key: 'lead',     label: 'Lead',     en: 'Lead',     module: AppModule.LEADS,              perm: 'leads.view' },
 ];
 const SCOPE_ALIASES: Record<string, string[]> = {
   cliente: ['cliente', 'clientes', 'client', 'clients'],
@@ -26,6 +28,7 @@ const SCOPE_ALIASES: Record<string, string[]> = {
   producto: ['producto', 'productos', 'product', 'products'],
   proyecto: ['proyecto', 'proyectos', 'project', 'projects'],
   factura: ['factura', 'facturas', 'invoice', 'invoices'],
+  lead: ['lead', 'leads', 'prospecto', 'prospectos', 'oportunidad', 'oportunidades'],
 };
 interface RecordResult { id: string; label: string; sub?: string; href: string; module: AppModule; }
 type Item = { kind: 'scope'; scope: Scope } | { kind: 'nav'; entry: NavEntry } | { kind: 'record'; rec: RecordResult };
@@ -42,6 +45,7 @@ const CREATE_ACTIONS: CreateAction[] = [
   { id: 'client',   label: 'Nuevo cliente',       en: 'New client',         path: '/tienda/clients?new=1',         module: AppModule.TIENDA,              perm: 'clients.view' },
   { id: 'supplierOrder', label: 'Pedido a proveedor', en: 'Supplier order',  path: '/tienda/supplier-orders?new=1', module: AppModule.POS,                 perm: 'supplierOrders.manage' },
   { id: 'project',  label: 'Nuevo proyecto',      en: 'New project',        path: '/pm/projects/new',              module: AppModule.PROJECT_MANAGEMENT,  perm: 'projects.view' },
+  { id: 'lead',     label: 'Nuevo lead',          en: 'New lead',           path: '/leads?new=1',                  module: AppModule.LEADS,               perm: 'leads.create' },
 ];
 
 const FREQ_NAV = 'pazzi_nav_freq';
@@ -107,6 +111,28 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
 
+  // Leads: no viven en DataContext → búsqueda en el servidor (respeta la visibilidad "solo mis leads").
+  const [leadResults, setLeadResults] = useState<RecordResult[]>([]);
+  useEffect(() => {
+    if (scope !== 'lead') { setLeadResults([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      leadsService.list({ q: q.trim() || undefined, limit: 8 })
+        .then(rows => {
+          if (cancelled) return;
+          setLeadResults(rows.map(l => ({
+            id: l.id,
+            label: `${l.name} ${l.lastName || ''}`.trim(),
+            sub: l.companyName || l.email || l.phone || '',
+            href: `/leads?lead=${l.id}`,
+            module: AppModule.LEADS,
+          })));
+        })
+        .catch(() => { if (!cancelled) setLeadResults([]); });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [scope, q]);
+
   const allowedScopes = useMemo(() => SCOPES.filter(s => isModuleEnabled(s.module) && allowed(s.perm)), [currentUser, isModuleEnabled]); // eslint-disable-line
   const scopeObj = scope ? SCOPES.find(s => s.key === scope) || null : null;
   const scopeLbl = (s: Scope) => (lang === 'en' ? s.en : s.label);
@@ -147,6 +173,7 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
       const n = ql.replace(/\D/g, '');
       return n ? [{ id: n, label: `Factura #${n}`, sub: '', href: `/pos/invoices?invoiceNo=${n}`, module: AppModule.POS }] : [];
     }
+    if (s.key === 'lead') return leadResults;
     return [];
   };
 
@@ -158,7 +185,7 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
     if (ql) for (const s of allowedScopes) { if (SCOPE_ALIASES[s.key].some(a => a.startsWith(ql))) items.push({ kind: 'scope', scope: s }); }
     for (const e of navResults) items.push({ kind: 'nav', entry: e });
     return items;
-  }, [scopeObj, q, navResults, allowedScopes, clients, employees, products, projects]); // eslint-disable-line
+  }, [scopeObj, q, navResults, allowedScopes, clients, employees, products, projects, leadResults]); // eslint-disable-line
 
   useEffect(() => { setHi(0); }, [q, scope, searchOpen]);
 

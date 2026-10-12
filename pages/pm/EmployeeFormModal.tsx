@@ -7,6 +7,7 @@ import { EMPLOYEE_ROLES, inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLO
 import { LockClosedIcon, KeyIcon, CameraIcon, TrashIconMini, ExclamationTriangleIcon, EditIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { permLabel, permCategoryLabel } from '../../utils/permissionLabels';
 import { employeesService, type EmployeeRecord } from '../../services/employees';
 import { permissionsService } from '../../services/permissions';
 import { authService } from '../../services/auth';
@@ -750,13 +751,13 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                                     return (
                                         <fieldset key={category.key} className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
                                             <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-                                                {category.label}
+                                                {permCategoryLabel(t, category.key, category.label)}
                                             </legend>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5 mt-1">
                                                 {category.permissions.map(p => (
                                                     <label key={p.key} className={`flex items-center text-sm gap-2 ${perms[p.key] ? 'text-neutral-700 dark:text-neutral-200' : 'text-neutral-400 dark:text-neutral-500'}`}>
                                                         <input type="checkbox" checked={perms[p.key] === true} disabled readOnly className="rounded" />
-                                                        <span>{p.label}</span>
+                                                        <span>{permLabel(t, p.key, p.label)}</span>
                                                     </label>
                                                 ))}
                                             </div>

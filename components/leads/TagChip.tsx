@@ -1,8 +1,10 @@
 import React from 'react';
 import type { LeadTag } from '../../types';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 /** Chip de etiqueta con color (contraste legible en claro/oscuro). */
 export const TagChip: React.FC<{ tag: LeadTag; onRemove?: () => void; small?: boolean }> = ({ tag, onRemove, small }) => {
+  const { t } = useTranslation();
   const color = tag.color || '#64748b';
   return (
     <span
@@ -12,7 +14,7 @@ export const TagChip: React.FC<{ tag: LeadTag; onRemove?: () => void; small?: bo
     >
       <span>{tag.name}</span>
       {onRemove && (
-        <button type="button" onClick={onRemove} className="leading-none opacity-70 hover:opacity-100" aria-label={`Quitar ${tag.name}`}>×</button>
+        <button type="button" onClick={onRemove} className="leading-none opacity-70 hover:opacity-100" aria-label={t('leads.board.tag_remove', { name: tag.name })}>×</button>
       )}
     </span>
   );

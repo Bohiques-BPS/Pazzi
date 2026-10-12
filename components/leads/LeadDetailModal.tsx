@@ -12,6 +12,7 @@ import { toast } from '../../hooks/useToast';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { DeleteIcon, PaperAirplaneIcon } from '../icons';
 import { TagChip } from './TagChip';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface Props {
   lead: Lead;
@@ -26,6 +27,7 @@ interface Props {
   onTagCreated?: (tag: LeadTag) => void;
 }
 
+/** `label` es el texto en español (fallback); en render se traduce con `leads.common.activity.<tipo>`. */
 export const ACTIVITY_META: Record<string, { label: string; icon: string }> = {
   call: { label: 'Llamada', icon: '📞' },
   email: { label: 'Correo', icon: '✉️' },
@@ -48,6 +50,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const { setClients } = useData();
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const activityLabel = (type: string) => ACTIVITY_META[type] ? t(`leads.common.activity.${type}`) : type;
 
   const [lead, setLead] = useState<Lead>(initialLead);
   const [activities, setActivities] = useState<LeadActivity[]>(initialLead.activities || []);
@@ -126,13 +130,13 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     const prevIds = tagIds;
     setTagIds(nextIds);
     try { const updated = await leadsService.update(lead.id, { tagIds: nextIds } as any); patchLead({ tagIds: updated.tagIds }); }
-    catch (err) { setTagIds(prevIds); toast.error(err instanceof ApiError ? err.message : 'No se pudo guardar la etiqueta.'); }
+    catch (err) { setTagIds(prevIds); toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.tag_save_failed')); }
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('El nombre es obligatorio.'); return; }
+    if (!form.name.trim()) { toast.error(t('leads.detail.toast.name_required')); return; }
     const missing = customFields.filter(f => f.required && (cf[f.id] === undefined || cf[f.id] === '' || cf[f.id] === null));
-    if (missing.length) { toast.error(`Completa: ${missing.map(m => m.label).join(', ')}`); return; }
+    if (missing.length) { toast.error(t('leads.detail.toast.complete_required', { fields: missing.map(m => m.label).join(', ') })); return; }
     setSaving(true);
     try {
       const updated = await leadsService.update(lead.id, {
@@ -146,9 +150,9 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
         customFields: cf, tagIds,
       } as any);
       patchLead(updated);
-      toast.success('Lead actualizado.');
+      toast.success(t('leads.detail.toast.updated'));
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'No se pudo actualizar.');
+      toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.update_failed'));
     } finally { setSaving(false); }
   };
 
@@ -156,9 +160,9 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     try {
       const updated = await leadsService.moveStage(lead.id, stageId, reason ? { lostReason: reason } : undefined);
       patchLead(updated);
-      toast.success('Etapa actualizada.');
+      toast.success(t('leads.detail.toast.stage_updated'));
       leadsService.get(lead.id).then(full => setLead(l => ({ ...l, history: full.history }))).catch(() => {});
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo mover.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.move_failed')); }
   };
 
   const onStageSelect = (stageId: string) => {
@@ -169,7 +173,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
 
   const handleAssign = async (uid: string) => {
     try { patchLead(await leadsService.assign(lead.id, uid || null)); }
-    catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo asignar.'); }
+    catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.assign_failed')); }
   };
 
   const handleConvert = async () => {
@@ -177,16 +181,16 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       const res = await leadsService.convert(lead.id);
       const won = stages.find(s => s.type === 'won');
       patchLead({ status: 'won', convertedClientId: res.clientId, ...(won ? { stageId: won.id } : {}) });
-      toast.success(res.alreadyConverted ? 'Este lead ya era cliente.' : 'Lead convertido en cliente.');
+      toast.success(res.alreadyConverted ? t('leads.detail.toast.already_client') : t('leads.detail.toast.converted'));
       // Recarga la lista de clientes para que "Ver cliente →" encuentre el nuevo.
       api.get<any[]>('/clients').then(list => { if (Array.isArray(list)) setClients(list as any); }).catch(() => {});
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo convertir.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.convert_failed')); }
   };
 
   const handleDelete = async () => {
     setShowDelete(false);
     try { await leadsService.remove(lead.id); onDeleted(lead.id); onClose(); }
-    catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo eliminar.'); }
+    catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.delete_failed')); }
   };
 
   const addTagById = (id: string) => { if (id && !tagIds.includes(id)) saveTags([...tagIds, id]); };
@@ -200,11 +204,11 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       onTagCreated?.(tag);
       addTagById(tag.id);
       setNewTag('');
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo crear la etiqueta.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.tag_create_failed')); }
   };
 
   const handleAddActivity = async () => {
-    if (!actBody.trim() && !actDue) { toast.error('Escribe un detalle o agenda una fecha.'); return; }
+    if (!actBody.trim() && !actDue) { toast.error(t('leads.detail.toast.activity_empty')); return; }
     setAddingAct(true);
     try {
       const act = await leadsService.addActivity(lead.id, {
@@ -214,7 +218,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       setActivities(prev => [act, ...prev]);
       setActBody(''); setActDue('');
       leadsService.get(lead.id).then(full => patchLead({ nextActionAt: full.nextActionAt, lastActivityAt: full.lastActivityAt })).catch(() => {});
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo registrar.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.activity_failed')); }
     finally { setAddingAct(false); }
   };
 
@@ -230,15 +234,15 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const deleteActivity = async (act: LeadActivity) => {
     setActivities(prev => prev.filter(a => a.id !== act.id));
     try { await leadsService.deleteActivity(act.id); }
-    catch { setActivities(prev => [act, ...prev]); toast.error('No se pudo eliminar.'); }
+    catch { setActivities(prev => [act, ...prev]); toast.error(t('leads.detail.toast.delete_failed')); }
   };
 
   const handleNoteImage = async (files: File[]) => {
     const img = files.filter(f => f.type.startsWith('image/'))[0];
     if (!img) return;
-    if (img.size > 5 * 1024 * 1024) { toast.error('La imagen supera 5 MB.'); return; }
+    if (img.size > 5 * 1024 * 1024) { toast.error(t('leads.detail.toast.image_too_large')); return; }
     setUploadingNote(true);
-    try { setNoteImage(await uploadImage(img)); } catch { toast.error('No se pudo subir la imagen.'); }
+    try { setNoteImage(await uploadImage(img)); } catch { toast.error(t('leads.detail.toast.image_upload_failed')); }
     finally { setUploadingNote(false); }
   };
 
@@ -249,7 +253,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       const note = await leadsService.addNote(lead.id, text, noteImage);
       setLeadNotes(prev => [note, ...prev]);
       setNoteText(''); setNoteImage(null);
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo añadir la nota.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.note_failed')); }
   };
 
   const openTemplates = async () => {
@@ -259,7 +263,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const pickTemplate = async (id: string) => {
     setTplId(id); setTplPreview(null);
     if (!id) return;
-    try { setTplPreview(await leadsService.previewTemplate(id, lead.id)); } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo generar la vista previa.'); }
+    try { setTplPreview(await leadsService.previewTemplate(id, lead.id)); } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.preview_failed')); }
   };
   const refreshActivities = () => leadsService.get(lead.id).then(full => { setActivities(full.activities || []); patchLead({ lastActivityAt: full.lastActivityAt }); }).catch(() => {});
   const sendTpl = async () => {
@@ -267,29 +271,33 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     setTplSending(true);
     try {
       const r = await leadsService.sendTemplate(lead.id, tplId);
-      toast.success(r.detail || 'Enviado.');
+      toast.success(r.detail || t('leads.detail.toast.sent'));
       setTplOpen(false);
       refreshActivities();
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo enviar.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.send_failed')); }
     finally { setTplSending(false); }
   };
   /** Alternativa sin API de WhatsApp: abre wa.me con el texto y lo registra como actividad. */
   const openWhatsappWithText = async () => {
     if (!tplPreview) return;
     const phone = (lead.whatsapp || lead.phone || '').replace(/\D/g, '');
-    if (!phone) { toast.error('El lead no tiene teléfono.'); return; }
+    if (!phone) { toast.error(t('leads.detail.toast.no_phone')); return; }
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(tplPreview.body)}`, '_blank', 'noopener');
     try { await leadsService.addActivity(lead.id, { type: 'whatsapp', title: templates.find(t => t.id === tplId)?.name || 'WhatsApp', body: tplPreview.body, done: true }); refreshActivities(); } catch { /* noop */ }
     setTplOpen(false);
   };
 
   const statusBadge = lead.status === 'won'
-    ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Ganado</span>
+    ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">{t('leads.common.status.won')}</span>
     : lead.status === 'lost'
-      ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" title={lead.lostReason || ''}>Perdido{lead.lostReason ? ` · ${lead.lostReason}` : ''}</span>
-      : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">Abierto</span>;
+      ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" title={lead.lostReason || ''}>{t('leads.common.status.lost')}{lead.lostReason ? ` · ${lead.lostReason}` : ''}</span>
+      : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">{t('leads.common.status.open')}</span>;
 
-  const label = (t: string) => <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{t}</label>;
+  // Cliente vinculado: lead creado desde la ficha de un cliente (clientId) o convertido (convertedClientId).
+  const linkedClientId = lead.clientId || lead.convertedClientId;
+  const linkedOnly = !!lead.clientId && !lead.convertedClientId;
+
+  const label = (text: string) => <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{text}</label>;
   const inp = (key: keyof typeof form, type = 'text', extra: any = {}) => (
     <input type={type} value={form[key]} disabled={!canEdit} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} className={inputFormStyle} {...extra} />
   );
@@ -298,7 +306,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     const v = cf[f.id];
     const set = (val: any) => setCf(prev => ({ ...prev, [f.id]: val }));
     if (f.type === 'checkbox') return (
-      <label className="flex items-center gap-2 text-sm mt-2"><input type="checkbox" disabled={!canEdit} checked={!!v} onChange={e => set(e.target.checked)} className="h-4 w-4" /> Sí</label>
+      <label className="flex items-center gap-2 text-sm mt-2"><input type="checkbox" disabled={!canEdit} checked={!!v} onChange={e => set(e.target.checked)} className="h-4 w-4" /> {t('leads.common.yes')}</label>
     );
     if (f.type === 'select') return (
       <select value={v ?? ''} disabled={!canEdit} onChange={e => set(e.target.value)} className={inputFormStyle}>
@@ -312,7 +320,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
 
   return (
     <>
-      <Modal isOpen={true} onClose={onClose} title="Detalle del lead" size="3xl">
+      <Modal isOpen={true} onClose={onClose} title={t('leads.detail.title')} size="3xl">
         <div className="space-y-5">
           {/* Cabecera */}
           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -322,8 +330,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {statusBadge}
-              {lead.convertedClientId && (
-                <button type="button" onClick={() => navigate(`/tienda/clients?edit=${lead.convertedClientId}`)} className="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 hover:underline">Ver cliente →</button>
+              {linkedClientId && (
+                <button type="button" onClick={() => navigate(`/tienda/clients?edit=${linkedClientId}`)} className="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 hover:underline">{linkedOnly ? t('leads.detail.linked_client') : t('leads.detail.view_client')}</button>
               )}
             </div>
           </div>
@@ -338,10 +346,10 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
               {canEdit && (
                 <>
                   <select value="" onChange={e => addTagById(e.target.value)} className="text-xs rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2 py-1 text-neutral-600 dark:text-neutral-300">
-                    <option value="">+ Etiqueta</option>
+                    <option value="">{t('leads.detail.add_tag')}</option>
                     {tags.filter(t => !tagIds.includes(t.id)).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
-                  <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); createAndAddTag(); } }} placeholder="Nueva etiqueta…" className="text-xs rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2 py-1 w-32" />
+                  <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); createAndAddTag(); } }} placeholder={t('leads.detail.new_tag_ph')} className="text-xs rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2 py-1 w-32" />
                 </>
               )}
             </div>
@@ -349,37 +357,37 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
 
           {/* Etapa / responsable / valor / probabilidad */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div>{label('Etapa')}
+            <div>{label(t('leads.common.stage'))}
               <select value={lead.stageId} disabled={!canStage} onChange={e => onStageSelect(e.target.value)} className={inputFormStyle}>
                 {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <div>{label('Responsable')}
+            <div>{label(t('leads.common.assignee'))}
               <select value={lead.assignedUserId || ''} disabled={!canAssign} onChange={e => handleAssign(e.target.value)} className={inputFormStyle}>
-                <option value="">Sin asignar</option>
+                <option value="">{t('leads.common.unassigned')}</option>
                 {assigneeOptions.map(o => <option key={o.uid} value={o.uid}>{o.name}</option>)}
               </select>
             </div>
-            <div>{label('Valor estimado')}{inp('value', 'number', { step: '0.01', placeholder: '0.00' })}</div>
-            <div>{label('Probabilidad %')}{inp('probability', 'number', { min: 0, max: 100, placeholder: 'Auto' })}</div>
+            <div>{label(t('leads.detail.estimated_value'))}{inp('value', 'number', { step: '0.01', placeholder: '0.00' })}</div>
+            <div>{label(t('leads.detail.probability_pct'))}{inp('probability', 'number', { min: 0, max: 100, placeholder: t('leads.detail.auto') })}</div>
           </div>
 
           {/* Contacto */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>{label('Nombre')}{inp('name')}</div>
-            <div>{label('Apellido')}{inp('lastName')}</div>
-            <div>{label('Empresa')}{inp('companyName')}</div>
-            <div>{label('Correo')}{inp('email', 'email')}</div>
-            <div>{label('Teléfono')}{inp('phone', 'tel')}</div>
-            <div>{label('WhatsApp')}{inp('whatsapp', 'tel')}</div>
-            <div>{label('Fuente')}
+            <div>{label(t('leads.common.first_name'))}{inp('name')}</div>
+            <div>{label(t('leads.common.last_name'))}{inp('lastName')}</div>
+            <div>{label(t('leads.common.company'))}{inp('companyName')}</div>
+            <div>{label(t('leads.common.email'))}{inp('email', 'email')}</div>
+            <div>{label(t('leads.common.phone'))}{inp('phone', 'tel')}</div>
+            <div>{label(t('leads.common.channel.whatsapp'))}{inp('whatsapp', 'tel')}</div>
+            <div>{label(t('leads.common.source'))}
               <select value={form.sourceId} disabled={!canEdit} onChange={e => setForm(f => ({ ...f, sourceId: e.target.value }))} className={inputFormStyle}>
                 <option value="">—</option>
                 {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <div>{label('Cierre estimado')}{inp('expectedCloseAt', 'date')}</div>
-            <div className="sm:col-span-2">{label('Próxima acción')}{inp('nextActionAt', 'datetime-local')}</div>
+            <div>{label(t('leads.common.expected_close'))}{inp('expectedCloseAt', 'date')}</div>
+            <div className="sm:col-span-2">{label(t('leads.common.next_action'))}{inp('nextActionAt', 'datetime-local')}</div>
           </div>
 
           {/* Campos personalizados */}
@@ -391,18 +399,18 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             </div>
           )}
 
-          <div>{label('Notas rápidas')}<textarea rows={2} value={form.notes} disabled={!canEdit} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={inputFormStyle} /></div>
+          <div>{label(t('leads.detail.quick_notes'))}<textarea rows={2} value={form.notes} disabled={!canEdit} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={inputFormStyle} /></div>
 
           {canEdit && (
             <div className="flex justify-end">
-              <button onClick={handleSave} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? 'Guardando…' : 'Guardar datos'}</button>
+              <button onClick={handleSave} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('leads.common.saving') : t('leads.detail.save_data')}</button>
             </div>
           )}
 
           {/* Pestañas: actividad / notas / historial */}
           <div className="border-t dark:border-neutral-700 pt-3">
             <div className="flex gap-1 mb-3">
-              {([['activity', `Actividades (${activities.length})`], ['notes', `Notas (${leadNotes.length})`], ['history', 'Historial']] as const).map(([k, l]) => (
+              {([['activity', t('leads.detail.tab.activities', { count: activities.length })], ['notes', t('leads.detail.tab.notes', { count: leadNotes.length })], ['history', t('leads.detail.tab.history')]] as const).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-md text-sm font-medium ${tab === k ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>{l}</button>
               ))}
             </div>
@@ -412,29 +420,29 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                 {canEdit && (
                   <div className="flex flex-wrap items-stretch gap-2 mb-3">
                     <select value={actType} onChange={e => setActType(e.target.value as any)} className={inputFormStyle + ' !w-auto'}>
-                      {Object.entries(ACTIVITY_META).map(([k, m]) => <option key={k} value={k}>{m.icon} {m.label}</option>)}
+                      {Object.entries(ACTIVITY_META).map(([k, m]) => <option key={k} value={k}>{m.icon} {activityLabel(k)}</option>)}
                     </select>
-                    <input value={actBody} onChange={e => setActBody(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddActivity(); } }} placeholder="Detalle / resultado…" className={inputFormStyle + ' flex-1 min-w-[160px]'} />
-                    <input type="datetime-local" value={actDue} onChange={e => setActDue(e.target.value)} title="Agendar (opcional): si eliges fecha queda pendiente con recordatorio" className={inputFormStyle + ' !w-auto'} />
-                    <button onClick={handleAddActivity} disabled={addingAct} className={BUTTON_SECONDARY_SM_CLASSES}>{actDue ? 'Agendar' : 'Registrar'}</button>
+                    <input value={actBody} onChange={e => setActBody(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddActivity(); } }} placeholder={t('leads.detail.activity_ph')} className={inputFormStyle + ' flex-1 min-w-[160px]'} />
+                    <input type="datetime-local" value={actDue} onChange={e => setActDue(e.target.value)} title={t('leads.detail.schedule_hint')} className={inputFormStyle + ' !w-auto'} />
+                    <button onClick={handleAddActivity} disabled={addingAct} className={BUTTON_SECONDARY_SM_CLASSES}>{actDue ? t('leads.detail.schedule') : t('leads.detail.log')}</button>
                   </div>
                 )}
-                {loadingDetail ? <p className="text-xs text-neutral-400">Cargando…</p> : (
+                {loadingDetail ? <p className="text-xs text-neutral-400">{t('leads.common.loading')}</p> : (
                   <ul className="space-y-1.5 max-h-56 overflow-y-auto">
-                    {activities.length === 0 && <li className="text-xs text-neutral-400">Sin actividades aún.</li>}
+                    {activities.length === 0 && <li className="text-xs text-neutral-400">{t('leads.detail.no_activities')}</li>}
                     {activities.map(a => {
                       const overdue = !a.done && a.dueAt && new Date(a.dueAt).getTime() < Date.now();
                       return (
                         <li key={a.id} className="flex items-start gap-2 text-sm p-1.5 rounded hover:bg-neutral-50 dark:hover:bg-neutral-700/40 group">
-                          <input type="checkbox" checked={a.done} disabled={!canEdit} onChange={() => toggleActivityDone(a)} className="mt-1 h-4 w-4 flex-shrink-0" title="Marcar hecha" />
+                          <input type="checkbox" checked={a.done} disabled={!canEdit} onChange={() => toggleActivityDone(a)} className="mt-1 h-4 w-4 flex-shrink-0" title={t('leads.detail.mark_done')} />
                           <div className="min-w-0 flex-1">
-                            <span className={`${a.done ? 'text-neutral-500 dark:text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'}`}>{ACTIVITY_META[a.type]?.icon} <strong>{a.title || ACTIVITY_META[a.type]?.label}</strong>{a.body ? `: ${a.body}` : ''}</span>
+                            <span className={`${a.done ? 'text-neutral-500 dark:text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'}`}>{ACTIVITY_META[a.type]?.icon} <strong>{a.title || activityLabel(a.type)}</strong>{a.body ? `: ${a.body}` : ''}</span>
                             <div className="text-[11px] text-neutral-400">
                               {a.createdByName || ''} · {new Date(a.createdAt).toLocaleString()}
-                              {a.dueAt && <span className={overdue ? 'text-red-500 font-semibold' : ''}> · {overdue ? 'vencida' : 'agenda'} {new Date(a.dueAt).toLocaleString()}</span>}
+                              {a.dueAt && <span className={overdue ? 'text-red-500 font-semibold' : ''}> · {overdue ? t('leads.detail.overdue') : t('leads.detail.scheduled')} {new Date(a.dueAt).toLocaleString()}</span>}
                             </div>
                           </div>
-                          {canEdit && <button type="button" onClick={() => deleteActivity(a)} className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 p-0.5" aria-label="Eliminar actividad">✕</button>}
+                          {canEdit && <button type="button" onClick={() => deleteActivity(a)} className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 p-0.5" aria-label={t('leads.detail.delete_activity')}>✕</button>}
                         </li>
                       );
                     })}
@@ -446,10 +454,10 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             {tab === 'notes' && (
               <>
                 <div className="space-y-2 max-h-48 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/40 rounded-md p-2 mb-2">
-                  {leadNotes.length === 0 && <p className="text-xs text-neutral-400 text-center py-2">Sin notas.</p>}
+                  {leadNotes.length === 0 && <p className="text-xs text-neutral-400 text-center py-2">{t('leads.detail.no_notes')}</p>}
                   {leadNotes.map(n => (
                     <div key={n.id} className="text-sm">
-                      <div className="flex justify-between text-[11px] text-neutral-400"><span className="font-semibold text-primary/80">{n.authorName || 'Usuario'}</span><span>{new Date(n.createdAt).toLocaleString()}</span></div>
+                      <div className="flex justify-between text-[11px] text-neutral-400"><span className="font-semibold text-primary/80">{n.authorName || t('leads.detail.user_fallback')}</span><span>{new Date(n.createdAt).toLocaleString()}</span></div>
                       {n.text && <p className="text-neutral-700 dark:text-neutral-200 whitespace-pre-wrap">{n.text}</p>}
                       {n.imageUrl && <button type="button" onClick={() => setZoomImage(n.imageUrl!)}><img src={n.imageUrl} alt="" className="max-h-32 rounded border border-neutral-200 dark:border-neutral-600 mt-1 cursor-zoom-in" /></button>}
                     </div>
@@ -464,10 +472,10 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                       </div>
                     )}
                     <div className="flex items-stretch gap-2">
-                      <input value={noteText} onChange={e => setNoteText(e.target.value)} onPaste={e => { const f = Array.from(e.clipboardData?.files || []).filter(x => x.type.startsWith('image/')); if (f.length) { e.preventDefault(); handleNoteImage(f); } }} placeholder="Añadir una nota (puedes pegar una imagen)…" className={inputFormStyle + ' flex-grow'} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddNote(); } }} />
+                      <input value={noteText} onChange={e => setNoteText(e.target.value)} onPaste={e => { const f = Array.from(e.clipboardData?.files || []).filter(x => x.type.startsWith('image/')); if (f.length) { e.preventDefault(); handleNoteImage(f); } }} placeholder={t('leads.detail.note_ph')} className={inputFormStyle + ' flex-grow'} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddNote(); } }} />
                       <input ref={noteFileRef} type="file" accept="image/*" className="hidden" onChange={e => { handleNoteImage(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
                       <button type="button" onClick={() => noteFileRef.current?.click()} disabled={uploadingNote} className="flex-shrink-0 px-3 rounded-md border border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center">{uploadingNote ? '…' : '🖼️'}</button>
-                      <button type="button" onClick={handleAddNote} disabled={!noteText.trim() && !noteImage} className="flex-shrink-0 px-4 rounded-md bg-primary text-white flex items-center disabled:opacity-50" aria-label="Guardar nota"><PaperAirplaneIcon className="w-4 h-4" /></button>
+                      <button type="button" onClick={handleAddNote} disabled={!noteText.trim() && !noteImage} className="flex-shrink-0 px-4 rounded-md bg-primary text-white flex items-center disabled:opacity-50" aria-label={t('leads.detail.save_note')}><PaperAirplaneIcon className="w-4 h-4" /></button>
                     </div>
                   </>
                 )}
@@ -476,10 +484,10 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
 
             {tab === 'history' && (
               <ul className="space-y-1 max-h-56 overflow-y-auto text-sm">
-                {(lead.history || []).length === 0 && <li className="text-xs text-neutral-400">Sin cambios de etapa.</li>}
+                {(lead.history || []).length === 0 && <li className="text-xs text-neutral-400">{t('leads.detail.no_history')}</li>}
                 {(lead.history || []).map(h => (
                   <li key={h.id} className="flex items-center justify-between gap-2 py-1 border-b border-neutral-100 dark:border-neutral-700/60">
-                    <span className="text-neutral-700 dark:text-neutral-200">{h.fromStageId ? `${stageName(h.fromStageId)} → ` : 'Creado en '}<strong>{stageName(h.toStageId)}</strong></span>
+                    <span className="text-neutral-700 dark:text-neutral-200">{h.fromStageId ? `${stageName(h.fromStageId)} → ` : `${t('leads.detail.created_in')} `}<strong>{stageName(h.toStageId)}</strong></span>
                     <span className="text-[11px] text-neutral-400 flex-shrink-0">{new Date(h.at).toLocaleString()}</span>
                   </li>
                 ))}
@@ -490,43 +498,43 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
           {/* Footer */}
           <div className="flex justify-between items-center pt-4 border-t dark:border-neutral-700 flex-wrap gap-2">
             <div className="flex gap-2 flex-wrap">
-              {can('leads.delete') && <button onClick={() => setShowDelete(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 flex items-center`}><DeleteIcon className="w-4 h-4 mr-1" />Eliminar</button>}
-              {canConvert && !lead.convertedClientId && <button onClick={handleConvert} className={`${BUTTON_SECONDARY_SM_CLASSES} text-teal-700 dark:text-teal-300`}>⇄ Convertir en cliente</button>}
+              {can('leads.delete') && <button onClick={() => setShowDelete(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 flex items-center`}><DeleteIcon className="w-4 h-4 mr-1" />{t('leads.common.delete')}</button>}
+              {canConvert && !lead.convertedClientId && <button onClick={handleConvert} className={`${BUTTON_SECONDARY_SM_CLASSES} text-teal-700 dark:text-teal-300`}>{t('leads.detail.convert')}</button>}
               {(lead.whatsapp || lead.phone) && (
-                <a href={`https://wa.me/${(lead.whatsapp || lead.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300`}>💬 WhatsApp</a>
+                <a href={`https://wa.me/${(lead.whatsapp || lead.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300`}>💬 {t('leads.common.channel.whatsapp')}</a>
               )}
-              {lead.email && <a href={`mailto:${lead.email}`} className={BUTTON_SECONDARY_SM_CLASSES}>✉️ Correo</a>}
-              {canEdit && (lead.email || lead.phone || lead.whatsapp) && <button type="button" onClick={openTemplates} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary dark:text-teal-300`}>📨 Enviar plantilla</button>}
+              {lead.email && <a href={`mailto:${lead.email}`} className={BUTTON_SECONDARY_SM_CLASSES}>✉️ {t('leads.common.email')}</a>}
+              {canEdit && (lead.email || lead.phone || lead.whatsapp) && <button type="button" onClick={openTemplates} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary dark:text-teal-300`}>{t('leads.detail.send_template_btn')}</button>}
             </div>
-            <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button>
+            <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.close')}</button>
           </div>
         </div>
       </Modal>
 
       {/* Motivo de pérdida (catálogo configurable) */}
-      <Modal isOpen={!!askLostFor} onClose={() => setAskLostFor(null)} title="Marcar como perdido" size="sm">
+      <Modal isOpen={!!askLostFor} onClose={() => setAskLostFor(null)} title={t('leads.detail.lost_title')} size="sm">
         <div className="space-y-3">
-          <label className="block text-sm">Motivo de la pérdida</label>
+          <label className="block text-sm">{t('leads.detail.lost_reason_label')}</label>
           <select value={lostChoice} onChange={e => setLostChoice(e.target.value)} className={inputFormStyle}>
             {lostReasons.map(r => <option key={r} value={r}>{r}</option>)}
-            <option value="__other">Otro (escribir)…</option>
+            <option value="__other">{t('leads.detail.lost_other')}</option>
           </select>
-          {lostChoice === '__other' && <input value={lostOther} onChange={e => setLostOther(e.target.value)} className={inputFormStyle} placeholder="Describe el motivo" autoFocus />}
+          {lostChoice === '__other' && <input value={lostOther} onChange={e => setLostOther(e.target.value)} className={inputFormStyle} placeholder={t('leads.detail.lost_other_ph')} autoFocus />}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setAskLostFor(null)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-            <button disabled={!(lostChoice === '__other' ? lostOther.trim() : lostChoice)} onClick={() => { const s = askLostFor!; setAskLostFor(null); doMoveStage(s, (lostChoice === '__other' ? lostOther.trim() : lostChoice) || undefined); }} className={BUTTON_PRIMARY_SM_CLASSES}>Confirmar</button>
+            <button onClick={() => setAskLostFor(null)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
+            <button disabled={!(lostChoice === '__other' ? lostOther.trim() : lostChoice)} onClick={() => { const s = askLostFor!; setAskLostFor(null); doMoveStage(s, (lostChoice === '__other' ? lostOther.trim() : lostChoice) || undefined); }} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.common.confirm')}</button>
           </div>
         </div>
       </Modal>
 
       {/* Enviar plantilla */}
-      <Modal isOpen={tplOpen} onClose={() => setTplOpen(false)} title="Enviar plantilla" size="lg">
+      <Modal isOpen={tplOpen} onClose={() => setTplOpen(false)} title={t('leads.detail.send_template_title')} size="lg">
         <div className="space-y-3">
           {templates.length === 0 ? (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">No hay plantillas. Créalas en Leads → Configuración del CRM → Plantillas.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.detail.no_templates')}</p>
           ) : (
             <select value={tplId} onChange={e => pickTemplate(e.target.value)} className={inputFormStyle}>
-              <option value="">— Elige una plantilla —</option>
+              <option value="">{t('leads.detail.pick_template')}</option>
               {templates.filter(t => t.channel !== 'email' || lead.email).filter(t => t.channel !== 'whatsapp' || lead.whatsapp || lead.phone).map(t => (
                 <option key={t.id} value={t.id}>{t.channel === 'email' ? '✉️' : '💬'} {t.name}</option>
               ))}
@@ -534,26 +542,26 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
           )}
           {tplPreview && (
             <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 bg-neutral-50 dark:bg-neutral-900/40 text-sm">
-              <p className="text-xs text-neutral-500 mb-1">Para: <span translate="no">{tplPreview.to || '—'}</span></p>
+              <p className="text-xs text-neutral-500 mb-1">{t('leads.detail.to')} <span translate="no">{tplPreview.to || '—'}</span></p>
               {tplPreview.channel === 'email' && <p className="font-semibold text-neutral-800 dark:text-neutral-100 mb-1">{tplPreview.subject}</p>}
               <p className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-200">{tplPreview.body}</p>
             </div>
           )}
           <div className="flex justify-end gap-2 flex-wrap">
-            <button onClick={() => setTplOpen(false)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-            {tplPreview?.channel === 'whatsapp' && <button onClick={openWhatsappWithText} className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300`}>Abrir en WhatsApp</button>}
-            <button onClick={sendTpl} disabled={!tplPreview || tplSending} className={BUTTON_PRIMARY_SM_CLASSES}>{tplSending ? 'Enviando…' : tplPreview?.channel === 'whatsapp' ? 'Enviar por API' : 'Enviar correo'}</button>
+            <button onClick={() => setTplOpen(false)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
+            {tplPreview?.channel === 'whatsapp' && <button onClick={openWhatsappWithText} className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300`}>{t('leads.detail.open_whatsapp')}</button>}
+            <button onClick={sendTpl} disabled={!tplPreview || tplSending} className={BUTTON_PRIMARY_SM_CLASSES}>{tplSending ? t('leads.detail.sending') : tplPreview?.channel === 'whatsapp' ? t('leads.detail.send_api') : t('leads.detail.send_email')}</button>
           </div>
-          {tplPreview?.channel === 'whatsapp' && <p className="text-[11px] text-neutral-500">"Enviar por API" usa tu WhatsApp Business configurado (solo dentro de las 24 h del último mensaje del cliente). "Abrir en WhatsApp" abre el chat con el texto listo y lo registra en el historial.</p>}
+          {tplPreview?.channel === 'whatsapp' && <p className="text-[11px] text-neutral-500">{t('leads.detail.whatsapp_hint')}</p>}
         </div>
       </Modal>
 
-      <ConfirmationModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={handleDelete} title="Eliminar lead" message={`¿Eliminar el lead "${lead.name}"? Esta acción no se puede deshacer.`} confirmButtonText="Eliminar" />
+      <ConfirmationModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={handleDelete} title={t('leads.detail.delete_title')} message={t('leads.detail.delete_message', { name: lead.name })} confirmButtonText={t('leads.common.delete')} />
 
       {zoomImage && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setZoomImage(null)}>
           <img src={zoomImage} alt="" className="max-w-full max-h-full object-contain rounded shadow-2xl" onClick={e => e.stopPropagation()} />
-          <button type="button" onClick={() => setZoomImage(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-neutral-800 text-xl" aria-label="Cerrar">✕</button>
+          <button type="button" onClick={() => setZoomImage(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-neutral-800 text-xl" aria-label={t('leads.common.close')}>✕</button>
         </div>
       )}
     </>

@@ -2,6 +2,7 @@
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
 import { GlobalSettings, DEFAULT_RECEIPT_CONFIG, DEFAULT_PAYMENT_METHODS, DEFAULT_PAYMENT_METHOD_SCOPES } from '../types';
 import { api } from '../services/api';
+import { LEADS_I18N } from '../i18n/leads';
 
 export interface GlobalSettingsContextType {
   settings: GlobalSettings;
@@ -6674,6 +6675,10 @@ export const TRANSLATIONS = {
         'pos.estimates.col.total_ivu': 'Total (VAT)',
     }
 };
+
+// Módulo de Leads/CRM: su diccionario vive en i18n/leads/ (dividido por pantalla).
+Object.assign(TRANSLATIONS.es, LEADS_I18N.es);
+Object.assign(TRANSLATIONS.en, LEADS_I18N.en);
 
 export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // La configuración vive en la BASE DE DATOS (per negocio), no en localStorage.

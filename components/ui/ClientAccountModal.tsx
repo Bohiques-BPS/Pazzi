@@ -14,6 +14,9 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { ClientCreditPaymentModal } from './ClientCreditPaymentModal';
 import { printPaymentReceipt } from '../../utils/printPaymentReceipt';
 import { printSaleReceipt } from '../../utils/printSaleReceipt';
+import { leadsService } from '../../services/leads';
+import { useModules } from '../../hooks/useModules';
+import { AppModule, Lead, Pipeline } from '../../types';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -173,7 +176,7 @@ function SmartTable<T>({ rows, columns, selectFilters = [], initialSortKey, init
     );
 }
 
-type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products' | 'receipts';
+type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products' | 'receipts' | 'leads';
 
 export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client, fromPos }) => {
     const { t } = useTranslation();
@@ -227,6 +230,23 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
     const [creditValue, setCreditValue] = useState('');
     const [creditPin, setCreditPin] = useState('');
     const [savingCredit, setSavingCredit] = useState(false);
+    // Leads / oportunidades del cliente (CRM). No aplica desde la caja.
+    const { isModuleEnabled } = useModules();
+    const showLeads = !fromPos && isModuleEnabled(AppModule.LEADS) && can('leads.view');
+    const [clientLeads, setClientLeads] = useState<Lead[]>([]);
+    const [leadPipelines, setLeadPipelines] = useState<Pipeline[]>([]);
+
+    useEffect(() => {
+        if (!isOpen || !client || !showLeads) { setClientLeads([]); return; }
+        let cancelled = false;
+        leadsService.list({ clientId: client.id, limit: 200 }).then(r => { if (!cancelled) setClientLeads(Array.isArray(r) ? r : []); }).catch(() => {});
+        leadsService.getConfig().then(c => { if (!cancelled) setLeadPipelines(c.pipelines || []); }).catch(() => {});
+        return () => { cancelled = true; };
+    }, [isOpen, client, showLeads]);
+    const leadStageName = (id: string) => leadPipelines.flatMap(p => p.stages).find(st => st.id === id)?.name || '—';
+    const leadStatusLabel = (st: Lead['status']) => t(`leads.common.status.${st}`);
+    const openLead = (id: string) => { onClose(); navigate(`/leads?lead=${id}`); };
+    const newLeadForClient = () => { if (!client) return; onClose(); navigate(`/leads?new=1&clientId=${client.id}`); };
 
     useEffect(() => {
         if (!isOpen || !client) return;
@@ -276,6 +296,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         { key: 'projects', label: 'Proyectos', count: data.projects.length },
         { key: 'products', label: 'Top productos', count: data.topProducts.length },
         { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
+        ...(showLeads ? [{ key: 'leads' as TabKey, label: t('leads.common.client_tab'), count: clientLeads.length }] : []),
     ] : [];
 
     return (
@@ -434,6 +455,33 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     ) },
                                 ]}
                             />
+                        )}
+                        {tab === 'leads' && showLeads && (
+                            <div className="flex flex-col gap-2 h-full">
+                                {can('leads.create') && (
+                                    <div className="flex justify-end">
+                                        <button type="button" onClick={newLeadForClient} className="text-sm font-semibold px-3 py-1.5 rounded-md bg-primary text-white hover:bg-primary/90">+ {t('leads.common.client_new_lead')}</button>
+                                    </div>
+                                )}
+                                <SmartTable
+                                    rows={clientLeads}
+                                    emptyText={t('leads.common.client_no_leads')}
+                                    initialSortKey="createdAt" initialSortDir="desc"
+                                    selectFilters={[{ key: 'st', label: t('leads.common.status_label'), get: r => leadStatusLabel(r.status) }]}
+                                    columns={[
+                                        { key: 'name', label: t('leads.common.lead'), text: r => `${r.name} ${r.lastName || ''}`, render: r => <span translate="no">{r.name} {r.lastName || ''}</span> },
+                                        { key: 'stage', label: t('leads.common.stage'), text: r => leadStageName(r.stageId), render: r => <span translate="no">{leadStageName(r.stageId)}</span> },
+                                        { key: 'st', label: t('leads.common.status_label'), text: r => leadStatusLabel(r.status), render: r => (
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${r.status === 'won' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : r.status === 'lost' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-neutral-200 dark:bg-neutral-700'}`}>{leadStatusLabel(r.status)}</span>
+                                        ) },
+                                        { key: 'value', label: t('leads.common.value'), align: 'right', text: r => String(r.value ?? ''), sort: r => r.value ?? 0, render: r => r.value != null ? money(r.value) : '—' },
+                                        { key: 'createdAt', label: t('leads.common.created'), text: r => dateStr(r.createdAt), sort: r => new Date(r.createdAt).getTime(), render: r => dateStr(r.createdAt) },
+                                        { key: 'acc', label: '', sortable: false, align: 'center', text: () => '', render: r => (
+                                            <button type="button" onClick={() => openLead(r.id)} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 whitespace-nowrap">{t('leads.common.open')}</button>
+                                        ) },
+                                    ]}
+                                />
+                            </div>
                         )}
                         {tab === 'products' && (
                             <SmartTable

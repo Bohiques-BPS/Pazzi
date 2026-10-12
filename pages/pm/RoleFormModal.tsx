@@ -7,6 +7,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import type { PermissionCategory } from '../../types';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { permLabel, permCategoryLabel } from '../../utils/permissionLabels';
 
 interface RoleFormModalProps {
     isOpen: boolean;
@@ -77,7 +78,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({ isOpen, onClose, r
                         return (
                             <fieldset key={category.key} className="border border-neutral-200 dark:border-neutral-600 rounded-md p-3">
                                 <div className="flex items-center justify-between mb-2">
-                                    <legend className="text-sm font-semibold">{category.label}</legend>
+                                    <legend className="text-sm font-semibold">{permCategoryLabel(t, category.key, category.label)}</legend>
                                     <button type="button" onClick={() => toggleCategory(category, !allOn)} className="text-xs text-primary hover:underline">
                                         {allOn ? t('pm2x.role.remove_all') : t('pm2x.role.all')}
                                     </button>
@@ -91,7 +92,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({ isOpen, onClose, r
                                                 onChange={e => togglePerm(p.key, e.target.checked)}
                                                 className="mt-0.5 h-4 w-4"
                                             />
-                                            <span>{p.label}</span>
+                                            <span>{permLabel(t, p.key, p.label)}</span>
                                         </label>
                                     ))}
                                 </div>

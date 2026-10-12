@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { Lead, Pipeline, LeadSource, LeadTag, LeadCustomField, GoalProgressRow } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
+import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { leadsService } from '../../services/leads';
 import { ApiError } from '../../services/api';
@@ -19,26 +21,40 @@ import { PlusIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon } from '.
 const money = (n?: number | null) => n != null ? `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '';
 const DAY = 86400000;
 
-const IMPORT_FIELDS: ImportFieldDef[] = [
-  { key: 'name', label: 'Nombre', required: true, aliases: ['nombre', 'first name', 'firstname', 'contacto', 'cliente'] },
-  { key: 'lastName', label: 'Apellido', aliases: ['apellidos', 'last name', 'lastname'] },
-  { key: 'companyName', label: 'Empresa', aliases: ['compania', 'compañía', 'company', 'negocio', 'organizacion'] },
-  { key: 'email', label: 'Correo', aliases: ['email', 'e-mail', 'correo electronico', 'mail'] },
-  { key: 'phone', label: 'Teléfono', aliases: ['telefono', 'phone', 'celular', 'movil', 'tel'] },
-  { key: 'whatsapp', label: 'WhatsApp', aliases: ['wa', 'whatsapp'] },
-  { key: 'value', label: 'Valor', type: 'number', aliases: ['monto', 'valor', 'importe', 'amount', 'presupuesto'] },
-  { key: 'source', label: 'Fuente', aliases: ['origen', 'source', 'canal'] },
-  { key: 'stage', label: 'Etapa', aliases: ['estado', 'stage', 'status', 'fase'] },
-  { key: 'assigneeEmail', label: 'Correo del responsable', aliases: ['responsable', 'vendedor', 'asignado', 'owner'] },
-  { key: 'expectedCloseAt', label: 'Cierre estimado', type: 'date', aliases: ['fecha cierre', 'close date', 'cierre'] },
-  { key: 'tags', label: 'Etiquetas (separadas por coma)', aliases: ['etiquetas', 'tags'] },
-  { key: 'notes', label: 'Notas', aliases: ['nota', 'notas', 'comentarios', 'observaciones', 'notes'] },
+type TFn = (key: string, params?: Record<string, string | number>) => string;
+
+// Las etiquetas se traducen; los alias son heurísticas de auto-mapeo y se mantienen en ambos idiomas.
+const buildImportFields = (t: TFn): ImportFieldDef[] => [
+  { key: 'name', label: t('leads.common.first_name'), required: true, aliases: ['nombre', 'first name', 'firstname', 'contacto', 'cliente', 'contact'] },
+  { key: 'lastName', label: t('leads.common.last_name'), aliases: ['apellidos', 'last name', 'lastname', 'surname'] },
+  { key: 'companyName', label: t('leads.common.company'), aliases: ['compania', 'compañía', 'company', 'company name', 'negocio', 'organizacion', 'organization'] },
+  { key: 'email', label: t('leads.common.email'), aliases: ['email', 'e-mail', 'correo electronico', 'mail'] },
+  { key: 'phone', label: t('leads.common.phone'), aliases: ['telefono', 'phone', 'celular', 'movil', 'tel', 'mobile'] },
+  { key: 'whatsapp', label: t('leads.common.channel.whatsapp'), aliases: ['wa', 'whatsapp'] },
+  { key: 'value', label: t('leads.common.value'), type: 'number', aliases: ['monto', 'valor', 'importe', 'amount', 'presupuesto', 'value'] },
+  { key: 'source', label: t('leads.common.source'), aliases: ['origen', 'source', 'canal'] },
+  { key: 'stage', label: t('leads.common.stage'), aliases: ['estado', 'stage', 'status', 'fase'] },
+  { key: 'assigneeEmail', label: t('leads.board.import.assignee_email'), aliases: ['responsable', 'vendedor', 'asignado', 'owner', 'owner email', 'assignee', 'assigned to'] },
+  { key: 'expectedCloseAt', label: t('leads.common.expected_close'), type: 'date', aliases: ['fecha cierre', 'close date', 'cierre', 'expected close'] },
+  { key: 'tags', label: t('leads.board.import.tags'), aliases: ['etiquetas', 'tags'] },
+  { key: 'notes', label: t('leads.common.notes'), aliases: ['nota', 'notas', 'comentarios', 'observaciones', 'notes'] },
 ];
+
+/** Datos con los que se precarga el modal de creación (p. ej. desde la ficha 360º del cliente). */
+interface CreatePrefill {
+  clientId?: string;
+  clientLabel?: string;
+  name?: string; lastName?: string; companyName?: string; email?: string; phone?: string;
+}
 
 export const LeadsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const { t, lang } = useTranslation();
+  const { clients } = useData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const importFields = useMemo(() => buildImportFields(t), [lang]);
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [sources, setSources] = useState<LeadSource[]>([]);
@@ -59,6 +75,7 @@ export const LeadsPage: React.FC = () => {
   const [selected, setSelected] = useState<Lead | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [createPrefill, setCreatePrefill] = useState<CreatePrefill | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [bulkModal, setBulkModal] = useState<null | 'assign' | 'stage' | 'tag'>(null);
@@ -77,9 +94,9 @@ export const LeadsPage: React.FC = () => {
 
   const assignees = useLeadAssignees();
   const empName = (uid?: string | null, forExport = false) => {
-    if (!uid) return 'Sin asignar';
-    if (uid === currentUser?.id && !forExport) return 'Yo';
-    return assignees.find(a => a.uid === uid)?.name || 'Responsable';
+    if (!uid) return t('leads.common.unassigned');
+    if (uid === currentUser?.id && !forExport) return t('leads.common.me');
+    return assignees.find(a => a.uid === uid)?.name || t('leads.common.assignee');
   };
 
   const loadConfig = async () => {
@@ -104,7 +121,7 @@ export const LeadsPage: React.FC = () => {
         setPipelineId(pid);
         if (pid) await loadLeads(pid);
       } catch (err) {
-        toast.error(err instanceof ApiError ? err.message : 'No se pudieron cargar los leads.');
+        toast.error(err instanceof ApiError ? err.message : t('leads.board.load_error'));
       } finally { setLoading(false); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,6 +155,28 @@ export const LeadsPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, leads, loading]);
+
+  // Deep-link: ?new=1 abre "Nuevo lead" (búsqueda global / ficha 360º); ?clientId=<id> lo vincula y precarga con ese cliente.
+  useEffect(() => {
+    if (searchParams.get('new') !== '1' || loading) return;
+    const cid = searchParams.get('clientId') || '';
+    const next = new URLSearchParams(searchParams); next.delete('new'); next.delete('clientId'); setSearchParams(next, { replace: true });
+    if (!can('leads.create')) return;
+    let prefill: CreatePrefill | null = null;
+    if (cid) {
+      const c = clients.find(x => x.id === cid);
+      prefill = c
+        ? {
+            clientId: cid,
+            clientLabel: `${c.name || ''} ${c.lastName || ''}`.trim() || c.companyName || c.email || cid,
+            name: c.name || '', lastName: c.lastName || '', companyName: c.companyName || '', email: c.email || '', phone: c.phone || '',
+          }
+        : { clientId: cid };
+    }
+    setCreatePrefill(prefill);
+    setShowCreate(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, loading]);
 
   const isCold = (l: Lead) => l.status === 'open' && (Date.now() - new Date(l.lastActivityAt || l.createdAt).getTime()) > coldDays * DAY;
 
@@ -201,7 +240,7 @@ export const LeadsPage: React.FC = () => {
     if (st?.type === 'lost' && lead.stageId !== stageId) {
       // Para perder se pide motivo en la ficha.
       setSelected(lead);
-      toast.warning('Elige el motivo de pérdida en la ficha del lead.');
+      toast.warning(t('leads.board.lost_reason_hint'));
       return;
     }
     // Se reordena la columna COMPLETA (sin filtros); si no, los leads ocultos por un filtro chocarían de posición.
@@ -218,7 +257,7 @@ export const LeadsPage: React.FC = () => {
     try {
       if (lead.stageId !== stageId) await leadsService.moveStage(id, stageId, { order: ordered.findIndex(o => o.id === id) });
       await leadsService.reorder(ordered.map(o => o.id));
-    } catch { toast.error('No se pudo mover el lead.'); loadLeads(pipeline?.id || ''); }
+    } catch { toast.error(t('leads.board.move_error')); loadLeads(pipeline?.id || ''); }
   };
 
   // ── Selección y acciones masivas ──
@@ -231,34 +270,38 @@ export const LeadsPage: React.FC = () => {
     if (!ids.length) return;
     try {
       const r = await leadsService.bulk(ids, action, extra);
-      toast.success(`${r.affected} lead(s) actualizados.`);
+      toast.success(t('leads.board.bulk.updated', { n: r.affected }));
       setChecked(new Set()); setBulkModal(null); setBulkValue('');
       await loadLeads(pipeline?.id || '');
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo aplicar la acción.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.board.bulk.error')); }
   };
 
   // ── Exportar (lo que se ve con los filtros actuales) ──
   const exportExcel = () => {
     const stageName = (id: string) => stages.find(s => s.id === id)?.name || '';
     const srcName = (id?: string | null) => sources.find(s => s.id === id)?.name || '';
-    const tagNames = (ids?: string[]) => (ids || []).map(id => tags.find(t => t.id === id)?.name).filter(Boolean).join(', ');
+    const tagNames = (ids?: string[]) => (ids || []).map(id => tags.find(tg => tg.id === id)?.name).filter(Boolean).join(', ');
+    const statusLabel = (s: Lead['status']) => t(s === 'won' ? 'leads.common.status.won' : s === 'lost' ? 'leads.common.status.lost' : 'leads.common.status.open');
+    const yes = t('leads.common.yes'), no = t('leads.common.no');
     const rows = filtered.map(l => {
       const base: Record<string, any> = {
-        Nombre: l.name, Apellido: l.lastName || '', Empresa: l.companyName || '', Correo: l.email || '', Teléfono: l.phone || '',
-        WhatsApp: l.whatsapp || '', Etapa: stageName(l.stageId), Estado: l.status === 'won' ? 'Ganado' : l.status === 'lost' ? 'Perdido' : 'Abierto',
-        'Motivo pérdida': l.lostReason || '', Valor: l.value ?? '', Probabilidad: l.probability ?? '', Responsable: empName(l.assignedUserId, true),
-        Fuente: srcName(l.sourceId), Etiquetas: tagNames(l.tagIds),
-        'Cierre estimado': l.expectedCloseAt ? new Date(l.expectedCloseAt).toLocaleDateString() : '',
-        'Próxima acción': l.nextActionAt ? new Date(l.nextActionAt).toLocaleString() : '',
-        'Última actividad': l.lastActivityAt ? new Date(l.lastActivityAt).toLocaleString() : '',
-        Creado: new Date(l.createdAt).toLocaleString(), Notas: l.notes || '',
+        [t('leads.common.first_name')]: l.name, [t('leads.common.last_name')]: l.lastName || '', [t('leads.common.company')]: l.companyName || '',
+        [t('leads.common.email')]: l.email || '', [t('leads.common.phone')]: l.phone || '',
+        [t('leads.common.channel.whatsapp')]: l.whatsapp || '', [t('leads.common.stage')]: stageName(l.stageId), [t('leads.board.export.status')]: statusLabel(l.status),
+        [t('leads.board.export.lost_reason')]: l.lostReason || '', [t('leads.common.value')]: l.value ?? '', [t('leads.common.probability')]: l.probability ?? '',
+        [t('leads.common.assignee')]: empName(l.assignedUserId, true),
+        [t('leads.common.source')]: srcName(l.sourceId), [t('leads.common.tags')]: tagNames(l.tagIds),
+        [t('leads.common.expected_close')]: l.expectedCloseAt ? new Date(l.expectedCloseAt).toLocaleDateString() : '',
+        [t('leads.common.next_action')]: l.nextActionAt ? new Date(l.nextActionAt).toLocaleString() : '',
+        [t('leads.common.last_activity')]: l.lastActivityAt ? new Date(l.lastActivityAt).toLocaleString() : '',
+        [t('leads.common.created')]: new Date(l.createdAt).toLocaleString(), [t('leads.common.notes')]: l.notes || '',
       };
-      customFields.forEach(f => { const v = l.customFields?.[f.id]; base[f.label] = v === true ? 'Sí' : v === false ? 'No' : (v ?? ''); });
+      customFields.forEach(f => { const v = l.customFields?.[f.id]; base[f.label] = v === true ? yes : v === false ? no : (v ?? ''); });
       return base;
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Leads');
+    XLSX.utils.book_append_sheet(wb, ws, t('leads.common.leads'));
     XLSX.writeFile(wb, `leads-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
@@ -272,19 +315,19 @@ export const LeadsPage: React.FC = () => {
       {/* Cabecera */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Leads</h1>
+          <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{t('leads.common.leads')}</h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-            <span translate="no">{filtered.length} lead(s) · abierto {money(totals.openValue) || '$0'}</span>
-            {totals.overdue > 0 && <span translate="no" className="ml-2 text-red-600 dark:text-red-400">· {totals.overdue} con acción vencida</span>}
-            {totals.cold > 0 && <button type="button" translate="no" onClick={() => { setOnlyCold(true); setFilterStatus('open'); }} className="ml-2 text-amber-600 dark:text-amber-400 hover:underline">· {totals.cold} sin seguimiento</button>}
+            <span translate="no">{t('leads.board.summary', { n: filtered.length, value: money(totals.openValue) || '$0' })}</span>
+            {totals.overdue > 0 && <span translate="no" className="ml-2 text-red-600 dark:text-red-400">{t('leads.board.overdue_count', { n: totals.overdue })}</span>}
+            {totals.cold > 0 && <button type="button" translate="no" onClick={() => { setOnlyCold(true); setFilterStatus('open'); }} className="ml-2 text-amber-600 dark:text-amber-400 hover:underline">{t('leads.board.cold_count', { n: totals.cold })}</button>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {can('leads.managePipeline') && <button onClick={() => navigate('/leads/settings')} className={BUTTON_SECONDARY_SM_CLASSES}>⚙️ Configurar</button>}
-          {can('leads.import') && <button onClick={() => setShowImport(true)} className={BUTTON_SECONDARY_SM_CLASSES}>⬆️ Importar</button>}
-          {can('leads.export') && <button onClick={exportExcel} disabled={!filtered.length} className={BUTTON_SECONDARY_SM_CLASSES}>⬇️ Exportar</button>}
+          {can('leads.managePipeline') && <button onClick={() => navigate('/leads/settings')} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.configure')}</button>}
+          {can('leads.import') && <button onClick={() => setShowImport(true)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.import')}</button>}
+          {can('leads.export') && <button onClick={exportExcel} disabled={!filtered.length} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.export')}</button>}
           {can('leads.create') && (
-            <button onClick={() => setShowCreate(true)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon className="w-5 h-5" /> Nuevo lead</button>
+            <button onClick={() => { setCreatePrefill(null); setShowCreate(true); }} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}><PlusIcon className="w-5 h-5" /> {t('leads.board.new_lead')}</button>
           )}
         </div>
       </div>
@@ -292,10 +335,10 @@ export const LeadsPage: React.FC = () => {
       {/* Mis metas del mes */}
       {myGoals && myGoals.goals.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 mb-4 p-2.5 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700">
-          <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">🎯 Mis metas del mes</span>
+          <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">{t('leads.board.my_goals')}</span>
           {myGoals.goals.map(g => (
             <div key={g.metric} className="flex items-center gap-2 min-w-[180px]" title={`${g.actual} / ${g.target}`}>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{g.metric === 'won_count' ? 'Ganados' : g.metric === 'won_value' ? 'Valor' : g.metric === 'activities' ? 'Actividades' : 'Nuevos'}</span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{t(g.metric === 'won_count' ? 'leads.common.metric_short.won_count' : g.metric === 'won_value' ? 'leads.common.metric_short.won_value' : g.metric === 'activities' ? 'leads.common.metric_short.activities' : 'leads.common.metric_short.new_leads')}</span>
               <div className="h-2 flex-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, g.pct)}%`, background: g.pct >= 100 ? '#16a34a' : g.pct >= 60 ? '#f59e0b' : '#0D9488' }} />
               </div>
@@ -309,54 +352,54 @@ export const LeadsPage: React.FC = () => {
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative">
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar nombre, empresa, correo, teléfono…" className={inputFormStyle + ' pl-8 !w-64 !py-1.5 text-sm'} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('leads.board.search_placeholder')} className={inputFormStyle + ' pl-8 !w-64 !py-1.5 text-sm'} />
         </div>
         {pipelines.length > 1 && (
-          <select value={pipeline?.id || ''} onChange={e => changePipeline(e.target.value)} className={selectCls} title="Pipeline">
+          <select value={pipeline?.id || ''} onChange={e => changePipeline(e.target.value)} className={selectCls} title={t('leads.common.pipeline')}>
             {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}
         <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className={selectCls}>
-          <option value="">Todos los responsables</option>
-          {currentUser && <option value={currentUser.id}>Mis leads</option>}
-          <option value="none">Sin asignar</option>
+          <option value="">{t('leads.board.filter.all_assignees')}</option>
+          {currentUser && <option value={currentUser.id}>{t('leads.board.filter.my_leads')}</option>}
+          <option value="none">{t('leads.common.unassigned')}</option>
           {assignees.filter(a => a.uid !== currentUser?.id).map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className={selectCls}>
-          <option value="">Todos los estados</option>
-          <option value="open">Abiertos</option>
-          <option value="won">Ganados</option>
-          <option value="lost">Perdidos</option>
+          <option value="">{t('leads.board.filter.all_statuses')}</option>
+          <option value="open">{t('leads.common.status.open_pl')}</option>
+          <option value="won">{t('leads.common.status.won_pl')}</option>
+          <option value="lost">{t('leads.common.status.lost_pl')}</option>
         </select>
         {tags.length > 0 && (
           <select value={filterTag} onChange={e => setFilterTag(e.target.value)} className={selectCls}>
-            <option value="">Todas las etiquetas</option>
-            {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <option value="">{t('leads.board.filter.all_tags')}</option>
+            {tags.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
           </select>
         )}
         <select value={filterSource} onChange={e => setFilterSource(e.target.value)} className={selectCls}>
-          <option value="">Todas las fuentes</option>
+          <option value="">{t('leads.board.filter.all_sources')}</option>
           {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <label className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
-          <input type="checkbox" checked={onlyCold} onChange={e => setOnlyCold(e.target.checked)} className="h-4 w-4" /> Sin seguimiento ({coldDays}d)
+          <input type="checkbox" checked={onlyCold} onChange={e => setOnlyCold(e.target.checked)} className="h-4 w-4" /> <span translate="no">{t('leads.board.filter.only_cold', { days: coldDays })}</span>
         </label>
-        {filtersActive && <button type="button" onClick={clearFilters} className="text-xs text-primary hover:underline">Limpiar filtros</button>}
+        {filtersActive && <button type="button" onClick={clearFilters} className="text-xs text-primary hover:underline">{t('leads.board.filter.clear')}</button>}
         <div className="ml-auto flex items-center bg-neutral-100 dark:bg-neutral-700 p-0.5 rounded-md">
-          <button onClick={() => setViewPersist('board')} className={`p-1.5 rounded-md ${view === 'board' ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300'}`} title="Tablero" aria-label="Vista tablero"><Squares2X2Icon className="w-5 h-5" /></button>
-          <button onClick={() => setViewPersist('list')} className={`p-1.5 rounded-md ${view === 'list' ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300'}`} title="Lista" aria-label="Vista lista"><ListBulletIcon className="w-5 h-5" /></button>
+          <button onClick={() => setViewPersist('board')} className={`p-1.5 rounded-md ${view === 'board' ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300'}`} title={t('leads.board.view.board')} aria-label={t('leads.board.view.board_aria')}><Squares2X2Icon className="w-5 h-5" /></button>
+          <button onClick={() => setViewPersist('list')} className={`p-1.5 rounded-md ${view === 'list' ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300'}`} title={t('leads.board.view.list')} aria-label={t('leads.board.view.list_aria')}><ListBulletIcon className="w-5 h-5" /></button>
         </div>
       </div>
 
       {/* Barra de acciones masivas */}
       {checked.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg bg-primary/10 border border-primary/30">
-          <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300">{checked.size} seleccionado(s)</span>
-          {can('leads.assign') && <button onClick={() => { setBulkModal('assign'); setBulkValue(''); }} className={BUTTON_SECONDARY_SM_CLASSES}>👤 Asignar</button>}
-          {(can('leads.changeStage') || can('leads.edit')) && <button onClick={() => { setBulkModal('stage'); setBulkValue(stages[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>➡️ Mover etapa</button>}
-          {can('leads.edit') && tags.length > 0 && <button onClick={() => { setBulkModal('tag'); setBulkValue(tags[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>🏷️ Etiquetar</button>}
-          {can('leads.delete') && <button onClick={() => setConfirmBulkDelete(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400`}>🗑 Eliminar</button>}
-          <button onClick={() => setChecked(new Set())} className="ml-auto text-xs text-neutral-500 hover:underline">Quitar selección</button>
+          <span translate="no" className="text-sm font-semibold text-primary dark:text-teal-300">{t('leads.board.bulk.selected', { n: checked.size })}</span>
+          {can('leads.assign') && <button onClick={() => { setBulkModal('assign'); setBulkValue(''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.assign')}</button>}
+          {(can('leads.changeStage') || can('leads.edit')) && <button onClick={() => { setBulkModal('stage'); setBulkValue(stages[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.move_stage')}</button>}
+          {can('leads.edit') && tags.length > 0 && <button onClick={() => { setBulkModal('tag'); setBulkValue(tags[0]?.id || ''); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.tag')}</button>}
+          {can('leads.delete') && <button onClick={() => setConfirmBulkDelete(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400`}>{t('leads.board.bulk.delete')}</button>}
+          <button onClick={() => setChecked(new Set())} className="ml-auto text-xs text-neutral-500 hover:underline">{t('leads.board.bulk.clear_selection')}</button>
         </div>
       )}
 
@@ -372,7 +415,7 @@ export const LeadsPage: React.FC = () => {
                     <span className="flex items-center gap-1.5 min-w-0"><span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: stage.color || '#94a3b8' }} /><span className="truncate" translate="no">{stage.name}</span></span>
                     <span translate="no" className="text-xs text-gray-500 flex-shrink-0">{list.length}</span>
                   </h3>
-                  {total > 0 && <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">{money(total)}{stage.type === 'open' && stage.probability != null ? ` · pond. ${money(total * (stage.probability / 100))}` : ''}</p>}
+                  {total > 0 && <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">{money(total)}{stage.type === 'open' && stage.probability != null ? t('leads.board.weighted', { value: money(total * (stage.probability / 100)) }) : ''}</p>}
                 </div>
                 <div className="space-y-2 overflow-y-auto flex-grow min-h-[80px] p-1">
                   {list.map(lead => {
@@ -399,12 +442,12 @@ export const LeadsPage: React.FC = () => {
                         <div className="flex flex-wrap gap-x-2 mt-1">
                           {lead.nextActionAt && <span className={`text-[10px] ${overdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>⏰ {new Date(lead.nextActionAt).toLocaleDateString()}</span>}
                           {lead.expectedCloseAt && lead.status === 'open' && <span className="text-[10px] text-neutral-500 dark:text-neutral-400">🎯 {new Date(lead.expectedCloseAt).toLocaleDateString()}</span>}
-                          {cold && <span className="text-[10px] text-sky-600 dark:text-sky-400" title="Sin actividad reciente">❄️ frío</span>}
+                          {cold && <span className="text-[10px] text-sky-600 dark:text-sky-400" title={t('leads.board.no_recent_activity')}>{t('leads.board.cold_badge')}</span>}
                         </div>
                       </div>
                     );
                   })}
-                  {list.length === 0 && <p className="text-[11px] text-neutral-400 text-center py-4">Arrastra leads aquí</p>}
+                  {list.length === 0 && <p className="text-[11px] text-neutral-400 text-center py-4">{t('leads.board.drop_here')}</p>}
                 </div>
               </div>
             );
@@ -415,8 +458,8 @@ export const LeadsPage: React.FC = () => {
           <table className="min-w-full text-sm">
             <thead className="bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700">
               <tr>
-                <th className="px-3 py-2.5 w-8"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="h-4 w-4" aria-label="Seleccionar todos" /></th>
-                {['Nombre', 'Empresa', 'Etapa', 'Valor', 'Responsable', 'Etiquetas', 'Estado', 'Próx. acción'].map(h => (
+                <th className="px-3 py-2.5 w-8"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="h-4 w-4" aria-label={t('leads.board.select_all')} /></th>
+                {['leads.board.col.name', 'leads.common.company', 'leads.common.stage', 'leads.common.value', 'leads.common.assignee', 'leads.common.tags', 'leads.board.col.status', 'leads.board.col.next_action'].map(k => t(k)).map(h => (
                   <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{h}</th>
                 ))}
               </tr>
@@ -427,19 +470,19 @@ export const LeadsPage: React.FC = () => {
                 const overdue = l.status === 'open' && l.nextActionAt && new Date(l.nextActionAt).getTime() < Date.now();
                 return (
                   <tr key={l.id} onClick={() => setSelected(l)} className={`hover:bg-neutral-50 dark:hover:bg-neutral-700/30 cursor-pointer ${checked.has(l.id) ? 'bg-primary/5' : ''}`}>
-                    <td className="px-3 py-2" onClick={e => e.stopPropagation()}><input type="checkbox" checked={checked.has(l.id)} onChange={() => toggleCheck(l.id)} className="h-4 w-4" aria-label={`Seleccionar ${l.name}`} /></td>
-                    <td className="px-3 py-2 text-neutral-800 dark:text-neutral-100"><span translate="no">{l.name} {l.lastName}</span>{isCold(l) && <span className="ml-1 text-[10px]" title="Sin seguimiento">❄️</span>}</td>
+                    <td className="px-3 py-2" onClick={e => e.stopPropagation()}><input type="checkbox" checked={checked.has(l.id)} onChange={() => toggleCheck(l.id)} className="h-4 w-4" aria-label={t('leads.board.select_one', { name: l.name })} /></td>
+                    <td className="px-3 py-2 text-neutral-800 dark:text-neutral-100"><span translate="no">{l.name} {l.lastName}</span>{isCold(l) && <span className="ml-1 text-[10px]" title={t('leads.board.no_followup')}>❄️</span>}</td>
                     <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{l.companyName || '—'}</td>
                     <td className="px-3 py-2"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: st?.color || '#94a3b8' }} />{st?.name || '—'}</span></td>
                     <td className="px-3 py-2 tabular-nums">{l.value != null ? money(l.value) : '—'}</td>
                     <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{empName(l.assignedUserId)}</td>
                     <td className="px-3 py-2"><div className="flex flex-wrap gap-1">{(l.tagIds || []).map(id => { const t = tags.find(x => x.id === id); return t ? <TagChip key={id} tag={t} small /> : null; })}</div></td>
-                    <td className="px-3 py-2">{l.status === 'won' ? '✅ Ganado' : l.status === 'lost' ? '❌ Perdido' : '🟦 Abierto'}</td>
+                    <td className="px-3 py-2">{l.status === 'won' ? `✅ ${t('leads.common.status.won')}` : l.status === 'lost' ? `❌ ${t('leads.common.status.lost')}` : `🟦 ${t('leads.common.status.open')}`}</td>
                     <td className={`px-3 py-2 text-xs ${overdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-500'}`}>{l.nextActionAt ? new Date(l.nextActionAt).toLocaleDateString() : '—'}</td>
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan={9} className="px-3 py-10 text-center text-neutral-400">{filtersActive ? 'Ningún lead coincide con los filtros.' : 'Sin leads todavía.'}</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={9} className="px-3 py-10 text-center text-neutral-400">{filtersActive ? t('leads.board.empty_filtered') : t('leads.board.empty')}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -463,6 +506,7 @@ export const LeadsPage: React.FC = () => {
 
       {showCreate && (
         <CreateLeadModal
+          key={createPrefill?.clientId || 'new'}
           pipeline={pipeline}
           sources={sources}
           tags={tags}
@@ -470,27 +514,28 @@ export const LeadsPage: React.FC = () => {
           assignees={assignees}
           canAssign={can('leads.assign')}
           currentUserId={currentUser?.id}
-          onClose={() => setShowCreate(false)}
-          onCreated={(lead) => { setLeads(prev => [lead, ...prev]); setShowCreate(false); setSelected(lead); }}
+          prefill={createPrefill}
+          onClose={() => { setShowCreate(false); setCreatePrefill(null); }}
+          onCreated={(lead) => { setLeads(prev => [lead, ...prev]); setShowCreate(false); setCreatePrefill(null); setSelected(lead); }}
         />
       )}
 
       <ImportModal
         isOpen={showImport}
         onClose={() => setShowImport(false)}
-        title="Importar leads"
-        fields={IMPORT_FIELDS}
+        title={t('leads.board.import_title')}
+        fields={importFields}
         onImport={(rows) => leadsService.importRows(rows, pipeline?.id)}
         onDone={() => loadLeads(pipeline?.id || '')}
       />
 
       {/* Acciones masivas */}
-      <Modal isOpen={!!bulkModal} onClose={() => setBulkModal(null)} title={bulkModal === 'assign' ? 'Asignar leads' : bulkModal === 'stage' ? 'Mover de etapa' : 'Etiquetar leads'} size="sm">
+      <Modal isOpen={!!bulkModal} onClose={() => setBulkModal(null)} title={bulkModal === 'assign' ? t('leads.board.bulk.title_assign') : bulkModal === 'stage' ? t('leads.board.bulk.title_stage') : t('leads.board.bulk.title_tag')} size="sm">
         <div className="space-y-3">
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">{checked.size} lead(s) seleccionados.</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300"><span translate="no">{t('leads.board.bulk.count_selected', { n: checked.size })}</span></p>
           {bulkModal === 'assign' && (
             <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
-              <option value="">Sin asignar</option>
+              <option value="">{t('leads.common.unassigned')}</option>
               {assignees.map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
             </select>
           )}
@@ -501,20 +546,20 @@ export const LeadsPage: React.FC = () => {
           )}
           {bulkModal === 'tag' && (
             <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className={inputFormStyle}>
-              {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {tags.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
             </select>
           )}
           <div className="flex justify-end gap-2">
-            {bulkModal === 'tag' && <button onClick={() => runBulk('untag', { tagId: bulkValue })} className={BUTTON_SECONDARY_SM_CLASSES}>Quitar etiqueta</button>}
-            <button onClick={() => setBulkModal(null)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+            {bulkModal === 'tag' && <button onClick={() => runBulk('untag', { tagId: bulkValue })} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.board.bulk.untag')}</button>}
+            <button onClick={() => setBulkModal(null)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
             <button
               onClick={() => bulkModal === 'assign' ? runBulk('assign', { userId: bulkValue || null }) : bulkModal === 'stage' ? runBulk('stage', { stageId: bulkValue }) : runBulk('tag', { tagId: bulkValue })}
               className={BUTTON_PRIMARY_SM_CLASSES}
-            >Aplicar</button>
+            >{t('leads.board.bulk.apply')}</button>
           </div>
         </div>
       </Modal>
-      <ConfirmationModal isOpen={confirmBulkDelete} onClose={() => setConfirmBulkDelete(false)} onConfirm={() => { setConfirmBulkDelete(false); runBulk('delete'); }} title="Eliminar leads" message={`¿Eliminar ${checked.size} lead(s)? Esta acción no se puede deshacer.`} confirmButtonText="Eliminar" />
+      <ConfirmationModal isOpen={confirmBulkDelete} onClose={() => setConfirmBulkDelete(false)} onConfirm={() => { setConfirmBulkDelete(false); runBulk('delete'); }} title={t('leads.board.bulk.delete_title')} message={t('leads.board.bulk.delete_message', { n: checked.size })} confirmButtonText={t('leads.common.delete')} />
     </div>
   );
 };
@@ -528,12 +573,16 @@ const CreateLeadModal: React.FC<{
   assignees: { uid: string; name: string }[];
   canAssign: boolean;
   currentUserId?: string;
+  prefill?: CreatePrefill | null;
   onClose: () => void;
   onCreated: (lead: Lead) => void;
-}> = ({ pipeline, sources, tags, customFields, assignees, canAssign, currentUserId, onClose, onCreated }) => {
+}> = ({ pipeline, sources, tags, customFields, assignees, canAssign, currentUserId, prefill, onClose, onCreated }) => {
+  const { t } = useTranslation();
   const openStages = (pipeline?.stages || []).filter(s => s.type === 'open');
+  const clientId = prefill?.clientId || '';
   const [f, setF] = useState({
-    name: '', lastName: '', companyName: '', email: '', phone: '', value: '', sourceId: sources.find(s => s.name === 'Manual')?.id || '',
+    name: prefill?.name || '', lastName: prefill?.lastName || '', companyName: prefill?.companyName || '',
+    email: prefill?.email || '', phone: prefill?.phone || '', value: '', sourceId: sources.find(s => s.name === 'Manual')?.id || '',
     assignedUserId: currentUserId || '', stageId: openStages[0]?.id || pipeline?.stages[0]?.id || '', nextActionAt: '', expectedCloseAt: '', notes: '',
   });
   const [tagIds, setTagIds] = useState<string[]>([]);
@@ -542,9 +591,9 @@ const CreateLeadModal: React.FC<{
   const set = (k: string, v: string) => setF(p => ({ ...p, [k]: v }));
 
   const submit = async () => {
-    if (!f.name.trim()) { toast.error('El nombre es obligatorio.'); return; }
+    if (!f.name.trim()) { toast.error(t('leads.board.create.name_required')); return; }
     const missing = customFields.filter(x => x.required && (cf[x.id] === undefined || cf[x.id] === ''));
-    if (missing.length) { toast.error(`Completa: ${missing.map(m => m.label).join(', ')}`); return; }
+    if (missing.length) { toast.error(t('leads.board.create.missing_fields', { fields: missing.map(m => m.label).join(', ') })); return; }
     setSaving(true);
     try {
       const lead = await leadsService.create({
@@ -555,49 +604,55 @@ const CreateLeadModal: React.FC<{
         nextActionAt: f.nextActionAt ? new Date(f.nextActionAt).toISOString() : null,
         expectedCloseAt: f.expectedCloseAt ? new Date(f.expectedCloseAt + 'T12:00:00').toISOString() : null,
         tagIds, customFields: cf,
+        ...(clientId ? { clientId } : {}),
       } as any);
       onCreated(lead);
-    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo crear el lead.'); }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.board.create.error')); }
     finally { setSaving(false); }
   };
 
-  const lbl = (t: string) => <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{t}</label>;
+  const lbl = (text: string) => <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">{text}</label>;
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Nuevo lead" size="lg">
+    <Modal isOpen={true} onClose={onClose} title={t('leads.board.new_lead')} size="lg">
       <div className="space-y-3">
+        {clientId && (
+          <p className="text-xs px-2.5 py-1.5 rounded-md bg-primary/10 text-primary dark:text-teal-300 border border-primary/30">
+            🔗 <span translate="no">{t('leads.board.create.linked_client', { name: prefill?.clientLabel || clientId })}</span>
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>{lbl('Nombre *')}<input autoFocus value={f.name} onChange={e => set('name', e.target.value)} className={inputFormStyle} /></div>
-          <div>{lbl('Apellido')}<input value={f.lastName} onChange={e => set('lastName', e.target.value)} className={inputFormStyle} /></div>
-          <div>{lbl('Empresa')}<input value={f.companyName} onChange={e => set('companyName', e.target.value)} className={inputFormStyle} /></div>
-          <div>{lbl('Valor estimado')}<input type="number" step="0.01" value={f.value} onChange={e => set('value', e.target.value)} className={inputFormStyle} placeholder="0.00" /></div>
-          <div>{lbl('Correo')}<input type="email" value={f.email} onChange={e => set('email', e.target.value)} className={inputFormStyle} /></div>
-          <div>{lbl('Teléfono')}<input type="tel" value={f.phone} onChange={e => set('phone', e.target.value)} className={inputFormStyle} /></div>
-          <div>{lbl('Etapa')}
+          <div>{lbl(t('leads.board.create.name_required_label'))}<input autoFocus value={f.name} onChange={e => set('name', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.common.last_name'))}<input value={f.lastName} onChange={e => set('lastName', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.common.company'))}<input value={f.companyName} onChange={e => set('companyName', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.board.create.estimated_value'))}<input type="number" step="0.01" value={f.value} onChange={e => set('value', e.target.value)} className={inputFormStyle} placeholder="0.00" /></div>
+          <div>{lbl(t('leads.common.email'))}<input type="email" value={f.email} onChange={e => set('email', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.common.phone'))}<input type="tel" value={f.phone} onChange={e => set('phone', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.common.stage'))}
             <select value={f.stageId} onChange={e => set('stageId', e.target.value)} className={inputFormStyle}>{(pipeline?.stages || []).filter(s => s.type === 'open').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           </div>
-          <div>{lbl('Responsable')}
+          <div>{lbl(t('leads.common.assignee'))}
             <select value={f.assignedUserId} disabled={!canAssign} onChange={e => set('assignedUserId', e.target.value)} className={inputFormStyle}>
-              <option value="">Sin asignar</option>
+              <option value="">{t('leads.common.unassigned')}</option>
               {assignees.map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
-              {currentUserId && !assignees.some(a => a.uid === currentUserId) && <option value={currentUserId}>Yo</option>}
+              {currentUserId && !assignees.some(a => a.uid === currentUserId) && <option value={currentUserId}>{t('leads.common.me')}</option>}
             </select>
           </div>
-          <div>{lbl('Fuente')}
+          <div>{lbl(t('leads.common.source'))}
             <select value={f.sourceId} onChange={e => set('sourceId', e.target.value)} className={inputFormStyle}><option value="">—</option>{sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           </div>
-          <div>{lbl('Cierre estimado')}<input type="date" value={f.expectedCloseAt} onChange={e => set('expectedCloseAt', e.target.value)} className={inputFormStyle} /></div>
-          <div className="sm:col-span-2">{lbl('Próxima acción')}<input type="datetime-local" value={f.nextActionAt} onChange={e => set('nextActionAt', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.common.expected_close'))}<input type="date" value={f.expectedCloseAt} onChange={e => set('expectedCloseAt', e.target.value)} className={inputFormStyle} /></div>
+          <div className="sm:col-span-2">{lbl(t('leads.common.next_action'))}<input type="datetime-local" value={f.nextActionAt} onChange={e => set('nextActionAt', e.target.value)} className={inputFormStyle} /></div>
           {tags.length > 0 && (
-            <div className="sm:col-span-2">{lbl('Etiquetas')}
+            <div className="sm:col-span-2">{lbl(t('leads.common.tags'))}
               <div className="flex flex-wrap gap-1.5">
-                {tags.map(t => {
-                  const on = tagIds.includes(t.id);
+                {tags.map(tg => {
+                  const on = tagIds.includes(tg.id);
                   return (
-                    <button key={t.id} type="button" onClick={() => setTagIds(prev => on ? prev.filter(x => x !== t.id) : [...prev, t.id])}
+                    <button key={tg.id} type="button" onClick={() => setTagIds(prev => on ? prev.filter(x => x !== tg.id) : [...prev, tg.id])}
                       className={`text-xs px-2 py-0.5 rounded-full border transition ${on ? 'font-semibold ring-2 ring-offset-1 dark:ring-offset-neutral-800' : 'opacity-60 hover:opacity-100'}`}
-                      style={{ background: `${t.color || '#64748b'}22`, color: t.color || '#64748b', borderColor: `${t.color || '#64748b'}66` }}>
-                      {on ? '✓ ' : ''}{t.name}
+                      style={{ background: `${tg.color || '#64748b'}22`, color: tg.color || '#64748b', borderColor: `${tg.color || '#64748b'}66` }}>
+                      {on ? '✓ ' : ''}{tg.name}
                     </button>
                   );
                 })}
@@ -607,7 +662,7 @@ const CreateLeadModal: React.FC<{
           {customFields.map(fd => (
             <div key={fd.id}>{lbl(`${fd.label}${fd.required ? ' *' : ''}`)}
               {fd.type === 'checkbox' ? (
-                <label className="flex items-center gap-2 text-sm mt-2"><input type="checkbox" checked={!!cf[fd.id]} onChange={e => setCf(p => ({ ...p, [fd.id]: e.target.checked }))} className="h-4 w-4" /> Sí</label>
+                <label className="flex items-center gap-2 text-sm mt-2"><input type="checkbox" checked={!!cf[fd.id]} onChange={e => setCf(p => ({ ...p, [fd.id]: e.target.checked }))} className="h-4 w-4" /> {t('leads.common.yes')}</label>
               ) : fd.type === 'select' ? (
                 <select value={cf[fd.id] ?? ''} onChange={e => setCf(p => ({ ...p, [fd.id]: e.target.value }))} className={inputFormStyle}><option value="">—</option>{(fd.options || []).map(o => <option key={o} value={o}>{o}</option>)}</select>
               ) : (
@@ -615,11 +670,11 @@ const CreateLeadModal: React.FC<{
               )}
             </div>
           ))}
-          <div className="sm:col-span-2">{lbl('Notas')}<textarea rows={2} value={f.notes} onChange={e => set('notes', e.target.value)} className={inputFormStyle} /></div>
+          <div className="sm:col-span-2">{lbl(t('leads.common.notes'))}<textarea rows={2} value={f.notes} onChange={e => set('notes', e.target.value)} className={inputFormStyle} /></div>
         </div>
         <div className="flex justify-end gap-2 pt-2 border-t dark:border-neutral-700">
-          <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
-          <button onClick={submit} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? 'Creando…' : 'Crear lead'}</button>
+          <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
+          <button onClick={submit} disabled={saving} className={BUTTON_PRIMARY_SM_CLASSES}>{saving ? t('leads.board.create.creating') : t('leads.board.create.submit')}</button>
         </div>
       </div>
     </Modal>
