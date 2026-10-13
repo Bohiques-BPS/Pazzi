@@ -16,8 +16,9 @@ import * as settings from './settings';
 import * as automation from './automation';
 import * as reports from './reports';
 import * as agenda from './agenda';
+import * as conversation from './conversation';
 
-const parts = [common, board, detail, settings, automation, reports, agenda];
+const parts = [common, board, detail, settings, automation, reports, agenda, conversation];
 
 export const LEADS_I18N: { es: Record<string, string>; en: Record<string, string> } = {
   es: Object.assign({}, ...parts.map(p => p.es)),

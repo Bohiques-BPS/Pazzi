@@ -27,6 +27,36 @@ export interface LeadFilters {
 
 export interface ReportRange { from?: string; to?: string; pipelineId?: string; }
 
+/** Mensaje de la conversación del lead (WhatsApp). Llega también por socket (`lead_message`, sala `lead:<id>`). */
+export interface LeadMessage {
+  id: string;
+  leadId: string;
+  channel: 'whatsapp' | string;
+  direction: 'in' | 'out';
+  body: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null; // image | video | audio | document | sticker | location | other
+  mediaName?: string | null;
+  waMessageId?: string | null;
+  status: 'received' | 'sent' | 'delivered' | 'read' | 'failed' | string;
+  error?: string | null;
+  errorCode?: string | null;
+  templateId?: string | null;
+  byUserId?: string | null;
+  byName?: string | null;
+  seenAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+export interface LeadConversationPage {
+  messages: LeadMessage[];
+  hasMore: boolean;
+  whatsappConfigured: boolean;
+  phone: string | null;
+  window: { open: boolean; lastInboundAt: string | null; expiresAt: string | null };
+  unread: number;
+}
+
 export interface FunnelReport {
   funnel: { stageId: string; name: string; type: string; color?: string | null; count: number; value: number; probability: number }[];
   totals: { open: number; won: number; lost: number; conversion: number; weightedPipeline: number; openValue: number; wonValue: number };
@@ -136,6 +166,12 @@ export const leadsService = {
   deleteTemplate: (id: string) => api.delete<any>(`/leads/templates/${id}`),
   previewTemplate: (id: string, leadId: string) => api.get<{ channel: string; subject: string; body: string; to?: string | null }>(`/leads/templates/${id}/preview`, { leadId }),
   sendTemplate: (leadId: string, templateId: string) => api.post<{ ok: boolean; detail: string }>(`/leads/${leadId}/send-template`, { templateId }),
+  // Conversación (WhatsApp)
+  /** `before` = id del mensaje más antiguo cargado (paginación hacia atrás). */
+  messages: (leadId: string, opts?: { before?: string; limit?: number }) => api.get<LeadConversationPage>(`/leads/${leadId}/messages`, clean(opts as any)),
+  /** Errores: 400 WHATSAPP_NOT_CONFIGURED / NO_PHONE, 409 OUTSIDE_24H_WINDOW, 502 WHATSAPP_SEND_FAILED (details.message = mensaje fallido). */
+  sendMessage: (leadId: string, body: string) => api.post<LeadMessage>(`/leads/${leadId}/messages`, { body }),
+  markMessagesSeen: (leadId: string) => api.post<{ updated: number }>(`/leads/${leadId}/messages/seen`, {}),
   // Equipos
   listTeams: () => api.get<SalesTeam[]>('/leads/teams'),
   createTeam: (data: Partial<SalesTeam>) => api.post<SalesTeam>('/leads/teams', data),

@@ -34,6 +34,19 @@ export function joinProjectRoom(projectId: string) {
     return () => { s.off('connect', emitJoin); s.emit('leave', projectId); };
 }
 
+/**
+ * Se une a la sala de la conversación de un lead (`lead:<id>`); el servidor valida permiso y visibilidad.
+ * Los mensajes nuevos/actualizados llegan como evento `lead_message`.
+ */
+export function joinLeadRoom(leadId: string) {
+    if (!leadId) return;
+    const s = getSocket();
+    const emitJoin = () => s.emit('lead:join', leadId);
+    if (s.connected) emitJoin();
+    s.on('connect', emitJoin);
+    return () => { s.off('connect', emitJoin); s.emit('lead:leave', leadId); };
+}
+
 /** Cierra la conexión (p. ej. al cerrar sesión). */
 export function disconnectSocket() {
     if (socket) { socket.disconnect(); socket = null; }

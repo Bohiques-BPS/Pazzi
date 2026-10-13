@@ -17,6 +17,7 @@ import {
 import { TagChip } from './TagChip';
 import { LeadItemsTab } from './LeadItemsTab';
 import { LeadMergePanel } from './LeadMergePanel';
+import { LeadConversationTab } from './LeadConversationTab';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 interface Props {
@@ -85,7 +86,10 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const [activities, setActivities] = useState<LeadActivity[]>(initialLead.activities || []);
   const [leadNotes, setLeadNotes] = useState<LeadNote[]>(initialLead.leadNotes || []);
   const [loadingDetail, setLoadingDetail] = useState(true);
-  const [tab, setTab] = useState<'activity' | 'notes' | 'history' | 'products'>('activity');
+  // Con teléfono/WhatsApp, la conversación es la pestaña principal (estilo Kommo).
+  const [tab, setTab] = useState<'conversation' | 'activity' | 'notes' | 'history' | 'products'>(() => (initialLead.whatsapp || initialLead.phone) ? 'conversation' : 'activity');
+  const [convUnread, setConvUnread] = useState(0);
+  const [convReloadKey, setConvReloadKey] = useState(0);
   const [itemCount, setItemCount] = useState(0);
   const [itemsReloadKey, setItemsReloadKey] = useState(0);
 
@@ -300,6 +304,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       toast.success(r.detail || t('leads.detail.toast.sent'));
       setTplOpen(false);
       refreshActivities();
+      setConvReloadKey(k => k + 1); // la plantilla por WhatsApp aparece en la conversación
     } catch (err) { toast.error(err instanceof ApiError ? err.message : t('leads.detail.toast.send_failed')); }
     finally { setTplSending(false); }
   };
@@ -379,12 +384,16 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     return <input type={type} value={v ?? ''} disabled={!canEdit} onChange={e => set(e.target.value)} className={inputFormStyle} />;
   };
 
-  const TABS = [
+  const hasPhone = !!(lead.whatsapp || lead.phone);
+  const conversationTab = ['conversation', t('leads.conversation.tab')] as const;
+  const TABS: ReadonlyArray<readonly [typeof tab, string]> = [
+    ...(hasPhone ? [conversationTab] : []),
     ['activity', t('leads.detail.tab.activities', { count: activities.length })],
     ['notes', t('leads.detail.tab.notes', { count: leadNotes.length })],
     ['history', t('leads.detail.tab.history')],
     ['products', t('leads.detail.tab.products', { count: itemCount })],
-  ] as const;
+    ...(hasPhone ? [] : [conversationTab]),
+  ];
 
   return (
     <>
@@ -478,12 +487,31 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             </div>
           )}
 
-          {/* Pestañas: actividad / notas / historial / productos */}
+          {/* Pestañas: conversación / actividad / notas / historial / productos */}
           <div className="pt-2">
             <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4 overflow-x-auto">
               {TABS.map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setTab(k)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${tab === k ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>{l}</button>
+                <button key={k} type="button" onClick={() => setTab(k)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap inline-flex items-center ${tab === k ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
+                  {l}
+                  {k === 'conversation' && convUnread > 0 && tab !== 'conversation' && (
+                    <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-green-600 text-white text-[10px] font-semibold" title={t('leads.conversation.new_badge', { n: convUnread })}>{convUnread}</span>
+                  )}
+                </button>
               ))}
+            </div>
+
+            {/* Conversación: siempre montada (oculta) para recibir mensajes en tiempo real y mostrar el indicador de nuevos. */}
+            <div className={tab === 'conversation' ? '' : 'hidden'}>
+              <LeadConversationTab
+                leadId={lead.id}
+                phone={lead.whatsapp || lead.phone}
+                canEdit={canEdit}
+                active={tab === 'conversation'}
+                reloadKey={convReloadKey}
+                onOpenTemplates={openTemplates}
+                onUnreadChange={setConvUnread}
+                onZoomImage={setZoomImage}
+              />
             </div>
 
             {tab === 'activity' && (
