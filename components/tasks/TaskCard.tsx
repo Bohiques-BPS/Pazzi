@@ -1,4 +1,5 @@
 import React from 'react';
+import { htmlToPlainText } from '../../utils/htmlText';
 import { Task, Employee } from '../../types';
 import { ChatBubbleLeftRightIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '../icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -66,7 +67,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
 
             {task.description && (
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
-                    {task.description.replace(/<[^>]+>/g, '')}
+                    {htmlToPlainText(task.description)}
                 </p>
             )}
 

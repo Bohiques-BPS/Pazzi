@@ -5,16 +5,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Task, TaskStatus, Employee } from '../../types';
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
+import { TaskCreateModal } from './TaskCreateModal';
 import { InputModal } from '../InputModal';
 import { ConfirmationModal, Modal } from '../Modal';
-import { MicButton } from '../ui/MicButton';
 import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { AiTaskAssistant } from '../ai/AiTaskAssistant';
 import { PlusIcon, DocumentTextIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { tasksService, type TaskAttachment } from '../../services/tasks';
 import { projectsService } from '../../services/projects';
-import { uploadImage } from '../../services/upload';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -33,35 +32,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [colModal, setColModal] = useState<{ mode: 'add' | 'rename'; name?: string } | null>(null);
     const [colMenuFor, setColMenuFor] = useState<string | null>(null);
     const [deleteCol, setDeleteCol] = useState<string | null>(null);
-    const [newTaskTitle, setNewTaskTitle] = useState('');
-    // Imágenes pegadas/adjuntas al crear una tarea rápida.
-    const [newTaskImages, setNewTaskImages] = useState<TaskAttachment[]>([]);
-    const [uploadingImage, setUploadingImage] = useState(false);
-    const createFileInputRef = useRef<HTMLInputElement>(null);
     const { currentUser } = useAuth();
 
-    // Sube las imágenes de un portapapeles/archivos y las añade a la tarea en creación.
-    const handleImageFiles = async (files: File[]) => {
-        const images = files.filter(f => f.type.startsWith('image/'));
-        if (!images.length) return;
-        setUploadingImage(true);
-        try {
-            for (const file of images) {
-                if (file.size > 5 * 1024 * 1024) { toast.error(`"${file.name || 'imagen'}" supera 5 MB.`); continue; }
-                const url = await uploadImage(file);
-                setNewTaskImages(prev => [...prev, { url, name: file.name || 'imagen' }]);
-            }
-        } catch {
-            toast.error('No se pudo subir la imagen.');
-        } finally {
-            setUploadingImage(false);
-        }
-    };
-
-    const handleCreatePaste = (e: React.ClipboardEvent) => {
-        const files = Array.from(e.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
-        if (files.length) { e.preventDefault(); handleImageFiles(files); }
-    };
     // "Asignármelas a mí": al crear tareas rápidas, auto-asignarlas al usuario. Preferencia por dispositivo.
     const [assignSelf, setAssignSelf] = useState<boolean>(() => { try { return localStorage.getItem('pazzi_assign_self') === '1'; } catch { return false; } });
     const toggleAssignSelf = (v: boolean) => { setAssignSelf(v); try { localStorage.setItem('pazzi_assign_self', v ? '1' : '0'); } catch { /* noop */ } };
@@ -366,31 +338,6 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         }
     };
 
-    const handleCreateTask = async (status: string) => {
-        if (!newTaskTitle.trim()) {
-            // Antes cerraba el formulario en silencio; ahora avisa y lo mantiene abierto.
-            toast.error(t('cmpx.task.title_required') || 'Escribe un título para la tarea.');
-            return;
-        }
-        try {
-            const saved = await tasksService.create({
-                projectId, title: newTaskTitle, status: status as any, section: activeSection || undefined,
-                ...(newTaskImages.length ? { attachments: newTaskImages } : {}),
-                ...(assignSelf && myAssigneeId ? { assignedEmployeeIds: [myAssigneeId] } : {}),
-            });
-            setTasks(prev => [...prev, {
-                ...saved,
-                assignedEmployeeIds: saved.assignedEmployeeIds || [],
-            } as unknown as Task]);
-            // Solo al crear con éxito se limpia y cierra el modal (si falla, no se pierde lo escrito).
-            setNewTaskTitle('');
-            setNewTaskImages([]);
-            setIsCreatingInStatus(null);
-        } catch {
-            toast.error(t('cmpx.task.create_error'));
-        }
-    };
-
     return (
         <>
             {/* Pestañas de sección (áreas del proyecto: Diseño, Programación, etc.) */}
@@ -459,7 +406,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                            </span>
                         </h3>
                         {/* Crear tarea en un modal (más tolerante al clic; no se cierra al subir imagen). */}
-                        <button onClick={() => { setNewTaskTitle(''); setNewTaskImages([]); setIsCreatingInStatus(status); }} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
+                        <button onClick={() => setIsCreatingInStatus(status)} className="mb-2 w-full text-left p-2 rounded-lg text-base font-medium text-primary hover:bg-primary/10 flex items-center transition-colors">
                             <PlusIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.add_task')}
                         </button>
                         <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
@@ -520,82 +467,18 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 />
             )}
 
-            {/* Crear tarea (modal): tolerante al clic, no se cierra al subir imágenes. */}
-            <Modal
-                isOpen={isCreatingInStatus !== null}
-                onClose={() => { setIsCreatingInStatus(null); setNewTaskTitle(''); setNewTaskImages([]); }}
-                title={`${t('cmpx.task.add_task') || 'Añadir tarea'}${isCreatingInStatus ? ` · ${isCreatingInStatus}` : ''}`}
-                size="lg"
-                isDirty={!!newTaskTitle.trim() || newTaskImages.length > 0}
-            >
-                <div className="space-y-4" onPaste={handleCreatePaste}>
-                    <div>
-                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('cmpx.task.title_label') || 'Título'}</label>
-                        <div className="flex items-start gap-2">
-                            <textarea
-                                value={newTaskTitle}
-                                onChange={(e) => setNewTaskTitle(e.target.value)}
-                                placeholder={t('cmpx.task.title_ph')}
-                                className={inputFormStyle + ' flex-1'}
-                                rows={3}
-                                autoFocus
-                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (isCreatingInStatus) handleCreateTask(isCreatingInStatus); } }}
-                            />
-                            <MicButton value={newTaskTitle} onChange={setNewTaskTitle} title="Dictar el título de la tarea" />
-                        </div>
-                        <p className="text-xs text-neutral-400 mt-1">Enter para crear · Shift+Enter para salto de línea</p>
-                    </div>
-
-                    {/* Imágenes (pegar con Ctrl+V o adjuntar) */}
-                    <div>
-                        <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">🖼️ Imágenes</label>
-                            <button
-                                type="button"
-                                onClick={() => createFileInputRef.current?.click()}
-                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                title="Pega una imagen (Ctrl+V) o selecciónala"
-                            >
-                                {uploadingImage ? 'Subiendo…' : '+ Adjuntar'}
-                            </button>
-                            <input ref={createFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
-                        </div>
-                        {newTaskImages.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {newTaskImages.map((img, i) => (
-                                    <div key={i} className="relative group">
-                                        <img src={img.url} alt={img.name || 'imagen'} className="w-20 h-20 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewTaskImages(prev => prev.filter((_, j) => j !== i))}
-                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
-                                            aria-label="Quitar imagen"
-                                        >✕</button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md px-3 py-3 text-center">
-                                Pega una imagen aquí (Ctrl+V) o usa “+ Adjuntar”.
-                            </p>
-                        )}
-                    </div>
-
-                    <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
-                        <input type="checkbox" checked={assignSelf} onChange={e => toggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary flex-shrink-0" />
-                        Asignármelas a mí automáticamente
-                    </label>
-
-                    <div className="flex justify-end gap-2 pt-2 border-t dark:border-neutral-700">
-                        <button type="button" onClick={() => { setIsCreatingInStatus(null); setNewTaskTitle(''); setNewTaskImages([]); }} className={BUTTON_SECONDARY_SM_CLASSES}>
-                            {t('common.cancel') || 'Cancelar'}
-                        </button>
-                        <button type="button" onClick={() => isCreatingInStatus && handleCreateTask(isCreatingInStatus)} disabled={uploadingImage} className={BUTTON_PRIMARY_SM_CLASSES}>
-                            {uploadingImage ? 'Subiendo imagen…' : (t('cmpx.task.add_task_btn') || 'Añadir tarea')}
-                        </button>
-                    </div>
-                </div>
-            </Modal>
+            {/* Crear tarea: mismos campos que "Detalles de la tarea", en dos columnas (sin scroll). */}
+            <TaskCreateModal
+                status={isCreatingInStatus}
+                projectId={projectId}
+                defaultSection={activeSection}
+                sections={sections}
+                assignSelf={assignSelf}
+                onToggleAssignSelf={toggleAssignSelf}
+                myAssigneeId={myAssigneeId}
+                onClose={() => setIsCreatingInStatus(null)}
+                onCreated={(created) => setTasks(prev => [...prev, ...(created as unknown as Task[])])}
+            />
             <InputModal
                 isOpen={sectionModalOpen}
                 title={t('cmpx.task.new_section_title') || 'Nueva sección'}
