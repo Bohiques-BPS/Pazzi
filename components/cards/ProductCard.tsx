@@ -3,7 +3,6 @@ import { Product } from '../../types'; // Adjusted path
 import { EllipsisVerticalIcon, ListBulletIcon as HistoryIcon, Cog6ToothIcon as AdjustIcon, EditIcon, DeleteIcon } from '../icons'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // For getting default branch stock (optional display)
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { ADMIN_USER_ID } from '../../constants';
 import { API_URL } from '../../services/api';
 import logo from '../../assets/logo.png';
 
@@ -20,7 +19,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
     const { t } = useTranslation();
     const { branches } = useData();
     const activeBranches = branches.filter(b => b.isActive);
-    const isClientProduct = product.storeOwnerId !== ADMIN_USER_ID;
 
     return (
         <div
@@ -73,24 +71,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
 
                     {product.hasVariations ? (
                         <p><strong>{t('cmp.productcard.variations')}</strong> {product.variations?.length || 0}</p>
-                    ) : isClientProduct ? (
-                         <div className="space-y-0.5">
-                            <p className="font-semibold">{t('cmp.productcard.store_stock')}</p>
-                            {product.stockByBranch.map(stockItem => (
-                                <div key={stockItem.branchId} className="flex justify-between items-center">
-                                    <span>{stockItem.quantity}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); onAdjustStock(product, stockItem.branchId); }} className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-0.5" title={t('cmp.productcard.adjust_stock')}>
-                                        <AdjustIcon className="w-3 h-3"/>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
                     ) : (
                          <div className="space-y-0.5">
                             <p className="font-semibold">{t('cmp.productcard.stock_by_branch')}</p>
                             <div className="max-h-16 overflow-y-auto pr-1">
                                 {activeBranches.map(branch => {
-                                    const stockEntry = product.stockByBranch.find(sb => sb.branchId === branch.id);
+                                    const stockEntry = (product.stockByBranch || []).find(sb => sb.branchId === branch.id);
                                     const stockQty = stockEntry ? stockEntry.quantity : 0;
                                     return (
                                         <div key={branch.id} className="flex justify-between items-center">

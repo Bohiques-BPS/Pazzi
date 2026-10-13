@@ -699,25 +699,45 @@ export enum SupplierOrderStatus {
     CANCELADO = 'Cancelado',
 }
 
+/** Estado legado que el backend aún puede devolver en órdenes viejas (se muestra como "Recibido Parcialmente"). */
+export type SupplierOrderLegacyStatus = 'Recibido Parcial';
+
 export interface SupplierOrderItem {
+    /** id de la línea (lo asigna el backend; necesario para la recepción parcial). */
+    id?: string;
     productId: string;
     quantityOrdered: number;
     unitCost: number;
+    /** Cuánto de esta línea ya entró al inventario (recepción parcial). */
+    quantityReceived?: number;
+    product?: { id: string; name: string };
 }
+
+/** Nota de pago tal como la devuelve el backend (objeto, NO string JSON). */
+export interface SupplierPaymentNote {
+    id: string;
+    note: string;
+    createdAt: string;
+}
+
+export type SupplierPaymentStatus = 'No Pagado' | 'Pago Parcial' | 'Pagado Completo';
 
 export interface SupplierOrder {
     id: string;
     supplierId: string;
+    /** ISO completo desde el backend (usar .slice(0, 10) para el día). */
     orderDate: string;
-    expectedDeliveryDate?: string;
+    expectedDeliveryDate?: string | null;
     items: SupplierOrderItem[];
-    status: SupplierOrderStatus;
+    status: SupplierOrderStatus | SupplierOrderLegacyStatus;
     totalCost: number;
     storeOwnerId: string;
     amountPaid: number;
-    paymentStatus: 'No Pagado' | 'Pagado Parcialmente' | 'Pagado Completo';
-    paymentNotes?: string[];
+    paymentStatus: SupplierPaymentStatus;
+    paymentNotes?: SupplierPaymentNote[];
     supplier?: Supplier;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export type NotificationType = 'new_order' | 'chat_message' | 'low_stock' | 'generic';

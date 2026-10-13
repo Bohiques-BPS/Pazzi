@@ -97,7 +97,7 @@ export const ProjectsDashboardPage: React.FC = () => {
             facturadoYear += sale.totalAmount || 0;
             cobradoYear += Array.isArray(sale.payments) && sale.payments.length
                 ? sale.payments.reduce((s, p) => s + (p.amount || 0), 0)
-                : (sale.paymentStatus === 'Pagado' ? (sale.totalAmount || 0) : 0);
+                : ((['Pagado', 'Devolución Completa'] as string[]).includes(sale.paymentStatus as string) ? (sale.totalAmount || 0) : 0);
         });
         const cobranza = facturadoYear > 0 ? Math.round((cobradoYear / facturadoYear) * 100) : 0;
         return { active, atRisk: atRiskIds.size, completedYear, cobranza, facturadoYear, cobradoYear };

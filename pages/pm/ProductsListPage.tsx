@@ -12,14 +12,15 @@ import { CameraScanModal } from '../../components/ui/CameraScanModal';
 import { ConfirmationModal } from '../../components/Modal'; 
 import { ProductCard } from '../../components/cards/ProductCard'; 
 import { PlusIcon, EditIcon, DeleteIcon, Squares2X2Icon, ListBulletIcon, Cog6ToothIcon, CameraIcon } from '../../components/icons';
-import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, ADMIN_USER_ID, inputFormStyle } from '../../constants'; 
+import { INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants'; 
 import { InventoryHistoryModal } from '../../components/ui/InventoryHistoryModal';
 import { StockAdjustmentModal } from '../../components/forms/StockAdjustmentModal';
 import { ImportModal, type ImportFieldDef } from '../../components/ui/ImportModal';
 import { stripHtml, firstImageUrl, categoryFromPath, departmentFromPath, statusToActive, priceOf } from '../../utils/wpImport';
 import { ProductReportsModal } from './ProductReportsModal';
 import { ADVANCED_PRODUCT_FIELDS } from '../../config/advancedProductFields';
-import { productsService } from '../../services/products';
+import { productsService, normalizeProductFromApi } from '../../services/products';
+import { usePermissions } from '../../hooks/usePermissions';
 import { API_URL } from '../../services/api';
 import logo from '../../assets/logo.png';
 import { toast } from 'react-hot-toast';
@@ -61,8 +62,13 @@ const PRODUCT_IMPORT_FIELDS: ImportFieldDef[] = [
 
 export const ProductsListPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
-    const { products, setProducts, categories: dynamicCategories, branches, departments, suppliers } = useData();
+    const { setProducts, categories: dynamicCategories, branches, departments, suppliers } = useData();
     const { currentUser } = useAuth();
+    const { can } = usePermissions();
+    // Página actual del catálogo (paginada en el servidor). Es estado LOCAL: antes se escribía en
+    // DataContext.products y reemplazaba el catálogo global por solo 24 productos (POS, proyectos,
+    // etc. se quedaban con esa página).
+    const [products, setPageProducts] = useState<Product[]>([]);
     
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -118,13 +124,20 @@ export const ProductsListPage: React.FC = () => {
     // Al cambiar cualquier filtro, volver a la página 1.
     useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter]);
 
-    // Sincronizamos globalProducts directamente con el estado products que viene del fetch
+    // Productos de la página actual (estado local, ver arriba).
     const globalProducts = products;
 
+    // Reemplaza/actualiza un producto en la página local (tras guardar o ajustar stock).
+    const upsertPageProduct = (updated: Product) => {
+        setPageProducts(prev => prev.some(p => p.id === updated.id)
+            ? prev.map(p => p.id === updated.id ? { ...p, ...updated } : p)
+            : [updated, ...prev]);
+    };
+
     const activeBranches = useMemo(() => branches.filter(b => b.isActive), [branches]);
-    const availableCategories = useMemo(() => {
-        return dynamicCategories.filter(cat => !cat.storeOwnerId || cat.storeOwnerId === currentUser?.id || currentUser?.role === UserRole.MANAGER);
-    }, [dynamicCategories, currentUser]);
+    // El backend ya devuelve solo las categorías del negocio; filtrar por currentUser.id escondía
+    // las categorías (storeOwnerId = gerente) a los colaboradores.
+    const availableCategories = dynamicCategories;
 
     // Carga de datos real desde el backend
     useEffect(() => {
@@ -155,15 +168,8 @@ export const ProductsListPage: React.FC = () => {
                 setTotalCount(Number.isFinite(total) ? total : 0);
 
                 if (Array.isArray(data)) {
-                    // Normalizamos los productos para que la categoría sea un string (el nombre)
-                    const normalized = data.map((p: any) => ({
-                        ...p,
-                        // OJO: typeof null === 'object', por eso el guard `&& p.category` (evita null.name).
-                        category: (p.category && typeof p.category === 'object') ? p.category.name : p.category,
-                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s?.sku) : [],
-                        customSpecifications: p.customSpecs || []
-                    }));
-                    setProducts(normalized);
+                    // Normalizamos (categoría como nombre, skus string[], customSpecs → customSpecifications).
+                    setPageProducts(data.map(normalizeProductFromApi) as Product[]);
                 }
             } catch (error) {
                 console.error("Error al cargar productos:", error);
@@ -173,7 +179,7 @@ export const ProductsListPage: React.FC = () => {
             }
         };
         fetchProducts();
-    }, [setProducts, refreshKey, currentPage, debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter, dynamicCategories]);
+    }, [refreshKey, currentPage, debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter, dynamicCategories]);
 
 
     const openModalForCreate = () => {
@@ -188,23 +194,27 @@ export const ProductsListPage: React.FC = () => {
         setSearchParams(searchParams, { replace: true });
     }, [searchParams]); // eslint-disable-line
     // Abrir un producto para editar desde el buscador global (?edit=<id>).
+    // Si el producto no está en la página actual, se pide al backend.
     useEffect(() => {
         const editId = searchParams.get('edit');
-        if (!editId || products.length === 0) return;
-        const p = products.find(x => x.id === editId);
-        if (p) openModalForEdit(p);
+        if (!editId) return;
         searchParams.delete('edit');
         setSearchParams(searchParams, { replace: true });
-    }, [searchParams, products]); // eslint-disable-line
+        const p = products.find(x => x.id === editId);
+        if (p) { openModalForEdit(p); return; }
+        productsService.getByIdNormalized(editId)
+            .then(found => { if (found) openModalForEdit(found as Product); })
+            .catch(() => toast.error(t('pmx.product.load_error')));
+    }, [searchParams]); // eslint-disable-line
 
+    // Permisos por rol (MANAGER siempre; EMPLOYEE según products.edit/products.delete). Antes se exigía
+    // product.storeOwnerId === ADMIN_USER_ID || === currentUser.id, lo que bloqueaba a colaboradores.
     const openModalForEdit = (product: Product) => {
-               if (product.storeOwnerId === ADMIN_USER_ID || product.storeOwnerId === currentUser?.id) {
-
+        if (can('products.edit')) {
             setEditingProduct(product);
             setShowFormModal(true);
         } else {
-                       toast.error(t('pmx.product.no_permission_edit'));
-
+            toast.error(t('pmx.product.no_permission_edit'));
         }
     };
 
@@ -224,14 +234,11 @@ export const ProductsListPage: React.FC = () => {
     };
 
     const requestDelete = (productId: string) => {
-        const productToDelete = globalProducts.find(p => p.id === productId);
-               if (productToDelete && (productToDelete.storeOwnerId === ADMIN_USER_ID || productToDelete.storeOwnerId === currentUser?.id)) {
-
+        if (can('products.delete')) {
             setItemToDeleteId(productId);
             setShowDeleteConfirmModal(true);
         } else {
-                     toast.error(t('pmx.product.no_permission_delete'));
-
+            toast.error(t('pmx.product.no_permission_delete'));
         }
     };
     
@@ -254,8 +261,11 @@ export const ProductsListPage: React.FC = () => {
         setShowDeleteConfirmModal(false);
         deleteWithUndo({
             label: t('entity.product'),
-            optimisticRemove: () => setProducts(prev => prev.filter(p => p.id !== id)),
-            restore: () => setProducts(prev => (item && !prev.some(p => p.id === id)) ? [item, ...prev] : prev),
+            optimisticRemove: () => {
+                setPageProducts(prev => prev.filter(p => p.id !== id));
+                setProducts(prev => prev.filter(p => p.id !== id));
+            },
+            restore: () => setPageProducts(prev => (item && !prev.some(p => p.id === id)) ? [item, ...prev] : prev),
             apiDelete: async () => {
                 const res = await fetch(`${API_URL}/products/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` } });
                 if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || t('pmx.product.delete_error')); }
@@ -518,7 +528,8 @@ export const ProductsListPage: React.FC = () => {
                 isOpen={showFormModal}
                 onClose={() => setShowFormModal(false)} 
                 productToEdit={editingProduct} 
-                storeOwnerIdForNewProduct={currentUser?.id || ADMIN_USER_ID} // Pasar el ID del usuario actual para nuevos productos
+                storeOwnerIdForNewProduct={currentUser?.id || ''} // El backend resuelve el storeOwnerId real
+                onSaved={upsertPageProduct}
             />
             <ConfirmationModal 
                 isOpen={showDeleteConfirmModal}
@@ -537,12 +548,25 @@ export const ProductsListPage: React.FC = () => {
                 isOpen={showHistoryModal}
                 onClose={() => setShowHistoryModal(false)}
                 productId={productForHistory?.id || null}
+                product={productForHistory}
             />
              <StockAdjustmentModal
                 isOpen={showAdjustmentModal}
                 onClose={() => setShowAdjustmentModal(false)}
                 product={productToAdjust}
                 branchId={branchForAdjustment}
+                onAdjusted={(result) => {
+                    if (!productToAdjust || !branchForAdjustment) return;
+                    const branchId = branchForAdjustment;
+                    setPageProducts(prev => prev.map(p => {
+                        if (p.id !== productToAdjust.id) return p;
+                        const stock = [...(p.stockByBranch || [])];
+                        const idx = stock.findIndex(sb => sb.branchId === branchId);
+                        if (idx >= 0) stock[idx] = { ...stock[idx], quantity: result.stockAfter };
+                        else stock.push({ branchId, quantity: result.stockAfter });
+                        return { ...p, stockByBranch: stock };
+                    }));
+                }}
             />
             {showImportModal && (
                 <ImportModal

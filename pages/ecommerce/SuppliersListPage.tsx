@@ -1,33 +1,26 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
-import { useLocation } from 'react-router-dom';
 import { Supplier } from '../../types';
 import { useData } from '../../contexts/DataContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { SupplierFormModal } from './SupplierFormModal';
 import { ConfirmationModal } from '../../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../../services/api';
 
 export const SuppliersListPage: React.FC = () => {
     const { t } = useTranslation();
-    const location = useLocation();
-    const { currentUser } = useAuth();
-    const { suppliers, setSuppliers, getSuppliersByStoreOwner } = useData();
+    const { suppliers, setSuppliers } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
     
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
-
-    const isTiendaModule = location.pathname.startsWith('/tienda');
-    const storeOwnerId = isTiendaModule ? ADMIN_USER_ID : currentUser?.id;
 
     useEffect(() => {
         const fetchSuppliers = async () => {
@@ -52,10 +45,8 @@ export const SuppliersListPage: React.FC = () => {
         fetchSuppliers();
     }, [setSuppliers]);
 
-    const filteredSuppliers = useMemo(() => {
-        if (!storeOwnerId) return [];
-        return getSuppliersByStoreOwner(storeOwnerId);
-    }, [getSuppliersByStoreOwner, storeOwnerId]);
+    // El backend ya devuelve solo los proveedores de este negocio.
+    const filteredSuppliers = suppliers;
 
     const openModalForCreate = () => {
         setEditingSupplier(null);
@@ -130,7 +121,6 @@ export const SuppliersListPage: React.FC = () => {
                 isOpen={showFormModal} 
                 onClose={() => setShowFormModal(false)} 
                 supplier={editingSupplier} 
-                storeOwnerId={storeOwnerId}
             />
             <ConfirmationModal
                 isOpen={showDeleteConfirmModal}

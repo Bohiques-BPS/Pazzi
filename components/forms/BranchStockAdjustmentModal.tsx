@@ -13,6 +13,8 @@ interface BranchStockAdjustmentModalProps {
     isOpen: boolean;
     onClose: () => void;
     product: Product | null;
+    /** Callback con el stock por sucursal ya confirmado por el backend (tras cada guardado con éxito). */
+    onAdjusted?: (productId: string, stockByBranch: Product['stockByBranch']) => void;
 }
 
 interface AdjustmentState {
@@ -22,13 +24,22 @@ interface AdjustmentState {
     };
 }
 
-export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProps> = ({ isOpen, onClose, product }) => {
+export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProps> = ({ isOpen, onClose, product, onAdjusted }) => {
     const { t } = useTranslation();
     const { branches: contextBranches, setBranches, setProducts } = useData();
     const [localBranches, setLocalBranches] = useState<Branch[]>([]);
     const [adjustments, setAdjustments] = useState<AdjustmentState>({});
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Stock actual por sucursal mostrado en el modal. Se siembra del producto al abrir y se actualiza
+    // con el stockAfter de cada ajuste confirmado (así un reintento valida contra el stock real).
+    const [currentStock, setCurrentStock] = useState<Product['stockByBranch']>([]);
+
+    useEffect(() => {
+        if (isOpen && product) setCurrentStock(product.stockByBranch || []);
+    }, [isOpen, product]);
+
+    const stockAt = (branchId: string) => currentStock.find(sb => sb.branchId === branchId)?.quantity ?? 0;
 
     // Hydrate localBranches from context; fall back to a direct fetch if context is empty
     useEffect(() => {
@@ -84,7 +95,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
 
         // Validar localmente que no haya stocks negativos resultantes
         for (const c of changes) {
-            const stockBefore = product.stockByBranch.find(sb => sb.branchId === c.branchId)?.quantity ?? 0;
+            const stockBefore = stockAt(c.branchId);
             if (stockBefore + c.adjustment < 0) {
                 const branchName = localBranches.find(b => b.id === c.branchId)?.name || c.branchId;
                 setError(t('cmpx.branchstockadj.err_negative', { branch: branchName, before: stockBefore, adj: c.adjustment, after: stockBefore + c.adjustment }));
@@ -104,10 +115,9 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
             )
         );
 
-        // Aplicar al estado local los ajustes que tuvieron éxito
-        setProducts(prev => prev.map(p => {
-            if (p.id !== product.id) return p;
-            const updated = [...p.stockByBranch];
+        // Aplicar al estado los ajustes que tuvieron éxito (stockAfter confirmado por el backend).
+        const mergeStock = (stock: Product['stockByBranch'] = []) => {
+            const updated = [...stock];
             results.forEach((r, idx) => {
                 if (r.status !== 'fulfilled') return;
                 const branchId = changes[idx].branchId;
@@ -115,8 +125,25 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
                 if (i >= 0) updated[i] = { ...updated[i], quantity: r.value.stockAfter };
                 else updated.push({ branchId, quantity: r.value.stockAfter });
             });
-            return { ...p, stockByBranch: updated };
-        }));
+            return updated;
+        };
+        setProducts(prev => prev.map(p => p.id === product.id ? { ...p, stockByBranch: mergeStock(p.stockByBranch) } : p));
+        const nextStock = mergeStock(currentStock);
+        setCurrentStock(nextStock);
+
+        // Los ajustes ya aplicados se quitan del formulario: un reintento solo reenvía los fallidos
+        // (antes se reenviaban todos → doble ajuste en las sucursales que ya habían salido bien).
+        const succeededBranchIds = new Set(
+            results.map((r, idx) => (r.status === 'fulfilled' ? changes[idx].branchId : null)).filter(Boolean) as string[]
+        );
+        if (succeededBranchIds.size > 0) {
+            setAdjustments(prev => {
+                const next = { ...prev };
+                succeededBranchIds.forEach(id => { delete next[id]; });
+                return next;
+            });
+            onAdjusted?.(product.id, nextStock);
+        }
 
         const successes = results.filter(r => r.status === 'fulfilled').length;
         const failures = results.filter(r => r.status === 'rejected').length;
@@ -162,7 +189,7 @@ export const BranchStockAdjustmentModal: React.FC<BranchStockAdjustmentModalProp
                     </div>
                     <div className="space-y-3">
                         {activeBranches.map(branch => {
-                            const stockBefore = product.stockByBranch.find(sb => sb.branchId === branch.id)?.quantity ?? 0;
+                            const stockBefore = stockAt(branch.id);
                             const adjustmentValue = adjustments[branch.id]?.adjustment || '';
                             const adj = parseInt(adjustmentValue.replace(/\s/g, ''), 10) || 0;
                             const newStock = stockBefore + adj;

@@ -70,7 +70,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
         <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.supplierpay.title', { id: order.id.slice(0, 8).toUpperCase() })} size="md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
-                    <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
+                    <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 flex items-center text-red-700 dark:text-red-300 text-sm">
                         <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" />
                         {error}
                     </div>
@@ -116,6 +116,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
                         value={note}
                         onChange={e => setNote(e.target.value)}
                         rows={2}
+                        maxLength={450}
                         className={inputFormStyle}
                         placeholder={t('cmpx.supplierpay.note_ph')}
                     />

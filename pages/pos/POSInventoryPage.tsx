@@ -18,6 +18,7 @@ import {
     type CurrentStockSummary,
 } from '../../services/inventory';
 import { ApiError } from '../../services/api';
+import { productsService } from '../../services/products';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -156,15 +157,44 @@ export const POSInventoryPage: React.FC = () => {
         );
     }, [logs, searchTerm]);
 
+    const stockItemToProduct = (item: CurrentStockItem): Product => ({
+        id: item.id,
+        name: item.name,
+        unitPrice: item.unitPrice,
+        stockByBranch: item.stockByBranch.map(sb => ({ branchId: sb.branchId, quantity: sb.quantity })),
+    } as Product);
+
     const findProductInStock = (id: string): Product | null => {
         const item = stockItems.find(i => i.id === id);
-        if (!item) return null;
-        return {
-            id: item.id,
-            name: item.name,
-            unitPrice: item.unitPrice,
-            stockByBranch: item.stockByBranch.map(sb => ({ branchId: sb.branchId, quantity: sb.quantity })),
-        } as Product;
+        return item ? stockItemToProduct(item) : null;
+    };
+
+    // Con filtro de sucursal, /inventory/stock solo trae el stock de ESA sucursal: los modales de
+    // ajuste/transferencia verían 0 en las demás (y transferir desde ellas fallaría). Antes de abrirlos
+    // pedimos el stock en todas las sucursales.
+    const [openingProductId, setOpeningProductId] = useState<string | null>(null);
+    const openWithFullStock = async (id: string, open: (p: Product) => void) => {
+        const partial = findProductInStock(id);
+        if (!partial) return;
+        if (!filterBranchId) { open(partial); return; } // sin filtro ya tenemos todas las sucursales
+        setOpeningProductId(id);
+        try {
+            try {
+                const full = await productsService.getByIdNormalized(id);
+                open({ ...partial, ...full } as Product);
+                return;
+            } catch {
+                // Sin products.view: respaldo con el snapshot de inventario sin filtro de sucursal.
+                const res = await inventoryService.getCurrentStock();
+                const item = res.items.find(i => i.id === id);
+                if (!item) throw new Error('not found');
+                open(stockItemToProduct(item));
+            }
+        } catch {
+            toast.error(t('posx.inventory.productLoadError'));
+        } finally {
+            setOpeningProductId(null);
+        }
     };
 
     // ─── Columnas ────────────────────────────────────────────
@@ -348,15 +378,17 @@ export const POSInventoryPage: React.FC = () => {
                         <DataTable<CurrentStockItem> searchable={false}
                             data={filteredStock}
                             columns={stockColumns}
-                            onRowClick={(item) => { const p = findProductInStock(item.id); if (p) setProductForAdjust(p); }}
+                            onRowClick={(item) => { if (!openingProductId) openWithFullStock(item.id, setProductForAdjust); }}
                             actions={(item) => {
                                 const product = findProductInStock(item.id);
+                                const opening = openingProductId === item.id;
                                 return (
                                     <div className="flex gap-1">
                                         <PermissionGate require={['inventory.adjust', 'products.adjustStock']}>
                                             <button
-                                                onClick={() => product && setProductForAdjust(product)}
-                                                className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300"
+                                                onClick={() => openWithFullStock(item.id, setProductForAdjust)}
+                                                disabled={opening}
+                                                className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 disabled:opacity-50"
                                                 title={t('posx.inventory.adjustStock')}
                                             >
                                                 {t('posx.inventory.adjust')}
@@ -364,8 +396,9 @@ export const POSInventoryPage: React.FC = () => {
                                         </PermissionGate>
                                         <PermissionGate require="inventory.transfer">
                                             <button
-                                                onClick={() => product && setProductForTransfer(product)}
-                                                className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
+                                                onClick={() => openWithFullStock(item.id, setProductForTransfer)}
+                                                disabled={opening}
+                                                className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 disabled:opacity-50"
                                                 title={t('posx.inventory.transferBetweenBranches')}
                                             >
                                                 {t('posx.inventory.transfer')}
@@ -416,6 +449,7 @@ export const POSInventoryPage: React.FC = () => {
                 isOpen={!!productForHistory}
                 onClose={() => setProductForHistory(null)}
                 productId={productForHistory?.id || null}
+                product={productForHistory}
             />
 
             {/* Ajuste masivo de stock — acción de gerente protegida por PIN */}

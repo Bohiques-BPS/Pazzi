@@ -6,7 +6,7 @@ import { canAccessProjects } from '../../utils/employeePermissions';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { Modal, ConfirmationModal } from '../../components/Modal';
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS, ADMIN_USER_ID } from '../../constants';
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { PaperAirplaneIcon, UserGroupIcon, ChatBubbleLeftRightIcon, VideoCameraIcon, PhoneIcon, TrashIconMini, CalendarDaysIcon, ClockIcon, PlusIcon, DocumentArrowDownIcon, DocumentArrowUpIcon } from '../../components/icons'; // Added DocumentArrowDownIcon
 import { ChatMessageItem } from './ChatMessageItem';
 import { CallModal } from '../../components/CallModal';
@@ -41,7 +41,9 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({isOpen, onClo
     const { projects, setProjects, clients, products: allProductsHookData, employees: allEmployeesHook, getClientById, getEmployeeById, generateInvoiceForProject } = useData();
     const { currentUser } = useAuth();
     
-    const projectRelevantProducts = useMemo(() => allProductsHookData.filter(p => p.storeOwnerId === ADMIN_USER_ID || !p.storeOwnerId), [allProductsHookData]);
+    // El backend ya devuelve solo los productos del negocio (storeOwnerId resuelto en el servidor).
+    // Antes se filtraba por ADMIN_USER_ID (modo demo) → la lista salía vacía para tiendas reales.
+    const projectRelevantProducts = allProductsHookData;
 
     const getInitialFormData = (): ProjectFormData => ({
         name: '', 

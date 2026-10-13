@@ -2,9 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Supplier, SupplierFormData } from '../../types';
 import { useData } from '../../contexts/DataContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/Modal';
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, ADMIN_USER_ID } from '../../constants';
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -16,13 +15,13 @@ interface SupplierFormModalProps {
     /** Devuelve el proveedor recién creado (si aplica) para seleccionarlo en el form padre. */
     onClose: (createdSupplier?: Supplier) => void;
     supplier: Supplier | null;
+    /** @deprecated Ignorado: el backend asigna el negocio con la sesión (no se envía storeOwnerId). */
     storeOwnerId?: string;
 }
 
-export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, onClose, supplier, storeOwnerId }) => {
+export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, onClose, supplier }) => {
     const { t } = useTranslation();
     const { setSuppliers } = useData();
-    const { currentUser } = useAuth();
     const [formData, setFormData] = useState<SupplierFormData>({
         name: '',
         contactName: '',
@@ -79,10 +78,8 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({ isOpen, on
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    ...formData,
-                    storeOwnerId: storeOwnerId || currentUser?.id || ADMIN_USER_ID
-                })
+                // Sin storeOwnerId: el backend lo resuelve con la sesión.
+                body: JSON.stringify(formData)
             });
 
             const result = await response.json();

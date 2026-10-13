@@ -2,23 +2,74 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useSortableRows, usePagination, SortableTh, PaginationFooter, useColumnChooser, ColumnChooserButton } from '../../components/ui/tableTools';
-import { useECommerceSettings } from '../../contexts/ECommerceSettingsContext';
-import { SupplierOrder, SupplierOrderStatus, Product as ProductType, Supplier } from '../../types';
+import { SupplierOrder, SupplierOrderStatus, Supplier } from '../../types';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon, PhotoIcon, DocumentArrowUpIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal';
-import { supplierOrdersService } from '../../services/supplierOrders';
-import { ApiError } from '../../services/api';
-import { toast } from 'react-hot-toast';
+import {
+    supplierOrdersService,
+    isSupplierOrderReceived,
+    displaySupplierPaymentStatus,
+    parseSupplierOrderDay,
+    apiErrorMessage,
+} from '../../services/supplierOrders';
+import { uploadImage } from '../../services/upload';
+import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
-// ... (Keep RecordPaymentModal as is) ...
+/** URL dentro del texto de una nota de pago (el comprobante subido). */
+const URL_RE = /https?:\/\/[^\s]+/;
+
+/** Nota de pago normalizada para el historial. El backend manda objetos { id, note, createdAt };
+ *  se tolera el formato local viejo (string JSON { p, d, i, a }). */
+interface PaymentHistoryRow {
+    key: string;
+    date: string;
+    amount: number | null;
+    detail: string;
+    attachment: string | null;
+}
+
+const normalizePaymentNote = (raw: any, index: number): PaymentHistoryRow => {
+    const fromLegacy = (o: any): PaymentHistoryRow => ({
+        key: `legacy-${index}`,
+        date: String(o?.d ?? ''),
+        amount: o?.p != null && !isNaN(parseFloat(o.p)) ? parseFloat(o.p) : null,
+        detail: String(o?.i ?? ''),
+        attachment: typeof o?.a === 'string' ? o.a : null,
+    });
+    if (typeof raw === 'string') {
+        try { return fromLegacy(JSON.parse(raw)); } catch { return { key: `s-${index}`, date: '', amount: null, detail: raw, attachment: null }; }
+    }
+    const text = String(raw?.note ?? '');
+    const created = raw?.createdAt ? new Date(raw.createdAt) : null;
+    const attachment = text.match(URL_RE)?.[0] ?? null;
+    // El backend agrega el monto al final: "… — $12.34" o "Pago de $12.34".
+    const amountMatch = text.match(/\$\s?([\d,]+(?:\.\d+)?)\s*$/);
+    const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+    const detail = text
+        .replace(/\s*·?\s*[^\s·:]+:\s*https?:\/\/\S+/, '') // "Comprobante: <url>"
+        .replace(URL_RE, '')
+        .replace(/\s*—\s*\$\s?[\d,]+(?:\.\d+)?\s*$/, '')    // " — $12.34" que agrega el backend
+        .replace(/^Pago de \$\s?[\d,]+(?:\.\d+)?$/, '')     // nota automática sin detalle
+        .replace(/\s*·\s*$/, '')
+        .trim();
+    return {
+        key: raw?.id || `n-${index}`,
+        date: created && !isNaN(created.getTime()) ? created.toLocaleString() : '',
+        amount,
+        detail,
+        attachment,
+    };
+};
+
 interface RecordPaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
     order: SupplierOrder | null;
-    onRecordPayment: (orderId: string, amount: number, invoiceRef?: string, attachment?: string) => void;
+    /** Devuelve true si se registró (el modal se cierra); false deja el modal abierto. */
+    onRecordPayment: (orderId: string, amount: number, note?: string) => Promise<boolean>;
 }
 
 const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose, order, onRecordPayment }) => {
@@ -26,8 +77,8 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
     const { t } = useTranslation();
     const [amountPaidInput, setAmountPaidInput] = useState<string>('');
     const [invoiceRefInput, setInvoiceRefInput] = useState<string>('');
-    const [attachment, setAttachment] = useState<string | undefined>(undefined);
-    const [attachmentName, setAttachmentName] = useState<string | undefined>(undefined);
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+    const [submitting, setSubmitting] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const remainingBalance = useMemo(() => {
@@ -37,28 +88,26 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
 
     useEffect(() => {
         if (isOpen && order) {
-            setAmountPaidInput(remainingBalance > 0 ? remainingBalance.toFixed(2) : ''); 
+            setAmountPaidInput(remainingBalance > 0 ? remainingBalance.toFixed(2) : '');
             setInvoiceRefInput('');
-            setAttachment(undefined);
-            setAttachmentName(undefined);
+            setAttachmentFile(null);
+            setSubmitting(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     }, [isOpen, order, remainingBalance]);
 
     if (!isOpen || !order) return null;
-    
+
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setAttachment(reader.result as string);
-                setAttachmentName(file.name);
-            };
-            reader.readAsDataURL(file);
-        }
+        setAttachmentFile(event.target.files?.[0] || null);
     };
 
-    const handleSubmitPayment = (e: React.FormEvent) => {
+    const clearAttachment = () => {
+        setAttachmentFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleSubmitPayment = async (e: React.FormEvent) => {
         e.preventDefault();
         const amount = parseFloat(amountPaidInput);
         if (isNaN(amount) || amount <= 0) {
@@ -69,15 +118,34 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
             toast.error(t('posx.payable.amountExceedsBalance', { amount: amount.toFixed(2), balance: remainingBalance.toFixed(2) }));
             return;
         }
-        onRecordPayment(order.id, amount, invoiceRefInput, attachment);
-        onClose();
+        setSubmitting(true);
+        try {
+            // El comprobante se sube primero (Cloudinary/servidor) y su URL queda en la nota del pago.
+            let attachmentUrl: string | undefined;
+            if (attachmentFile) {
+                try {
+                    attachmentUrl = await uploadImage(attachmentFile);
+                } catch {
+                    toast.error(t('posx.payable.attachmentUploadError'));
+                    return;
+                }
+            }
+            const parts: string[] = [];
+            if (invoiceRefInput.trim()) parts.push(`${t('posx.payable.noteInvoiceLabel')}: ${invoiceRefInput.trim()}`);
+            if (attachmentUrl) parts.push(`${t('posx.payable.noteAttachmentLabel')}: ${attachmentUrl}`);
+            const note = parts.join(' · ').slice(0, 450) || undefined;
+            const ok = await onRecordPayment(order.id, amount, note);
+            if (ok) onClose();
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('posx.payable.recordPaymentTitle', { id: order.id.substring(0,8) })} size="md">
             <form onSubmit={handleSubmitPayment} className="space-y-4">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                    {t('posx.payable.orderTo')} {getSupplierById(order.supplierId)?.name || order.supplierId} <br/>
+                    {t('posx.payable.orderTo')} {getSupplierById(order.supplierId)?.name || order.supplier?.name || order.supplierId} <br/>
                     {t('posx.payable.orderTotal')} ${order.totalCost.toFixed(2)} <br/>
                     {t('posx.payable.paidSoFar')} ${(order.amountPaid || 0).toFixed(2)} <br/>
                     <strong className="text-primary">{t('posx.payable.pendingBalance')} ${remainingBalance.toFixed(2)}</strong>
@@ -97,6 +165,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                         type="text" id="invoiceRef" value={invoiceRefInput}
                         onChange={(e) => setInvoiceRefInput(e.target.value)}
                         className={inputFormStyle} placeholder={t('posx.payable.invoicePlaceholder')}
+                        maxLength={100}
                     />
                 </div>
                  <div>
@@ -106,6 +175,7 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             className={BUTTON_SECONDARY_SM_CLASSES}
+                            disabled={submitting}
                         >
                             <DocumentArrowUpIcon className="w-4 h-4 mr-2" />
                             {t('posx.payable.selectFile')}
@@ -117,18 +187,22 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
                             className="hidden"
                             accept="image/*,.pdf"
                         />
-                        {attachmentName && (
-                            <div className="flex items-center space-x-2 text-sm text-neutral-600 dark:text-neutral-300">
-                                <PhotoIcon className="w-4 h-4 text-green-500"/>
-                                <span className="truncate max-w-xs">{attachmentName}</span>
-                                <button type="button" onClick={() => {setAttachment(undefined); setAttachmentName(undefined); if(fileInputRef.current) fileInputRef.current.value = '';}} className="text-red-500 text-xs">X</button>
+                        {attachmentFile && (
+                            <div className="flex items-center space-x-2 text-sm text-neutral-600 dark:text-neutral-300 min-w-0">
+                                <PhotoIcon className="w-4 h-4 text-green-500 flex-shrink-0"/>
+                                <span className="truncate max-w-xs">{attachmentFile.name}</span>
+                                <button type="button" onClick={clearAttachment} className="text-red-500 dark:text-red-400 hover:text-red-700 p-0.5" aria-label={t('common.delete')} disabled={submitting}>
+                                    <XMarkIcon className="w-4 h-4" />
+                                </button>
                             </div>
                         )}
                     </div>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.payable.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.payable.recordPayment')}</button>
+                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('posx.payable.cancel')}</button>
+                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
+                        {submitting ? t('cmpx.common.registering') : t('posx.payable.recordPayment')}
+                    </button>
                 </div>
             </form>
         </Modal>
@@ -136,20 +210,24 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
 };
 
 
+
 export const AccountsPayablePage: React.FC = () => {
     const { supplierOrders, getSupplierById, suppliers, setSupplierOrders } = useData();
 
     // Registrar pago al proveedor EN EL BACKEND (antes solo mutaba estado local y se perdía al recargar).
-    const handleRecordPayment = async (orderId: string, amount: number, ref?: string, _attachment?: string) => {
+    // (Atómico en el backend; 400 PAYMENT_OVERFLOW si excede el saldo.)
+    const handleRecordPayment = async (orderId: string, amount: number, note?: string): Promise<boolean> => {
         try {
-            const { order } = await supplierOrdersService.recordPayment(orderId, { amount, note: ref || undefined });
-            setSupplierOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...(order as any) } : o));
-            toast.success(t('posx.payable.paymentRecorded') || 'Pago registrado.');
+            const { order } = await supplierOrdersService.recordPayment(orderId, { amount, note });
+            setSupplierOrders(prev => prev.map(o => o.id === orderId ? (order as unknown as SupplierOrder) : o));
+            toast.success(t('posx.payable.paymentRecorded'));
+            return true;
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo registrar el pago.');
+            const msg = apiErrorMessage(err, t('cmpx.common.err_payment_save'));
+            if (msg) toast.error(msg);
+            return false;
         }
     };
-    const { getDefaultSettings } = useECommerceSettings();
     const { t } = useTranslation();
 
     const [paymentModalOrder, setPaymentModalOrder] = useState<SupplierOrder | null>(null);
@@ -231,7 +309,9 @@ export const AccountsPayablePage: React.FC = () => {
             today.setHours(0, 0, 0, 0);
 
             orders = orders.filter(o => {
-                const orderDate = new Date(o.orderDate + 'T00:00:00');
+                // orderDate llega como ISO completo: se toma el día (a mediodía) para no correrlo por zona horaria.
+                const orderDate = parseSupplierOrderDay(o.orderDate);
+                if (!orderDate) return false;
                 // Assume Net 30 for calculation
                 const dueDate = new Date(orderDate);
                 dueDate.setDate(dueDate.getDate() + 30); 
@@ -290,16 +370,18 @@ export const AccountsPayablePage: React.FC = () => {
         setOrderToCancelId(null); setShowCancelConfirmModal(false);
         if (!id) return;
         try {
-            const updated = await supplierOrdersService.updateStatus(id, SupplierOrderStatus.CANCELADO as any);
-            setSupplierOrders(prev => prev.map(o => o.id === id ? { ...o, ...(updated as any) } : o));
+            const updated = await supplierOrdersService.updateStatus(id, 'Cancelado');
+            setSupplierOrders(prev => prev.map(o => o.id === id ? (updated as unknown as SupplierOrder) : o));
             toast.success(t('posx.payable.orderCancelled'));
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo cancelar la orden.');
+            // p. ej. 400 ALREADY_RECEIVED: la mercancía ya entró al inventario.
+            const msg = apiErrorMessage(err, t('posx.payable.cancelError'));
+            if (msg) toast.error(msg);
         }
     };
 
     const generatePayablePDF = async (order: SupplierOrder) => {
-        toast(t('posx.payable.generatingPdf', { id: order.id.slice(0,8) }), { icon: '🖨️' });
+        toast.info(t('posx.payable.generatingPdf', { id: order.id.slice(0,8) }));
     };
 
     return (
@@ -394,13 +476,10 @@ export const AccountsPayablePage: React.FC = () => {
                     <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
                         {ordersPage.paged.length > 0 ? ordersPage.paged.map(order => {
                             const isExpanded = expandedRows.has(order.id);
-                            const paymentNotesParsed = (order.paymentNotes || []).map(note => {
-                                try {
-                                    return JSON.parse(note);
-                                } catch (e) {
-                                    return { d: t('posx.payable.formatError'), p: '0', i: note, a: null };
-                                }
-                            });
+                            // Las notas llegan como objetos { id, note, createdAt } (antes: JSON.parse → crash).
+                            const paymentNotesParsed = (order.paymentNotes || []).map((note: unknown, i: number) => normalizePaymentNote(note, i));
+                            const receivedGoods = isSupplierOrderReceived(order.status);
+                            const orderDay = parseSupplierOrderDay(order.orderDate);
                             return (
                                 <React.Fragment key={order.id}>
                                     <tr className="hover:bg-neutral-50 dark:hover:bg-neutral-700">
@@ -412,18 +491,23 @@ export const AccountsPayablePage: React.FC = () => {
                                             )}
                                         </td>
                                         {colChooser.visible('id') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{order.id.substring(0, 8).toUpperCase()}</td>}
-                                        {colChooser.visible('supplier') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getSupplierById(order.supplierId)?.name || 'N/A'}</td>}
-                                        {colChooser.visible('orderDate') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{new Date(order.orderDate + 'T00:00:00').toLocaleDateString()}</td>}
+                                        {colChooser.visible('supplier') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{getSupplierById(order.supplierId)?.name || order.supplier?.name || 'N/A'}</td>}
+                                        {colChooser.visible('orderDate') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{orderDay ? orderDay.toLocaleDateString() : '—'}</td>}
                                         {colChooser.visible('totalCost') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${order.totalCost.toFixed(2)}</td>}
                                         {colChooser.visible('amountPaid') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">${order.amountPaid.toFixed(2)}</td>}
                                         {colChooser.visible('balance') && <td className="px-4 py-2 whitespace-nowrap text-base"><span className="font-semibold text-red-600 dark:text-red-400">${order.balance.toFixed(2)}</span></td>}
-                                        {colChooser.visible('paymentStatus') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{order.paymentStatus}</td>}
+                                        {colChooser.visible('paymentStatus') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{displaySupplierPaymentStatus(order.paymentStatus)}</td>}
                                         <td className="px-4 py-2 whitespace-nowrap text-base font-medium">
                                             <div className="flex space-x-1">
                                                 <button onClick={() => handleEditOrder(order)} className="text-blue-500 p-1" title={t('posx.payable.editOrder')}><EditIcon className="w-4 h-4" /></button>
                                                 <button onClick={() => generatePayablePDF(order)} className="text-blue-500 p-1" title={t('posx.payable.printStatement')}><PrinterIcon className="w-4 h-4" /></button>
-                                                <button onClick={() => setPaymentModalOrder(order)} className="text-green-500 p-1" title={t('posx.payable.recordPayment')} disabled={order.balance <= 0}><BanknotesIcon className="w-4 h-4" /></button>
-                                                <button onClick={() => handleCancelOrder(order.id)} className="text-red-500 p-1" title={t('posx.payable.cancelOrder')} disabled={order.status === SupplierOrderStatus.RECIBIDO_COMPLETO}><CancelIcon className="w-4 h-4" /></button>
+                                                <button onClick={() => setPaymentModalOrder(order)} className="text-green-500 p-1 disabled:opacity-30 disabled:cursor-not-allowed" title={t('posx.payable.recordPayment')} disabled={order.balance <= 0}><BanknotesIcon className="w-4 h-4" /></button>
+                                                <button
+                                                    onClick={() => handleCancelOrder(order.id)}
+                                                    className="text-red-500 p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    title={receivedGoods ? t('ecomx.supplier_orders.status_locked_received') : t('posx.payable.cancelOrder')}
+                                                    disabled={receivedGoods}
+                                                ><CancelIcon className="w-4 h-4" /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -436,19 +520,19 @@ export const AccountsPayablePage: React.FC = () => {
                                                         <tr>
                                                             <th className="px-3 py-1.5 text-left">{t('posx.payable.histDate')}</th>
                                                             <th className="px-3 py-1.5 text-right">{t('posx.payable.histAmount')}</th>
-                                                            <th className="px-3 py-1.5 text-left">{t('posx.payable.histInvoiceRef')}</th>
+                                                            <th className="px-3 py-1.5 text-left">{t('posx.payable.histNote')}</th>
                                                             <th className="px-3 py-1.5 text-center">{t('posx.payable.histAttachment')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {paymentNotesParsed.map((payment, index) => (
-                                                            <tr key={index} className="border-t dark:border-neutral-700 text-sm">
-                                                                <td className="px-3 py-1.5">{payment.d}</td>
-                                                                <td className="px-3 py-1.5 text-right font-medium">${parseFloat(payment.p).toFixed(2)}</td>
-                                                                <td className="px-3 py-1.5">{payment.i || 'N/A'}</td>
+                                                        {paymentNotesParsed.map((payment) => (
+                                                            <tr key={payment.key} className="border-t dark:border-neutral-700 text-sm">
+                                                                <td className="px-3 py-1.5 whitespace-nowrap">{payment.date || '—'}</td>
+                                                                <td className="px-3 py-1.5 text-right font-medium">{payment.amount != null ? `$${payment.amount.toFixed(2)}` : '—'}</td>
+                                                                <td className="px-3 py-1.5 break-words">{payment.detail || '—'}</td>
                                                                 <td className="px-3 py-1.5 text-center">
-                                                                    {payment.a ? (
-                                                                        <a href={payment.a} target="_blank" rel="noopener noreferrer" className="inline-block text-blue-500 hover:text-blue-600" title={t('posx.payable.viewAttachment')}>
+                                                                    {payment.attachment ? (
+                                                                        <a href={payment.attachment} target="_blank" rel="noopener noreferrer" className="inline-block text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300" title={t('posx.payable.viewAttachment')}>
                                                                             <PhotoIcon className="w-5 h-5" />
                                                                         </a>
                                                                     ) : 'No'}

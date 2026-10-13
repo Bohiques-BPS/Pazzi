@@ -40,6 +40,8 @@ interface ProductFormModalProps {
     initialName?: string;
     /** Callback con el producto recién creado (para continuar flujos externos). */
     onCreated?: (product: Product) => void;
+    /** Callback con el producto guardado (crear/editar) o con su stock por sucursal actualizado. */
+    onSaved?: (product: Product) => void;
 }
 
 // Mapeo de campos a sus respectivas pestañas para navegación automática en caso de error
@@ -84,10 +86,10 @@ const fieldToTabMap: Record<string, string> = {
     useBarcodePrinter: 'Configuración POS',
 };
 
-export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, productToEdit, storeOwnerIdForNewProduct, initialName, onCreated }) => {
+export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, productToEdit, storeOwnerIdForNewProduct, initialName, onCreated, onSaved }) => {
     const { t } = useTranslation();
     const { settings } = useGlobalSettings();
-    const { addProduct, updateProduct, categories, departments, suppliers, setProducts, branches } = useData();
+    const { categories, departments, suppliers, setProducts, branches } = useData();
     
     const initialFormData: ProductFormData = {
         name: '',
@@ -151,15 +153,49 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
             .filter(c => c.qty && !isNaN(c.qty));
         if (!changes.length) { toast.error('Ingresa una cantidad en al menos una sucursal.'); return; }
         setApplyingStock(true);
+        // Cada ajuste que el backend confirma se QUITA de stockDeltas al instante: si otro falla,
+        // un reintento solo reenvía los fallidos (antes se reenviaban todos → doble ajuste).
+        const applied: Record<string, number> = {};
+        let firstError: unknown = null;
         try {
             for (const c of changes) {
-                const res = await inventoryService.adjustStock(productToEdit.id, { branchId: c.branchId, quantity: c.qty, type: 'ADJUSTMENT_MANUAL', notes: 'Ajuste desde ficha de producto' });
-                setLocalStock(s => ({ ...s, [c.branchId]: res.stockAfter }));
+                try {
+                    const res = await inventoryService.adjustStock(productToEdit.id, { branchId: c.branchId, quantity: c.qty, type: 'ADJUSTMENT_MANUAL', notes: 'Ajuste desde ficha de producto' });
+                    applied[c.branchId] = res.stockAfter;
+                    setLocalStock(s => ({ ...s, [c.branchId]: res.stockAfter }));
+                    setStockDeltas(d => { const next = { ...d }; delete next[c.branchId]; return next; });
+                } catch (e) {
+                    if (!firstError) firstError = e;
+                }
             }
+        } finally {
+            setApplyingStock(false);
+        }
+
+        const okCount = Object.keys(applied).length;
+        if (okCount > 0) {
+            // Reflejar el stock confirmado (stockAfter) en el catálogo global y en quien abrió el modal.
+            const mergeStock = (stock: Product['stockByBranch'] = []) => {
+                const next = [...stock];
+                Object.entries(applied).forEach(([branchId, quantity]) => {
+                    const i = next.findIndex(sb => sb.branchId === branchId);
+                    if (i >= 0) next[i] = { ...next[i], quantity };
+                    else next.push({ branchId, quantity });
+                });
+                return next;
+            };
+            setProducts(prev => prev.map(p => p.id === productToEdit.id ? { ...p, stockByBranch: mergeStock(p.stockByBranch) } : p));
+            onSaved?.({ ...productToEdit, stockByBranch: mergeStock(productToEdit.stockByBranch) });
+        }
+
+        const failCount = changes.length - okCount;
+        if (failCount === 0) {
             toast.success('Stock actualizado por sucursal.');
-            setStockDeltas({});
-        } catch (e) { toast.error(e instanceof ApiError ? e.message : 'No se pudo actualizar el stock.'); }
-        finally { setApplyingStock(false); }
+        } else if (okCount === 0) {
+            toast.error(firstError instanceof ApiError ? firstError.message : 'No se pudo actualizar el stock.');
+        } else {
+            toast.warning(t('cmpx.branchstockadj.partial', { ok: okCount, fail: failCount }));
+        }
     };
     const [activeTab, setActiveTab] = useState('Principal');
     const [skuInput, setSkuInput] = useState('');
@@ -503,6 +539,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     setProducts(prev => [normalizedProduct, ...prev]);
                     onCreated?.(normalizedProduct as any);
                 }
+                onSaved?.(normalizedProduct as any);
                 onClose();
             } else if (response.status === 400 && (Array.isArray(result.error) || Array.isArray(result.errors))) {
                 // Manejo de errores de validación de Zod del backend (puede venir en .error o .errors)

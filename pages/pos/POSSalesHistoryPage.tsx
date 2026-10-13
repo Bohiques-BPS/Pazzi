@@ -122,7 +122,8 @@ export const POSSalesHistoryPage: React.FC = () => {
           return {
               id: order.id,
               originalId: order.id,
-              date: order.orderDate + 'T00:00:00', // Normalize date for sorting
+              // orderDate llega como ISO completo: día a mediodía (no se corre por zona horaria).
+              date: String(order.orderDate || '').slice(0, 10) + 'T12:00:00',
               entityName: supplier ? supplier.name : t('posx.saleshistory.unknownSupplier'),
               type: 'CxP',
               total: order.totalCost,
@@ -414,7 +415,7 @@ export const POSSalesHistoryPage: React.FC = () => {
         message={
           <div className="space-y-2">
             <p>{t('posx.saleshistory.delete_confirm', { id: saleToDelete?.id.slice(-6).toUpperCase() || '' })}</p>
-            {(saleToDelete?.paymentStatus === 'Pagado' || (saleToDelete?.payments?.length || 0) > 0) ? (
+            {((['Pagado', 'Devolución Completa'] as string[]).includes(saleToDelete?.paymentStatus as string) || (saleToDelete?.payments?.length || 0) > 0) ? (
               <p className="text-sm text-amber-600 dark:text-amber-400">{t('common.delete_soft_note')}</p>
             ) : (
               <p className="text-sm text-neutral-500">{t('posx.saleshistory.delete_restock')}</p>

@@ -226,7 +226,7 @@ export const POSCashierPage: React.FC = () => {
     const { t } = useTranslation(); // Hook translation
     const { settings } = useGlobalSettings();
     const {
-        products, getProductsWithStockForBranch, branches, cajas, clients, addSale, processReturn,
+        products, getProductsWithStockForBranch, branches, cajas, clients, addSale,
         heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, setEstimates, addEstimate, sales, setSales, employees, getBranchById
     } = useData();
     const { currentUser, login, logout, toggleUserEmergencyOrderMode } = useAuth();

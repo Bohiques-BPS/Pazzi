@@ -1,13 +1,22 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { SupplierOrder, SupplierOrderFormData, Product as ProductType, SupplierOrderStatus } from '../../types';
+import { SupplierOrder, SupplierOrderFormData, SupplierOrderItem, SupplierOrderStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
-import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS } from '../../constants';
-import { TrashIconMini } from '../../components/icons';
+import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
+import { TrashIconMini, ExclamationTriangleIcon } from '../../components/icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { toast } from 'react-hot-toast';
-import { API_URL } from '../../services/api';
+import { toast } from '../../hooks/useToast';
+import { productsService } from '../../services/products';
+import {
+    supplierOrdersService,
+    SUPPLIER_ORDER_MANUAL_STATUSES,
+    SUPPLIER_ORDER_CREATE_STATUSES,
+    isSupplierOrderReceived,
+    displaySupplierOrderStatus,
+    toDateInputValue,
+    apiErrorMessage,
+} from '../../services/supplierOrders';
 import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
 import { SupplierFormModal } from './SupplierFormModal';
 
@@ -15,55 +24,86 @@ interface SupplierOrderFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     orderToEdit: SupplierOrder | null;
-    storeOwnerId?: string;
 }
 
-// ── Autocomplete de producto ──────────────────────────────────────────────────
-interface ProductAutocompleteProps {
-    products: ProductType[];
+// ── Autocomplete de producto (búsqueda en el servidor) ────────────────────────
+/** Producto mínimo que necesita el formulario (viene del endpoint slim de /products). */
+interface PickedProduct {
+    id: string;
+    name: string;
+    stock: number;
+    cost: number;
+}
+
+const toPicked = (p: any): PickedProduct => ({
+    id: p.id,
+    name: p.name,
+    stock: Array.isArray(p.stockByBranch) ? p.stockByBranch.reduce((s: number, sb: any) => s + (Number(sb?.quantity) || 0), 0) : 0,
+    cost: Number(p.lastCost ?? p.costPrice ?? 0) || 0,
+});
+
+interface ProductPickerProps {
     value: string;              // productId seleccionado
-    onChange: (productId: string) => void;
+    selectedName: string;       // nombre del seleccionado (para mostrarlo en el input)
+    onSelect: (product: PickedProduct | null) => void;
     className?: string;
 }
 
-const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, value, onChange, className }) => {
+/**
+ * Busca en el servidor (nombre, códigos, SKU…) en lugar de filtrar la lista global de productos,
+ * que solo trae una página: así se puede pedir CUALQUIER producto del catálogo.
+ */
+const ProductPicker: React.FC<ProductPickerProps> = ({ value, selectedName, onSelect, className }) => {
     const { t } = useTranslation();
-    const selectedProduct = products.find(p => p.id === value);
-    const [query, setQuery] = useState(selectedProduct?.name || '');
+    const [query, setQuery] = useState(selectedName);
     const [open, setOpen] = useState(false);
+    const [results, setResults] = useState<PickedProduct[]>([]);
+    const [loading, setLoading] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const requestIdRef = useRef(0);
 
-    // Sincronizar cuando cambia el valor externo
+    // Sincronizar cuando cambia la selección externa (p. ej. al agregar el artículo se limpia).
+    // Si la limpió el propio input al teclear (dropdown abierto), no borrar lo que se escribe.
     useEffect(() => {
-        setQuery(selectedProduct?.name || '');
-    }, [value, selectedProduct?.name]);
+        if (value) setQuery(selectedName);
+        else if (!open) setQuery('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, selectedName]);
 
-    // Cerrar al hacer clic fuera
+    // Cerrar al hacer clic fuera.
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
                 setOpen(false);
-                // Si no hay selección válida, limpiar
-                if (!value) setQuery('');
-                else setQuery(selectedProduct?.name || '');
+                setQuery(value ? selectedName : '');
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [value, selectedProduct?.name]);
+    }, [value, selectedName]);
 
-    const filtered = useMemo(() => {
-        if (!query.trim()) return products.slice(0, 50);
-        const q = query.toLowerCase();
-        return products.filter(p =>
-            p.name.toLowerCase().includes(q) ||
-            ((p as any).sku && String((p as any).sku).toLowerCase().includes(q)) ||
-            (p.skus && p.skus.some((s: string) => s.toLowerCase().includes(q)))
-        ).slice(0, 50);
-    }, [products, query]);
+    // Búsqueda remota con debounce (descarta respuestas viejas).
+    useEffect(() => {
+        if (!open) return;
+        const term = query.trim();
+        const requestId = ++requestIdRef.current;
+        setLoading(true);
+        const timer = setTimeout(async () => {
+            try {
+                const data = await productsService.getAll({ search: term || undefined, limit: 20, slim: true });
+                if (requestId !== requestIdRef.current) return;
+                setResults((Array.isArray(data) ? data : []).map(toPicked));
+            } catch {
+                if (requestId === requestIdRef.current) setResults([]);
+            } finally {
+                if (requestId === requestIdRef.current) setLoading(false);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [query, open]);
 
-    const handleSelect = (p: ProductType) => {
-        onChange(p.id);
+    const handleSelect = (p: PickedProduct) => {
+        onSelect(p);
         setQuery(p.name);
         setOpen(false);
     };
@@ -73,7 +113,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, val
             <input
                 type="text"
                 value={query}
-                onChange={e => { setQuery(e.target.value); setOpen(true); onChange(''); }}
+                onChange={e => { setQuery(e.target.value); setOpen(true); if (value) onSelect(null); }}
                 onFocus={() => setOpen(true)}
                 placeholder={t('ecomx.supplier_orders.product_search_ph')}
                 className={className}
@@ -81,23 +121,22 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, val
             />
             {open && (
                 <ul className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg text-sm">
-                    {filtered.length === 0 ? (
+                    {loading ? (
+                        <li className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{t('cmpx.common.searching')}</li>
+                    ) : results.length === 0 ? (
                         <li className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{t('ecomx.common.no_results')}</li>
-                    ) : filtered.map(p => {
-                        const totalStock = p.stockByBranch?.reduce((s: number, sb: any) => s + sb.quantity, 0) ?? 0;
-                        return (
-                            <li
-                                key={p.id}
-                                onMouseDown={() => handleSelect(p)}
-                                className="px-3 py-2 cursor-pointer hover:bg-primary/10 dark:hover:bg-primary/20 flex justify-between items-center gap-2"
-                            >
-                                <span className="truncate">{p.name}</span>
-                                <span className="text-xs text-neutral-400 dark:text-neutral-500 whitespace-nowrap shrink-0">
-                                    {t('ecomx.common.stock', { n: totalStock })}
-                                </span>
-                            </li>
-                        );
-                    })}
+                    ) : results.map(p => (
+                        <li
+                            key={p.id}
+                            onMouseDown={() => handleSelect(p)}
+                            className="px-3 py-2 cursor-pointer hover:bg-primary/10 dark:hover:bg-primary/20 flex justify-between items-center gap-2"
+                        >
+                            <span className="truncate">{p.name}</span>
+                            <span className="text-xs text-neutral-400 dark:text-neutral-500 whitespace-nowrap shrink-0">
+                                {t('ecomx.common.stock', { n: p.stock })}
+                            </span>
+                        </li>
+                    ))}
                 </ul>
             )}
         </div>
@@ -105,61 +144,97 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({ products, val
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ isOpen, onClose, orderToEdit, storeOwnerId }) => {
+const EMPTY_ITEM = { productId: '', quantityOrdered: 1, unitCost: 0 };
+
+export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ isOpen, onClose, orderToEdit }) => {
     const { t } = useTranslation();
-    const {
-        getSuppliersByStoreOwner,
-        products,           // todos los productos, no filtrar por storeOwnerId (puede no coincidir)
-        setSupplierOrders
-    } = useData();
+    // Proveedores directamente del contexto (el backend ya los limita al negocio).
+    const { suppliers, products, setSupplierOrders } = useData();
 
-    const filteredSuppliers = useMemo(() => {
-        return storeOwnerId ? getSuppliersByStoreOwner(storeOwnerId) : [];
-    }, [getSuppliersByStoreOwner, storeOwnerId]);
-
-    const initialFormData = useMemo((): SupplierOrderFormData => ({
-        supplierId: filteredSuppliers[0]?.id || '',
+    const initialFormData = (): SupplierOrderFormData => ({
+        supplierId: suppliers[0]?.id || '',
         orderDate: new Date().toISOString().split('T')[0],
         expectedDeliveryDate: '',
         items: [],
         status: SupplierOrderStatus.BORRADOR,
-    }), [filteredSuppliers]);
+    });
 
     const [formData, setFormData] = useState<SupplierOrderFormData>(initialFormData);
-    const [currentItem, setCurrentItem] = useState<{ productId: string; quantityOrdered: number; unitCost: number }>({
-        productId: '',
-        quantityOrdered: 1,
-        unitCost: 0,
-    });
+    const [currentItem, setCurrentItem] = useState<{ productId: string; quantityOrdered: number; unitCost: number }>(EMPTY_ITEM);
+    const [currentName, setCurrentName] = useState('');
+    // Nombres de productos de las líneas (los productos buscados pueden no estar en la lista global).
+    const [productNames, setProductNames] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showCreateSupplier, setShowCreateSupplier] = useState(false);
 
+    // Reglas del backend: una orden recibida (total o parcial) o cancelada no cambia sus productos;
+    // una recibida tampoco cambia de estado (eso lo hace "Recibir mercancía").
+    const isEdit = !!orderToEdit;
+    const isReceived = isEdit && isSupplierOrderReceived(orderToEdit!.status);
+    const isCancelled = isEdit && orderToEdit!.status === SupplierOrderStatus.CANCELADO;
+    const hasReceivedQty = isEdit && (orderToEdit!.items || []).some(i => (i.quantityReceived || 0) > 0);
+    const itemsLocked = isReceived || isCancelled || hasReceivedQty;
+    const statusLocked = isReceived;
+    const statusOptions: readonly string[] = isEdit ? SUPPLIER_ORDER_MANUAL_STATUSES : SUPPLIER_ORDER_CREATE_STATUSES;
+
     useEffect(() => {
-        if (isOpen) {
-            if (orderToEdit) {
-                setFormData({
-                    supplierId: orderToEdit.supplierId,
-                    orderDate: orderToEdit.orderDate,
-                    expectedDeliveryDate: orderToEdit.expectedDeliveryDate || '',
-                    items: orderToEdit.items,
-                    status: orderToEdit.status,
-                });
-            } else {
-                setFormData({
-                    ...initialFormData,
-                    supplierId: filteredSuppliers[0]?.id || '',
-                });
-            }
-            setCurrentItem({ productId: '', quantityOrdered: 1, unitCost: 0 });
+        if (!isOpen) return;
+        if (orderToEdit) {
+            setFormData({
+                supplierId: orderToEdit.supplierId,
+                // El backend manda ISO completo; <input type="date"> necesita YYYY-MM-DD.
+                orderDate: toDateInputValue(orderToEdit.orderDate),
+                expectedDeliveryDate: toDateInputValue(orderToEdit.expectedDeliveryDate),
+                items: orderToEdit.items || [],
+                status: orderToEdit.status,
+            });
+            const names: Record<string, string> = {};
+            (orderToEdit.items || []).forEach(i => { if (i.product?.name) names[i.productId] = i.product.name; });
+            setProductNames(names);
+        } else {
+            setFormData(initialFormData());
+            setProductNames({});
         }
-    // Solo al abrir o cambiar de orden. NO dependemos de `filteredSuppliers` para no reiniciar
+        setCurrentItem(EMPTY_ITEM);
+        setCurrentName('');
+    // Solo al abrir o cambiar de orden. NO dependemos de `suppliers` para no reiniciar
     // el formulario cuando se crea un proveedor inline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderToEdit, isOpen]);
 
+    // Si los proveedores llegan después de abrir (creación), preseleccionar el primero.
+    useEffect(() => {
+        if (isOpen && !orderToEdit && !formData.supplierId && suppliers[0]?.id) {
+            setFormData(prev => ({ ...prev, supplierId: suppliers[0].id }));
+        }
+    }, [isOpen, orderToEdit, suppliers, formData.supplierId]);
+
+    const supplierOptions = useMemo(() => {
+        const opts = suppliers.map(s => ({ value: s.id, label: s.name }));
+        // La orden puede traer su proveedor embebido aunque la lista aún no cargue.
+        if (orderToEdit?.supplier && !opts.some(o => o.value === orderToEdit.supplierId)) {
+            opts.push({ value: orderToEdit.supplierId, label: orderToEdit.supplier.name });
+        }
+        return opts;
+    }, [suppliers, orderToEdit]);
+
+    const productName = (item: SupplierOrderItem) =>
+        productNames[item.productId] || item.product?.name || products.find(p => p.id === item.productId)?.name || t('ecomx.common.unknown');
+
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSelectProduct = (p: PickedProduct | null) => {
+        if (!p) {
+            setCurrentItem(prev => ({ ...prev, productId: '' }));
+            setCurrentName('');
+            return;
+        }
+        setCurrentItem(prev => ({ ...prev, productId: p.id, unitCost: prev.unitCost > 0 ? prev.unitCost : p.cost }));
+        setCurrentName(p.name);
+        setProductNames(prev => ({ ...prev, [p.id]: p.name }));
     };
 
     const handleAddItem = () => {
@@ -176,7 +251,8 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             return;
         }
         setFormData(prev => ({ ...prev, items: [...prev.items, currentItem] }));
-        setCurrentItem({ productId: '', quantityOrdered: 1, unitCost: 0 });
+        setCurrentItem(EMPTY_ITEM);
+        setCurrentName('');
     };
 
     const handleRemoveItem = (productIdToRemove: string) => {
@@ -187,48 +263,61 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         return formData.items.reduce((sum, item) => sum + (item.quantityOrdered * item.unitCost), 0);
     }, [formData.items]);
 
+    const amountPaid = orderToEdit?.amountPaid || 0;
+    const totalBelowPaid = isEdit && !itemsLocked && totalCost < amountPaid - 0.01;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.supplierId) { toast.error(t('ecomx.supplier_orders.select_supplier')); return; }
-        if (formData.items.length === 0) { toast.error(t('ecomx.supplier_orders.need_item')); return; }
+        if (!itemsLocked && formData.items.length === 0) { toast.error(t('ecomx.supplier_orders.need_item')); return; }
+        if (totalBelowPaid) {
+            toast.error(t('ecomx.supplier_orders.total_below_paid', { total: totalCost.toFixed(2), paid: amountPaid.toFixed(2) }));
+            return;
+        }
+
+        // Sin storeOwnerId: el backend lo resuelve con la sesión.
+        const payload: any = {
+            supplierId: formData.supplierId,
+            orderDate: formData.orderDate || undefined,
+            expectedDeliveryDate: formData.expectedDeliveryDate || undefined,
+        };
+        if (!statusLocked) payload.status = formData.status;
+        if (!itemsLocked) {
+            payload.items = formData.items.map(i => ({ productId: i.productId, quantityOrdered: i.quantityOrdered, unitCost: i.unitCost }));
+        }
 
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('pazzi_token');
-            const url = orderToEdit
-                ? `${API_URL}/supplier-orders/${orderToEdit.id}`
-                : `${API_URL}/supplier-orders`;
-
-            const response = await fetch(url, {
-                method: orderToEdit ? 'PUT' : 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, storeOwnerId: storeOwnerId || '' }),
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                if (orderToEdit) {
-                    setSupplierOrders(prev => prev.map(o => o.id === orderToEdit.id ? result : o));
-                } else {
-                    setSupplierOrders(prev => [result, ...prev]);
-                }
-                toast.success(orderToEdit ? t('ecomx.supplier_orders.updated') : t('ecomx.supplier_orders.created'));
-                onClose();
+            if (orderToEdit) {
+                const result = await supplierOrdersService.update(orderToEdit.id, payload);
+                setSupplierOrders(prev => prev.map(o => o.id === orderToEdit.id ? (result as unknown as SupplierOrder) : o));
             } else {
-                toast.error(result.error || t('ecomx.supplier_orders.save_error'));
+                const result = await supplierOrdersService.create(payload);
+                setSupplierOrders(prev => [result as unknown as SupplierOrder, ...prev]);
             }
-        } catch {
-            toast.error(t('ecomx.common.server_connection_error'));
+            toast.success(orderToEdit ? t('ecomx.supplier_orders.updated') : t('ecomx.supplier_orders.created'));
+            onClose();
+        } catch (err) {
+            const msg = apiErrorMessage(err, t('ecomx.supplier_orders.save_error'));
+            if (msg) toast.error(msg);
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    const footer = (
+        <div className="flex justify-end space-x-3">
+            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+            <button type="submit" form="supplier-order-form" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
+                {isSubmitting ? t('common.saving') : t('common.save')}
+            </button>
+        </div>
+    );
+
     return (
         <>
-        <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? t('ecommerce.supplier_orders.form.edit_title') : t('ecommerce.supplier_orders.form.create_title')} size="4xl">
-            <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+        <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? t('ecommerce.supplier_orders.form.edit_title') : t('ecommerce.supplier_orders.form.create_title')} size="4xl" footer={footer}>
+            <form id="supplier-order-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <SelectWithCreate
                         id="supplierId"
@@ -236,7 +325,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                         label={t('ecommerce.supplier_orders.col.supplier')}
                         value={formData.supplierId}
                         onChange={(v) => setFormData(prev => ({ ...prev, supplierId: v }))}
-                        options={filteredSuppliers.map(s => ({ value: s.id, label: s.name }))}
+                        options={supplierOptions}
                         onCreateClick={() => setShowCreateSupplier(true)}
                         required
                         placeholder={t('ecomx.supplier_orders.select_supplier_ph')}
@@ -245,9 +334,19 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                     />
                     <div>
                         <label htmlFor="status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.col.status')}</label>
-                        <select name="status" id="status" value={formData.status} onChange={handleFormChange} className={inputFormStyle}>
-                            {SUPPLIER_ORDER_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        {statusLocked ? (
+                            <>
+                                <input id="status" type="text" value={displaySupplierOrderStatus(formData.status)} readOnly disabled className={`${inputFormStyle} opacity-70 cursor-not-allowed`} />
+                                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('ecomx.supplier_orders.status_locked_received')}</p>
+                            </>
+                        ) : (
+                            <>
+                                <select name="status" id="status" value={formData.status} onChange={handleFormChange} className={inputFormStyle}>
+                                    {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('ecomx.supplier_orders.status_receive_hint')}</p>
+                            </>
+                        )}
                     </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -261,85 +360,91 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                     </div>
                 </div>
 
-                {/* ── Agregar artículos ── */}
+                {/* ── Artículos ── */}
                 <fieldset className="border dark:border-neutral-600 p-3 rounded">
                     <legend className="text-sm font-medium px-1 text-neutral-700 dark:text-neutral-300">{t('ecommerce.supplier_orders.form.items')}</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 items-end">
-                        {/* Autocomplete de producto */}
-                        <div className="md:col-span-2">
-                            <label className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_product')}</label>
-                            <ProductAutocomplete
-                                products={products}
-                                value={currentItem.productId}
-                                onChange={productId => setCurrentItem(prev => ({ ...prev, productId }))}
-                                className={inputFormStyle + " text-sm !py-1.5 w-full"}
-                            />
+
+                    {itemsLocked ? (
+                        <div className="mb-3 p-2 rounded flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 text-xs text-amber-800 dark:text-amber-300">
+                            <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <span>{isCancelled ? t('ecomx.supplier_orders.items_locked_cancelled') : t('ecomx.supplier_orders.items_locked_received')}</span>
                         </div>
-                        <div>
-                            <label htmlFor="itemQuantity" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_quantity')}</label>
-                            <input
-                                type="number" id="itemQuantity" value={currentItem.quantityOrdered}
-                                onChange={e => setCurrentItem(prev => ({ ...prev, quantityOrdered: Math.max(1, parseInt(e.target.value) || 1) }))}
-                                className={inputFormStyle + " text-sm !py-1.5"} min="1"
-                            />
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 items-end">
+                            <div className="md:col-span-2">
+                                <label className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_product')}</label>
+                                <ProductPicker
+                                    value={currentItem.productId}
+                                    selectedName={currentName}
+                                    onSelect={handleSelectProduct}
+                                    className={inputFormStyle + " text-sm !py-1.5 w-full"}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="itemQuantity" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_quantity')}</label>
+                                <input
+                                    type="number" id="itemQuantity" value={currentItem.quantityOrdered}
+                                    onChange={e => setCurrentItem(prev => ({ ...prev, quantityOrdered: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                    className={inputFormStyle + " text-sm !py-1.5"} min="1"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="itemUnitCost" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_cost')}</label>
+                                <input
+                                    type="number" id="itemUnitCost" value={currentItem.unitCost}
+                                    onChange={e => setCurrentItem(prev => ({ ...prev, unitCost: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                                    className={inputFormStyle + " text-sm !py-1.5"} min="0" step="0.01"
+                                />
+                            </div>
+                            <button type="button" onClick={handleAddItem} className={`${BUTTON_SECONDARY_SM_CLASSES} md:col-start-4 !text-sm`}>
+                                {t('ecommerce.supplier_orders.form.add_item')}
+                            </button>
                         </div>
-                        <div>
-                            <label htmlFor="itemUnitCost" className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_cost')}</label>
-                            <input
-                                type="number" id="itemUnitCost" value={currentItem.unitCost}
-                                onChange={e => setCurrentItem(prev => ({ ...prev, unitCost: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                                className={inputFormStyle + " text-sm !py-1.5"} min="0" step="0.01"
-                            />
-                        </div>
-                        <button type="button" onClick={handleAddItem} className={`${BUTTON_SECONDARY_SM_CLASSES} md:col-start-4 !text-sm`}>
-                            {t('ecommerce.supplier_orders.form.add_item')}
-                        </button>
-                    </div>
+                    )}
 
                     {formData.items.length > 0 && (
-                        <div className="max-h-40 overflow-y-auto border dark:border-neutral-600 rounded">
+                        <div className="max-h-56 overflow-y-auto border dark:border-neutral-600 rounded">
                             <table className="min-w-full text-sm">
                                 <thead className="bg-neutral-50 dark:bg-neutral-900 sticky top-0">
                                     <tr>
                                         <th className="px-2 py-1 text-left">{t('ecommerce.supplier_orders.form.item_product')}</th>
                                         <th className="px-2 py-1 text-right">{t('ecomx.common.qty_short')}</th>
+                                        {isEdit && <th className="px-2 py-1 text-right">{t('ecomx.supplier_orders.received_short')}</th>}
                                         <th className="px-2 py-1 text-right">{t('ecomx.common.unit_cost_short')}</th>
                                         <th className="px-2 py-1 text-right">{t('ecomx.common.subtotal')}</th>
-                                        <th className="px-1 py-1"></th>
+                                        {!itemsLocked && <th className="px-1 py-1"></th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y dark:divide-neutral-600">
-                                    {formData.items.map(item => {
-                                        const product = products.find(p => p.id === item.productId);
-                                        return (
-                                            <tr key={item.productId} className="hover:bg-neutral-100 dark:hover:bg-neutral-700/50">
-                                                <td className="px-2 py-1">{product?.name || t('ecomx.common.unknown')}</td>
-                                                <td className="px-2 py-1 text-right">{item.quantityOrdered}</td>
-                                                <td className="px-2 py-1 text-right">${item.unitCost.toFixed(2)}</td>
-                                                <td className="px-2 py-1 text-right">${(item.quantityOrdered * item.unitCost).toFixed(2)}</td>
+                                    {formData.items.map(item => (
+                                        <tr key={item.productId} className="hover:bg-neutral-100 dark:hover:bg-neutral-700/50">
+                                            <td className="px-2 py-1">{productName(item)}</td>
+                                            <td className="px-2 py-1 text-right">{item.quantityOrdered}</td>
+                                            {isEdit && <td className="px-2 py-1 text-right">{item.quantityReceived || 0}</td>}
+                                            <td className="px-2 py-1 text-right">${item.unitCost.toFixed(2)}</td>
+                                            <td className="px-2 py-1 text-right">${(item.quantityOrdered * item.unitCost).toFixed(2)}</td>
+                                            {!itemsLocked && (
                                                 <td className="px-1 py-1 text-center">
-                                                    <button type="button" onClick={() => handleRemoveItem(item.productId)} className="text-red-500 hover:text-red-700 p-0.5" aria-label={t('ecomx.supplier_orders.remove_item')}>
+                                                    <button type="button" onClick={() => handleRemoveItem(item.productId)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-0.5" aria-label={t('ecomx.supplier_orders.remove_item')}>
                                                         <TrashIconMini />
                                                     </button>
                                                 </td>
-                                            </tr>
-                                        );
-                                    })}
+                                            )}
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
                     )}
                 </fieldset>
 
+                {totalBelowPaid && (
+                    <p className="text-sm text-red-600 dark:text-red-400 text-right">
+                        {t('ecomx.supplier_orders.total_below_paid', { total: totalCost.toFixed(2), paid: amountPaid.toFixed(2) })}
+                    </p>
+                )}
                 <div className="text-right font-semibold text-lg text-neutral-800 dark:text-neutral-100 mt-4">
                     {t('ecomx.supplier_orders.total_cost_label')}: ${totalCost.toFixed(2)}
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700 mt-4">
-                    <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
-                        {isSubmitting ? t('common.saving') : t('common.save')}
-                    </button>
                 </div>
             </form>
         </Modal>
@@ -347,7 +452,6 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
             <SupplierFormModal
                 isOpen={showCreateSupplier}
                 supplier={null}
-                storeOwnerId={storeOwnerId}
                 onClose={(createdSupplier) => {
                     if (createdSupplier) {
                         setFormData(prev => ({ ...prev, supplierId: createdSupplier.id }));

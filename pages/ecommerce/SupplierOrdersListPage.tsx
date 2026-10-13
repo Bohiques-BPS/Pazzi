@@ -1,75 +1,81 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SupplierOrder, SupplierOrderStatus } from '../../types';
+import { SupplierOrder } from '../../types';
 import { useData } from '../../contexts/DataContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { SupplierOrderFormModal } from './SupplierOrderFormModal';
 import { Modal, ConfirmationModal } from '../../components/Modal'; 
 import { PlusIcon, EditIcon, EyeIcon, Cog6ToothIcon, DeleteIcon } from '../../components/icons';
-import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, SUPPLIER_ORDER_STATUS_OPTIONS, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { toast } from 'react-hot-toast';
-import { API_URL } from '../../services/api';
+import { toast } from '../../hooks/useToast';
 import { ReceiveSupplierOrderModal } from '../../components/forms/ReceiveSupplierOrderModal';
 import { SupplierPaymentModal } from '../../components/forms/SupplierPaymentModal';
 import { PermissionGate } from '../../components/PermissionGate';
 import { ArchiveBoxIcon, BanknotesIcon } from '../../components/icons';
-import type { SupplierOrderRecord } from '../../services/supplierOrders';
+import { suppliersService } from '../../services/suppliers';
+import {
+    supplierOrdersService,
+    SUPPLIER_ORDER_MANUAL_STATUSES,
+    SUPPLIER_ORDER_FILTER_STATUSES,
+    isSupplierOrderReceived,
+    displaySupplierOrderStatus,
+    supplierOrderReceiveProgress,
+    parseSupplierOrderDay,
+    apiErrorMessage,
+    type SupplierOrderRecord,
+} from '../../services/supplierOrders';
 
 interface UpdateStatusModalProps {
     isOpen: boolean;
     onClose: () => void;
     order: SupplierOrder | null;
-    onUpdate: (orderId: string, newStatus: SupplierOrderStatus) => void;
+    onUpdated: (updated: SupplierOrder) => void;
 }
 
 /** Fecha de día: el backend la envía como ISO completo ("2026-10-11T00:00:00.000Z"); se toma solo
  *  "YYYY-MM-DD" (a mediodía, para que la zona horaria no la corra un día). */
 const fmtDay = (v?: string | null) => {
-    if (!v) return '—';
-    const d = new Date(String(v).slice(0, 10) + 'T12:00:00');
-    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-ES');
+    const d = parseSupplierOrderDay(v);
+    return d ? d.toLocaleDateString('es-ES') : '—';
 };
 
-const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, order, onUpdate }) => {
+const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, order, onUpdated }) => {
     const { t } = useTranslation();
-    const [newStatus, setNewStatus] = useState<SupplierOrderStatus | ''>('');
+    const [newStatus, setNewStatus] = useState<string>('');
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (order && isOpen) {
-            setNewStatus(order.status);
+            // Solo estados manuales; si la orden está en otro, el usuario elige uno.
+            setNewStatus((SUPPLIER_ORDER_MANUAL_STATUSES as readonly string[]).includes(order.status) ? order.status : '');
         } else if (!isOpen) {
-            setNewStatus(''); 
+            setNewStatus('');
         }
     }, [order, isOpen]);
 
     if (!isOpen || !order) return null;
 
+    // La mercancía ya entró al inventario: el estado solo lo cambia la recepción.
+    const locked = isSupplierOrderReceived(order.status);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (newStatus && newStatus !== order.status) {
-            try {
-                const response = await fetch(`${API_URL}/supplier-orders/${order.id}/status`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ status: newStatus })
-                });
-                if (response.ok) {
-                    const updated = await response.json();
-                    onUpdate(order.id, updated.status);
-                    toast.success(t('ecomx.supplier_orders.status_updated'));
-                }
-            } catch (error) {
-                console.error("Error updating status:", error);
-                toast.error(t('ecomx.supplier_orders.status_update_error'));
-            }
+        if (locked || !newStatus || newStatus === order.status) { onClose(); return; }
+        setSaving(true);
+        try {
+            const updated = await supplierOrdersService.updateStatus(order.id, newStatus as SupplierOrderRecord['status']);
+            onUpdated(updated as unknown as SupplierOrder);
+            toast.success(t('ecomx.supplier_orders.status_updated'));
+            onClose();
+        } catch (error) {
+            // 400 USE_RECEIVE / ALREADY_RECEIVED traen un mensaje claro del backend: mostrarlo y NO cerrar.
+            const msg = apiErrorMessage(error, t('ecomx.supplier_orders.status_update_error'));
+            if (msg) toast.error(msg);
+        } finally {
+            setSaving(false);
         }
-        onClose();
     };
     
     return (
@@ -83,19 +89,26 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
                 <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-300">
                     {t('ecomx.supplier_orders.select_new_status')}
                 </p>
-                <div className="my-4">
-                    <label htmlFor="so_status_update" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('ecomx.order_status.new_status')}</label>
-                    <select 
-                        id="so_status_update"
-                        value={newStatus} 
-                        onChange={(e) => setNewStatus(e.target.value as SupplierOrderStatus)}
-                        className={inputFormStyle + " w-full"}
-                        required
-                    >
-                        <option value="" disabled>{t('ecomx.supplier_orders.choose_status')}</option>
-                        {SUPPLIER_ORDER_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
+                {locked ? (
+                    <div className="my-4 p-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 text-sm text-amber-800 dark:text-amber-300">
+                        {t('ecomx.supplier_orders.status_locked_received')}
+                    </div>
+                ) : (
+                    <div className="my-4">
+                        <label htmlFor="so_status_update" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('ecomx.order_status.new_status')}</label>
+                        <select
+                            id="so_status_update"
+                            value={newStatus}
+                            onChange={(e) => setNewStatus(e.target.value)}
+                            className={inputFormStyle + " w-full"}
+                            required
+                        >
+                            <option value="" disabled>{t('ecomx.supplier_orders.choose_status')}</option>
+                            {SUPPLIER_ORDER_MANUAL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('ecomx.supplier_orders.status_receive_hint')}</p>
+                    </div>
+                )}
                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-neutral-700 mt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>
                         {t('common.cancel')}
@@ -103,9 +116,9 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
                     <button
                         type="submit"
                         className={BUTTON_PRIMARY_SM_CLASSES}
-                        disabled={!newStatus || (order && newStatus === order.status)}
+                        disabled={locked || saving || !newStatus || newStatus === order.status}
                     >
-                        {t('ecomx.order_status.update_btn')}
+                        {saving ? t('common.saving') : t('ecomx.order_status.update_btn')}
                     </button>
                 </div>
             </form>
@@ -116,13 +129,10 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, 
 
 export const SupplierOrdersListPage: React.FC = () => {
     const { t } = useTranslation();
-    const { currentUser } = useAuth();
     const {
         setSupplierOrders,
-        setProducts,
         setSuppliers,
         supplierOrders,
-        updateSupplierOrderStatus,
     } = useData();
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingOrder, setEditingOrder] = useState<SupplierOrder | null>(null);
@@ -139,72 +149,38 @@ export const SupplierOrdersListPage: React.FC = () => {
     const [orderForReceive, setOrderForReceive] = useState<SupplierOrderRecord | null>(null);
     const [orderForPayment, setOrderForPayment] = useState<SupplierOrderRecord | null>(null);
 
-    const [statusFilter, setStatusFilter] = useState<SupplierOrderStatus | 'Todos'>('Todos');
-
-    const storeOwnerId = currentUser?.id;
+    const [statusFilter, setStatusFilter] = useState<string>('Todos');
 
     useEffect(() => {
         const fetchOrders = async () => {
             setLoadingData(true);
             try {
-                const response = await fetch(`${API_URL}/supplier-orders`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                const data = await response.json();
+                const data = await supplierOrdersService.getAll();
                 if (Array.isArray(data)) {
-                    setSupplierOrders(data);
+                    setSupplierOrders(data as unknown as SupplierOrder[]);
                 }
             } catch (error) {
                 console.error("Error al cargar pedidos:", error);
-                toast.error(t('ecomx.common.server_connection_error'));
+                const msg = apiErrorMessage(error, t('ecomx.common.server_connection_error'));
+                if (msg) toast.error(msg);
             } finally {
                 setLoadingData(false);
             }
         };
         fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [setSupplierOrders]);
 
-    // Carga de productos para que aparezcan en el modal de creación
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await fetch(`${API_URL}/products`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                const data = await response.json();
-                if (Array.isArray(data)) {
-                    const normalized = data.map((p: any) => ({
-                        ...p,
-                        category: (p.category && typeof p.category === 'object') ? p.category.name : p.category,
-                        skus: Array.isArray(p.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s?.sku) : [],
-                        customSpecifications: p.customSpecs || []
-                    }));
-                    setProducts(normalized);
-                }
-            } catch (error) {
-                console.error("Error al cargar productos para órdenes:", error);
-                toast.error(t('ecomx.supplier_orders.products_load_error'));
-            }
-        };
-        fetchProducts();
-    }, [setProducts]);
+    // Los productos NO se cargan aquí: el selector del formulario busca en el servidor
+    // (antes se pisaba la lista global de productos con una sola página de 50).
 
     // Carga de proveedores para el modal
     useEffect(() => {
         const fetchSuppliers = async () => {
             try {
-                const response = await fetch(`${API_URL}/suppliers`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                const data = await response.json();
+                const data = await suppliersService.getAll();
                 if (Array.isArray(data)) {
-                    setSuppliers(data);
+                    setSuppliers(data as any);
                 }
             } catch (error) {
                 console.error("Error al cargar proveedores para órdenes:", error);
@@ -236,9 +212,8 @@ export const SupplierOrdersListPage: React.FC = () => {
         setShowStatusModal(true);
     };
     
-    const handleUpdateStatus = (orderId: string, newStatus: SupplierOrderStatus) => {
-        updateSupplierOrderStatus(orderId, newStatus);
-        setShowStatusModal(false);
+    const handleStatusUpdated = (updated: SupplierOrder) => {
+        setSupplierOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
     };
 
     const requestDelete = (orderId: string) => {
@@ -247,34 +222,25 @@ export const SupplierOrdersListPage: React.FC = () => {
     };
 
     const confirmDelete = async () => {
-        if (itemToDeleteId) {
-            try {
-                const response = await fetch(`${API_URL}/supplier-orders/${itemToDeleteId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}`
-                    }
-                });
-                if (response.ok) {
-                    setSupplierOrders(prev => prev.filter(o => o.id !== itemToDeleteId));
-                    toast.success(t('ecomx.supplier_orders.deleted'));
-                } else {
-                    toast.error(t('ecomx.supplier_orders.delete_error'));
-                }
-            } catch (error) {
-                console.error("Error deleting order:", error);
-                toast.error(t('ecomx.common.delete_connection_error'));
-            } finally {
-                setItemToDeleteId(null);
-                setShowDeleteConfirmModal(false);
-            }
+        const id = itemToDeleteId;
+        setItemToDeleteId(null);
+        setShowDeleteConfirmModal(false);
+        if (!id) return;
+        try {
+            await supplierOrdersService.delete(id);
+            setSupplierOrders(prev => prev.filter(o => o.id !== id));
+            toast.success(t('ecomx.supplier_orders.deleted'));
+        } catch (error) {
+            // El backend explica por qué no (mercancía recibida o pagos registrados).
+            const msg = apiErrorMessage(error, t('ecomx.supplier_orders.delete_error'));
+            if (msg) toast.error(msg);
         }
     };
 
     const filteredOrders = useMemo(() => {
         return supplierOrders
             .filter(order =>
-                (statusFilter === 'Todos' || order.status === statusFilter)
+                (statusFilter === 'Todos' || displaySupplierOrderStatus(order.status) === statusFilter)
             )
             .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
     }, [supplierOrders, statusFilter]);
@@ -288,15 +254,30 @@ export const SupplierOrdersListPage: React.FC = () => {
         { header: t('ecommerce.supplier_orders.col.cost'), accessor: (order) => `$${order.totalCost.toFixed(2)}` },
         { 
             header: t('ecommerce.supplier_orders.col.status'), 
-            accessor: (order) => (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    order.status === 'Pedido' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' :
-                    order.status === 'Enviado' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-700 dark:text-indigo-100' :
-                    order.status === 'Recibido Completo' ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' :
-                    order.status === 'Cancelado' ? 'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100' :
-                    'bg-yellow-100 text-yellow-700 dark:bg-yellow-600 dark:text-yellow-100' // Borrador, Recibido Parcialmente
-                }`}>{order.status}</span>
-            )
+            accessor: (order) => {
+                const status = displaySupplierOrderStatus(order.status);
+                const progress = supplierOrderReceiveProgress(order);
+                return (
+                    <div className="flex flex-col gap-1">
+                        <span className={`self-start px-2 py-0.5 rounded-full text-xs font-medium ${
+                            status === 'Pedido' ? 'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100' :
+                            status === 'Enviado' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-700 dark:text-indigo-100' :
+                            status === 'Recibido Completo' ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' :
+                            status === 'Recibido Parcialmente' ? 'bg-teal-100 text-teal-700 dark:bg-teal-700 dark:text-teal-100' :
+                            status === 'Cancelado' ? 'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100' :
+                            'bg-yellow-100 text-yellow-700 dark:bg-yellow-600 dark:text-yellow-100' // Borrador
+                        }`}>{status}</span>
+                        {status === 'Recibido Parcialmente' && progress.ordered > 0 && (
+                            <div className="w-28" title={t('cmpx.receiveorder.progress', { received: progress.received, ordered: progress.ordered })}>
+                                <div className="h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
+                                    <div className="h-full bg-teal-500" style={{ width: `${progress.pct}%` }} />
+                                </div>
+                                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">{progress.received}/{progress.ordered}</span>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
         },
     ];
 
@@ -307,12 +288,12 @@ export const SupplierOrdersListPage: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end min-w-0">
                     <select
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value as SupplierOrderStatus | 'Todos')}
+                        onChange={(e) => setStatusFilter(e.target.value)}
                         className={`${INPUT_SM_CLASSES} flex-shrink-0`}
                         aria-label={t('ecommerce.orders.filter_status')}
                     >
                         <option value="Todos">{t('ecomx.supplier_orders.all_statuses')}</option>
-                        {SUPPLIER_ORDER_STATUS_OPTIONS.map(status => (
+                        {SUPPLIER_ORDER_FILTER_STATUSES.map(status => (
                             <option key={status} value={status}>{status}</option>
                         ))}
                     </select>
@@ -333,7 +314,9 @@ export const SupplierOrdersListPage: React.FC = () => {
                     data={filteredOrders}
                     columns={columns}
                     actions={(order) => {
-                        const isReceived = order.status === 'Recibido Completo';
+                        // "Recibir" sigue disponible mientras quede algo pendiente (recepción parcial).
+                        const isFullyReceived = order.status === 'Recibido Completo' || supplierOrderReceiveProgress(order).pending <= 0;
+                        const statusLocked = isSupplierOrderReceived(order.status);
                         const isPaidFull = order.paymentStatus === 'Pagado Completo';
                         return (
                             <div className="flex space-x-1 items-center">
@@ -346,8 +329,8 @@ export const SupplierOrdersListPage: React.FC = () => {
                                     <button
                                         onClick={() => setOrderForReceive(order as unknown as SupplierOrderRecord)}
                                         className="p-1 text-green-600 dark:text-green-400 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title={isReceived ? t('ecomx.supplier_orders.already_received') : t('ecomx.supplier_orders.receive_title')}
-                                        disabled={isReceived || order.status === 'Cancelado'}
+                                        title={isFullyReceived ? t('ecomx.supplier_orders.already_received') : t('ecomx.supplier_orders.receive_title')}
+                                        disabled={isFullyReceived || order.status === 'Cancelado'}
                                     >
                                         <ArchiveBoxIcon />
                                     </button>
@@ -363,7 +346,12 @@ export const SupplierOrdersListPage: React.FC = () => {
                                     </button>
                                 </PermissionGate>
                                 <PermissionGate require="supplierOrders.manage">
-                                    <button onClick={() => openStatusUpdateModal(order)} className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1" title={t('ecomx.supplier_orders.change_status')}>
+                                    <button
+                                        onClick={() => openStatusUpdateModal(order)}
+                                        className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title={statusLocked ? t('ecomx.supplier_orders.status_locked_received') : t('ecomx.supplier_orders.change_status')}
+                                        disabled={statusLocked}
+                                    >
                                         <Cog6ToothIcon />
                                     </button>
                                 </PermissionGate>
@@ -389,14 +377,13 @@ export const SupplierOrdersListPage: React.FC = () => {
             <SupplierOrderFormModal 
                 isOpen={showFormModal} 
                 onClose={() => setShowFormModal(false)} 
-                orderToEdit={editingOrder} 
-                storeOwnerId={storeOwnerId}
+                orderToEdit={editingOrder}
             />
             <UpdateStatusModal
                 isOpen={showStatusModal}
                 onClose={() => setShowStatusModal(false)}
                 order={orderForStatusUpdate}
-                onUpdate={handleUpdateStatus}
+                onUpdated={handleStatusUpdated}
             />
             <ReceiveSupplierOrderModal
                 isOpen={!!orderForReceive}

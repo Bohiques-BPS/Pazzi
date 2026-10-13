@@ -28,12 +28,32 @@ export interface ProductReportRow {
 
 export type ProductReportType = 'top-sold' | 'least-sold' | 'no-sales' | 'oldest-sale' | 'top-profit' | 'unused';
 
+/**
+ * Normaliza un producto tal como lo devuelve el backend (Prisma) a la forma que usa el FE:
+ * `category` como nombre, `skus` como string[], `customSpecifications` desde `customSpecs`
+ * y `stockByBranch` siempre como arreglo { branchId, quantity }.
+ */
+export const normalizeProductFromApi = (p: any) => ({
+  ...p,
+  // OJO: typeof null === 'object', por eso el guard `&& p.category`.
+  category: (p?.category && typeof p.category === 'object') ? p.category.name : p?.category,
+  skus: Array.isArray(p?.skus) ? p.skus.map((s: any) => typeof s === 'string' ? s : s?.sku) : [],
+  customSpecifications: p?.customSpecs || p?.customSpecifications || [],
+  stockByBranch: Array.isArray(p?.stockByBranch)
+    ? p.stockByBranch.map((sb: any) => ({ branchId: sb.branchId, quantity: Number(sb.quantity) || 0 }))
+    : [],
+});
+
 export const productsService = {
   getAll: (filters?: ProductFilters) =>
     api.get<any[]>('/products', filters as any),
 
   getById: (id: string) =>
     api.get<any>(`/products/${id}`),
+
+  /** GET /products/:id ya normalizado (stock en TODAS las sucursales). */
+  getByIdNormalized: async (id: string) =>
+    normalizeProductFromApi(await api.get<any>(`/products/${id}`)),
 
   create: (data: any) =>
     api.post<any>('/products', data),

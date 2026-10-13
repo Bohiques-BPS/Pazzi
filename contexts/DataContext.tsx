@@ -3,13 +3,12 @@ import { useLocation } from 'react-router-dom';
 import { 
   Product, Client, Employee, Project, Sale, Order, Visit, Category, 
   ChatMessage, User, Supplier, SupplierOrder, SupplierOrderStatus, 
-  SupplierOrderItem, Branch, ProductFormData, ProductStockInfo, 
+  Branch, ProductStockInfo, 
   Notification, NotificationType, Caja, ProjectStatus, HeldCart, 
-  CartItem, SalePayment, Estimate, InventoryLog, InventoryLogType, 
+  CartItem, SalePayment, Estimate, 
   Department, Layaway, LayawayStatus, ProjectFormData, Task,
   TaskComment, TaskStatus, UserRole
 } from '../types';
-import { ADMIN_USER_ID } from '../constants';
 import { useAuth } from './AuthContext'; 
 import { API_URL } from '../services/api';
 import { getSocket } from '../services/socket';
@@ -18,14 +17,11 @@ import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../compon
 import { posService } from '../services/pos';
 import { normalizeTaskFromApi } from '../services/tasks';
 
-type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
-
 export interface DataContextType {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   getProductsByStoreOwner: (ownerId: string) => Product[];
   getProductStockForBranch: (productId: string, branchId: string) => number;
-  updateProductStockForBranch: (productId: string, branchId: string, newQuantity: number) => void;
   getProductsWithStockForBranch: (branchId: string) => ProductStockInfo[];
   
   clients: Client[];
@@ -41,7 +37,6 @@ export interface DataContextType {
   sales: Sale[]; 
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>; // Added setSales
   addSale: (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, payments?: { method: string; amount: number }[]}, branchId: string) => Promise<Sale | undefined>;
-  processReturn: (originalSale: Sale, itemsToReturn: ReturnItemPayload[], employeeId: string, cajaId: string, branchId: string, reason: string) => void;
   recordSalePayment: (saleId: string) => void; 
   lastCompletedSale: Sale | null; 
   
@@ -52,12 +47,8 @@ export interface DataContextType {
   setEstimates: React.Dispatch<React.SetStateAction<Estimate[]>>;
   addEstimate: (estimateData: Omit<Estimate, 'id'>) => Promise<Estimate>;
 
-  inventoryLogs: InventoryLog[];
-  addInventoryLog: (logData: Omit<InventoryLog, 'id'>) => void;
-
   orders: Order[]; 
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
-  addOrder: (orderData: Omit<Order, 'id' | 'date' | 'storeOwnerId'>, storeOwnerId: string) => string; 
   updateOrderStatus: (orderId: string, newStatus: Order['status']) => void;
   getOrdersByStoreOwner: (ownerId: string) => Order[];
   getOrderById: (id: string) => Order | undefined;
@@ -84,11 +75,10 @@ export interface DataContextType {
   
   supplierOrders: SupplierOrder[];
   setSupplierOrders: React.Dispatch<React.SetStateAction<SupplierOrder[]>>;
-  addSupplierOrder: (orderData: Omit<SupplierOrder, 'id' | 'totalCost'>) => void;
-  updateSupplierOrderStatus: (orderId: string, newStatus: SupplierOrderStatus, receivedToBranchId?: string) => void; 
+  /** Solo refleja en el estado local un cambio de estado YA persistido en el backend. */
+  updateSupplierOrderStatus: (orderId: string, newStatus: SupplierOrderStatus) => void; 
   getSupplierOrderById: (id: string) => SupplierOrder | undefined;
   getSupplierOrdersByStoreOwner: (ownerId: string) => SupplierOrder[];
-  recordSupplierOrderPayment: (orderId: string, amount: number, invoiceRef?: string, attachment?: string) => void; 
 
   getProductById: (id: string) => Product | undefined;
   getClientById: (id: string) => Client | undefined;
@@ -106,9 +96,6 @@ export interface DataContextType {
   cajas: Caja[];
   setCajas: React.Dispatch<React.SetStateAction<Caja[]>>;
   getCajaById: (cajaId: string) => Caja | undefined;
-
-  addProduct: (productData: ProductFormData) => void; 
-  updateProduct: (productId: string, productData: ProductFormData) => void; 
 
   notifications: Notification[];
   addNotification: (notificationData: Omit<Notification, 'id' | 'timestamp' | 'read' | 'icon'>) => void;
@@ -138,9 +125,10 @@ export const DataContext = createContext<DataContextType | null>(null);
 
 export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
     const { currentUser } = useAuth();
-    // En el POS no se usan los datos de Gestión de Proyectos (proyectos de gestión, tareas, visitas)
-    // ni las órdenes de proveedor: evitamos cargarlos mientras se esté en /pos/* para no disparar
-    // ~20 llamadas lentas en Render (USO-3). Se cargan al entrar a su módulo (una vez por usuario).
+    // En el POS no se usan los datos de Gestión de Proyectos (proyectos de gestión, tareas, visitas):
+    // evitamos cargarlos mientras se esté en /pos/* para no disparar ~20 llamadas lentas en Render
+    // (USO-3). Se cargan al entrar a su módulo (una vez por usuario). Las órdenes de proveedor SÍ se
+    // cargan también en /pos (Cuentas por Pagar e historial las necesitan tras recargar).
     const { pathname } = useLocation();
     const inPos = pathname.startsWith('/pos');
     const pmLoadedForRef = useRef<{ projects?: string; visits?: string; tasks?: string; supplierOrders?: string }>({});
@@ -155,7 +143,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [sales, setSalesInternal] = useState<Sale[]>([]);
     const [salePayments, setSalePayments] = useState<SalePayment[]>([]);
     const [estimates, setEstimates] = useState<Estimate[]>([]);
-    const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [visits, setVisits] = useState<Visit[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -489,11 +476,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error("Error al cargar órdenes de proveedor del servidor:", e);
             }
         };
-        if (currentUser && !inPos && pmLoadedForRef.current.supplierOrders !== currentUser.id) {
+        // Se cargan en cualquier ruta (incl. /pos/accounts-payable), una vez por usuario y acotadas a 300.
+        if (currentUser && pmLoadedForRef.current.supplierOrders !== currentUser.id) {
             pmLoadedForRef.current.supplierOrders = currentUser.id;
             fetchSupplierOrders();
         }
-    }, [currentUser, inPos]);
+    }, [currentUser]);
 
     // Carga de notificaciones
     const fetchNotifications = useCallback(async () => {
@@ -541,23 +529,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return () => { socket.off('notification:new', onNotif); };
     }, [currentUser, fetchNotifications]);
 
-    // Carga de logs de inventario.
-    // Desde M6, el endpoint devuelve { items, total } en vez de array plano.
-    useEffect(() => {
-        const fetchInventoryLogs = async () => {
-            try {
-                const res = await fetch(`${API_URL}/inventory/logs?limit=200`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('pazzi_token')}` }
-                });
-                const data = await res.json();
-                if (Array.isArray(data?.items)) setInventoryLogs(data.items);
-                else if (Array.isArray(data)) setInventoryLogs(data); // compat con shape viejo
-            } catch (e) {
-                console.error("Error al cargar logs de inventario del servidor:", e);
-            }
-        };
-        if (currentUser) fetchInventoryLogs();
-    }, [currentUser]);
+    // Los logs de inventario ya no se precargan aquí: InventoryHistoryModal y POSInventoryPage los
+    // piden al backend filtrados (antes: últimos 200 de toda la tienda → historial vacío/obsoleto).
 
     // Carga de órdenes (e-commerce)
     useEffect(() => {
@@ -601,14 +574,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             icon: icon,
         };
         setNotifications(prev => [newNotification, ...prev]); 
-    }, []);
-
-    const addInventoryLog = useCallback((logData: Omit<InventoryLog, 'id'>) => {
-        const newLog: InventoryLog = {
-            id: `invlog-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            ...logData
-        };
-        setInventoryLogs(prev => [newLog, ...prev]);
     }, []);
 
     const addEstimate = useCallback(async (estimateData: Omit<Estimate, 'id'>): Promise<Estimate> => {
@@ -763,76 +728,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return 0;
     }, [products]);
 
-    const updateProductStockForBranch = useCallback((productId: string, branchId: string, newQuantity: number): void => {
-        setProducts(prevProducts => prevProducts.map(p => {
-            if (p.id === productId) {
-                const updatedStockByBranch = [...p.stockByBranch];
-                const branchStockIndex = updatedStockByBranch.findIndex(sb => sb.branchId === branchId);
-                if (branchStockIndex !== -1) {
-                    updatedStockByBranch[branchStockIndex] = { ...updatedStockByBranch[branchStockIndex], quantity: Math.max(0, newQuantity) };
-                } else {
-                    updatedStockByBranch.push({ branchId, quantity: Math.max(0, newQuantity) });
-                }
-                return { ...p, stockByBranch: updatedStockByBranch };
-            }
-            return p;
-        }));
-    }, []);
-    
-    const addProduct = useCallback((productData: ProductFormData) => {
-        const newId = `prod-${productData.storeOwnerId.slice(0,4)}-${Date.now()}`;
-        let initialStockByBranch: Product['stockByBranch'] = [];
-
-        if (productData.storeOwnerId === ADMIN_USER_ID) {
-            initialStockByBranch = branches
-                .filter(b => b.isActive) 
-                .map(b => ({ branchId: b.id, quantity: productData.availableStock || 0 })); 
-        } else { 
-            initialStockByBranch = [{ branchId: productData.storeOwnerId, quantity: productData.availableStock || 0 }]; 
-        }
-
-        const newProduct: Product = {
-            id: newId,
-            ...productData,
-            stockByBranch: initialStockByBranch,
-        };
-        setProducts(prev => [...prev, newProduct]);
-    }, [branches]);
-
-    const updateProduct = useCallback((productId: string, productData: ProductFormData) => {
-        setProducts(prevProducts => prevProducts.map(p => {
-            if (p.id === productId) {
-                let stockByBranch = p.stockByBranch;
-                if (productData.availableStock !== undefined && productData.storeOwnerId === ADMIN_USER_ID && branches.length > 0) {
-                    const firstActiveBranch = branches.find(b => b.isActive);
-                    if (firstActiveBranch) {
-                        const existingEntryIndex = stockByBranch.findIndex(sb => sb.branchId === firstActiveBranch.id);
-                        if (existingEntryIndex !== -1) {
-                            stockByBranch[existingEntryIndex] = { ...stockByBranch[existingEntryIndex], quantity: productData.availableStock };
-                        } else {
-                            stockByBranch.push({ branchId: firstActiveBranch.id, quantity: productData.availableStock });
-                        }
-                    }
-                } else if (productData.availableStock !== undefined && productData.storeOwnerId !== ADMIN_USER_ID) {
-                    const clientBranchIndex = stockByBranch.findIndex(sb => sb.branchId === productData.storeOwnerId);
-                     if (clientBranchIndex !== -1) {
-                        stockByBranch[clientBranchIndex] = { ...stockByBranch[clientBranchIndex], quantity: productData.availableStock };
-                    } else {
-                        stockByBranch.push({ branchId: productData.storeOwnerId, quantity: productData.availableStock });
-                    }
-                }
-
-                return { 
-                    ...p, 
-                    ...productData,
-                    stockByBranch 
-                }; 
-            }
-            return p;
-        }));
-    }, [branches]);
-
-
     const getProductsByStoreOwner = useCallback((ownerId: string): Product[] => {
         return products.filter(p => p.storeOwnerId === ownerId);
     }, [products]);
@@ -904,7 +799,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 clientId: saleData.clientId,
                 projectId: saleData.projectId,
                 cajaId: saleData.cajaId,
-                branchId,
+                branchId: apiSale.branchId || branchId, // el BE fuerza la sucursal de la caja
                 paymentStatus: apiSale.paymentStatus || (hasCreditPayment ? 'Pendiente de Pago' : 'Pagado'),
             };
             setSalesInternal(prev => [newSale, ...prev]);
@@ -920,73 +815,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             throw err;
         }
     }, [currentUser, setSalesInternal, setLastCompletedSale]);
-
-    const processReturn = useCallback((originalSale: Sale, itemsToReturn: ReturnItemPayload[], employeeId: string, cajaId: string, branchId: string, reason: string) => {
-        if (itemsToReturn.length === 0) return;
-    
-        const returnTotal = itemsToReturn.reduce((sum, item) => {
-            if (item.customRefundAmount !== undefined) {
-                return sum + item.customRefundAmount;
-            }
-            let itemPrice = item.unitPrice;
-            if (item.discount) {
-                if (item.discount.type === 'percentage') {
-                    itemPrice *= (1 - item.discount.value / 100);
-                } else {
-                    itemPrice = Math.max(0, itemPrice - item.discount.value);
-                }
-            }
-            return sum + (itemPrice * item.quantity);
-        }, 0);
-        
-        const newReturnSale: Sale = {
-            id: `return-${Date.now()}`,
-            date: new Date().toISOString(),
-            totalAmount: -returnTotal,
-            items: itemsToReturn,
-            paymentMethod: 'Devolución',
-            cajaId,
-            branchId,
-            employeeId,
-            paymentStatus: 'Pagado',
-            clientId: originalSale.clientId,
-            isReturn: true,
-            originalSaleId: originalSale.id,
-        };
-    
-        setSalesInternal(prev => [...prev, newReturnSale]);
-    
-        const isFullReturn = itemsToReturn.length === originalSale.items.length && itemsToReturn.every(returnedItem => {
-            const originalItem = originalSale.items.find(oi => oi.id === returnedItem.id);
-            return originalItem && originalItem.quantity === returnedItem.quantity;
-        });
-    
-        const newStatus = isFullReturn ? 'Devolución Completa' : 'Devolución Parcial';
-    
-        setSalesInternal(prev => prev.map(s => s.id === originalSale.id ? { ...s, paymentStatus: newStatus } : s));
-    
-        itemsToReturn.forEach(item => {
-            if (item.returnToStock && !item.isService) {
-                const stockBefore = getProductStockForBranch(item.id, branchId);
-                const stockAfter = stockBefore + item.quantity;
-                updateProductStockForBranch(item.id, branchId, stockAfter);
-                addInventoryLog({
-                    productId: item.id,
-                    branchId: branchId,
-                    date: newReturnSale.date,
-                    type: InventoryLogType.RETURN,
-                    quantityChange: item.quantity,
-                    stockBefore: stockBefore,
-                    stockAfter: stockAfter,
-                    referenceId: newReturnSale.id,
-                    employeeId,
-                    notes: `Devolución de Venta #${originalSale.id.slice(-6)}. Razón: ${reason}`
-                });
-            }
-        });
-    
-    }, [getProductStockForBranch, updateProductStockForBranch, addInventoryLog, setSalesInternal]);
-
 
     const addSalePayment = useCallback((paymentData: Omit<SalePayment, 'id'>) => {
         const newPayment: SalePayment = {
@@ -1076,27 +904,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
 
     
-    const addOrder = useCallback((orderData: Omit<Order, 'id' | 'date' | 'storeOwnerId'>, storeOwnerId: string): string => {
-        const newOrder: Order = {
-            ...orderData,
-            id: `order-${Date.now()}`,
-            date: new Date().toISOString(),
-            storeOwnerId: storeOwnerId,
-        };
-        setOrders(prev => [...prev, newOrder]);
-        newOrder.items.forEach(cartItem => {
-            const currentStock = getProductStockForBranch(cartItem.id, storeOwnerId); 
-            updateProductStockForBranch(cartItem.id, storeOwnerId, currentStock - cartItem.quantity);
-        });
-        addNotification({
-            title: `Nuevo Pedido Online #${newOrder.id.substring(0,8)}`,
-            message: `Cliente: ${newOrder.clientName}, Total: $${newOrder.totalAmount.toFixed(2)}`,
-            type: 'new_order',
-            link: `/ecommerce/orders` 
-        });
-        return newOrder.id; 
-    }, [getProductStockForBranch, updateProductStockForBranch, addNotification]);
-
     const updateOrderStatus = useCallback((orderId: string, newStatus: Order['status']) => {
         setOrders(prevOrders => prevOrders.map(order => order.id === orderId ? { ...order, status: newStatus } : order));
     }, []);
@@ -1136,49 +943,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     const getSupplierById = useCallback((id: string) => suppliers.find(s => s.id === id), [suppliers]);
     
-    const addSupplierOrder = useCallback((orderData: Omit<SupplierOrder, 'id' | 'totalCost'>) => {
-        const totalCost = orderData.items.reduce((sum, item) => sum + (item.quantityOrdered * item.unitCost), 0);
-        const newSupplierOrder: SupplierOrder = { ...orderData, id: `po-${Date.now()}`, totalCost, amountPaid: 0, paymentStatus: 'No Pagado' };
-        setSupplierOrders(prev => [...prev, newSupplierOrder]);
+    // Refleja localmente un cambio de estado que el modal ya persistió en el backend. Antes tenía una
+    // rama ADMIN_USER_ID que fabricaba stock y logs en memoria (nunca persistían); la recepción real
+    // de inventario la hace el backend (ReceiveSupplierOrderModal → SUPPLIER_RECEPTION).
+    const updateSupplierOrderStatus = useCallback((orderId: string, newStatus: SupplierOrderStatus) => {
+        setSupplierOrders(prev => prev.map(order => order.id === orderId ? { ...order, status: newStatus } : order));
     }, []);
-
-    const updateSupplierOrderStatus = useCallback((orderId: string, newStatus: SupplierOrderStatus, receivedToBranchId?: string) => {
-        setSupplierOrders(prevSupplierOrders =>
-            prevSupplierOrders.map(order => {
-                if (order.id === orderId) {
-                    const updatedOrder = { ...order, status: newStatus };
-                    if (newStatus === 'Recibido Completo' && (order.storeOwnerId === ADMIN_USER_ID || !order.storeOwnerId)) { 
-                        const targetBranchId = receivedToBranchId || (branches.find(b => b.isActive)?.id || '');
-                        if (targetBranchId && currentUser) {
-                            updatedOrder.items.forEach((item: SupplierOrderItem) => {
-                                if (!getProductById(item.productId)?.isService) {
-                                    const stockBefore = getProductStockForBranch(item.productId, targetBranchId);
-                                    const stockAfter = stockBefore + item.quantityOrdered;
-                                    updateProductStockForBranch(item.productId, targetBranchId, stockAfter);
-                                    addInventoryLog({
-                                        productId: item.productId,
-                                        branchId: targetBranchId,
-                                        date: new Date().toISOString(),
-                                        type: InventoryLogType.SUPPLIER_RECEPTION,
-                                        quantityChange: item.quantityOrdered,
-                                        stockBefore: stockBefore,
-                                        stockAfter: stockAfter,
-                                        referenceId: order.id,
-                                        employeeId: currentUser.id,
-                                        notes: `Pedido a ${getSupplierById(order.supplierId)?.name || 'proveedor'} #${order.id.slice(-6)}`
-                                    });
-                                }
-                            });
-                        } else {
-                            console.warn("No active branch or current user found to receive supplier order items for order:", orderId);
-                        }
-                    }
-                    return updatedOrder;
-                }
-                return order;
-            })
-        );
-    }, [branches, getProductStockForBranch, updateProductStockForBranch, addInventoryLog, currentUser, getProductById, getSupplierById]); 
 
     const getSupplierOrderById = useCallback((id: string) => supplierOrders.find(so => so.id === id), [supplierOrders]);
     
@@ -1196,34 +966,6 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         const nowTime = new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
         return visits.filter(v => v.date >= today).sort((a, b) => a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date)).filter(v => v.date === today ? v.startTime >= nowTime : true).slice(0, count);
     }, [visits]);
-
-    const recordSupplierOrderPayment = useCallback((orderId: string, amount: number, invoiceRef?: string, attachment?: string) => {
-        setSupplierOrders(prevOrders => prevOrders.map(order => {
-            if (order.id === orderId) {
-                const newAmountPaid = (order.amountPaid || 0) + amount;
-                let newPaymentStatus: SupplierOrder['paymentStatus'] = 'Pagado Parcialmente';
-                if (newAmountPaid >= order.totalCost) {
-                    newPaymentStatus = 'Pagado Completo';
-                } else if (newAmountPaid <= 0) {
-                    newPaymentStatus = 'No Pagado';
-                }
-                
-                const paymentDetails: any = {
-                    p: amount.toFixed(2), // payment amount
-                    d: new Date().toLocaleDateString(), // date
-                };
-                if (invoiceRef) paymentDetails.i = invoiceRef;
-                if (attachment) paymentDetails.a = attachment; // attachment as data URL
-
-                const newPaymentNote = JSON.stringify(paymentDetails);
-
-                const newPaymentNotes = [...(order.paymentNotes || []), newPaymentNote];
-
-                return { ...order, amountPaid: newAmountPaid, paymentStatus: newPaymentStatus, paymentNotes: newPaymentNotes };
-            }
-            return order;
-        }));
-    }, []);
 
     const recordSalePayment = useCallback((saleId: string) => {
         setSalesInternal(prevSales => prevSales.map(sale => 
@@ -1301,19 +1043,18 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     return (
         <DataContext.Provider value={{ 
-            products, setProducts, getProductsByStoreOwner, getProductStockForBranch, updateProductStockForBranch, addProduct, updateProduct, getProductsWithStockForBranch,
+            products, setProducts, getProductsByStoreOwner, getProductStockForBranch, getProductsWithStockForBranch,
             clients, setClients, employees, setEmployees, projects, projectsLoading, setProjects, addProject, generateInvoiceForProject,
-            sales, setSales, addSale, processReturn, recordSalePayment, lastCompletedSale,
+            sales, setSales, addSale, recordSalePayment, lastCompletedSale,
             salePayments, addSalePayment,
             estimates, setEstimates, addEstimate,
-            inventoryLogs, addInventoryLog,
-            orders, setOrders, addOrder, updateOrderStatus, getOrdersByStoreOwner, getOrderById, 
+            orders, setOrders, updateOrderStatus, getOrdersByStoreOwner, getOrderById, 
             visits, setVisits, 
             categories, setCategories, getCategoriesByStoreOwner,
             departments, setDepartments,
             chatMessages, setChatMessages, addChatMessage, getChatMessagesForProject,
             suppliers, setSuppliers, getSupplierById, getSuppliersByStoreOwner,
-            supplierOrders, setSupplierOrders, addSupplierOrder, updateSupplierOrderStatus, getSupplierOrderById, getSupplierOrdersByStoreOwner, recordSupplierOrderPayment,
+            supplierOrders, setSupplierOrders, updateSupplierOrderStatus, getSupplierOrderById, getSupplierOrdersByStoreOwner,
             getProductById, getClientById, getEmployeeById, getAllEmployees, getProjectById,
             getVisitsForDate, getUpcomingVisits,
             branches, setBranches, getBranchById, getAllBranches,
