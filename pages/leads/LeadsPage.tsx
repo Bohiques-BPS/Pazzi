@@ -901,6 +901,7 @@ export const LeadsPage: React.FC = () => {
           sources={sources}
           tags={tags}
           customFields={customFields}
+          lostReasons={lostReasons}
           assignees={assignees}
           canAssign={can('leads.assign')}
           currentUserId={currentUser?.id}
@@ -1023,6 +1024,8 @@ const CreateLeadModal: React.FC<{
   sources: LeadSource[];
   tags: LeadTag[];
   customFields: LeadCustomField[];
+  /** Motivos de pérdida configurados (para crear un lead ya perdido). */
+  lostReasons: string[];
   assignees: { uid: string; name: string }[];
   canAssign: boolean;
   currentUserId?: string;
@@ -1031,7 +1034,7 @@ const CreateLeadModal: React.FC<{
   onCreated: (lead: Lead) => void;
   /** Abre la ficha de un lead existente (aviso de posibles duplicados). */
   onOpenExisting: (id: string) => void;
-}> = ({ pipeline, sources, tags, customFields, assignees, canAssign, currentUserId, prefill, onClose, onCreated, onOpenExisting }) => {
+}> = ({ pipeline, sources, tags, customFields, lostReasons, assignees, canAssign, currentUserId, prefill, onClose, onCreated, onOpenExisting }) => {
   const { t } = useTranslation();
   const openStages = (pipeline?.stages || []).filter(s => s.type === 'open');
   const clientId = prefill?.clientId || '';
@@ -1039,7 +1042,14 @@ const CreateLeadModal: React.FC<{
     name: prefill?.name || '', lastName: prefill?.lastName || '', companyName: prefill?.companyName || '',
     email: prefill?.email || '', phone: prefill?.phone || '', value: '', sourceId: sources.find(s => s.name === 'Manual')?.id || '',
     assignedUserId: currentUserId || '', stageId: openStages[0]?.id || pipeline?.stages[0]?.id || '', nextActionAt: '', expectedCloseAt: '', notes: '',
+    lostReason: '', closedAt: '',
   });
+  // Etapas en el orden del pipeline: abiertas y luego ganada/perdida (crear ya cerrado / avanzado).
+  const allStages = pipeline?.stages || [];
+  const closedStages = allStages.filter(s => s.type !== 'open');
+  const stageType = allStages.find(s => s.id === f.stageId)?.type || 'open';
+  const isClosed = stageType !== 'open';
+  const todayStr = new Date().toLocaleDateString('en-CA');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [cf, setCf] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -1072,6 +1082,7 @@ const CreateLeadModal: React.FC<{
 
   const submit = async () => {
     if (!f.name.trim()) { toast.error(t('leads.board.create.name_required')); return; }
+    if (stageType === 'lost' && !f.lostReason.trim()) { toast.error(t('leads.board.create.lost_reason_required')); return; }
     const missing = customFields.filter(x => x.required && (cf[x.id] === undefined || cf[x.id] === ''));
     if (missing.length) { toast.error(t('leads.board.create.missing_fields', { fields: missing.map(m => m.label).join(', ') })); return; }
     setSaving(true);
@@ -1081,8 +1092,10 @@ const CreateLeadModal: React.FC<{
         email: f.email || null, phone: f.phone || null, value: f.value ? Number(f.value) : null,
         pipelineId: pipeline?.id, stageId: f.stageId || undefined, sourceId: f.sourceId || null,
         assignedUserId: f.assignedUserId || null, notes: f.notes || null,
-        nextActionAt: f.nextActionAt ? new Date(f.nextActionAt).toISOString() : null,
-        expectedCloseAt: f.expectedCloseAt ? new Date(f.expectedCloseAt + 'T12:00:00').toISOString() : null,
+        nextActionAt: !isClosed && f.nextActionAt ? new Date(f.nextActionAt).toISOString() : null,
+        expectedCloseAt: !isClosed && f.expectedCloseAt ? new Date(f.expectedCloseAt + 'T12:00:00').toISOString() : null,
+        ...(isClosed ? { closedAt: f.closedAt || null } : {}),
+        ...(stageType === 'lost' ? { lostReason: f.lostReason.trim() } : {}),
         tagIds, customFields: cf,
         ...(clientId ? { clientId } : {}),
       } as any);
@@ -1109,7 +1122,14 @@ const CreateLeadModal: React.FC<{
           <div>{lbl(t('leads.common.email'))}<input type="email" value={f.email} onChange={e => set('email', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.phone'))}<input type="tel" value={f.phone} onChange={e => set('phone', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.stage'))}
-            <select value={f.stageId} onChange={e => set('stageId', e.target.value)} className={inputFormStyle}>{(pipeline?.stages || []).filter(s => s.type === 'open').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            <select value={f.stageId} onChange={e => set('stageId', e.target.value)} className={inputFormStyle}>
+              {closedStages.length > 0 ? (
+                <>
+                  <optgroup label={t('leads.board.create.stages_open')}>{openStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>
+                  <optgroup label={t('leads.board.create.stages_closed')}>{closedStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>
+                </>
+              ) : openStages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
           <div>{lbl(t('leads.common.assignee'))}
             <select value={f.assignedUserId} disabled={!canAssign} onChange={e => set('assignedUserId', e.target.value)} className={inputFormStyle}>
@@ -1121,8 +1141,29 @@ const CreateLeadModal: React.FC<{
           <div>{lbl(t('leads.common.source'))}
             <select value={f.sourceId} onChange={e => set('sourceId', e.target.value)} className={inputFormStyle}><option value="">—</option>{sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           </div>
-          <div>{lbl(t('leads.common.expected_close'))}<input type="date" value={f.expectedCloseAt} onChange={e => set('expectedCloseAt', e.target.value)} className={inputFormStyle} /></div>
-          <div className="sm:col-span-2">{lbl(t('leads.common.next_action'))}<input type="datetime-local" value={f.nextActionAt} onChange={e => set('nextActionAt', e.target.value)} className={inputFormStyle} /></div>
+          {isClosed ? (
+            <>
+              <div>{lbl(t('leads.board.create.closed_at'))}<input type="date" max={todayStr} value={f.closedAt} onChange={e => set('closedAt', e.target.value)} className={inputFormStyle} placeholder={todayStr} /></div>
+              {stageType === 'lost' && (
+                <div className="sm:col-span-2">{lbl(`${t('leads.common.lost_reason')} *`)}
+                  {lostReasons.length > 0 ? (
+                    <select value={f.lostReason} onChange={e => set('lostReason', e.target.value)} className={inputFormStyle}>
+                      <option value="">—</option>
+                      {lostReasons.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  ) : (
+                    <input value={f.lostReason} maxLength={200} onChange={e => set('lostReason', e.target.value)} className={inputFormStyle} />
+                  )}
+                </div>
+              )}
+              <p className="sm:col-span-2 -mt-2 text-xs text-neutral-500 dark:text-neutral-400">{t('leads.board.create.closed_hint')}</p>
+            </>
+          ) : (
+            <>
+              <div>{lbl(t('leads.common.expected_close'))}<input type="date" value={f.expectedCloseAt} onChange={e => set('expectedCloseAt', e.target.value)} className={inputFormStyle} /></div>
+              <div className="sm:col-span-2">{lbl(t('leads.common.next_action'))}<input type="datetime-local" value={f.nextActionAt} onChange={e => set('nextActionAt', e.target.value)} className={inputFormStyle} /></div>
+            </>
+          )}
           {tags.length > 0 && (
             <div className="sm:col-span-2">{lbl(t('leads.common.tags'))}
               <div className="flex flex-wrap gap-1.5">

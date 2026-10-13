@@ -60,6 +60,11 @@ export const es: Record<string, string> = {
   // Toasts
   'leads.board.load_error': 'No se pudieron cargar los leads.',
   'leads.board.lost_reason_hint': 'Elige el motivo de pérdida en la ficha del lead.',
+  'leads.board.create.stages_open': 'En proceso',
+  'leads.board.create.stages_closed': 'Cerrado',
+  'leads.board.create.closed_at': 'Fecha de cierre',
+  'leads.board.create.closed_hint': 'Se registrará ya cerrado: útil para cargar oportunidades pasadas.',
+  'leads.board.create.lost_reason_required': 'Indica el motivo de pérdida.',
   'leads.board.move_error': 'No se pudo mover el lead.',
   // Importar / exportar
   'leads.board.import_title': 'Importar leads',
@@ -169,6 +174,11 @@ export const en: Record<string, string> = {
   'leads.board.empty': 'No leads yet.',
   'leads.board.load_error': 'Could not load leads.',
   'leads.board.lost_reason_hint': 'Choose the lost reason in the lead record.',
+  'leads.board.create.stages_open': 'In progress',
+  'leads.board.create.stages_closed': 'Closed',
+  'leads.board.create.closed_at': 'Close date',
+  'leads.board.create.closed_hint': 'It will be saved as already closed: useful to record past opportunities.',
+  'leads.board.create.lost_reason_required': 'Enter the lost reason.',
   'leads.board.move_error': 'Could not move the lead.',
   'leads.board.import_title': 'Import leads',
   'leads.board.import.assignee_email': 'Owner email',
