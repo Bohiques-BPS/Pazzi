@@ -438,9 +438,56 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         [comments]
     );
 
+    // Barra de acciones en el pie FIJO del modal: Guardar siempre visible, sin hacer scroll.
+    const detailFooter = (
+        <div className="flex justify-between items-center gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
+                {/* Aprobación: solicitar, aprobar/rechazar (encargados), o estado final. */}
+                {approvalStatus === 'pending' ? (
+                    canApprove ? (
+                        <>
+                            <button onClick={() => handleRespondApproval('approved')} disabled={respondingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 flex items-center disabled:opacity-50`}>
+                                ✅ {respondingApproval ? '…' : 'Aprobar'}
+                            </button>
+                            <button onClick={() => handleRespondApproval('rejected')} disabled={respondingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 flex items-center disabled:opacity-50`}>
+                                ❌ {respondingApproval ? '…' : 'Rechazar'}
+                            </button>
+                        </>
+                    ) : (
+                        <span className="inline-flex items-center text-sm font-medium text-amber-600 dark:text-amber-400 px-2 py-1">⏳ Pendiente de aprobación</span>
+                    )
+                ) : approvalStatus === 'approved' ? (
+                    <span className="inline-flex items-center text-sm font-medium text-green-700 dark:text-green-300 px-2 py-1">✅ Aprobada</span>
+                ) : approvalStatus === 'rejected' ? (
+                    <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Volver a solicitar aprobación">
+                        ❌ Rechazada · {requestingApproval ? 'Enviando…' : 'Reenviar'}
+                    </button>
+                ) : (
+                    <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Notifica a los encargados del proyecto que esta tarea necesita aprobación">
+                        🔔 {requestingApproval ? 'Enviando…' : 'Solicitar aprobación'}
+                    </button>
+                )}
+                <button onClick={handleArchive} className={`${BUTTON_SECONDARY_SM_CLASSES} text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center`}>
+                    <ArchiveBoxIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.archive')}
+                </button>
+                {onDelete && (
+                    <button onClick={() => setShowDeleteConfirm(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center`}>
+                        <DeleteIcon className="w-4 h-4 mr-1" /> {t('common.delete')}
+                    </button>
+                )}
+            </div>
+            <div className="space-x-2">
+                <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
+                <button onClick={handleSave} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
+                    {submitting ? t('common.saving') : t('cmpx.task.save_changes')}
+                </button>
+            </div>
+        </div>
+    );
+
     return (
         <>
-        <Modal isOpen={true} onClose={onClose} title={t('cmpx.task.details_title')} size="2xl" isDirty={isDirty && !submitting}>
+        <Modal isOpen={true} onClose={onClose} title={t('cmpx.task.details_title')} size="2xl" isDirty={isDirty && !submitting} footer={detailFooter}>
             <div className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
@@ -862,49 +909,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                     </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t dark:border-neutral-700">
-                    <div className="flex gap-2 flex-wrap">
-                        {/* Aprobación: solicitar, aprobar/rechazar (encargados), o estado final. */}
-                        {approvalStatus === 'pending' ? (
-                            canApprove ? (
-                                <>
-                                    <button onClick={() => handleRespondApproval('approved')} disabled={respondingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 flex items-center disabled:opacity-50`}>
-                                        ✅ {respondingApproval ? '…' : 'Aprobar'}
-                                    </button>
-                                    <button onClick={() => handleRespondApproval('rejected')} disabled={respondingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 flex items-center disabled:opacity-50`}>
-                                        ❌ {respondingApproval ? '…' : 'Rechazar'}
-                                    </button>
-                                </>
-                            ) : (
-                                <span className="inline-flex items-center text-sm font-medium text-amber-600 dark:text-amber-400 px-2 py-1">⏳ Pendiente de aprobación</span>
-                            )
-                        ) : approvalStatus === 'approved' ? (
-                            <span className="inline-flex items-center text-sm font-medium text-green-700 dark:text-green-300 px-2 py-1">✅ Aprobada</span>
-                        ) : approvalStatus === 'rejected' ? (
-                            <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Volver a solicitar aprobación">
-                                ❌ Rechazada · {requestingApproval ? 'Enviando…' : 'Reenviar'}
-                            </button>
-                        ) : (
-                            <button onClick={handleRequestApproval} disabled={requestingApproval} className={`${BUTTON_SECONDARY_SM_CLASSES} text-primary hover:bg-primary/10 flex items-center disabled:opacity-50`} title="Notifica a los encargados del proyecto que esta tarea necesita aprobación">
-                                🔔 {requestingApproval ? 'Enviando…' : 'Solicitar aprobación'}
-                            </button>
-                        )}
-                        <button onClick={handleArchive} className={`${BUTTON_SECONDARY_SM_CLASSES} text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 flex items-center`}>
-                            <ArchiveBoxIcon className="w-4 h-4 mr-1" /> {t('cmpx.task.archive')}
-                        </button>
-                        {onDelete && (
-                            <button onClick={() => setShowDeleteConfirm(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center`}>
-                                <DeleteIcon className="w-4 h-4 mr-1" /> {t('common.delete')}
-                            </button>
-                        )}
-                    </div>
-                    <div className="space-x-2">
-                        <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES} disabled={submitting}>{t('common.cancel')}</button>
-                        <button onClick={handleSave} className={BUTTON_PRIMARY_SM_CLASSES} disabled={submitting}>
-                            {submitting ? t('common.saving') : t('cmpx.task.save_changes')}
-                        </button>
-                    </div>
-                </div>
             </div>
         </Modal>
         <ConfirmationModal

@@ -8,7 +8,7 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { tasksService, type TaskAttachment } from '../../services/tasks';
 import { uploadImage } from '../../services/upload';
 import { Task } from '../../types';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, INPUT_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { toast } from 'react-hot-toast';
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string }[] = [
@@ -42,8 +42,8 @@ interface Props {
 
 /**
  * Crear tarea con TODOS los campos de "Detalles de la tarea" (título, prioridad, fecha, sección,
- * recordatorio, descripción, imágenes, colaboradores, subtareas y checklist), en dos columnas para
- * que quepa sin scroll en pantallas normales. Comentarios/aprobación quedan para después de crearla.
+ * recordatorio, descripción, imágenes, colaboradores, subtareas y checklist), en una columna como
+ * el editor y con los botones en un pie fijo (no hace falta bajar para guardar). Comentarios/aprobación quedan para después de crearla.
  */
 export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSection, sections, assignSelf, onToggleAssignSelf, myAssigneeId, onClose, onCreated }) => {
     const { t } = useTranslation();
@@ -161,146 +161,145 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
         } finally { setSaving(false); }
     };
 
-    const label = 'block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1';
-    const listInput = `${INPUT_SM_CLASSES} flex-1 min-w-0`;
+    const label = 'block text-sm font-medium text-neutral-700 dark:text-neutral-300';
+
+    // Botones en el pie FIJO del modal: siempre visibles, sin tener que hacer scroll para guardar.
+    const footer = (
+        <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-neutral-400 hidden sm:block">Enter en el título para crear · Ctrl+V para pegar imágenes</p>
+            <div className="flex gap-2 ml-auto">
+                <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel') || 'Cancelar'}</button>
+                <button type="button" onClick={create} disabled={uploading || saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
+                    {uploading ? 'Subiendo imagen…' : saving ? (t('common.saving') || 'Guardando…') : (t('cmpx.task.add_task_btn') || 'Añadir tarea')}
+                </button>
+            </div>
+        </div>
+    );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`${t('cmpx.task.add_task') || 'Añadir tarea'}${status ? ` · ${status}` : ''}`} size="4xl" isDirty={isDirty && !saving}>
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5" onPaste={onPaste}>
-                {/* Columna principal: título, descripción, imágenes */}
-                <div className="lg:col-span-3 space-y-4 min-w-0">
-                    <div>
-                        <label className={label}>{t('cmpx.task.title_label') || 'Título'}</label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                value={title}
-                                onChange={e => setTitle(e.target.value)}
-                                placeholder={t('cmpx.task.title_ph')}
-                                className={inputFormStyle + ' flex-1'}
-                                autoFocus
-                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); create(); } }}
-                            />
-                            <MicButton value={title} onChange={setTitle} title="Dictar el título de la tarea" />
-                        </div>
-                    </div>
-                    <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.description_label')}</label>
-                            <MicButton onText={(text) => setDescription(prev => { const b = (prev || '').trim(); return b ? `${b} ${text}` : text; })} title="Dictar la descripción" />
-                        </div>
-                        <RichTextEditor value={description} onChange={setDescription} placeholder={t('cmpx.task.description_ph')} />
-                    </div>
-                    <div>
-                        <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Imágenes</label>
-                            <button type="button" onClick={() => fileRef.current?.click()} className="text-xs text-primary hover:underline">{uploading ? 'Subiendo…' : '+ Adjuntar'}</button>
-                            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
-                        </div>
-                        {images.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {images.map((img, i) => (
-                                    <div key={i} className="relative">
-                                        <img src={img.url} alt={img.name || 'imagen'} className="w-16 h-16 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
-                                        <button type="button" onClick={() => setImages(prev => prev.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow" aria-label="Quitar imagen">✕</button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md px-3 py-2.5 text-center">Pega una imagen aquí (Ctrl+V) o usa “+ Adjuntar”.</p>
-                        )}
+        <Modal isOpen={isOpen} onClose={onClose} title={`${t('cmpx.task.add_task') || 'Añadir tarea'}${status ? ` · ${status}` : ''}`} size="2xl" isDirty={isDirty && !saving} footer={footer}>
+            {/* Mismo orden y estilo que "Detalles de la tarea", en una columna. */}
+            <div className="space-y-4" onPaste={onPaste}>
+                <div>
+                    <label className={label}>{t('cmpx.task.title_label') || 'Título'}</label>
+                    <div className="flex items-center gap-2">
+                        <input
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            placeholder={t('cmpx.task.title_ph')}
+                            className={inputFormStyle + ' flex-1'}
+                            autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); create(); } }}
+                        />
+                        <MicButton value={title} onChange={setTitle} title="Dictar el título de la tarea" />
                     </div>
                 </div>
 
-                {/* Columna lateral: datos de la tarea */}
-                <div className="lg:col-span-2 space-y-3 min-w-0">
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className={label}>{t('cmpx.task.priority_label')}</label>
-                            <select value={priority ?? ''} onChange={e => setPriority((e.target.value || null) as Task['priority'])} className={`${INPUT_SM_CLASSES} w-full`}>
-                                {PRIORITY_OPTIONS.map(o => <option key={o.value ?? 'none'} value={o.value ?? ''}>{t(o.labelKey)}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={label}>{t('cmpx.task.due_date')}</label>
-                            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
-                        </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className={label}>{t('cmpx.task.priority_label')}</label>
+                        <select value={priority ?? ''} onChange={e => setPriority((e.target.value || null) as Task['priority'])} className={inputFormStyle}>
+                            {PRIORITY_OPTIONS.map(o => <option key={o.value ?? 'none'} value={o.value ?? ''}>{t(o.labelKey)}</option>)}
+                        </select>
                     </div>
                     <div>
-                        <label className={label}>{t('cmpx.task.section_label')}</label>
-                        <input value={section} onChange={e => setSection(e.target.value)} list="task-create-sections" placeholder={t('cmpx.task.section_none')} className={`${INPUT_SM_CLASSES} w-full`} />
-                        <datalist id="task-create-sections">{sections.map(s => <option key={s} value={s} />)}</datalist>
-                    </div>
-                    <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-2.5">
-                        <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer">
-                            <input type="checkbox" checked={reminderOn} onChange={e => toggleReminder(e.target.checked)} className="h-4 w-4" />
-                            🔔 Recordarme esta tarea
-                        </label>
-                        {reminderOn && <input type="datetime-local" value={remindAt} onChange={e => setRemindAt(e.target.value)} className={`${INPUT_SM_CLASSES} w-full mt-2`} />}
-                    </div>
-                    <div>
-                        <label className={label}>{t('cmpx.task.assign_collaborators')}</label>
-                        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                            {employees.map((emp: any) => {
-                                const on = assignedIds.includes(emp.id);
-                                return (
-                                    <button key={emp.id} type="button" onClick={() => setAssignedIds(prev => on ? prev.filter(id => id !== emp.id) : [...prev, emp.id])}
-                                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-primary text-white border-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>
-                                        {on ? '✓ ' : ''}{`${emp.name || ''} ${emp.lastName || ''}`.trim()}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 cursor-pointer select-none mt-1.5">
-                            <input type="checkbox" checked={assignSelf} onChange={e => onToggleAssignSelf(e.target.checked)} className="h-3.5 w-3.5 rounded accent-primary" />
-                            Asignármelas a mí automáticamente
-                        </label>
-                    </div>
-                    {/* Subtareas y checklist: se crean junto con la tarea. */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
-                        <div>
-                            <label className={label}>↳ Subtareas</label>
-                            {subtasks.length > 0 && (
-                                <ul className="mb-1 space-y-0.5 max-h-20 overflow-y-auto">
-                                    {subtasks.map((s, i) => (
-                                        <li key={i} className="flex items-center gap-1 text-xs text-neutral-700 dark:text-neutral-200">
-                                            <span className="flex-1 truncate">• {s}</span>
-                                            <button type="button" onClick={() => setSubtasks(prev => prev.filter((_, j) => j !== i))} className="text-neutral-400 hover:text-red-500" aria-label="Quitar">✕</button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                            <div className="flex gap-1">
-                                <input value={newSubtask} onChange={e => setNewSubtask(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } }} placeholder="Añadir subtarea…" className={listInput} />
-                                <button type="button" onClick={addSubtask} className="px-2 rounded-md text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20">+</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className={label}>Lista de verificación</label>
-                            {checklist.length > 0 && (
-                                <ul className="mb-1 space-y-0.5 max-h-20 overflow-y-auto">
-                                    {checklist.map((c, i) => (
-                                        <li key={i} className="flex items-center gap-1 text-xs text-neutral-700 dark:text-neutral-200">
-                                            <span className="flex-1 truncate">☐ {c}</span>
-                                            <button type="button" onClick={() => setChecklist(prev => prev.filter((_, j) => j !== i))} className="text-neutral-400 hover:text-red-500" aria-label="Quitar">✕</button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                            <div className="flex gap-1">
-                                <input value={newCheck} onChange={e => setNewCheck(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCheck(); } }} placeholder="Añadir ítem…" className={listInput} />
-                                <button type="button" onClick={addCheck} className="px-2 rounded-md text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20">+</button>
-                            </div>
-                        </div>
+                        <label className={label}>{t('cmpx.task.due_date')}</label>
+                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputFormStyle} />
                     </div>
                 </div>
 
-                <div className="lg:col-span-5 flex items-center justify-between gap-2 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                    <p className="text-xs text-neutral-400 hidden sm:block">Enter en el título para crear · Ctrl+V para pegar imágenes</p>
-                    <div className="flex gap-2 ml-auto">
-                        <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel') || 'Cancelar'}</button>
-                        <button type="button" onClick={create} disabled={uploading || saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                            {uploading ? 'Subiendo imagen…' : saving ? (t('common.saving') || 'Guardando…') : (t('cmpx.task.add_task_btn') || 'Añadir tarea')}
-                        </button>
+                <div>
+                    <label className={label}>{t('cmpx.task.section_label')}</label>
+                    <input value={section} onChange={e => setSection(e.target.value)} list="task-create-sections" placeholder={t('cmpx.task.section_none')} className={inputFormStyle} />
+                    <datalist id="task-create-sections">{sections.map(s => <option key={s} value={s} />)}</datalist>
+                </div>
+
+                <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer">
+                        <input type="checkbox" checked={reminderOn} onChange={e => toggleReminder(e.target.checked)} className="h-4 w-4" />
+                        🔔 Recordarme esta tarea
+                    </label>
+                    {reminderOn && <input type="datetime-local" value={remindAt} onChange={e => setRemindAt(e.target.value)} className={inputFormStyle + ' mt-2'} />}
+                </div>
+
+                <div>
+                    <div className="flex items-center justify-between">
+                        <label className={label}>{t('cmpx.task.description_label')}</label>
+                        <MicButton onText={(text) => setDescription(prev => { const b = (prev || '').trim(); return b ? `${b} ${text}` : text; })} title="Dictar la descripción" />
+                    </div>
+                    <RichTextEditor value={description} onChange={setDescription} placeholder={t('cmpx.task.description_ph')} />
+                </div>
+
+                <div>
+                    <div className="flex items-center justify-between">
+                        <label className={label}>🖼️ Imágenes</label>
+                        <button type="button" onClick={() => fileRef.current?.click()} className="text-xs text-primary hover:underline">{uploading ? 'Subiendo…' : '+ Adjuntar'}</button>
+                        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
+                    </div>
+                    {images.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {images.map((img, i) => (
+                                <div key={i} className="relative">
+                                    <img src={img.url} alt={img.name || 'imagen'} className="w-20 h-20 object-cover rounded border border-neutral-300 dark:border-neutral-600" />
+                                    <button type="button" onClick={() => setImages(prev => prev.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow" aria-label="Quitar imagen">✕</button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md px-3 py-3 text-center">Pega una imagen aquí (Ctrl+V) o usa “+ Adjuntar”.</p>
+                    )}
+                </div>
+
+                <fieldset className="border dark:border-neutral-600 p-3 rounded">
+                    <legend className="text-base font-medium px-1 text-neutral-700 dark:text-neutral-300">{t('cmpx.task.assign_collaborators')}</legend>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto mt-2">
+                        {employees.map((emp: any) => (
+                            <label key={emp.id} className="flex items-center space-x-2 p-1.5 bg-neutral-100 dark:bg-neutral-700 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-600">
+                                <input type="checkbox" checked={assignedIds.includes(emp.id)} onChange={() => setAssignedIds(prev => prev.includes(emp.id) ? prev.filter(id => id !== emp.id) : [...prev, emp.id])} className="form-checkbox h-4 w-4 text-primary focus:ring-primary" />
+                                <span className="text-base text-neutral-700 dark:text-neutral-200">{emp.name} {emp.lastName}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none mt-2">
+                        <input type="checkbox" checked={assignSelf} onChange={e => onToggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
+                        Asignármelas a mí automáticamente
+                    </label>
+                </fieldset>
+
+                {/* Subtareas y checklist: se crean junto con la tarea. */}
+                <div className="border-t dark:border-neutral-700 pt-4">
+                    <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 mb-2">↳ Subtareas</h4>
+                    {subtasks.length > 0 && (
+                        <ul className="mb-2 space-y-1">
+                            {subtasks.map((s, i) => (
+                                <li key={i} className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                                    <span className="flex-1 truncate">• {s}</span>
+                                    <button type="button" onClick={() => setSubtasks(prev => prev.filter((_, j) => j !== i))} className="text-neutral-400 hover:text-red-500" aria-label="Quitar">✕</button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <div className="flex gap-2">
+                        <input value={newSubtask} onChange={e => setNewSubtask(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } }} placeholder="Añadir subtarea…" className={inputFormStyle + ' flex-1'} />
+                        <button type="button" onClick={addSubtask} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.add') || 'Añadir'}</button>
+                    </div>
+                </div>
+
+                <div className="border-t dark:border-neutral-700 pt-4">
+                    <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 mb-2">Lista de verificación</h4>
+                    {checklist.length > 0 && (
+                        <ul className="mb-2 space-y-1">
+                            {checklist.map((c, i) => (
+                                <li key={i} className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                                    <span className="flex-1 truncate">☐ {c}</span>
+                                    <button type="button" onClick={() => setChecklist(prev => prev.filter((_, j) => j !== i))} className="text-neutral-400 hover:text-red-500" aria-label="Quitar">✕</button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <div className="flex gap-2">
+                        <input value={newCheck} onChange={e => setNewCheck(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCheck(); } }} placeholder="Añadir ítem…" className={inputFormStyle + ' flex-1'} />
+                        <button type="button" onClick={addCheck} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.add') || 'Añadir'}</button>
                     </div>
                 </div>
             </div>

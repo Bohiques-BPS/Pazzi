@@ -16,8 +16,10 @@ export interface ModalProps {
    * "¿Deseas salir sin guardar los cambios?" en vez de cerrar y perderlos.
    */
   isDirty?: boolean;
+  /** Pie FIJO (botones Guardar/Cancelar): queda siempre visible abajo aunque el contenido haga scroll. */
+  footer?: React.ReactNode;
 }
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl', disableEscClose, isDirty }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl', disableEscClose, isDirty, footer }) => {
   const { t } = useTranslation();
   const [confirmLeave, setConfirmLeave] = useState(false);
   useEffect(() => { if (!isOpen) setConfirmLeave(false); }, [isOpen]);
@@ -77,9 +79,14 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             <XMarkIcon className="w-7 h-7" />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto text-neutral-700 dark:text-neutral-200 text-base">
+        <div className="p-6 overflow-y-auto min-h-0 text-neutral-700 dark:text-neutral-200 text-base">
           {children}
         </div>
+        {footer && (
+          <div className={`flex-shrink-0 px-6 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ${isScreen ? '' : 'rounded-b-lg'}`}>
+            {footer}
+          </div>
+        )}
 
         {/* Confirmación de salida con cambios sin guardar (sobre el propio modal). */}
         {confirmLeave && (
