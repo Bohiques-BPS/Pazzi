@@ -4,6 +4,7 @@ import { invoicesService, type PublicInvoice } from '../../services/invoices';
 import { splitTax } from '../../utils/taxBreakdown';
 import { AgilPayCardForm } from '../../components/pos/AgilPayCardForm';
 import { AthMovilPhonePay } from '../../components/pos/AthMovilPhonePay';
+import { TermsAcceptance } from '../../components/pos/TermsAcceptance';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
@@ -278,10 +279,7 @@ export const PublicInvoicePage: React.FC = () => {
                             </div>
 
                             {/* Términos y condiciones: hay que aceptarlos antes de pagar. */}
-                            <label className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
-                                <input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="h-4 w-4 mt-0.5 flex-shrink-0 accent-teal-600" />
-                                <span>{t('pay.terms_accept')}</span>
-                            </label>
+                            <TermsAcceptance checked={acceptedTerms} onChange={setAcceptedTerms} label={t('pay.terms_accept')} business={inv.business} t={t} />
 
                             {/* El bloque de pago se habilita solo al aceptar los términos. */}
                             <div className={acceptedTerms ? 'space-y-4' : 'space-y-4 opacity-50 pointer-events-none select-none'} aria-disabled={!acceptedTerms}>

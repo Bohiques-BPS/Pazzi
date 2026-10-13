@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { recurringPublic, type PublicEnroll } from '../../services/recurring';
 import { AgilPayCardForm } from '../../components/pos/AgilPayCardForm';
+import { TermsAcceptance } from '../../components/pos/TermsAcceptance';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { ApiError } from '../../services/api';
 
@@ -85,10 +86,7 @@ export const PublicEnrollPage: React.FC = () => {
                     ) : (
                         <div className="space-y-4">
                             {/* Términos y condiciones */}
-                            <label className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
-                                <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} className="h-4 w-4 mt-0.5 flex-shrink-0 accent-teal-600" />
-                                <span>{t('enroll.terms')}</span>
-                            </label>
+                            <TermsAcceptance checked={accepted} onChange={setAccepted} label={t('enroll.terms')} business={b} t={t} />
                             <div className={accepted ? '' : 'opacity-50 pointer-events-none select-none'} aria-disabled={!accepted}>
                                 {!accepted && <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">{t('enroll.terms_required')}</p>}
                                 <AgilPayCardForm

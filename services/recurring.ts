@@ -1,4 +1,5 @@
 import { api } from './api';
+import type { BusinessTerms } from './invoices';
 
 export type RecurringMode = 'auto_charge' | 'invoice_link';
 export type LinkMethod = 'agilpay' | 'ath';
@@ -147,7 +148,7 @@ export interface PublicEnroll {
     intervalCount?: number;
     description?: string | null;
     nextChargeDate?: string | null;
-    business: { businessName: string; rnc: string; address: string; phone: string; email: string; logoUrl: string };
+    business: { businessName: string; rnc: string; address: string; phone: string; email: string; logoUrl: string } & BusinessTerms;
     agilpayEnabled: boolean;
 }
 export const recurringPublic = {

@@ -75,7 +75,14 @@ export interface UpdateInvoiceInput {
     dueDate?: string | null;   // vencimiento (puede ser futura; '' o null lo limpia)
 }
 
-export interface PublicInvoiceBusiness {
+/** Términos y condiciones del negocio (Configuración de facturas): enlace o texto. */
+export interface BusinessTerms {
+    termsMode?: 'none' | 'link' | 'text';
+    termsUrl?: string | null;
+    termsText?: string | null;
+}
+
+export interface PublicInvoiceBusiness extends BusinessTerms {
     businessName: string;
     rnc: string;
     address: string;

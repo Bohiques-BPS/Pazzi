@@ -51,6 +51,10 @@ export interface ReceiptConfig {
     returnPolicyText?: string;     // ej. "30 días para cambios y/o devoluciones"
     thankYouText?: string;         // ej. "*** Gracias por su patrocinio ***"
     paymentTermsText?: string;     // ej. "*** Término para pago 30 días ***"
+    // ── Términos y condiciones del NEGOCIO (los que acepta el cliente al pagar / autorizar un cobro recurrente) ──
+    termsMode?: 'none' | 'link' | 'text'; // 'link' = enlace a su página; 'text' = texto que se muestra en Pazzi
+    termsUrl?: string;             // si termsMode = 'link'
+    termsText?: string;            // si termsMode = 'text'
 }
 
 export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {

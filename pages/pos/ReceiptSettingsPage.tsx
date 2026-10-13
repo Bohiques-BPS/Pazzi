@@ -200,6 +200,34 @@ export const ReceiptSettingsPage: React.FC = () => {
                         )}
                     </section>
 
+                    {/* Términos y condiciones del NEGOCIO para pagos en línea (página de pago y autorización de cobro recurrente). */}
+                    <section className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 space-y-3">
+                        <h3 className="font-semibold text-primary mb-1">{t('posx.receipt.terms.title')}</h3>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('posx.receipt.terms.help')}</p>
+                        <div className="flex flex-wrap gap-1">
+                            {(['none', 'link', 'text'] as const).map(m => (
+                                <button key={m} type="button" onClick={() => set('termsMode' as any, m)}
+                                    className={`px-3.5 py-1.5 text-sm font-medium rounded-full transition-colors ${(cfg.termsMode || 'none') === m ? 'bg-primary text-white shadow-sm' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>
+                                    {t(`posx.receipt.terms.mode.${m}`)}
+                                </button>
+                            ))}
+                        </div>
+                        {cfg.termsMode === 'link' && (
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.terms.url')}</label>
+                                <input type="url" value={cfg.termsUrl ?? ''} onChange={e => set('termsUrl' as any, e.target.value)} placeholder="https://www.minegocio.com/terminos" className={`${INPUT_SM_CLASSES} w-full`} />
+                                {!!cfg.termsUrl && !/^https?:\/\//i.test(cfg.termsUrl) && <p className="text-xs text-amber-600 mt-1">{t('posx.receipt.terms.url_invalid')}</p>}
+                            </div>
+                        )}
+                        {cfg.termsMode === 'text' && (
+                            <div>
+                                <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.terms.text')}</label>
+                                <textarea value={cfg.termsText ?? ''} onChange={e => set('termsText' as any, e.target.value)} rows={8} maxLength={20000} placeholder={t('posx.receipt.terms.text_ph')} className={`${INPUT_SM_CLASSES} w-full !h-auto`} />
+                            </div>
+                        )}
+                        <p className="text-xs text-neutral-400">{t('posx.receipt.terms.pazzi_note')}</p>
+                    </section>
+
                     {/* Diseño de la FACTURA (PDF de correo/descarga) */}
                     {(() => {
                         const dz: any = (cfg as any).invoiceDesign || {};
