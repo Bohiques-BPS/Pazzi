@@ -25,6 +25,14 @@ interface UpdateStatusModalProps {
     onUpdate: (orderId: string, newStatus: SupplierOrderStatus) => void;
 }
 
+/** Fecha de día: el backend la envía como ISO completo ("2026-10-11T00:00:00.000Z"); se toma solo
+ *  "YYYY-MM-DD" (a mediodía, para que la zona horaria no la corra un día). */
+const fmtDay = (v?: string | null) => {
+    if (!v) return '—';
+    const d = new Date(String(v).slice(0, 10) + 'T12:00:00');
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-ES');
+};
+
 const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({ isOpen, onClose, order, onUpdate }) => {
     const { t } = useTranslation();
     const [newStatus, setNewStatus] = useState<SupplierOrderStatus | ''>('');
@@ -275,8 +283,8 @@ export const SupplierOrdersListPage: React.FC = () => {
     const columns: TableColumn<SupplierOrder>[] = [
         { header: t('ecommerce.supplier_orders.col.id'), accessor: (order) => order.id.substring(0, 8).toUpperCase() },
         { header: t('ecommerce.supplier_orders.col.supplier'), accessor: (order) => order.supplier?.name || 'N/A' },
-        { header: t('ecommerce.supplier_orders.col.date'), accessor: (order) => new Date(order.orderDate + 'T00:00:00').toLocaleDateString('es-ES') },
-        { header: t('ecommerce.supplier_orders.col.delivery_date'), accessor: (order) => order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A' },
+        { header: t('ecommerce.supplier_orders.col.date'), accessor: (order) => fmtDay(order.orderDate) },
+        { header: t('ecommerce.supplier_orders.col.delivery_date'), accessor: (order) => order.expectedDeliveryDate ? fmtDay(order.expectedDeliveryDate) : 'N/A' },
         { header: t('ecommerce.supplier_orders.col.cost'), accessor: (order) => `$${order.totalCost.toFixed(2)}` },
         { 
             header: t('ecommerce.supplier_orders.col.status'), 
