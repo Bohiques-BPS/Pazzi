@@ -77,6 +77,7 @@ import { openCashDrawer, isCashDrawerEnabled } from '../../services/cashDrawer';
 import { toast } from '../../hooks/useToast';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 import { QuickSettingsButton } from '../../components/ui/QuickSettingsButton';
+import { clientDocName } from '../../utils/clientName';
 
 
 // Helper component for the live clock in the header
@@ -979,7 +980,7 @@ export const POSCashierPage: React.FC = () => {
                 });
             })(),
             changeDue: changeDue || 0,
-            clientName: selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined,
+            clientName: selectedClient ? clientDocName(selectedClient) : undefined,
             cashierName: operatorName,
         };
 
@@ -1769,7 +1770,7 @@ export const POSCashierPage: React.FC = () => {
                     isOpen={activeModal === 'clientCredit'}
                     onClose={() => setActiveModal(null)}
                     clientId={selectedClient.id}
-                    clientName={`${selectedClient.name} ${selectedClient.lastName || ''}`.trim()}
+                    clientName={clientDocName(selectedClient)}
                     onPaid={() => { setActiveModal(null); }}
                 />
             )}

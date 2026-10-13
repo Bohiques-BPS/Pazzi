@@ -17,6 +17,7 @@ import { printSaleReceipt } from '../../utils/printSaleReceipt';
 import { leadsService } from '../../services/leads';
 import { useModules } from '../../hooks/useModules';
 import { AppModule, Lead, Pipeline } from '../../types';
+import { clientDocName } from '../../utils/clientName';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -545,7 +546,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
             isOpen={payOpen}
             onClose={() => setPayOpen(false)}
             clientId={client.id}
-            clientName={`${client.name} ${client.lastName || ''}`.trim()}
+            clientName={clientDocName(client)}
             onPaid={(info) => {
                 setPayOpen(false);
                 if (info.receipt) {

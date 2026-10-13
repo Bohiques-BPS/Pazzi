@@ -35,6 +35,7 @@ import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { PermissionGate } from '../../components/PermissionGate';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { clientDocName } from '../../utils/clientName';
 
 export const ClientsListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -287,7 +288,7 @@ export const ClientsListPage: React.FC = () => {
                 isOpen={!!clientForPOSReport}
                 onClose={() => setClientForPOSReport(null)}
                 clientId={clientForPOSReport?.id || ''}
-                clientName={clientForPOSReport ? `${clientForPOSReport.name} ${clientForPOSReport.lastName || ''}` : undefined}
+                clientName={clientForPOSReport ? clientDocName(clientForPOSReport) : undefined}
             />
             <ClientInvoiceModal
                 isOpen={!!clientForInvoice}

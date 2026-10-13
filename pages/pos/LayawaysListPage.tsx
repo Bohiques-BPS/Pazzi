@@ -12,6 +12,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { PermissionGate } from '../../components/PermissionGate';
 import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ClientNameLink } from '../../components/ui/EntityNameLink';
+import { clientDocName } from '../../utils/clientName';
 
 interface LayawayRow extends LayawayRecord {
     amountPaid: number;
@@ -54,7 +55,7 @@ export const LayawaysListPage: React.FC = () => {
             .map(l => {
                 const amountPaid = l.payments.reduce((sum, p) => sum + p.amountPaid, 0);
                 const balance = Math.max(0, l.totalAmount - amountPaid);
-                const clientName = l.client ? `${l.client.name} ${l.client.lastName || ''}`.trim() : 'N/A';
+                const clientName = l.client ? clientDocName(l.client) : 'N/A';
                 const progressPct = l.totalAmount > 0 ? Math.min(100, (amountPaid / l.totalAmount) * 100) : 0;
                 return { ...l, amountPaid, balance, clientName, progressPct };
             })

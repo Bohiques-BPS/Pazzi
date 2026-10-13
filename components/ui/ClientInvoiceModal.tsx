@@ -6,6 +6,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { clientDocName } from '../../utils/clientName';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
@@ -96,7 +97,7 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
         catch { toast.error(t('cmpx.invoice.copy_error')); }
     };
 
-    const clientName = client ? `${client.name} ${client.lastName || ''}`.trim() : '';
+    const clientName = client ? clientDocName(client) : '';
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.invoice.title', { name: clientName })} size="lg">

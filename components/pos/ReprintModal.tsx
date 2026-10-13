@@ -9,6 +9,7 @@ import { EmptyState } from '../ui/EmptyState';
 import type { ReceiptSale } from './ReceiptModal';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { printPaymentReceipt } from '../../utils/printPaymentReceipt';
+import { clientDocName } from '../../utils/clientName';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
@@ -30,7 +31,7 @@ function toReceiptSale(sale: any): ReceiptSale {
         total: sale.totalAmount,
         payments,
         changeDue: 0,
-        clientName: sale.client ? `${sale.client.name} ${sale.client.lastName || ''}`.trim() : undefined,
+        clientName: sale.client ? clientDocName(sale.client) : undefined,
         cashierName: sale.employee ? `${sale.employee.name} ${sale.employee.lastName || ''}`.trim() : undefined,
     };
 }

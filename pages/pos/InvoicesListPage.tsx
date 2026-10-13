@@ -22,6 +22,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { splitTax } from '../../utils/taxBreakdown';
 import { printInvoicePaymentReceipt } from '../../utils/printInvoicePaymentReceipt';
 import { invoicePdfBlobUrl, downloadInvoicePdf, openInvoicePdf, type InvoicePdfBusiness } from '../../utils/invoiceClientPdf';
+import { clientDocName } from '../../utils/clientName';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
@@ -462,7 +463,7 @@ export const InvoicesListPage: React.FC = () => {
     const previewItems = lines.map(l => ({ name: l.name, quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0 }));
     const normRate = (r?: number) => r == null ? 0 : (r > 1 ? r / 100 : r); // acepta fracción (0.115) o % (11.5)
     const previewTax = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
-    const previewClientName = invClient ? `${invClient.name} ${invClient.lastName || ''}`.trim() : (clientQuery.trim() || undefined);
+    const previewClientName = invClient ? clientDocName(invClient) : (clientQuery.trim() || undefined); // alias del cliente si lo tiene
 
     // ── Plantillas personalizadas guardadas (en receiptConfig.invoiceTemplates) ──
     const savedTemplates: { id: string; name: string; design: any }[] = (settings as any)?.receiptConfig?.invoiceTemplates || [];

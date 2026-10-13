@@ -21,6 +21,7 @@ import { salesService } from '../../services/sales';
 import { invoicesService, type Invoice } from '../../services/invoices';
 import { printInvoicePaymentReceipt } from '../../utils/printInvoicePaymentReceipt';
 import { toast } from 'react-hot-toast';
+import { clientDocName } from '../../utils/clientName';
 
 /** Comprobante de abono a crédito (para imprimir via ReceiptModal). */
 function buildAbonoReceipt(clientName: string, total: number, method: string, reference: string | undefined, cashierName?: string): ReceiptSale {
@@ -48,7 +49,7 @@ function saleToReceipt(sale: any): ReceiptSale {
         discount: sale.discountAmount ?? 0,
         total: sale.totalAmount,
         payments,
-        clientName: sale.client ? `${sale.client.name} ${sale.client.lastName || ''}`.trim() : undefined,
+        clientName: sale.client ? clientDocName(sale.client) : undefined,
     };
 }
 
@@ -732,7 +733,7 @@ export const AccountsReceivablePage: React.FC = () => {
                 isOpen={!!creditClient}
                 onClose={() => setCreditClient(null)}
                 clientId={creditClient?.id || ''}
-                clientName={creditClient ? `${creditClient.name} ${creditClient.lastName || ''}`.trim() : undefined}
+                clientName={creditClient ? clientDocName(creditClient) : undefined}
                 onPaid={(info) => {
                     const name = creditClient ? `${creditClient.name} ${creditClient.lastName || ''}`.trim() : 'Cliente';
                     reloadSales();
