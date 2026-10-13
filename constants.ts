@@ -658,6 +658,7 @@ export const APP_MODULES_CONFIG = [
       { type: 'link', name: 'Módulos del Sistema', path: '/admin/modules', icon: Squares2X2Icon },
       { type: 'link', name: 'Alertas por Correo', path: '/admin/alerts', icon: BellIcon },
       { type: 'link', name: 'Bitácora de accesos', path: '/admin/access-log', icon: ClockIcon },
+      { type: 'link', name: 'WhatsApp', path: '/admin/whatsapp', icon: ChatBubbleLeftRightIcon },
     ] as SidebarItemConfig[],
   },
   { 
