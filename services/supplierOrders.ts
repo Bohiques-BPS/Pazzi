@@ -113,6 +113,33 @@ export interface SupplierOrderRecord {
   paymentNotes?: SupplierPaymentNoteRecord[];
 }
 
+/** Estado de una línea de la orden según el documento del proveedor (relativo a lo pendiente). */
+export type SupplierScanStatus = 'complete' | 'partial' | 'missing' | 'over';
+
+/** Conciliación documento del proveedor ↔ orden (POST /:id/receive/scan). No mueve inventario. */
+export interface SupplierOrderScanResult {
+  document: { number: string | null; date: string | null; supplierName: string | null; total: number | null };
+  items: Array<{
+    itemId: string;
+    productName: string;
+    ordered: number;
+    alreadyReceived: number;
+    pending: number;
+    inDocument: number;
+    /** min(inDocument, pending), entero. */
+    suggestedReceive: number;
+    status: SupplierScanStatus;
+    /** 'code' = código exacto; 'ai' = asociado por descripción (verificar); null = no está en el documento. */
+    matchedBy: 'code' | 'ai' | null;
+    orderUnitCost: number;
+    documentUnitCost: number | null;
+    costChanged: boolean;
+  }>;
+  /** Renglones del documento que no corresponden a la orden. */
+  extras: Array<{ code: string | null; description: string | null; quantity: number | null; unitCost: number | null }>;
+  warnings: string[];
+}
+
 export const supplierOrdersService = {
   getAll: (filters?: { supplierId?: string; limit?: number }) =>
     api.get<SupplierOrderRecord[]>('/supplier-orders', { limit: 300, ...(filters || {}) } as any),
@@ -139,6 +166,16 @@ export const supplierOrdersService = {
       `/supplier-orders/${id}/receive`,
       data
     ),
+
+  /**
+   * Lee el documento del proveedor (PDF o foto, máx. 10 MB) y lo compara con la orden.
+   * Solo sugiere cantidades. 503 AI_NOT_CONFIGURED / 502 SCAN_FAILED / 413 FILE_TOO_LARGE.
+   */
+  scanReceiptDocument: (id: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.upload<SupplierOrderScanResult>(`/supplier-orders/${id}/receive/scan`, fd);
+  },
 
   /** Registra un pago al proveedor (atómico). 400 PAYMENT_OVERFLOW si excede el saldo. */
   recordPayment: (id: string, data: { amount: number; note?: string }) =>

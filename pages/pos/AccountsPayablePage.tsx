@@ -4,7 +4,8 @@ import { useData } from '../../contexts/DataContext';
 import { useSortableRows, usePagination, SortableTh, PaginationFooter, useColumnChooser, ColumnChooserButton } from '../../components/ui/tableTools';
 import { SupplierOrder, SupplierOrderStatus, Supplier } from '../../types';
 import { Modal, ConfirmationModal } from '../../components/Modal';
-import { PrinterIcon, BanknotesIcon, EditIcon, TrashIconMini as CancelIcon, PhotoIcon, DocumentArrowUpIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '../../components/icons';
+import { PrinterIcon, BanknotesIcon, EditIcon, EyeIcon, TrashIconMini as CancelIcon, PhotoIcon, DocumentArrowUpIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '../../components/icons';
+import { usePermissions } from '../../hooks/usePermissions';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { SupplierOrderFormModal } from '../ecommerce/SupplierOrderFormModal';
 import {
@@ -213,6 +214,10 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({ isOpen, onClose
 
 export const AccountsPayablePage: React.FC = () => {
     const { supplierOrders, getSupplierById, suppliers, setSupplierOrders } = useData();
+    // Editar/cancelar = gestión de pedidos; registrar pago = accounts.recordPayment o gestión (igual que el backend).
+    const { can, canAny } = usePermissions();
+    const canManageOrders = can('supplierOrders.manage');
+    const canRecordPayment = canAny('accounts.recordPayment', 'supplierOrders.manage');
 
     // Registrar pago al proveedor EN EL BACKEND (antes solo mutaba estado local y se perdía al recargar).
     // (Atómico en el backend; 400 PAYMENT_OVERFLOW si excede el saldo.)
@@ -499,15 +504,22 @@ export const AccountsPayablePage: React.FC = () => {
                                         {colChooser.visible('paymentStatus') && <td className="px-4 py-2 whitespace-nowrap text-base text-neutral-700 dark:text-neutral-200">{displaySupplierPaymentStatus(order.paymentStatus)}</td>}
                                         <td className="px-4 py-2 whitespace-nowrap text-base font-medium">
                                             <div className="flex space-x-1">
-                                                <button onClick={() => handleEditOrder(order)} className="text-blue-500 p-1" title={t('posx.payable.editOrder')}><EditIcon className="w-4 h-4" /></button>
+                                                {/* Sin supplierOrders.manage el pedido se abre en solo lectura. */}
+                                                <button onClick={() => handleEditOrder(order)} className="text-blue-500 p-1" title={canManageOrders ? t('posx.payable.editOrder') : t('ecomx.supplier_orders.view_title')}>
+                                                    {canManageOrders ? <EditIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                                </button>
                                                 <button onClick={() => generatePayablePDF(order)} className="text-blue-500 p-1" title={t('posx.payable.printStatement')}><PrinterIcon className="w-4 h-4" /></button>
-                                                <button onClick={() => setPaymentModalOrder(order)} className="text-green-500 p-1 disabled:opacity-30 disabled:cursor-not-allowed" title={t('posx.payable.recordPayment')} disabled={order.balance <= 0}><BanknotesIcon className="w-4 h-4" /></button>
-                                                <button
-                                                    onClick={() => handleCancelOrder(order.id)}
-                                                    className="text-red-500 p-1 disabled:opacity-30 disabled:cursor-not-allowed"
-                                                    title={receivedGoods ? t('ecomx.supplier_orders.status_locked_received') : t('posx.payable.cancelOrder')}
-                                                    disabled={receivedGoods}
-                                                ><CancelIcon className="w-4 h-4" /></button>
+                                                {canRecordPayment && (
+                                                    <button onClick={() => setPaymentModalOrder(order)} className="text-green-500 p-1 disabled:opacity-30 disabled:cursor-not-allowed" title={t('posx.payable.recordPayment')} disabled={order.balance <= 0}><BanknotesIcon className="w-4 h-4" /></button>
+                                                )}
+                                                {canManageOrders && (
+                                                    <button
+                                                        onClick={() => handleCancelOrder(order.id)}
+                                                        className="text-red-500 p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        title={receivedGoods ? t('ecomx.supplier_orders.status_locked_received') : t('posx.payable.cancelOrder')}
+                                                        disabled={receivedGoods}
+                                                    ><CancelIcon className="w-4 h-4" /></button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

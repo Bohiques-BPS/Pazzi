@@ -19,11 +19,14 @@ import {
 } from '../../services/supplierOrders';
 import { SelectWithCreate } from '../../components/ui/SelectWithCreate';
 import { SupplierFormModal } from './SupplierFormModal';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface SupplierOrderFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     orderToEdit: SupplierOrder | null;
+    /** Solo lectura. Si se omite: lectura cuando el usuario no tiene `supplierOrders.manage`. */
+    readOnly?: boolean;
 }
 
 // ── Autocomplete de producto (búsqueda en el servidor) ────────────────────────
@@ -146,8 +149,13 @@ const ProductPicker: React.FC<ProductPickerProps> = ({ value, selectedName, onSe
 
 const EMPTY_ITEM = { productId: '', quantityOrdered: 1, unitCost: 0 };
 
-export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ isOpen, onClose, orderToEdit }) => {
+export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ isOpen, onClose, orderToEdit, readOnly: readOnlyProp }) => {
     const { t } = useTranslation();
+    const { can } = usePermissions();
+    // Sin permiso de gestión el modal es de solo lectura (el backend rechazaría el guardado).
+    const readOnly = readOnlyProp ?? !can('supplierOrders.manage');
+    // El "+" para crear proveedor inline solo si puede gestionar proveedores.
+    const canCreateSupplier = !readOnly && can('suppliers.manage');
     // Proveedores directamente del contexto (el backend ya los limita al negocio).
     const { suppliers, products, setSupplierOrders } = useData();
 
@@ -264,10 +272,11 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
     }, [formData.items]);
 
     const amountPaid = orderToEdit?.amountPaid || 0;
-    const totalBelowPaid = isEdit && !itemsLocked && totalCost < amountPaid - 0.01;
+    const totalBelowPaid = !readOnly && isEdit && !itemsLocked && totalCost < amountPaid - 0.01;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (readOnly) { onClose(); return; }
         if (!formData.supplierId) { toast.error(t('ecomx.supplier_orders.select_supplier')); return; }
         if (!itemsLocked && formData.items.length === 0) { toast.error(t('ecomx.supplier_orders.need_item')); return; }
         if (totalBelowPaid) {
@@ -305,7 +314,11 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         }
     };
 
-    const footer = (
+    const footer = readOnly ? (
+        <div className="flex justify-end space-x-3">
+            <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.close')}</button>
+        </div>
+    ) : (
         <div className="flex justify-end space-x-3">
             <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
             <button type="submit" form="supplier-order-form" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>
@@ -314,10 +327,16 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
         </div>
     );
 
+    const modalTitle = readOnly
+        ? t('ecomx.supplier_orders.view_title')
+        : orderToEdit ? t('ecommerce.supplier_orders.form.edit_title') : t('ecommerce.supplier_orders.form.create_title');
+
     return (
         <>
-        <Modal isOpen={isOpen} onClose={onClose} title={orderToEdit ? t('ecommerce.supplier_orders.form.edit_title') : t('ecommerce.supplier_orders.form.create_title')} size="4xl" footer={footer}>
-            <form id="supplier-order-form" onSubmit={handleSubmit} className="space-y-4">
+        <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="4xl" footer={footer}>
+            <form id="supplier-order-form" onSubmit={handleSubmit}>
+                {/* En solo lectura el fieldset deshabilita todos los controles del formulario. */}
+                <fieldset disabled={readOnly} className="space-y-4 min-w-0 border-0 p-0 m-0">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <SelectWithCreate
                         id="supplierId"
@@ -326,7 +345,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                         value={formData.supplierId}
                         onChange={(v) => setFormData(prev => ({ ...prev, supplierId: v }))}
                         options={supplierOptions}
-                        onCreateClick={() => setShowCreateSupplier(true)}
+                        onCreateClick={canCreateSupplier ? () => setShowCreateSupplier(true) : undefined}
                         required
                         placeholder={t('ecomx.supplier_orders.select_supplier_ph')}
                         emptyHint={t('ecomx.supplier_orders.empty_hint')}
@@ -369,7 +388,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                             <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
                             <span>{isCancelled ? t('ecomx.supplier_orders.items_locked_cancelled') : t('ecomx.supplier_orders.items_locked_received')}</span>
                         </div>
-                    ) : (
+                    ) : readOnly ? null : (
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 items-end">
                             <div className="md:col-span-2">
                                 <label className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{t('ecommerce.supplier_orders.form.item_product')}</label>
@@ -412,7 +431,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                                         {isEdit && <th className="px-2 py-1 text-right">{t('ecomx.supplier_orders.received_short')}</th>}
                                         <th className="px-2 py-1 text-right">{t('ecomx.common.unit_cost_short')}</th>
                                         <th className="px-2 py-1 text-right">{t('ecomx.common.subtotal')}</th>
-                                        {!itemsLocked && <th className="px-1 py-1"></th>}
+                                        {!itemsLocked && !readOnly && <th className="px-1 py-1"></th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y dark:divide-neutral-600">
@@ -423,7 +442,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                                             {isEdit && <td className="px-2 py-1 text-right">{item.quantityReceived || 0}</td>}
                                             <td className="px-2 py-1 text-right">${item.unitCost.toFixed(2)}</td>
                                             <td className="px-2 py-1 text-right">${(item.quantityOrdered * item.unitCost).toFixed(2)}</td>
-                                            {!itemsLocked && (
+                                            {!itemsLocked && !readOnly && (
                                                 <td className="px-1 py-1 text-center">
                                                     <button type="button" onClick={() => handleRemoveItem(item.productId)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-0.5" aria-label={t('ecomx.supplier_orders.remove_item')}>
                                                         <TrashIconMini />
@@ -446,6 +465,7 @@ export const SupplierOrderFormModal: React.FC<SupplierOrderFormModalProps> = ({ 
                 <div className="text-right font-semibold text-lg text-neutral-800 dark:text-neutral-100 mt-4">
                     {t('ecomx.supplier_orders.total_cost_label')}: ${totalCost.toFixed(2)}
                 </div>
+                </fieldset>
             </form>
         </Modal>
         {showCreateSupplier && (

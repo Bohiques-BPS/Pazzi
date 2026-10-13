@@ -16,8 +16,9 @@ interface SelectWithCreateProps {
     value: string;
     onChange: (value: string) => void;
     options: SelectOption[];
-    /** Se llama al pulsar el botón "+". El padre abre su modal de creación anidado. */
-    onCreateClick: () => void;
+    /** Se llama al pulsar el botón "+". El padre abre su modal de creación anidado.
+     *  Si se omite (p. ej. el usuario no tiene permiso para crear), no se muestra el "+". */
+    onCreateClick?: () => void;
     required?: boolean;
     disabled?: boolean;
     /** Texto de la opción vacía inicial (placeholder). Si se omite, no se agrega. */
@@ -73,16 +74,18 @@ export const SelectWithCreate: React.FC<SelectWithCreateProps> = ({
                     {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     {isEmpty && placeholder === undefined && <option value="" disabled>{t('cmpx.select.no_options')}</option>}
                 </select>
-                <button
-                    type="button"
-                    onClick={onCreateClick}
-                    disabled={disabled}
-                    title={resolvedCreateTitle}
-                    aria-label={resolvedCreateTitle}
-                    className="flex-shrink-0 flex items-center justify-center px-3 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-colors disabled:opacity-50"
-                >
-                    <PlusIcon className="w-5 h-5" />
-                </button>
+                {onCreateClick && (
+                    <button
+                        type="button"
+                        onClick={onCreateClick}
+                        disabled={disabled}
+                        title={resolvedCreateTitle}
+                        aria-label={resolvedCreateTitle}
+                        className="flex-shrink-0 flex items-center justify-center px-3 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-colors disabled:opacity-50"
+                    >
+                        <PlusIcon className="w-5 h-5" />
+                    </button>
+                )}
             </div>
             {isEmpty && emptyHint && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">{emptyHint}</p>

@@ -594,8 +594,8 @@ export const APP_MODULES_CONFIG = [
             { type: 'link', name: 'Pagos Recurrentes', path: '/pos/recurring', icon: ArrowPathIcon, permission: 'accounts.viewReceivable' },
         ] },
         { type: 'group', name: 'Compras y Proveedores', icon: TruckIcon, children: [
-            { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon, permission: 'suppliers.manage' },
-            { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: 'supplierOrders.manage' },
+            { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon, permission: ['suppliers.view', 'suppliers.manage'] },
+            { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: ['supplierOrders.view', 'supplierOrders.manage', 'supplierOrders.receive'] },
         ] },
         { type: 'group', name: 'Cajas', icon: CubeIcon, children: [
             { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },

@@ -13,6 +13,7 @@ import { toast } from '../../hooks/useToast';
 import { ReceiveSupplierOrderModal } from '../../components/forms/ReceiveSupplierOrderModal';
 import { SupplierPaymentModal } from '../../components/forms/SupplierPaymentModal';
 import { PermissionGate } from '../../components/PermissionGate';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ArchiveBoxIcon, BanknotesIcon } from '../../components/icons';
 import { suppliersService } from '../../services/suppliers';
 import {
@@ -134,6 +135,9 @@ export const SupplierOrdersListPage: React.FC = () => {
         setSuppliers,
         supplierOrders,
     } = useData();
+    // Crear / editar / cambiar estado / eliminar → supplierOrders.manage. Sin él, el detalle es de solo lectura.
+    const { can } = usePermissions();
+    const canManage = can('supplierOrders.manage');
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingOrder, setEditingOrder] = useState<SupplierOrder | null>(null);
     const [soSearchParams, setSoSearchParams] = useSearchParams();
@@ -197,7 +201,7 @@ export const SupplierOrdersListPage: React.FC = () => {
     // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
     useEffect(() => {
         if (soSearchParams.get('new') !== '1') return;
-        openModalForCreate();
+        if (canManage) openModalForCreate();
         soSearchParams.delete('new');
         setSoSearchParams(soSearchParams, { replace: true });
     }, [soSearchParams]); // eslint-disable-line
@@ -297,9 +301,11 @@ export const SupplierOrdersListPage: React.FC = () => {
                             <option key={status} value={status}>{status}</option>
                         ))}
                     </select>
-                    <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
-                        <PlusIcon /> {t('ecommerce.supplier_orders.create')}
-                    </button>
+                    {canManage && (
+                        <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0`}>
+                            <PlusIcon /> {t('ecommerce.supplier_orders.create')}
+                        </button>
+                    )}
                 </div>
             </div>
             {loadingData && (
@@ -320,12 +326,11 @@ export const SupplierOrdersListPage: React.FC = () => {
                         const isPaidFull = order.paymentStatus === 'Pagado Completo';
                         return (
                             <div className="flex space-x-1 items-center">
-                                <PermissionGate require="supplierOrders.manage">
-                                    <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title={t('ecomx.supplier_orders.view_edit')}>
-                                        <EditIcon className="w-5 h-5" />
-                                    </button>
-                                </PermissionGate>
-                                <PermissionGate require="supplierOrders.receive">
+                                {/* Con gestión: ver/editar. Sin ella: solo ver (el modal abre en solo lectura). */}
+                                <button onClick={() => openModalForEdit(order)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" title={canManage ? t('ecomx.supplier_orders.view_edit') : t('ecomx.supplier_orders.view_title')}>
+                                    {canManage ? <EditIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                                </button>
+                                <PermissionGate require={['supplierOrders.receive', 'supplierOrders.manage']}>
                                     <button
                                         onClick={() => setOrderForReceive(order as unknown as SupplierOrderRecord)}
                                         className="p-1 text-green-600 dark:text-green-400 hover:text-green-800 disabled:opacity-30 disabled:cursor-not-allowed"

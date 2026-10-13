@@ -102,6 +102,10 @@ export const tasksService = {
   createBulk: (data: { projectId: string; tasks: TaskPayload[] }) =>
     api.post<{ created: number; tasks: TaskRecord[] }>('/tasks/bulk', data),
 
+  /** Archiva (o restaura con archived=false) varias tareas del proyecto, p. ej. una columna completa. */
+  archiveBulk: (data: { projectId: string; taskIds: string[]; archived?: boolean }) =>
+    api.post<{ count: number; ids: string[]; archived: boolean }>('/tasks/archive-bulk', data),
+
   update: (id: string, data: Partial<TaskPayload>) =>
     api.put<any>(`/tasks/${id}`, data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 

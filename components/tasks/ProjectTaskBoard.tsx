@@ -10,7 +10,7 @@ import { InputModal } from '../InputModal';
 import { ConfirmationModal, Modal } from '../Modal';
 import { ExtractTasksModal } from '../pm/ExtractTasksModal';
 import { AiTaskAssistant } from '../ai/AiTaskAssistant';
-import { PlusIcon, DocumentTextIcon } from '../icons';
+import { PlusIcon, DocumentTextIcon, ArchiveBoxIcon, MagnifyingGlassIcon, ChevronLeftIcon, ArrowUturnLeftIcon } from '../icons';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { tasksService, type TaskAttachment } from '../../services/tasks';
 import { projectsService } from '../../services/projects';
@@ -72,27 +72,59 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [sectionMenuFor, setSectionMenuFor] = useState<string | null>(null);
     const [sectionRename, setSectionRename] = useState<string | null>(null);
     const [sectionDelete, setSectionDelete] = useState<string | null>(null);
-    // Tareas archivadas (ver / restaurar).
-    const [archivedOpen, setArchivedOpen] = useState(false);
+    // Búsqueda por nombre de tarea (aplica al tablero y a la vista de archivadas).
+    const [search, setSearch] = useState('');
+    // Vista de tareas archivadas: mismas columnas que el tablero, con filtro por columna.
+    const [showArchived, setShowArchived] = useState(false);
     const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
     const [archivedLoading, setArchivedLoading] = useState(false);
+    const [archivedColumnFilter, setArchivedColumnFilter] = useState('');
+    const [archivedMenuFor, setArchivedMenuFor] = useState<string | null>(null);
+    // Confirmación de "Archivar tareas" de una columna.
+    const [archiveCol, setArchiveCol] = useState<{ column: string; ids: string[] } | null>(null);
     const reloadTasks = () => { tasksService.getAll().then(d => setTasks(d as any)).catch(() => {}); };
 
-    const openArchived = async () => {
-        setArchivedOpen(true);
+    const loadArchived = async () => {
         setArchivedLoading(true);
         try { const d = await tasksService.getAll({ projectId, archived: true }); setArchivedTasks(d as any); }
-        catch { toast.error('No se pudieron cargar las tareas archivadas.'); }
+        catch { toast.error(t('cmpx.task.archived_load_error')); }
         finally { setArchivedLoading(false); }
     };
+    const openArchived = () => { setShowArchived(true); setArchivedColumnFilter(''); loadArchived(); };
 
-    const restoreTask = async (taskId: string) => {
-        setArchivedTasks(prev => prev.filter(t => t.id !== taskId));
+    /** Restaura tareas archivadas (una o una columna completa) y las devuelve al tablero. */
+    const restoreTasks = async (ids: string[]) => {
+        if (!ids.length) return;
+        const restored = archivedTasks.filter(x => ids.includes(x.id));
+        setArchivedTasks(prev => prev.filter(x => !ids.includes(x.id)));
         try {
-            const updated = await tasksService.update(taskId, { archived: false });
-            setTasks(prev => prev.some(t => t.id === taskId) ? prev.map(t => t.id === taskId ? { ...t, archived: false } : t) : [...prev, { ...(updated as any), assignedEmployeeIds: (updated as any).assignedEmployeeIds || [] }]);
-            toast.success('Tarea restaurada.');
-        } catch { toast.error('No se pudo restaurar la tarea.'); openArchived(); }
+            const r = await tasksService.archiveBulk({ projectId, taskIds: ids, archived: false });
+            const done = new Set(r.ids);
+            setTasks(prev => {
+                const known = new Set(prev.map(x => x.id));
+                const updated = prev.map(x => done.has(x.id) ? { ...x, archived: false } : x);
+                const added = restored.filter(x => done.has(x.id) && !known.has(x.id))
+                    .map(x => ({ ...x, archived: false, assignedEmployeeIds: (x as any).assignedEmployeeIds || [] }));
+                return [...updated, ...added];
+            });
+            toast.success(t('cmpx.task.restore_done', { count: r.count }));
+        } catch { toast.error(t('cmpx.task.restore_error')); loadArchived(); }
+    };
+
+    /** Archiva todas las tareas (de nivel superior) de una columna del tablero. */
+    const archiveColumnTasks = async () => {
+        const target = archiveCol;
+        setArchiveCol(null);
+        if (!target || !target.ids.length) return;
+        const ids = new Set(target.ids);
+        setTasks(prev => prev.map(x => ids.has(x.id) ? { ...x, archived: true } : x));
+        try {
+            const r = await tasksService.archiveBulk({ projectId, taskIds: target.ids, archived: true });
+            toast.success(t('cmpx.task.archive_done', { count: r.count }));
+        } catch {
+            toast.error(t('cmpx.task.archive_bulk_error'));
+            setTasks(prev => prev.map(x => ids.has(x.id) ? { ...x, archived: false } : x));
+        }
     };
 
     // ── Gestión de secciones (renombrar / eliminar) ──
@@ -172,6 +204,11 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         [projectTasks, activeSection]
     );
 
+    // Búsqueda sin distinguir mayúsculas ni acentos.
+    const norm = (v: string) => (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const searchTerm = norm(search.trim());
+    const matchesSearch = (tk: Task) => !searchTerm || norm(tk.title).includes(searchTerm);
+
     // Columnas del tablero: personalizadas del proyecto o las 4 por defecto.
     const columnNames = useMemo(() => {
         const custom = projects.find(p => p.id === projectId)?.taskColumns;
@@ -190,6 +227,24 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         Object.keys(map).forEach(k => map[k].sort((a, b) => a.order - b.order));
         return map;
     }, [visibleTasks, columnNames]);
+
+    // Tareas archivadas agrupadas por la columna en la que estaban (las de columnas que ya no
+    // existen aparecen en su propia columna al final). Respetan la sección activa y la búsqueda.
+    const archivedColumns = useMemo(() => {
+        const map: Record<string, Task[]> = {};
+        const order: string[] = [...columnNames];
+        for (const tk of archivedTasks) {
+            if (activeSection && (tk.section || '') !== activeSection) continue;
+            if (!matchesSearch(tk)) continue;
+            const col = tk.status || columnNames[0];
+            if (!map[col]) { map[col] = []; if (!order.includes(col)) order.push(col); }
+            map[col].push(tk);
+        }
+        Object.keys(map).forEach(k => map[k].sort((a, b) => String((b as any).updatedAt || '').localeCompare(String((a as any).updatedAt || ''))));
+        const names = order.filter(c => (archivedColumnFilter ? c === archivedColumnFilter : true));
+        return { names, map, all: order };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [archivedTasks, columnNames, activeSection, searchTerm, archivedColumnFilter]);
 
     const addSection = () => setSectionModalOpen(true);
     const confirmAddSection = async (name: string) => {
@@ -365,8 +420,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                             >⋯</button>
                             {sectionMenuFor === sec && (
                                 <div className="absolute left-0 top-full mt-1 w-40 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600 text-sm font-normal text-neutral-700 dark:text-neutral-200">
-                                    <button onMouseDown={() => { setSectionMenuFor(null); setSectionRename(sec); }} className="block w-full text-left px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-600">✏️ Renombrar</button>
-                                    <button onMouseDown={() => { setSectionMenuFor(null); setSectionDelete(sec); }} className="block w-full text-left px-3 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40">🗑 Eliminar</button>
+                                    <button onMouseDown={() => { setSectionMenuFor(null); setSectionRename(sec); }} className="block w-full text-left px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmpx.task.rename')}</button>
+                                    <button onMouseDown={() => { setSectionMenuFor(null); setSectionDelete(sec); }} className="block w-full text-left px-3 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40">{t('cmpx.task.delete')}</button>
                                 </div>
                             )}
                         </div>
@@ -378,12 +433,94 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 <button onClick={() => setExtractOpen(true)} className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 flex items-center gap-1" title={t('cmpx.task.analyze_doc_hint') || 'Analizar un documento o transcripción y sugerir tareas'}>
                     <DocumentTextIcon className="w-4 h-4" /> {t('cmpx.task.analyze_doc') || 'Analizar documento'}
                 </button>
-                <button onClick={openArchived} className="px-3 py-1.5 rounded-md text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-1" title="Ver y restaurar tareas archivadas">
-                    🗄️ Archivadas
+                <button
+                    onClick={() => (showArchived ? setShowArchived(false) : openArchived())}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 ${showArchived ? 'bg-primary text-white' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                    title={t('cmpx.task.archived_title')}
+                >
+                    <ArchiveBoxIcon className="w-4 h-4" /> {t('cmpx.task.archived')}
                 </button>
             </div>
+            {/* Buscador por nombre (+ filtro por columna en la vista de archivadas) */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                {showArchived && (
+                    <button type="button" onClick={() => setShowArchived(false)} className={BUTTON_SECONDARY_SM_CLASSES + ' flex items-center gap-1'}>
+                        <ChevronLeftIcon className="w-4 h-4" /> {t('cmpx.task.back_to_board')}
+                    </button>
+                )}
+                <div className="relative w-full sm:w-72">
+                    <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                    <input
+                        type="search"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder={t('cmpx.task.search_ph')}
+                        className={inputFormStyle + ' !pl-8 !py-1.5 text-sm'}
+                    />
+                </div>
+                {showArchived && (
+                    <select
+                        value={archivedColumnFilter}
+                        onChange={e => setArchivedColumnFilter(e.target.value)}
+                        className={inputFormStyle + ' !py-1.5 text-sm w-auto'}
+                        aria-label={t('cmpx.task.filter_column')}
+                    >
+                        <option value="">{t('cmpx.task.all_columns')}</option>
+                        {archivedColumns.all.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                )}
+            </div>
+            {showArchived ? (
             <div className="flex gap-4 overflow-x-auto pb-2 items-start">
-                {columnNames.map((status) => { const tasksInColumn = columns[status] || []; return (
+                {archivedLoading ? (
+                    <p className="text-neutral-500 dark:text-neutral-400 py-8 px-2">{t('cmpx.task.loading')}</p>
+                ) : archivedTasks.length === 0 ? (
+                    <p className="text-neutral-500 dark:text-neutral-400 py-8 px-2">{t('cmpx.task.archived_empty')}</p>
+                ) : archivedColumns.names.map(col => { const list = archivedColumns.map[col] || []; return (
+                    <div key={col} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 opacity-95">
+                        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg gap-1">
+                            <span className="truncate flex items-center gap-1.5" title={col}><ArchiveBoxIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />{col}</span>
+                            <span className="flex items-center gap-1 flex-shrink-0">
+                                <span className="text-sm text-gray-500">{list.length}</span>
+                                <div className="relative">
+                                    <button type="button" onClick={() => setArchivedMenuFor(archivedMenuFor === col ? null : col)} onBlur={() => setTimeout(() => setArchivedMenuFor(f => f === col ? null : f), 150)} className="p-1 rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700" aria-label="Opciones de la columna">⋯</button>
+                                    {archivedMenuFor === col && (
+                                        <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600 text-sm font-normal">
+                                            <button disabled={!list.length} onMouseDown={() => { setArchivedMenuFor(null); restoreTasks(list.map(x => x.id)); }} className="block w-full text-left px-3 py-1.5 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600 disabled:opacity-50">{t('cmpx.task.restore_all')}</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </span>
+                        </h3>
+                        <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
+                            {list.length === 0 && searchTerm && (
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 px-2">{t('cmpx.task.no_results', { q: search.trim() })}</p>
+                            )}
+                            {list.map(task => (
+                                <div key={task.id} className="relative group">
+                                    <TaskCard
+                                        task={task}
+                                        onClick={() => setSelectedTask(task)}
+                                        commentCount={(task as any).comments?.length || 0}
+                                        assignedEmployees={(task.assignedEmployeeIds || []).map(id => allEmployees.find(e => e.id === id || (e as any).userId === id)).filter((e): e is Employee => !!e)}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => restoreTasks([task.id])}
+                                        className="absolute top-2 right-2 px-2 py-1 rounded-md text-xs font-medium bg-white/95 dark:bg-neutral-900/95 text-primary border border-neutral-200 dark:border-neutral-700 shadow-sm flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                        title={t('cmpx.task.restore')}
+                                    >
+                                        <ArrowUturnLeftIcon className="w-3.5 h-3.5" /> {t('cmpx.task.restore')}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ); })}
+            </div>
+            ) : (
+            <div className="flex gap-4 overflow-x-auto pb-2 items-start">
+                {columnNames.map((status) => { const columnTasks = columns[status] || []; const tasksInColumn = searchTerm ? columnTasks.filter(matchesSearch) : columnTasks; return (
                     <div
                         key={status}
                         onDragOver={handleDragOver}
@@ -398,8 +535,9 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                                    <button type="button" onClick={() => setColMenuFor(colMenuFor === status ? null : status)} onBlur={() => setTimeout(() => setColMenuFor(f => f === status ? null : f), 150)} className="p-1 rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700" aria-label="Opciones de la columna">⋯</button>
                                    {colMenuFor === status && (
                                        <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600 text-sm font-normal">
-                                           <button onMouseDown={() => { setColMenuFor(null); setColModal({ mode: 'rename', name: status }); }} className="block w-full text-left px-3 py-1.5 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">✏️ Renombrar</button>
-                                           <button onMouseDown={() => { setColMenuFor(null); setDeleteCol(status); }} className="block w-full text-left px-3 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40">🗑 Eliminar</button>
+                                           <button onMouseDown={() => { setColMenuFor(null); setColModal({ mode: 'rename', name: status }); }} className="block w-full text-left px-3 py-1.5 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">{t('cmpx.task.rename')}</button>
+                                           <button disabled={!columnTasks.length} onMouseDown={() => { if (!columnTasks.length) return; setColMenuFor(null); setArchiveCol({ column: status, ids: columnTasks.map(x => x.id) }); }} className="block w-full text-left px-3 py-1.5 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed">{t('cmpx.task.archive_column')}</button>
+                                           <button onMouseDown={() => { setColMenuFor(null); setDeleteCol(status); }} className="block w-full text-left px-3 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40">{t('cmpx.task.delete')}</button>
                                        </div>
                                    )}
                                </div>
@@ -455,14 +593,15 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                     <PlusIcon className="w-4 h-4" /> Añadir columna
                 </button>
             </div>
+            )}
             {selectedTask && (
                 <TaskDetailModal
                     key={selectedTask.id}
                     task={selectedTask}
                     onClose={() => setSelectedTask(null)}
-                    onSave={(taskId, updates) => { updateTask(taskId, updates); setSelectedTask(null); }}
+                    onSave={(taskId, updates) => { updateTask(taskId, updates); setArchivedTasks(prev => prev.map(x => x.id === taskId ? { ...x, ...updates } as Task : x)); setSelectedTask(null); }}
                     onArchive={(taskId) => { updateTask(taskId, { archived: true }); setSelectedTask(null); }}
-                    onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setSelectedTask(null); }}
+                    onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setArchivedTasks(prev => prev.filter(x => x.id !== taskId)); setSelectedTask(null); }}
                     onOpenTask={(tk) => setSelectedTask(tk)}
                 />
             )}
@@ -537,28 +676,15 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 message={`¿Eliminar la sección "${sectionDelete}"? Las tareas que tenga quedarán sin sección (seguirán en el tablero).`}
                 confirmButtonText="Eliminar"
             />
-            {/* Tareas archivadas */}
-            <Modal isOpen={archivedOpen} onClose={() => setArchivedOpen(false)} title={`Tareas archivadas${archivedTasks.length ? ` (${archivedTasks.length})` : ''}`} size="2xl">
-                {archivedLoading ? (
-                    <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">Cargando…</p>
-                ) : archivedTasks.length === 0 ? (
-                    <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">No hay tareas archivadas en este proyecto.</p>
-                ) : (
-                    <ul className="divide-y divide-neutral-100 dark:divide-neutral-700/60 max-h-[60vh] overflow-y-auto">
-                        {archivedTasks.map(tk => (
-                            <li key={tk.id} className="flex items-center justify-between gap-2 py-2.5">
-                                <div className="min-w-0">
-                                    <p className="text-sm text-neutral-800 dark:text-neutral-100 truncate">{tk.title}</p>
-                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{tk.section || 'Sin sección'} · {tk.status}</p>
-                                </div>
-                                <button type="button" onClick={() => restoreTask(tk.id)} className={BUTTON_SECONDARY_SM_CLASSES + ' flex-shrink-0'}>
-                                    ♻️ Restaurar
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </Modal>
+            {/* Archivar todas las tareas de una columna */}
+            <ConfirmationModal
+                isOpen={!!archiveCol}
+                onClose={() => setArchiveCol(null)}
+                onConfirm={archiveColumnTasks}
+                title={t('cmpx.task.archive_column_title')}
+                message={`${t('cmpx.task.archive_column_msg', { count: archiveCol?.ids.length || 0, column: archiveCol?.column || '' })}${activeSection ? ' ' + t('cmpx.task.archive_column_section', { section: activeSection }) : ''}`}
+                confirmButtonText={t('cmpx.task.archive_column')}
+            />
 
             {/* ¿Asignar la tarea recién movida (sin responsable) al usuario conectado? */}
             <Modal isOpen={!!assignPrompt} onClose={closeAssignPrompt} title="Asignar tarea" size="sm">

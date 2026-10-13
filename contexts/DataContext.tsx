@@ -16,6 +16,16 @@ import { toast } from 'react-hot-toast';
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons';
 import { posService } from '../services/pos';
 import { normalizeTaskFromApi } from '../services/tasks';
+import { SUPPLIER_READ_PERMS, SUPPLIER_ORDER_READ_PERMS } from '../utils/supplierPermissions';
+
+/** ¿El usuario tiene alguno de los permisos? MANAGER siempre; EMPLOYEE según su objeto de permisos. */
+const canReadAny = (user: User | null | undefined, keys: string[]): boolean => {
+    if (!user) return false;
+    if (user.role === UserRole.MANAGER) return true;
+    if (user.role !== UserRole.EMPLOYEE) return false;
+    const perms = (user as any).permissions || {};
+    return keys.some(k => perms[k] === true);
+};
 
 export interface DataContextType {
   products: Product[];
@@ -295,7 +305,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error("Error al cargar proveedores del servidor:", e);
             }
         };
-        if (currentUser) fetchSuppliers();
+        // Solo si el usuario puede leerlos (mismo criterio que GET /suppliers): evita 403 ruidosos.
+        if (canReadAny(currentUser, SUPPLIER_READ_PERMS)) fetchSuppliers();
     }, [currentUser]);
 
     // Carga de ventas desde el backend (últimas 200)
@@ -477,7 +488,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
         };
         // Se cargan en cualquier ruta (incl. /pos/accounts-payable), una vez por usuario y acotadas a 300.
-        if (currentUser && pmLoadedForRef.current.supplierOrders !== currentUser.id) {
+        // Solo con permiso de lectura (mismo criterio que GET /supplier-orders).
+        if (currentUser && canReadAny(currentUser, SUPPLIER_ORDER_READ_PERMS) && pmLoadedForRef.current.supplierOrders !== currentUser.id) {
             pmLoadedForRef.current.supplierOrders = currentUser.id;
             fetchSupplierOrders();
         }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Modal } from '../Modal';
 import { useData } from '../../contexts/DataContext';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
@@ -9,11 +9,13 @@ import {
     parseSupplierOrderDay,
     displaySupplierOrderStatus,
     type SupplierOrderRecord,
+    type SupplierOrderScanResult,
+    type SupplierScanStatus,
 } from '../../services/supplierOrders';
 import { productsService } from '../../services/products';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
-import { ExclamationTriangleIcon } from '../icons';
+import { ExclamationTriangleIcon, DocumentArrowUpIcon } from '../icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import type { SupplierOrder } from '../../types';
 
@@ -25,6 +27,18 @@ interface ReceiveSupplierOrderModalProps {
 }
 
 type StockRow = { branchId: string; quantity: number };
+
+const SCAN_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Chip de estado de una línea según el documento del proveedor. */
+const SCAN_STATUS_STYLE: Record<SupplierScanStatus, { cls: string; key: string }> = {
+    complete: { cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300', key: 'cmpx.receiveorder.scan.st_complete' },
+    partial: { cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', key: 'cmpx.receiveorder.scan.st_partial' },
+    missing: { cls: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300', key: 'cmpx.receiveorder.scan.st_missing' },
+    over: { cls: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', key: 'cmpx.receiveorder.scan.st_over' },
+};
+
+const money = (n: number) => `$${n.toFixed(2)}`;
 
 /** Trae el stock actual de varios productos (de a pocos, para no saturar el backend). */
 async function fetchStocks(productIds: string[]): Promise<Record<string, { stockByBranch: StockRow[]; lastCost?: number }>> {
@@ -65,6 +79,14 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
     const [stocks, setStocks] = useState<Record<string, { stockByBranch: StockRow[] }>>({});
     /** Versión fresca de la orden tras un conflicto (otra persona recibió a la vez). */
     const [freshOrder, setFreshOrder] = useState<SupplierOrderRecord | null>(null);
+    /** Conciliación con el documento del proveedor (solo sugiere cantidades). */
+    const [scan, setScan] = useState<SupplierOrderScanResult | null>(null);
+    const [scanning, setScanning] = useState(false);
+    const [scanError, setScanError] = useState<string | null>(null);
+    const [showScanDetails, setShowScanDetails] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    /** Id de la lectura en curso: descarta respuestas tardías si se cerró el modal o cambió la orden. */
+    const scanReqRef = useRef(0);
 
     const current = freshOrder && order && freshOrder.id === order.id ? freshOrder : order;
 
@@ -80,6 +102,11 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
         setNotes('');
         setError(null);
         setFreshOrder(null);
+        scanReqRef.current++;
+        setScan(null);
+        setScanError(null);
+        setScanning(false);
+        setShowScanDetails(false);
         resetQuantities(order);
         let cancelled = false;
         fetchStocks(order.items.map(i => i.productId))
@@ -189,6 +216,53 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
         }
     };
 
+    /** Lee el documento del proveedor y lo compara con la orden (no mueve inventario). */
+    const handleScanFile = async (file: File | undefined) => {
+        if (!file) return;
+        setScanError(null);
+        if (file.size > SCAN_MAX_BYTES) { setScanError(t('cmpx.receiveorder.scan.err_size')); return; }
+        const okType = file.type === 'application/pdf' || file.type.startsWith('image/') || /\.(pdf|jpe?g|png|webp|heic|heif)$/i.test(file.name);
+        if (!okType) { setScanError(t('cmpx.receiveorder.scan.err_type')); return; }
+        const reqId = ++scanReqRef.current;
+        const orderId = current.id;
+        setScanning(true);
+        try {
+            const result = await supplierOrdersService.scanReceiptDocument(orderId, file);
+            if (scanReqRef.current !== reqId) return; // se cerró o cambió de orden mientras se leía
+            setScan(result);
+            setShowScanDetails(false);
+        } catch (err) {
+            if (scanReqRef.current !== reqId) return;
+            // AI_NOT_CONFIGURED / SCAN_FAILED / FILE_TOO_LARGE traen mensaje claro del backend.
+            setScanError(err instanceof ApiError && err.message ? err.message : t('cmpx.receiveorder.scan.err'));
+        } finally {
+            if (scanReqRef.current === reqId) setScanning(false);
+        }
+    };
+
+    /** Rellena "Recibir ahora" con lo que llegó según el documento (nunca más de lo pendiente). */
+    const applyScanQuantities = () => {
+        if (!scan) return;
+        const byId = new Map(scan.items.map(i => [i.itemId, i]));
+        const next: Record<string, string> = {};
+        current.items.forEach(item => {
+            const pending = supplierItemPending(item);
+            const s = byId.get(item.id);
+            const suggested = s ? Math.max(0, Math.min(Math.floor(s.suggestedReceive), pending)) : 0;
+            next[item.id] = String(suggested);
+        });
+        setQty(next);
+        toast.success(t('cmpx.receiveorder.scan.applied'));
+    };
+
+    const scanByItem = new Map((scan?.items || []).map(i => [i.itemId, i]));
+    const scanCounts = (scan?.items || []).reduce<Record<SupplierScanStatus, number>>((acc, i) => {
+        // Líneas ya recibidas que no vienen en el documento no cuentan como "completas" de este envío.
+        if (!(i.pending === 0 && i.status === 'complete')) acc[i.status]++;
+        return acc;
+    }, { complete: 0, partial: 0, missing: 0, over: 0 });
+    const scanNoticeCount = (scan?.warnings.length || 0) + (scan?.extras.length ? 1 : 0);
+
     const orderDay = parseSupplierOrderDay(current.orderDate);
 
     const footer = (
@@ -258,6 +332,111 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
                     </select>
                 </div>
 
+                {/* Documento del proveedor: la IA lo lee y se compara con la orden. Solo sugiere cantidades. */}
+                <div className="rounded-md border border-neutral-200 dark:border-neutral-600 p-3 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0">
+                            <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                                <DocumentArrowUpIcon className="w-4 h-4 text-primary flex-shrink-0" />
+                                {t('cmpx.receiveorder.scan.title')}
+                            </h4>
+                            {!scan && (
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{t('cmpx.receiveorder.scan.hint')}</p>
+                            )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {scan && (
+                                <button type="button" onClick={applyScanQuantities} className={BUTTON_PRIMARY_SM_CLASSES} disabled={scanning || submitting}>
+                                    {t('cmpx.receiveorder.scan.apply')}
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className={BUTTON_SECONDARY_SM_CLASSES}
+                                disabled={scanning || submitting}
+                            >
+                                {scanning
+                                    ? t('cmpx.receiveorder.scan.scanning')
+                                    : (scan ? t('cmpx.receiveorder.scan.upload_other') : t('cmpx.receiveorder.scan.upload'))}
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="application/pdf,image/*"
+                                className="hidden"
+                                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; handleScanFile(f); }}
+                            />
+                        </div>
+                    </div>
+
+                    {scanning && (
+                        <div className="h-1 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
+                            <div className="h-full w-1/3 bg-primary animate-pulse" />
+                        </div>
+                    )}
+
+                    {scanError && (
+                        <div className="p-2 rounded bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 text-xs text-red-700 dark:text-red-300 flex items-start gap-1.5">
+                            <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0" />
+                            <span>{scanError}</span>
+                        </div>
+                    )}
+
+                    {scan && (
+                        <div className="space-y-2 text-xs" translate="no">
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-neutral-600 dark:text-neutral-300">
+                                <span className="font-medium">
+                                    {scan.document.number ? t('cmpx.receiveorder.scan.doc', { number: scan.document.number }) : t('cmpx.receiveorder.scan.doc_no_number')}
+                                </span>
+                                {scan.document.date && <span>{parseSupplierOrderDay(scan.document.date)?.toLocaleDateString() || scan.document.date}</span>}
+                                {scan.document.supplierName && <span>{scan.document.supplierName}</span>}
+                                {scan.document.total !== null && <span>{t('cmpx.receiveorder.scan.doc_total', { total: money(scan.document.total) })}</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {(Object.keys(SCAN_STATUS_STYLE) as SupplierScanStatus[]).filter(k => scanCounts[k] > 0).map(k => (
+                                    <span key={k} className={`px-2 py-0.5 rounded-full font-medium ${SCAN_STATUS_STYLE[k].cls}`}>
+                                        {t(SCAN_STATUS_STYLE[k].key)}: {scanCounts[k]}
+                                    </span>
+                                ))}
+                                {scanNoticeCount > 0 && (
+                                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setShowScanDetails(v => !v)}>
+                                        {showScanDetails ? t('cmpx.receiveorder.scan.hide_details') : t('cmpx.receiveorder.scan.show_details', { count: scanNoticeCount })}
+                                    </button>
+                                )}
+                            </div>
+                            {showScanDetails && (
+                                <div className="space-y-2">
+                                    {scan.warnings.length > 0 && (
+                                        <ul className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 text-amber-800 dark:text-amber-300 list-disc pl-5 space-y-0.5">
+                                            {scan.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                                        </ul>
+                                    )}
+                                    {scan.extras.length > 0 && (
+                                        <div className="p-2 rounded bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-600">
+                                            <p className="font-medium mb-1">{t('cmpx.receiveorder.scan.extras_title', { count: scan.extras.length })}</p>
+                                            <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+                                                {scan.extras.map((x, i) => (
+                                                    <li key={i} className="flex justify-between gap-2">
+                                                        <span className="truncate">
+                                                            <span className="text-neutral-500 dark:text-neutral-400">{x.code || t('cmpx.receiveorder.scan.no_code')}</span>
+                                                            {x.description ? ` · ${x.description}` : ''}
+                                                        </span>
+                                                        <span className="flex-shrink-0 text-neutral-600 dark:text-neutral-300">
+                                                            {x.quantity !== null ? t('cmpx.receiveorder.scan.extras_qty', { qty: x.quantity }) : ''}
+                                                            {x.unitCost !== null ? ` · ${money(x.unitCost)}` : ''}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 <div>
                     <div className="flex items-center justify-between mb-2 gap-2">
                         <h4 className="text-sm font-semibold">{t('cmpx.receiveorder.products_to_receive', { count: current.items.length })}</h4>
@@ -285,9 +464,33 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                                {rows.map(item => (
+                                {rows.map(item => {
+                                    const sc = scanByItem.get(item.id);
+                                    // Línea ya recibida que no viene en el documento: sin chip (no aporta).
+                                    const showChip = sc && !(sc.pending === 0 && sc.status === 'complete');
+                                    return (
                                     <tr key={item.id} className={item.pending === 0 ? 'opacity-60' : ''}>
-                                        <td className="p-2">{item.productName}</td>
+                                        <td className="p-2">
+                                            <span>{item.productName}</span>
+                                            {showChip && sc && (
+                                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs" translate="no">
+                                                    <span
+                                                        className={`px-1.5 py-0.5 rounded-full font-medium ${SCAN_STATUS_STYLE[sc.status].cls}`}
+                                                        title={sc.status === 'over' ? t('cmpx.receiveorder.scan.over_hint') : undefined}
+                                                    >
+                                                        {t(SCAN_STATUS_STYLE[sc.status].key)}
+                                                    </span>
+                                                    <span className="text-neutral-500 dark:text-neutral-400">
+                                                        {t('cmpx.receiveorder.scan.in_doc', { qty: sc.inDocument })}
+                                                    </span>
+                                                    {sc.matchedBy === 'ai' && (
+                                                        <span className="text-amber-700 dark:text-amber-400 italic" title={t('cmpx.receiveorder.scan.verify_hint')}>
+                                                            ({t('cmpx.receiveorder.scan.verify')})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="p-2 text-right">{item.quantityOrdered}</td>
                                         <td className="p-2 text-right">{item.received}</td>
                                         <td className="p-2 text-right font-medium">{item.pending}</td>
@@ -308,11 +511,19 @@ export const ReceiveSupplierOrderModal: React.FC<ReceiveSupplierOrderModalProps>
                                                 <span className="text-xs text-green-600 dark:text-green-400">{t('cmpx.receiveorder.line_complete')}</span>
                                             )}
                                         </td>
-                                        <td className="p-2 text-right">${item.unitCost.toFixed(2)}</td>
+                                        <td className="p-2 text-right">
+                                            ${item.unitCost.toFixed(2)}
+                                            {sc?.costChanged && sc.documentUnitCost !== null && (
+                                                <div className="text-xs font-medium text-amber-700 dark:text-amber-400" title={t('cmpx.receiveorder.scan.doc_cost_hint')}>
+                                                    {t('cmpx.receiveorder.scan.doc_cost', { cost: money(sc.documentUnitCost) })}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="p-2 text-right text-neutral-500 dark:text-neutral-400">{branchId ? item.currentStock : '—'}</td>
                                         <td className="p-2 text-right font-bold text-primary">{branchId ? item.stockAfter : '—'}</td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

@@ -11,10 +11,14 @@ import { BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../../services/api';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const SuppliersListPage: React.FC = () => {
     const { t } = useTranslation();
     const { suppliers, setSuppliers } = useData();
+    // Crear / editar / eliminar requiere suppliers.manage; con solo "ver" la lista es de lectura.
+    const { can } = usePermissions();
+    const canManage = can('suppliers.manage');
     const [showFormModal, setShowFormModal] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -92,9 +96,11 @@ export const SuppliersListPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('ecommerce.suppliers.title')}</h1>
-                <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
-                    <PlusIcon /> {t('ecommerce.suppliers.create')}
-                </button>
+                {canManage && (
+                    <button onClick={openModalForCreate} className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}>
+                        <PlusIcon /> {t('ecommerce.suppliers.create')}
+                    </button>
+                )}
             </div>
             {loadingData && (
                 <div className="flex justify-center items-center py-12">
@@ -103,10 +109,10 @@ export const SuppliersListPage: React.FC = () => {
                 </div>
             )}
 
-            <DataTable<Supplier> onRowClick={openModalForEdit}
+            <DataTable<Supplier> onRowClick={canManage ? openModalForEdit : undefined}
                 data={filteredSuppliers}
                 columns={columns}
-                actions={(supplier) => (
+                actions={canManage ? (supplier) => (
                     <>
                         <button onClick={() => openModalForEdit(supplier)} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 p-1" aria-label={t('common.edit')}>
                             <EditIcon className="w-5 h-5" />
@@ -115,7 +121,7 @@ export const SuppliersListPage: React.FC = () => {
                             <DeleteIcon className="w-5 h-5" />
                         </button>
                     </>
-                )}
+                ) : undefined}
             />
             <SupplierFormModal 
                 isOpen={showFormModal} 
