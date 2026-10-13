@@ -10,7 +10,7 @@ import { Modal, ConfirmationModal } from '../../components/Modal';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { EmptyState } from '../../components/ui/EmptyState';
 import {
-  PlusIcon, EditIcon, DeleteIcon, ClockIcon, ArrowUpIcon, EnvelopeIcon, ChatBubbleLeftRightIcon,
+  PlusIcon, EditIcon, DeleteIcon, ClockIcon, ArrowUpIcon, ArrowDownIcon, EnvelopeIcon, ChatBubbleLeftRightIcon,
   ExclamationTriangleIcon, KeyIcon, PaperAirplaneIcon, SparklesIcon, DocumentTextIcon, UserGroupIcon, ChartBarIcon,
 } from '../../components/icons';
 import { inputFormStyle, INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
@@ -338,6 +338,13 @@ const RuleEditor: React.FC<{
   const [cond, setCond] = useState<LeadRuleConditions>(rule.conditions || {});
   const [actions, setActions] = useState<LeadRuleAction[]>(rule.actions || []);
   const [saving, setSaving] = useState(false);
+  // Secretos de las acciones webhook visibles (por valor del secreto: sobrevive a reordenar acciones).
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
+  const moveAction = (i: number, dir: -1 | 1) => setActions(prev => {
+    const j = i + dir;
+    if (j < 0 || j >= prev.length) return prev;
+    const n = [...prev]; [n[i], n[j]] = [n[j], n[i]]; return n;
+  });
   const setC = (k: keyof LeadRuleConditions, v: any) => setCond(c => ({ ...c, [k]: v === '' ? null : v }));
   const setA = (i: number, patch: any) => setActions(prev => prev.map((a, j) => j === i ? ({ ...a, ...patch } as LeadRuleAction) : a));
   const stagesForCond = cond.pipelineId ? allStages.filter(s => s.pipelineId === cond.pipelineId) : allStages;
@@ -441,10 +448,24 @@ const RuleEditor: React.FC<{
                   : <span className="text-xs text-amber-600 dark:text-amber-400">{t('leads.automation.editor.create_template_first', { channel: t(a.type === 'send_email' ? 'leads.automation.channel_lower.email' : 'leads.automation.channel_lower.whatsapp') })}</span>)}
                 {a.type === 'webhook' && <input value={a.url} onChange={e => setA(i, { url: e.target.value })} placeholder="https://hooks.zapier.com/…" className={sel + ' flex-1 min-w-[200px]'} aria-label={t('leads.automation.col.url')} />}
                 <div className="ml-auto flex items-center gap-1">
-                  <button type="button" onClick={() => setActions(prev => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })} disabled={i === 0} className="p-1 text-neutral-500 hover:text-primary disabled:opacity-30" aria-label={t('leads.automation.editor.move_up')} title={t('leads.automation.editor.move_up')}><ArrowUpIcon className="w-4 h-4" /></button>
+                  <button type="button" onClick={() => moveAction(i, -1)} disabled={i === 0} className="p-1 text-neutral-500 dark:text-neutral-400 hover:text-primary disabled:opacity-30 disabled:hover:text-neutral-500" aria-label={t('leads.automation.editor.move_up_aria', { n: i + 1 })} title={i === 0 ? t('leads.automation.editor.move_up_disabled') : t('leads.automation.editor.move_up')}><ArrowUpIcon className="w-4 h-4" /></button>
+                  <button type="button" onClick={() => moveAction(i, 1)} disabled={i === actions.length - 1} className="p-1 text-neutral-500 dark:text-neutral-400 hover:text-primary disabled:opacity-30 disabled:hover:text-neutral-500" aria-label={t('leads.automation.editor.move_down_aria', { n: i + 1 })} title={i === actions.length - 1 ? t('leads.automation.editor.move_down_disabled') : t('leads.automation.editor.move_down')}><ArrowDownIcon className="w-4 h-4" /></button>
                   <button type="button" onClick={() => setActions(prev => prev.filter((_, j) => j !== i))} className={ROW_DELETE_BTN} aria-label={t('leads.automation.editor.remove_action')} title={t('leads.automation.editor.remove_action')}><DeleteIcon className="w-5 h-5" /></button>
                 </div>
                 <Hint key={a.type} className="w-full pl-8">{t(`leads.automation.action_hint.${a.type}`)}</Hint>
+                {a.type === 'webhook' && (
+                  <div className="w-full pl-8 flex flex-wrap items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
+                    {a.secret ? (<>
+                      <span className="font-medium">{t('leads.automation.integrations.secret')}</span>
+                      <code className="break-all" translate="no">{revealedSecrets[a.secret] ? a.secret : '••••••••••••'}</code>
+                      <button type="button" onClick={() => setRevealedSecrets(r => ({ ...r, [a.secret!]: !r[a.secret!] }))} className="text-primary dark:text-teal-300 hover:underline" title={t('leads.automation.integrations.secret_title')}>{revealedSecrets[a.secret] ? t('leads.automation.integrations.hide') : t('leads.automation.integrations.show')}</button>
+                      <button type="button" onClick={() => copy(t, a.secret!)} className="text-primary dark:text-teal-300 hover:underline" title={t('leads.automation.integrations.copy_secret_title')}>{t('leads.automation.integrations.copy')}</button>
+                    </>) : (
+                      <span className="text-neutral-500 dark:text-neutral-400">{t('leads.automation.editor.webhook_secret_pending')}</span>
+                    )}
+                    <Hint className="w-full">{t('leads.automation.editor.webhook_verify_hint')} <code className="text-[11px]" translate="no">X-Pazzi-Signature: sha256=…</code></Hint>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

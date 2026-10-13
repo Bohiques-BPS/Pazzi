@@ -1037,10 +1037,12 @@ const CreateLeadModal: React.FC<{
 }> = ({ pipeline, sources, tags, customFields, lostReasons, assignees, canAssign, currentUserId, prefill, onClose, onCreated, onOpenExisting }) => {
   const { t } = useTranslation();
   const openStages = (pipeline?.stages || []).filter(s => s.type === 'open');
+  // Al elegir la fuente a mano solo se ofrecen las ACTIVAS (los filtros del tablero siguen mostrando todas).
+  const activeSources = sources.filter(s => s.active !== false);
   const clientId = prefill?.clientId || '';
   const [f, setF] = useState({
     name: prefill?.name || '', lastName: prefill?.lastName || '', companyName: prefill?.companyName || '',
-    email: prefill?.email || '', phone: prefill?.phone || '', value: '', sourceId: sources.find(s => s.name === 'Manual')?.id || '',
+    email: prefill?.email || '', phone: prefill?.phone || '', value: '', sourceId: activeSources.find(s => s.name === 'Manual')?.id || '',
     assignedUserId: currentUserId || '', stageId: openStages[0]?.id || pipeline?.stages[0]?.id || '', nextActionAt: '', expectedCloseAt: '', notes: '',
     lostReason: '', closedAt: '',
   });
@@ -1139,7 +1141,7 @@ const CreateLeadModal: React.FC<{
             </select>
           </div>
           <div>{lbl(t('leads.common.source'))}
-            <select value={f.sourceId} onChange={e => set('sourceId', e.target.value)} className={inputFormStyle}><option value="">—</option>{sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            <select value={f.sourceId} onChange={e => set('sourceId', e.target.value)} className={inputFormStyle}><option value="">—</option>{activeSources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           </div>
           {isClosed ? (
             <>

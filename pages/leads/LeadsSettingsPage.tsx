@@ -6,13 +6,13 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { leadsService } from '../../services/leads';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
-import { ConfirmationModal } from '../../components/Modal';
+import { Modal, ConfirmationModal } from '../../components/Modal';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { TagChip } from '../../components/leads/TagChip';
 import {
-  ArrowUturnLeftIcon, ArrowUpIcon, ArrowDownIcon, DeleteIcon, PlusIcon, ClockIcon, BellIcon, TagIcon,
+  ArrowUturnLeftIcon, ArrowUpIcon, ArrowDownIcon, DeleteIcon, EditIcon, PlusIcon, ClockIcon, BellIcon, TagIcon,
   ListBulletIcon, ExclamationTriangleIcon, Squares2X2Icon, FireIcon, SparklesIcon, DocumentTextIcon, InformationCircleIcon,
 } from '../../components/icons';
 import { inputFormStyle, INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
@@ -22,7 +22,7 @@ import { timezoneOptions } from '../../utils/timezones';
 import {
   RulesTab, TemplatesTab, TeamsTab, IntegrationsTab, GoalsTab,
   SettingsCard, PlainTable, Toggle, TH_CLASSES, TD_CLASSES, TR_CLASSES, TABLE_IN_CARD,
-  BADGE, BADGE_NEUTRAL, LABEL_CLASSES, BTN_ICON, ROW_DELETE_BTN, ADD_ROW, BOX, Hint,
+  BADGE, BADGE_NEUTRAL, LABEL_CLASSES, BTN_ICON, ROW_EDIT_BTN, ROW_DELETE_BTN, ADD_ROW, BOX, MODAL_FOOTER, Hint,
 } from './LeadsAutomationTabs';
 
 type Tab = 'pipelines' | 'sources' | 'tags' | 'fields' | 'lost' | 'form' | 'automation' | 'rules' | 'templates' | 'teams' | 'integrations' | 'goals';
@@ -270,7 +270,12 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
             {stages.map((s, i) => (
               <StageRow key={s.id} stage={s} index={i} total={stages.length} others={stages.filter(x => x.id !== s.id)}
                 onMove={move} onUpdate={requestStageUpdate}
-                onDelete={(moveTo) => askConfirm({ title: t('leads.settings.stages.delete_title'), message: t('leads.settings.stages.delete_msg', { name: s.name, target: stages.find(x => x.id === moveTo)?.name || t('leads.settings.stages.other_stage') }), run: async () => { try { await leadsService.deleteStage(s.id, moveTo); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })}
+                onDelete={(moveTo) => {
+                  // Destino real y vigente (nunca la etapa que se borra ni una que ya no existe).
+                  const target = stages.find(x => x.id === moveTo && x.id !== s.id);
+                  if (!target) { toast.error(t('leads.settings.stages.pick_target')); return; }
+                  askConfirm({ title: t('leads.settings.stages.delete_title'), message: t('leads.settings.stages.delete_msg', { name: s.name, target: target.name }), run: async () => { try { await leadsService.deleteStage(s.id, target.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } });
+                }}
               />
             ))}
           </PlainTable>
@@ -298,6 +303,14 @@ const StageRow: React.FC<{ stage: PipelineStage; index: number; total: number; o
   const [moveTo, setMoveTo] = useState(others[0]?.id || '');
   const [showColors, setShowColors] = useState(false);
   useEffect(() => { setName(stage.name); setProb(stage.probability != null ? String(stage.probability) : ''); }, [stage.name, stage.probability]);
+  // Si cambia la lista de etapas (se borra/crea/reordena una), el destino elegido puede haber dejado de existir:
+  // se valida y, si ya no es válido, vuelve a la primera de las otras etapas.
+  const othersKey = others.map(o => o.id).join(',');
+  useEffect(() => {
+    setMoveTo(prev => (others.some(o => o.id === prev) ? prev : others[0]?.id || ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [othersKey]);
+  const validMoveTo = others.some(o => o.id === moveTo) ? moveTo : others[0]?.id || '';
   const orderBtn = 'p-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-primary hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent';
   return (
     <tr className={TR_CLASSES}>
@@ -332,10 +345,10 @@ const StageRow: React.FC<{ stage: PipelineStage; index: number; total: number; o
       <td className={`${TD_CLASSES} whitespace-nowrap`}>
         {total > 1 && (
           <div className="flex items-center gap-1">
-            <select value={moveTo} onChange={e => setMoveTo(e.target.value)} className={INPUT_SM_CLASSES + ' max-w-[180px]'} title={t('leads.settings.stages.move_to_title')} aria-label={t('leads.settings.stages.move_to_aria', { name: stage.name })}>
+            <select value={validMoveTo} onChange={e => setMoveTo(e.target.value)} className={INPUT_SM_CLASSES + ' max-w-[180px]'} title={t('leads.settings.stages.move_to_title')} aria-label={t('leads.settings.stages.move_to_aria', { name: stage.name })}>
               {others.map(o => <option key={o.id} value={o.id}>→ {o.name}</option>)}
             </select>
-            <button type="button" onClick={() => onDelete(moveTo)} className={ROW_DELETE_BTN} aria-label={t('leads.settings.stages.delete_aria', { name: stage.name })} title={t('leads.settings.stages.delete_btn_title')}><DeleteIcon className="w-5 h-5" /></button>
+            <button type="button" onClick={() => onDelete(validMoveTo)} className={ROW_DELETE_BTN} aria-label={t('leads.settings.stages.delete_aria', { name: stage.name })} title={t('leads.settings.stages.delete_btn_title')}><DeleteIcon className="w-5 h-5" /></button>
           </div>
         )}
       </td>
@@ -363,7 +376,7 @@ const SourcesTab: React.FC<{ sources: LeadSource[]; reload: () => Promise<void>;
     <SettingsCard
       title={t('leads.settings.tab.sources')}
       subtitle={t('leads.settings.sources.help')}
-      help={[t('leads.settings.sources.help_auto'), t('leads.settings.sources.help_api'), t('leads.settings.sources.help_edit')]}
+      help={[t('leads.settings.sources.help_active'), t('leads.settings.sources.help_auto'), t('leads.settings.sources.help_api'), t('leads.settings.sources.help_edit')]}
       icon={<FireIcon className="w-5 h-5" />}
     >
       <DataTable<LeadSource>
@@ -424,6 +437,7 @@ const TagsTab: React.FC<{ tags: LeadTag[]; reload: () => Promise<void>; askConfi
 const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<void>; askConfirm: AskConfirm }> = ({ fields, reload, askConfirm }) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<{ label: string; type: LeadCustomFieldType; options: string; required: boolean }>({ label: '', type: 'text', options: '', required: false });
+  const [editing, setEditing] = useState<LeadCustomField | null>(null);
   const add = async () => {
     if (!draft.label.trim()) return;
     const options = draft.type === 'select' ? draft.options.split(',').map(o => o.trim()).filter(Boolean) : null;
@@ -458,7 +472,10 @@ const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<voi
           containerClassName={TABLE_IN_CARD}
           searchable={false} filterable={false} paginated={false}
           actions={f => (
-            <button type="button" onClick={() => askConfirm({ title: t('leads.settings.fields.delete_title'), message: t('leads.settings.fields.delete_msg', { name: f.label }), run: async () => { try { await leadsService.deleteCustomField(f.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className={ROW_DELETE_BTN} aria-label={t('leads.settings.delete_item_aria', { name: f.label })} title={t('leads.common.delete')}><DeleteIcon className="w-5 h-5" /></button>
+            <>
+              <button type="button" onClick={() => setEditing(f)} className={ROW_EDIT_BTN} aria-label={t('leads.settings.fields.edit_aria', { name: f.label })} title={t('leads.settings.fields.edit_title')}><EditIcon className="w-5 h-5" /></button>
+              <button type="button" onClick={() => askConfirm({ title: t('leads.settings.fields.delete_title'), message: t('leads.settings.fields.delete_msg', { name: f.label }), run: async () => { try { await leadsService.deleteCustomField(f.id); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })} className={ROW_DELETE_BTN} aria-label={t('leads.settings.delete_item_aria', { name: f.label })} title={t('leads.common.delete')}><DeleteIcon className="w-5 h-5" /></button>
+            </>
           )}
         />
       )}
@@ -473,7 +490,92 @@ const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<voi
         {/* key: se remonta al cambiar de tipo (evita el choque del traductor de Chrome con texto que cambia). */}
         <Hint key={draft.type} className="w-full">{t(`leads.settings.fields.type_hint.${draft.type}`)}</Hint>
       </div>
+      {editing && <FieldEditModal field={editing} onClose={() => setEditing(null)} onSaved={reload} />}
     </SettingsCard>
+  );
+};
+
+/** Editar un campo ya creado: nombre, obligatorio y (en listas) las opciones. El tipo no se cambia. */
+const FieldEditModal: React.FC<{ field: LeadCustomField; onClose: () => void; onSaved: () => Promise<void> }> = ({ field, onClose, onSaved }) => {
+  const { t } = useTranslation();
+  const isSelect = field.type === 'select';
+  const original = field.options || [];
+  const [label, setLabel] = useState(field.label);
+  const [required, setRequired] = useState(!!field.required);
+  const [options, setOptions] = useState<string[]>(original);
+  const [newOpt, setNewOpt] = useState('');
+  const [saving, setSaving] = useState(false);
+  const clean = options.map(o => o.trim()).filter(Boolean);
+  // Opciones originales que ya no están (quitadas o renombradas): los leads que las tengan conservan ese valor.
+  const dropped = isSelect ? original.filter(o => !clean.includes(o)) : [];
+  const dirty = label !== field.label || required !== !!field.required || (isSelect && (clean.length !== original.length || clean.some((o, i) => o !== original[i])));
+
+  const addOpt = () => {
+    const v = newOpt.trim();
+    if (!v) return;
+    if (clean.some(o => o.toLowerCase() === v.toLowerCase())) { toast.error(t('leads.settings.fields.option_duplicate')); return; }
+    setOptions(p => [...p, v]); setNewOpt('');
+  };
+  const save = async () => {
+    if (!label.trim()) { toast.error(t('leads.settings.fields.label_required')); return; }
+    if (isSelect && !clean.length) { toast.error(t('leads.settings.fields.options_min_one')); return; }
+    if (isSelect && new Set(clean.map(o => o.toLowerCase())).size !== clean.length) { toast.error(t('leads.settings.fields.option_duplicate')); return; }
+    setSaving(true);
+    try {
+      await leadsService.updateCustomField(field.id, { label: label.trim(), required, ...(isSelect ? { options: clean } : {}) });
+      await onSaved();
+      toast.success(t('leads.settings.saved'));
+      onClose();
+    } catch (e) { err(e, t('leads.settings.err.save')); } finally { setSaving(false); }
+  };
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title={t('leads.settings.fields.edit_title')} size="md" isDirty={dirty}>
+      <div className="space-y-4">
+        <div>
+          <label className={LABEL_CLASSES}>{t('leads.settings.fields.label_label')}</label>
+          <input value={label} onChange={e => setLabel(e.target.value)} maxLength={120} className={inputFormStyle} autoFocus />
+        </div>
+        <div>
+          <label className={LABEL_CLASSES}>{t('leads.settings.col.type')}</label>
+          <span className={`${BADGE} ${BADGE_NEUTRAL}`}>{FIELD_TYPES.includes(field.type) ? t(fieldTypeKey(field.type)) : field.type}</span>
+          <Hint>{t('leads.settings.fields.type_locked')}</Hint>
+        </div>
+        <div>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer" title={t('leads.settings.fields.required_title')}>
+            <input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)} className={CHECKBOX} /> {t('leads.settings.required')}
+          </label>
+          <Hint>{t('leads.settings.fields.required_title')}</Hint>
+        </div>
+        {isSelect && (
+          <div className={BOX}>
+            <label className={LABEL_CLASSES}>{t('leads.settings.fields.options_label')}</label>
+            <ul className="space-y-2">
+              {options.map((o, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <input value={o} onChange={e => setOptions(p => p.map((x, j) => (j === i ? e.target.value : x)))} maxLength={200} className={INPUT_SM_CLASSES + ' flex-1'} aria-label={t('leads.settings.fields.option_aria', { n: i + 1 })} />
+                  <button type="button" onClick={() => setOptions(p => p.filter((_, j) => j !== i))} className={ROW_DELETE_BTN} aria-label={t('leads.settings.fields.remove_option_aria', { name: o || String(i + 1) })} title={t('leads.settings.fields.remove_option')}><DeleteIcon className="w-5 h-5" /></button>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center gap-2 mt-2">
+              <input value={newOpt} onChange={e => setNewOpt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOpt(); } }} maxLength={200} placeholder={t('leads.settings.fields.new_option_placeholder')} className={INPUT_SM_CLASSES + ' flex-1'} aria-label={t('leads.settings.fields.new_option_placeholder')} />
+              <button type="button" onClick={addOpt} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON} flex-shrink-0`}><PlusIcon className="w-4 h-4" />{t('leads.settings.fields.add_option')}</button>
+            </div>
+            <Hint className="mt-2">{t('leads.settings.fields.options_hint')}</Hint>
+            {dropped.length > 0 && (
+              <p className="mt-2 text-sm px-3 py-2 rounded-md border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200" role="status">
+                <span translate="no">{t('leads.settings.fields.options_dropped_warning', { options: dropped.map(d => `"${d}"`).join(', ') })}</span>
+              </p>
+            )}
+          </div>
+        )}
+        <div className={MODAL_FOOTER}>
+          <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.common.cancel')}</button>
+          <button type="button" onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('leads.common.saving') : t('leads.common.save')}</button>
+        </div>
+      </div>
+    </Modal>
   );
 };
 

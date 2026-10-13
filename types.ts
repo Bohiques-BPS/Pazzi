@@ -798,7 +798,8 @@ export type LeadRuleAction =
     | { type: 'notify'; target: 'assignee' | 'managers' | 'user'; userId?: string; message: string }
     | { type: 'send_email'; templateId: string }
     | { type: 'send_whatsapp'; templateId: string }
-    | { type: 'webhook'; url: string };
+    /** secret: lo genera el BE al guardar la regla; firma cada envío (X-Pazzi-Signature). Reglas antiguas pueden no tenerlo. */
+    | { type: 'webhook'; url: string; secret?: string };
 export interface LeadRule { id: string; name: string; active: boolean; trigger: LeadTrigger; conditions?: LeadRuleConditions | null; actions: LeadRuleAction[]; order: number; runCount: number; lastRunAt?: string | null; }
 export interface LeadRuleRun { id: string; ruleId: string; leadId: string; leadName?: string; trigger: string; ok: boolean; detail?: string | null; at: string; }
 export interface LeadTemplate { id: string; channel: 'email' | 'whatsapp'; name: string; subject?: string | null; body: string; }

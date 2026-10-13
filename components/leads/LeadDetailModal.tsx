@@ -374,12 +374,18 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     if (f.type === 'checkbox') return (
       <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200 mt-2 cursor-pointer"><input type="checkbox" disabled={!canEdit} checked={!!v} onChange={e => set(e.target.checked)} className={CHECKBOX} /> {t('leads.common.yes')}</label>
     );
-    if (f.type === 'select') return (
-      <select value={v ?? ''} disabled={!canEdit} onChange={e => set(e.target.value)} className={inputFormStyle}>
-        <option value="">—</option>
-        {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
-    );
+    if (f.type === 'select') {
+      const opts = f.options || [];
+      // Valor guardado que ya no está entre las opciones (se quitó o renombró): se muestra y se conserva.
+      const legacy = v !== undefined && v !== null && v !== '' && !opts.includes(String(v)) ? String(v) : null;
+      return (
+        <select value={v ?? ''} disabled={!canEdit} onChange={e => set(e.target.value)} className={inputFormStyle}>
+          <option value="">—</option>
+          {legacy !== null && <option value={legacy}>{`${legacy}${t('leads.detail.option_removed_suffix')}`}</option>}
+          {opts.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      );
+    }
     const type = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'url' ? 'url' : 'text';
     return <input type={type} value={v ?? ''} disabled={!canEdit} onChange={e => set(e.target.value)} className={inputFormStyle} />;
   };
@@ -463,7 +469,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             <div>{label(t('leads.common.source'))}
               <select value={form.sourceId} disabled={!canEdit} onChange={e => setForm(f => ({ ...f, sourceId: e.target.value }))} className={inputFormStyle}>
                 <option value="">—</option>
-                {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {/* Solo fuentes activas, más la que ya tiene el lead (aunque esté inactiva) para no perderla al guardar. */}
+                {sources.filter(s => s.active !== false || s.id === lead.sourceId || s.id === form.sourceId).map(s => <option key={s.id} value={s.id}>{`${s.name}${s.active === false ? t('leads.detail.source_inactive_suffix') : ''}`}</option>)}
               </select>
             </div>
             <div>{label(t('leads.common.expected_close'))}{inp('expectedCloseAt', 'date')}</div>
