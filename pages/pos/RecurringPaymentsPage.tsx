@@ -13,6 +13,8 @@ import { ConfirmationModal } from '../../components/Modal';
 import { ClientAutocomplete } from '../../components/ui/ClientAutocomplete';
 import { ClientNameLink } from '../../components/ui/EntityNameLink';
 import { MoneyInput } from '../../components/ui/MoneyInput';
+import { useAuth } from '../../contexts/AuthContext';
+import { RecurringEmailTemplateModal } from '../../components/pos/RecurringEmailTemplateModal';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 // Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
@@ -87,6 +89,7 @@ const SelectableCard: React.FC<{ selected: boolean; disabled?: boolean; onClick:
 
 export const RecurringPaymentsPage: React.FC = () => {
     const { t } = useTranslation();
+    const { currentUser: currentUserForTpl } = useAuth();
     const { clients, products } = useData();
     const { settings } = useGlobalSettings();
     const [items, setItems] = useState<RecurringPayment[]>([]);
@@ -404,12 +407,16 @@ export const RecurringPaymentsPage: React.FC = () => {
     }, [items, search, statusF, modeF, payF]);
     const pg = usePagination(filtered, 25);
     const hasActiveFilters = statusF !== 'all' || modeF !== 'all' || payF !== 'all';
+    // Plantilla del correo de autorización (enrolamiento): la edita el gerente.
+    const [showTemplate, setShowTemplate] = useState(false);
+    const isManagerUser = currentUserForTpl?.role === 'MANAGER';
 
     return (
         <div>
             <div className="flex justify-between items-center mb-2">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.recurring.title')}</h1>
                 <div className="flex items-center gap-2">
+                    {isManagerUser && <button onClick={() => setShowTemplate(true)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.recurring.tpl.button')}</button>}
                     <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
                     {!showDeleted && <button onClick={() => setShowForm(s => !s)} className={showForm ? BUTTON_CLOSE_SM_CLASSES : BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.recurring.close') : t('posx.recurring.new')}</button>}
                 </div>
@@ -797,6 +804,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                 confirmButtonText={t('posx.recurring.action.cancel')}
                 message={t('posx.recurring.confirm.cancel')}
             />
+            <RecurringEmailTemplateModal isOpen={showTemplate} onClose={() => setShowTemplate(false)} />
             <ConfirmationModal
                 isOpen={!!chargeConfirm}
                 onClose={() => { if (!charging) setChargeConfirm(null); }}

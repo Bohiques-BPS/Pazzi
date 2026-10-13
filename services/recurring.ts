@@ -122,7 +122,19 @@ export const recurringService = {
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/payments/recurring/${id}/restore`),
     list: (deleted?: boolean) => api.get<RecurringPayment[]>(`/payments/recurring${deleted ? '?deleted=1' : ''}`),
+    /** Plantilla editable del correo "Autoriza tu pago recurrente" (variables {{negocio}}, {{cliente}}, …). */
+    getEmailTemplate: () => api.get<EnrollEmailTemplate>('/payments/recurring/email-template'),
+    /** Vacío (subject y body) = volver al texto por defecto. Solo gerente. */
+    saveEmailTemplate: (data: { subject: string; body: string }) => api.put<EnrollEmailTemplate>('/payments/recurring/email-template', data),
 };
+
+export interface EnrollEmailTemplate {
+    subject: string;
+    body: string;
+    isDefault: boolean;
+    defaults: { subject: string; body: string };
+    variables: string[];
+}
 
 // ── Enrolamiento público (sin auth) ──
 export interface PublicEnroll {
