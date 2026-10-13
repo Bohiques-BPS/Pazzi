@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { XMarkIcon, ExclamationTriangleIcon } from './icons'; // Adjusted path
 import { BUTTON_SECONDARY_SM_CLASSES } from '../constants'; // Adjusted path
 import { useTranslation } from '../contexts/GlobalSettingsContext';
@@ -11,20 +11,36 @@ export interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full' | 'screen';
   /** Si true, no se cierra al presionar Esc. Útil para modales con datos sin guardar. */
   disableEscClose?: boolean;
+  /**
+   * Hay cambios sin guardar: cerrar (clic fuera, Esc o la X) pide confirmación
+   * "¿Deseas salir sin guardar los cambios?" en vez de cerrar y perderlos.
+   */
+  isDirty?: boolean;
 }
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl', disableEscClose }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl', disableEscClose, isDirty }) => {
   const { t } = useTranslation();
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  useEffect(() => { if (!isOpen) setConfirmLeave(false); }, [isOpen]);
+
+  // Cierre "suave" (backdrop, Esc, X): si hay cambios sin guardar, primero pregunta.
+  const requestClose = () => {
+    if (isDirty) setConfirmLeave(true);
+    else onClose();
+  };
+
   useEffect(() => {
     if (!isOpen || disableEscClose) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        if (confirmLeave) setConfirmLeave(false); // Esc en la confirmación = seguir editando
+        else requestClose();
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [isOpen, onClose, disableEscClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, onClose, disableEscClose, isDirty, confirmLeave]);
 
   if (!isOpen) return null;
 
@@ -49,21 +65,38 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   // Cerrar al hacer clic en el fondo (fuera del contenido). Solo si el clic fue directamente
   // sobre el backdrop, y respetando disableEscClose (modales con datos sin guardar).
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget && !disableEscClose) onClose();
+    if (e.target === e.currentTarget && !disableEscClose) requestClose();
   };
 
   return (
     <div onMouseDown={handleBackdrop} className={`fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 z-50 flex items-center justify-center ${isScreen ? '' : 'p-4'}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className={`bg-white dark:bg-neutral-800 shadow-xl w-full ${sizeClasses[size]} ${isScreen ? 'max-h-none rounded-none' : 'max-h-[90vh] rounded-lg'} flex flex-col`}>
+      <div className={`relative bg-white dark:bg-neutral-800 shadow-xl w-full ${sizeClasses[size]} ${isScreen ? 'max-h-none rounded-none' : 'max-h-[90vh] rounded-lg'} flex flex-col`}>
         <div className="flex justify-between items-center p-5 border-b border-neutral-200 dark:border-neutral-700">
           <h3 id="modal-title" className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">{title}</h3>
-          <button onClick={onClose} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" aria-label={t('cmp.modal.close')}>
+          <button onClick={requestClose} className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" aria-label={t('cmp.modal.close')}>
             <XMarkIcon className="w-7 h-7" />
           </button>
         </div>
         <div className="p-6 overflow-y-auto text-neutral-700 dark:text-neutral-200 text-base">
           {children}
         </div>
+
+        {/* Confirmación de salida con cambios sin guardar (sobre el propio modal). */}
+        {confirmLeave && (
+          <div className={`absolute inset-0 z-10 flex items-center justify-center bg-black/40 ${isScreen ? '' : 'rounded-lg'}`} onMouseDown={e => { if (e.target === e.currentTarget) setConfirmLeave(false); }}>
+            <div className="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-xl p-6 mx-4 max-w-sm w-full text-center" role="alertdialog" aria-modal="true">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 dark:bg-yellow-500/30 mb-3">
+                <ExclamationTriangleIcon />
+              </div>
+              <h4 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">{t('cmp.modal.unsaved_title')}</h4>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('cmp.modal.unsaved_message')}</p>
+              <div className="flex justify-center gap-3 mt-5">
+                <button type="button" autoFocus onClick={() => setConfirmLeave(false)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmp.modal.keep_editing')}</button>
+                <button type="button" onClick={() => { setConfirmLeave(false); onClose(); }} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3.5 rounded-md text-base shadow-sm transition-colors">{t('cmp.modal.discard')}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -526,6 +526,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 onClose={() => { setIsCreatingInStatus(null); setNewTaskTitle(''); setNewTaskImages([]); }}
                 title={`${t('cmpx.task.add_task') || 'Añadir tarea'}${isCreatingInStatus ? ` · ${isCreatingInStatus}` : ''}`}
                 size="lg"
+                isDirty={!!newTaskTitle.trim() || newTaskImages.length > 0}
             >
                 <div className="space-y-4" onPaste={handleCreatePaste}>
                     <div>

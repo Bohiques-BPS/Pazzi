@@ -130,6 +130,25 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [checklists]);
 
+    // ¿Hay cambios sin guardar? (para preguntar antes de cerrar con clic fuera / Esc / X).
+    // La descripción se compara como TEXTO: el editor puede reformatear el HTML al cargar.
+    const plain = (html: string) => (html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    const isDirty = useMemo(() => {
+        const sameIds = (a: string[], b: string[]) => [...a].sort().join('|') === [...b].sort().join('|');
+        return title !== task.title
+            || plain(description) !== plain(task.description || '')
+            || !sameIds(assignedIds, task.assignedEmployeeIds || [])
+            || dueDate !== (task.dueDate ? task.dueDate.split('T')[0] : '')
+            || (priority ?? null) !== (task.priority ?? null)
+            || section.trim() !== (task.section || '')
+            || reminderOn !== !!task.remindAt
+            || (reminderOn && remindAt !== isoToLocalInput(task.remindAt))
+            || JSON.stringify(attachments.map(a => a.url)) !== JSON.stringify((((task as any).attachments as TaskAttachment[]) || []).map(a => a.url))
+            // Texto escrito y aún no enviado (comentario, ítem de checklist, subtarea).
+            || !!newComment.trim() || !!commentImage || !!newCheckItem.trim() || !!newSubtaskTitle.trim();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [title, description, assignedIds, dueDate, priority, section, reminderOn, remindAt, attachments, newComment, commentImage, newCheckItem, newSubtaskTitle, task]);
+
     const handleSave = async () => {
         if (!title.trim()) {
             setError(t('cmpx.task.title_required'));
@@ -421,7 +440,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
 
     return (
         <>
-        <Modal isOpen={true} onClose={onClose} title={t('cmpx.task.details_title')} size="2xl">
+        <Modal isOpen={true} onClose={onClose} title={t('cmpx.task.details_title')} size="2xl" isDirty={isDirty && !submitting}>
             <div className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
