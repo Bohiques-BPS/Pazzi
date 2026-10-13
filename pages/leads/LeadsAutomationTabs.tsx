@@ -613,6 +613,8 @@ export const TeamsTab: React.FC<{ assignees: Assignee[]; settings: LeadSettings;
     catch (e) { err(e, t('leads.automation.err.save')); }
   };
   const newTeam = () => setEditing({ name: '', memberUserIds: [], mode: 'round_robin', active: true });
+  // Equipo predeterminado pausado: los leads entrantes quedan sin responsable (el BE no reparte con un equipo pausado).
+  const defaultPaused = teams.find(tm => tm.id === settings.defaultTeamId && !tm.active) || null;
 
   const columns: TableColumn<SalesTeam>[] = [
     { header: t('leads.automation.col.name'), accessor: tm => <span className="font-medium text-neutral-800 dark:text-neutral-100">{tm.name}</span>, sortable: true, sortKey: 'name', sortValue: tm => tm.name },
@@ -649,10 +651,16 @@ export const TeamsTab: React.FC<{ assignees: Assignee[]; settings: LeadSettings;
             <span className="text-sm text-neutral-700 dark:text-neutral-200 flex-1 min-w-[240px]">{t('leads.automation.teams.auto_assign_prefix')} <strong>{t('leads.automation.teams.auto_assign_strong')}</strong> {t('leads.automation.teams.auto_assign_suffix')}</span>
             <select value={settings.defaultTeamId || ''} onChange={e => setDefault(e.target.value)} className={INPUT_SM_CLASSES + ' min-w-[220px]'} aria-label={t('leads.automation.teams.default_select_aria')}>
               <option value="">{t('leads.automation.teams.no_distribute')}</option>
-              {teams.filter(tm => tm.active).map(tm => <option key={tm.id} value={tm.id}>{tm.name}</option>)}
+              {/* El predeterminado se muestra aunque esté pausado: así la pantalla dice la verdad. */}
+              {teams.filter(tm => tm.active || tm.id === settings.defaultTeamId).map(tm => <option key={tm.id} value={tm.id}>{tm.name}{tm.active ? '' : t('leads.automation.teams.paused_suffix')}</option>)}
             </select>
           </div>
           <Hint className="mt-2">{t('leads.automation.teams.auto_assign_hint')}</Hint>
+          {defaultPaused && (
+            <p className="mt-2 text-sm px-3 py-2 rounded-md border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200" role="alert">
+              <span translate="no">{t('leads.automation.teams.default_paused_warning', { name: defaultPaused.name })}</span>
+            </p>
+          )}
         </div>
         {teams.length === 0 ? (
           <EmptyState icon={<UserGroupIcon className="w-12 h-12" />} title={t('leads.automation.teams.empty')} description={t('leads.automation.teams.empty_hint')} />

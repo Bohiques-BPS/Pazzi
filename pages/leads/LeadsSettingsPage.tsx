@@ -75,7 +75,7 @@ export const LeadsSettingsPage: React.FC = () => {
   const [fields, setFields] = useState<LeadCustomField[]>([]);
   const [settings, setSettings] = useState<LeadSettings | null>(null);
   const [pipelineId, setPipelineId] = useState('');
-  const [confirm, setConfirm] = useState<null | { title: string; message: string; run: () => void }>(null);
+  const [confirm, setConfirm] = useState<null | { title: string; message: string; run: () => void; confirmText?: string }>(null);
 
   const { currentUser } = useAuth();
   // Responsables posibles: colaboradores con cuenta (User.id) + el usuario actual (p.ej. el gerente).
@@ -147,13 +147,13 @@ export const LeadsSettingsPage: React.FC = () => {
         onConfirm={() => { const c = confirm; setConfirm(null); c?.run(); }}
         title={confirm?.title || ''}
         message={confirm?.message || ''}
-        confirmButtonText={t('leads.common.delete')}
+        confirmButtonText={confirm?.confirmText || t('leads.common.delete')}
       />
     </div>
   );
 };
 
-type AskConfirm = (c: { title: string; message: string; run: () => void }) => void;
+type AskConfirm = (c: { title: string; message: string; run: () => void; confirmText?: string }) => void;
 
 // ── Pipelines y etapas ──
 const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipelineId: string; setPipelineId: (id: string) => void; reload: () => Promise<void>; askConfirm: AskConfirm }> =
@@ -176,6 +176,21 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
   };
   const updateStage = async (s: PipelineStage, data: Partial<PipelineStage>) => {
     try { await leadsService.updateStage(s.id, data); await reload(); } catch (e) { err(e, t('leads.settings.err.update_stage')); }
+  };
+  // Cambiar el TIPO mueve el estado de todos los leads de la etapa (ganado/perdido/abierto): confirmar antes.
+  const typeLabel = (ty: string) => ty === 'won' ? t('leads.common.status.won') : ty === 'lost' ? t('leads.common.status.lost') : t('leads.common.stage_type.open');
+  const requestStageUpdate = (s: PipelineStage, data: Partial<PipelineStage>) => {
+    if (data.type && data.type !== s.type) {
+      const effect = data.type === 'won' ? t('leads.settings.stages.type_effect_won') : data.type === 'lost' ? t('leads.settings.stages.type_effect_lost') : t('leads.settings.stages.type_effect_open');
+      askConfirm({
+        title: t('leads.settings.stages.type_confirm_title'),
+        message: `${t('leads.settings.stages.type_confirm_msg', { name: s.name, to: typeLabel(data.type) })} ${effect}`,
+        confirmText: t('leads.settings.stages.type_confirm_btn'),
+        run: () => updateStage(s, data),
+      });
+      return;
+    }
+    updateStage(s, data);
   };
   const move = async (idx: number, dir: -1 | 1) => {
     const ids = stages.map(s => s.id);
@@ -254,7 +269,7 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
           </>}>
             {stages.map((s, i) => (
               <StageRow key={s.id} stage={s} index={i} total={stages.length} others={stages.filter(x => x.id !== s.id)}
-                onMove={move} onUpdate={updateStage}
+                onMove={move} onUpdate={requestStageUpdate}
                 onDelete={(moveTo) => askConfirm({ title: t('leads.settings.stages.delete_title'), message: t('leads.settings.stages.delete_msg', { name: s.name, target: stages.find(x => x.id === moveTo)?.name || t('leads.settings.stages.other_stage') }), run: async () => { try { await leadsService.deleteStage(s.id, moveTo); await reload(); } catch (e) { err(e, t('leads.settings.err.delete')); } } })}
               />
             ))}
@@ -526,6 +541,8 @@ const FormTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSettings)
   };
   const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); toast.success(t('leads.settings.form.copied')); } catch { toast.error(t('leads.settings.err.copy')); } };
   const regenerate = async () => { try { const r = await leadsService.regenerateFormToken(); setSettings({ ...settings, formToken: r.formToken }); toast.success(t('leads.settings.form.regenerated')); } catch (e) { err(e, t('leads.settings.err.regenerate')); } };
+  // Regenerar rompe al instante el enlace/código ya compartidos: pedir confirmación.
+  const [confirmRegen, setConfirmRegen] = useState(false);
 
   return (
     <>
@@ -615,12 +632,20 @@ const FormTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSettings)
               <Hint>{t('leads.settings.form.embed_hint')}</Hint>
             </div>
             <div className="pt-4 border-t border-neutral-200 dark:border-neutral-700">
-              <button onClick={regenerate} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50`} title={t('leads.settings.form.regenerate_hint')}>{t('leads.settings.form.regenerate')}</button>
+              <button onClick={() => setConfirmRegen(true)} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50`} title={t('leads.settings.form.regenerate_hint')}>{t('leads.settings.form.regenerate')}</button>
               <Hint>{t('leads.settings.form.regenerate_hint')}</Hint>
             </div>
           </div>
         </SettingsCard>
       )}
+      <ConfirmationModal
+        isOpen={confirmRegen}
+        onClose={() => setConfirmRegen(false)}
+        onConfirm={() => { setConfirmRegen(false); regenerate(); }}
+        title={t('leads.settings.form.regenerate_confirm_title')}
+        message={t('leads.settings.form.regenerate_confirm_msg')}
+        confirmButtonText={t('leads.settings.form.regenerate_confirm_btn')}
+      />
     </>
   );
 };
