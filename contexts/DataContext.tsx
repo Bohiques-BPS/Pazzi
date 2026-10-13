@@ -841,13 +841,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return categories.filter(c => !c.storeOwnerId || c.storeOwnerId === ownerId);
     }, [categories]);
     
-    const getSuppliersByStoreOwner = useCallback((ownerId: string): Supplier[] => {
-        return suppliers.filter(s => !s.storeOwnerId || s.storeOwnerId === ownerId);
-    }, [suppliers]);
+    // El backend ya devuelve SOLO los proveedores/pedidos del negocio (storeOwnerId resuelto en el
+    // servidor, también para colaboradores). Filtrar otra vez aquí por un id del cliente (ADMIN_USER_ID
+    // del modo demo o currentUser.id de un empleado) escondía proveedores recién creados al recargar.
+    const getSuppliersByStoreOwner = useCallback((_ownerId?: string): Supplier[] => suppliers, [suppliers]);
 
-    const getSupplierOrdersByStoreOwner = useCallback((ownerId: string): SupplierOrder[] => {
-        return supplierOrders.filter(so => so.storeOwnerId === ownerId);
-    }, [supplierOrders]);
+    const getSupplierOrdersByStoreOwner = useCallback((_ownerId?: string): SupplierOrder[] => supplierOrders, [supplierOrders]);
 
     const addSale = useCallback(async (saleData: Omit<Sale, 'id' | 'date' | 'branchId'> & {cajaId: string, employeeId: string, clientId?: string, projectId?: string, isExternal?: boolean, subtotal?: number, taxAmount?: number, taxState?: number, taxMunicipal?: number, taxReduced?: number, discountAmount?: number, allowOversell?: boolean, payments?: { method: string; amount: number; reference?: string }[]}, branchId: string) => {
         try {
