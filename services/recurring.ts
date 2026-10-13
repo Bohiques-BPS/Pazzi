@@ -123,18 +123,25 @@ export const recurringService = {
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/payments/recurring/${id}/restore`),
     list: (deleted?: boolean) => api.get<RecurringPayment[]>(`/payments/recurring${deleted ? '?deleted=1' : ''}`),
-    /** Plantilla editable del correo "Autoriza tu pago recurrente" (variables {{negocio}}, {{cliente}}, …). */
-    getEmailTemplate: () => api.get<EnrollEmailTemplate>('/payments/recurring/email-template'),
+    /** Plantillas editables: "Autoriza tu pago recurrente" y el aviso previo al débito (variables {{negocio}}, {{cliente}}, …). */
+    getEmailTemplate: (key: RecurringEmailTemplateKey = 'recurringEnroll') => api.get<EnrollEmailTemplate>('/payments/recurring/email-template', { key }),
     /** Vacío (subject y body) = volver al texto por defecto. Solo gerente. */
-    saveEmailTemplate: (data: { subject: string; body: string }) => api.put<EnrollEmailTemplate>('/payments/recurring/email-template', data),
+    saveEmailTemplate: (data: { key: RecurringEmailTemplateKey; subject: string; body: string }) => api.put<EnrollEmailTemplate>('/payments/recurring/email-template', data),
 };
 
+export type RecurringEmailTemplateKey = 'recurringEnroll' | 'recurringPreCharge';
+
 export interface EnrollEmailTemplate {
+    key: RecurringEmailTemplateKey;
     subject: string;
     body: string;
     isDefault: boolean;
     defaults: { subject: string; body: string };
     variables: string[];
+    /** La plantilla lleva un enlace obligatorio (autorización). */
+    withLink: boolean;
+    /** Días de anticipación del aviso previo al débito. */
+    noticeDays: number;
 }
 
 // ── Enrolamiento público (sin auth) ──

@@ -741,7 +741,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                                 <span className="text-neutral-500">· {money(rp.amount)} {t(INTERVAL_LABEL[rp.interval])}</span>
                                 {!isInvoice && rp.cardLast4 && <span className="text-xs text-neutral-400">·•••• {rp.cardLast4}</span>}
                                 {isInvoice && cur && <span className={`text-xs px-2 py-0.5 rounded-full ${PAY_BADGE[cur] || 'bg-neutral-100 text-neutral-600'}`}>{PAY_LABEL[cur] ? t(PAY_LABEL[cur]) : cur}</span>}
-                                <span className="text-xs text-neutral-400 ml-auto">{isInvoice ? t('posx.recurring.nextInvoice') : t('posx.recurring.nextCharge')}: {rp.status === 'cancelled' ? '—' : new Date(rp.nextChargeDate).toLocaleDateString()}</span>
+                                <span className="text-xs text-neutral-400 ml-auto">{isInvoice ? t('posx.recurring.nextInvoice') : t('posx.recurring.nextCharge')}: {rp.status === 'cancelled' || rp.status === 'completed' ? '—' : new Date(rp.nextChargeDate).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-neutral-500">
                                 {(() => { const lp = lastPaidDate(rp); return <span className="font-medium text-neutral-600 dark:text-neutral-300">{t('posx.recurring.last_paid')}: {lp ? new Date(lp).toLocaleDateString() : t('posx.recurring.no_payment')}</span>; })()}
