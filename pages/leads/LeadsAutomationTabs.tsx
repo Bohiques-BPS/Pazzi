@@ -25,9 +25,28 @@ const copy = async (t: TFn, text: string) => { try { await navigator.clipboard.w
 // UI COMPARTIDA (mismo diseño que el resto de la app: tarjetas, tablas, botones, badges)
 // ═════════════════════════════════════════════
 
-/** Tarjeta estándar (igual que ProjectsDashboardPage): título + subtítulo + acciones a la derecha. */
-export const SettingsCard: React.FC<{ title: string; subtitle?: React.ReactNode; icon?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode; className?: string }> =
-  ({ title, subtitle, icon, actions, children, className = '' }) => (
+/** Texto de ayuda corto (una línea) bajo un campo o control. */
+export const HINT_CLASSES = 'text-xs text-neutral-500 dark:text-neutral-400';
+export const Hint: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = 'mt-1' }) => (
+  <p className={`${HINT_CLASSES} ${className}`}>{children}</p>
+);
+
+/** Explicación plegable "¿Cómo funciona?": detalles más largos sin saturar la tarjeta. */
+export const HowItWorks: React.FC<{ items: React.ReactNode[]; className?: string }> = ({ items, className = 'mt-1' }) => {
+  const { t } = useTranslation();
+  return (
+    <details className={`${className} ${HINT_CLASSES}`}>
+      <summary className="cursor-pointer select-none w-fit text-primary dark:text-teal-300 hover:underline">{t('leads.settings.how_it_works')}</summary>
+      <ul className="mt-2 list-disc pl-5 space-y-1 max-w-3xl">
+        {items.map((it, i) => <li key={i}>{it}</li>)}
+      </ul>
+    </details>
+  );
+};
+
+/** Tarjeta estándar (igual que ProjectsDashboardPage): título + subtítulo + "¿Cómo funciona?" opcional + acciones a la derecha. */
+export const SettingsCard: React.FC<{ title: string; subtitle?: React.ReactNode; help?: React.ReactNode[]; icon?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode; className?: string }> =
+  ({ title, subtitle, help, icon, actions, children, className = '' }) => (
   <div className={`bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 shadow-sm ${className}`}>
     <div className={`flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 ${children ? 'mb-4' : ''}`}>
       <div className="flex items-start gap-2 min-w-0">
@@ -35,6 +54,7 @@ export const SettingsCard: React.FC<{ title: string; subtitle?: React.ReactNode;
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">{title}</h2>
           {subtitle && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 max-w-3xl">{subtitle}</p>}
+          {help && help.length > 0 && <HowItWorks items={help} />}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2 flex-shrink-0">{actions}</div>}
@@ -177,7 +197,7 @@ export const RulesTab: React.FC<Ctx> = ({ pipelines, sources, tags, assignees })
   const columns: TableColumn<LeadRule>[] = [
     {
       header: t('leads.common.status_label'),
-      accessor: r => <Toggle checked={r.active} onChange={() => toggle(r)} label={r.active ? t('leads.automation.rules.active') : t('leads.automation.rules.paused')} />,
+      accessor: r => <Toggle checked={r.active} onChange={() => toggle(r)} label={r.active ? t('leads.automation.rules.toggle_active') : t('leads.automation.rules.toggle_paused')} />,
       sortable: true, sortKey: 'active', sortValue: r => (r.active ? 1 : 0), filterType: 'none',
     },
     {
@@ -216,7 +236,7 @@ export const RulesTab: React.FC<Ctx> = ({ pipelines, sources, tags, assignees })
       header: t('leads.automation.rules.col.result'),
       accessor: r => (
         <div className="flex items-center gap-2 whitespace-normal">
-          <span className={`${BADGE} ${r.ok ? BADGE_GREEN : BADGE_RED}`}>{r.ok ? '✓' : '✕'}</span>
+          <span className={`${BADGE} ${r.ok ? BADGE_GREEN : BADGE_RED}`} title={r.ok ? t('leads.automation.rules.result_ok') : t('leads.automation.rules.result_failed')}>{r.ok ? '✓' : '✕'}</span>
           <span className={`text-sm ${r.ok ? 'text-neutral-600 dark:text-neutral-300' : 'text-red-600 dark:text-red-400'}`}>{r.detail}</span>
         </div>
       ),
@@ -229,9 +249,16 @@ export const RulesTab: React.FC<Ctx> = ({ pipelines, sources, tags, assignees })
       <SettingsCard
         title={t('leads.settings.tab.rules')}
         subtitle={t('leads.automation.rules.intro')}
+        help={[
+          t('leads.automation.rules.help.when'),
+          t('leads.automation.rules.help.only_if'),
+          t('leads.automation.rules.help.then'),
+          t('leads.automation.rules.help.variables'),
+          t('leads.automation.rules.help.timing'),
+        ]}
         icon={<SparklesIcon className="w-5 h-5" />}
         actions={<>
-          <button onClick={() => openRuns('')} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON}`}><ClockIcon className="w-4 h-4" />{t('leads.automation.rules.history')}</button>
+          <button onClick={() => openRuns('')} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON}`} title={t('leads.automation.rules.history_tooltip')}><ClockIcon className="w-4 h-4" />{t('leads.automation.rules.history')}</button>
           <button onClick={newRule} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.automation.rules.new')}</button>
         </>}
       >
@@ -271,8 +298,9 @@ export const RulesTab: React.FC<Ctx> = ({ pipelines, sources, tags, assignees })
       <ConfirmationModal isOpen={!!toDelete} onClose={() => setToDelete(null)} onConfirm={async () => { const r = toDelete!; setToDelete(null); try { await leadsService.deleteRule(r.id); await load(); } catch (e) { err(e, t('leads.automation.err.delete')); } }} title={t('leads.automation.rules.delete_title')} message={t('leads.automation.delete_confirm', { name: toDelete?.name || '' })} confirmButtonText={t('leads.common.delete')} />
 
       <Modal isOpen={runs !== null} onClose={() => setRuns(null)} title={runsFor ? t('leads.automation.rules.runs_title', { name: rules.find(r => r.id === runsFor)?.name || '' }) : t('leads.automation.rules.history_title')} size="3xl">
+        <Hint className="mb-3">{t('leads.automation.rules.runs_help')}</Hint>
         {(runs || []).length === 0 ? (
-          <EmptyState icon={<ClockIcon className="w-12 h-12" />} title={t('leads.automation.rules.no_runs')} />
+          <EmptyState icon={<ClockIcon className="w-12 h-12" />} title={t('leads.automation.rules.no_runs')} description={t('leads.automation.rules.no_runs_hint')} />
         ) : (
           <DataTable<LeadRuleRun>
             tableId={runsFor ? 'leads_rule_runs_one' : 'leads_rule_runs_all'}
@@ -340,51 +368,58 @@ const RuleEditor: React.FC<{
   return (
     <Modal isOpen={true} onClose={onClose} title={rule.id ? t('leads.automation.editor.title_edit') : t('leads.automation.editor.title_new')} size="3xl">
       <div className="space-y-4">
-        <div><label className={LABEL_CLASSES}>{t('leads.automation.editor.name')}</label><input value={name} onChange={e => setName(e.target.value)} placeholder={t('leads.automation.editor.name_placeholder')} className={inputFormStyle} autoFocus /></div>
+        <div>
+          <label className={LABEL_CLASSES}>{t('leads.automation.editor.name')}</label>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t('leads.automation.editor.name_placeholder')} className={inputFormStyle} autoFocus />
+          <Hint>{t('leads.automation.editor.name_hint')}</Hint>
+        </div>
 
         {/* 1. Cuándo */}
         <div className={BOX}>
           <h4 className={sectionTitle}>{t('leads.automation.editor.when')}</h4>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={trigger} onChange={e => setTrigger(e.target.value as LeadTrigger)} className={sel}>
+            <select value={trigger} onChange={e => setTrigger(e.target.value as LeadTrigger)} className={sel} aria-label={t('leads.automation.editor.when')}>
               {TRIGGERS.map(tr => <option key={tr} value={tr}>{triggerLabel(t, tr)}</option>)}
             </select>
-            {trigger === 'no_activity' && (<><input type="number" min={1} max={365} value={cond.days ?? 7} onChange={e => setC('days', Number(e.target.value))} className={sel + ' w-20'} /><span className="text-sm text-neutral-600 dark:text-neutral-300">{t('leads.automation.editor.days')}</span></>)}
+            {trigger === 'no_activity' && (<><input type="number" min={1} max={365} value={cond.days ?? 7} onChange={e => setC('days', Number(e.target.value))} className={sel + ' w-20'} aria-label={t('leads.automation.editor.days_aria')} title={t('leads.automation.editor.days_aria')} /><span className="text-sm text-neutral-600 dark:text-neutral-300">{t('leads.automation.editor.days')}</span></>)}
           </div>
-          {trigger === 'stage_changed' && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">{t('leads.automation.editor.stage_hint')}</p>}
+          {/* key: se remonta al cambiar de disparador (evita el choque del traductor de Chrome con texto que cambia). */}
+          <Hint key={trigger} className="mt-2">{t(`leads.automation.trigger_hint.${trigger}`)}</Hint>
         </div>
 
         {/* 2. Condiciones */}
         <div className={BOX}>
           <h4 className={sectionTitle}>{t('leads.automation.editor.only_if')}</h4>
+          <Hint className="-mt-1 mb-2">{t('leads.automation.editor.only_if_hint')}</Hint>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {pipelines.length > 1 && (
-              <select value={cond.pipelineId || ''} onChange={e => { setC('pipelineId', e.target.value); setC('stageId', ''); }} className={sel + ' w-full'}>
+              <select value={cond.pipelineId || ''} onChange={e => { setC('pipelineId', e.target.value); setC('stageId', ''); }} className={sel + ' w-full'} aria-label={t('leads.common.pipeline')} title={t('leads.automation.editor.cond_pipeline_title')}>
                 <option value="">{t('leads.automation.editor.any_pipeline')}</option>{pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             )}
-            <select value={cond.stageId || ''} onChange={e => setC('stageId', e.target.value)} className={sel + ' w-full'}>
+            <select value={cond.stageId || ''} onChange={e => setC('stageId', e.target.value)} className={sel + ' w-full'} aria-label={t('leads.common.stage')} title={t('leads.automation.editor.cond_stage_title')}>
               <option value="">{t('leads.automation.editor.any_stage')}</option>{stagesForCond.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
-            <select value={cond.sourceId || ''} onChange={e => setC('sourceId', e.target.value)} className={sel + ' w-full'}>
+            <select value={cond.sourceId || ''} onChange={e => setC('sourceId', e.target.value)} className={sel + ' w-full'} aria-label={t('leads.common.source')} title={t('leads.automation.editor.cond_source_title')}>
               <option value="">{t('leads.automation.editor.any_source')}</option>{sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <select value={cond.tagId || ''} onChange={e => setC('tagId', e.target.value)} className={sel + ' w-full'}>
+            <select value={cond.tagId || ''} onChange={e => setC('tagId', e.target.value)} className={sel + ' w-full'} aria-label={t('leads.common.tags')} title={t('leads.automation.editor.cond_tag_title')}>
               <option value="">{t('leads.automation.editor.any_tag')}</option>{tags.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
             </select>
-            <input type="number" value={cond.minValue ?? ''} onChange={e => setC('minValue', e.target.value === '' ? null : Number(e.target.value))} placeholder={t('leads.automation.editor.min_value')} className={sel + ' w-full'} />
-            <input type="number" value={cond.maxValue ?? ''} onChange={e => setC('maxValue', e.target.value === '' ? null : Number(e.target.value))} placeholder={t('leads.automation.editor.max_value')} className={sel + ' w-full'} />
+            <input type="number" value={cond.minValue ?? ''} onChange={e => setC('minValue', e.target.value === '' ? null : Number(e.target.value))} placeholder={t('leads.automation.editor.min_value')} className={sel + ' w-full'} aria-label={t('leads.automation.editor.min_value')} title={t('leads.automation.editor.min_value_title')} />
+            <input type="number" value={cond.maxValue ?? ''} onChange={e => setC('maxValue', e.target.value === '' ? null : Number(e.target.value))} placeholder={t('leads.automation.editor.max_value')} className={sel + ' w-full'} aria-label={t('leads.automation.editor.max_value')} title={t('leads.automation.editor.max_value_title')} />
           </div>
         </div>
 
         {/* 3. Acciones */}
         <div className={BOX}>
           <h4 className={sectionTitle}>{t('leads.automation.editor.then')}</h4>
+          <Hint className="-mt-1 mb-2">{t('leads.automation.editor.then_hint')}</Hint>
           <ul className="space-y-2">
             {actions.map((a, i) => (
               <li key={i} className="flex flex-wrap items-center gap-2 p-2 rounded-md border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/40">
                 <span className="w-6 h-6 rounded-full bg-primary/10 text-primary dark:text-teal-300 text-xs font-semibold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                <select value={a.type} onChange={e => setActions(prev => prev.map((x, j) => j === i ? emptyAction(t, e.target.value as any) : x))} className={sel}>
+                <select value={a.type} onChange={e => setActions(prev => prev.map((x, j) => j === i ? emptyAction(t, e.target.value as any) : x))} className={sel} aria-label={t('leads.automation.editor.action_type_aria')}>
                   {ACTION_TYPES.map(at => <option key={at} value={at}>{actionLabel(t, at)}</option>)}
                 </select>
                 {a.type === 'assign' && <select value={a.userId} onChange={e => setA(i, { userId: e.target.value })} className={sel}><option value="">{t('leads.automation.editor.pick_person')}</option>{assignees.map(x => <option key={x.uid} value={x.uid}>{x.name}</option>)}</select>}
@@ -394,7 +429,7 @@ const RuleEditor: React.FC<{
                 {a.type === 'create_activity' && (<>
                   <select value={a.activityType} onChange={e => setA(i, { activityType: e.target.value })} className={sel}>{ACTIVITY_TYPES.map(k => <option key={k} value={k}>{activityLabel(t, k)}</option>)}</select>
                   <input value={a.body || ''} onChange={e => setA(i, { body: e.target.value })} placeholder={t('leads.automation.editor.detail_placeholder')} className={sel + ' flex-1 min-w-[160px]'} />
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">{t('leads.automation.editor.in')}</span><input type="number" min={0} value={a.dueInHours ?? 0} onChange={e => setA(i, { dueInHours: Number(e.target.value) })} className={sel + ' w-20'} /><span className="text-xs text-neutral-500 dark:text-neutral-400">{t('leads.automation.editor.hours')}</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">{t('leads.automation.editor.in')}</span><input type="number" min={0} value={a.dueInHours ?? 0} onChange={e => setA(i, { dueInHours: Number(e.target.value) })} className={sel + ' w-20'} aria-label={t('leads.automation.editor.due_hours_title')} title={t('leads.automation.editor.due_hours_title')} /><span className="text-xs text-neutral-500 dark:text-neutral-400">{t('leads.automation.editor.hours')}</span>
                 </>)}
                 {a.type === 'notify' && (<>
                   <select value={a.target} onChange={e => setA(i, { target: e.target.value })} className={sel}><option value="assignee">{t('leads.automation.editor.notify_assignee')}</option><option value="managers">{t('leads.automation.editor.notify_managers')}</option><option value="user">{t('leads.automation.editor.notify_user')}</option></select>
@@ -404,23 +439,24 @@ const RuleEditor: React.FC<{
                 {(a.type === 'send_email' || a.type === 'send_whatsapp') && (tplFor(a.type === 'send_email' ? 'email' : 'whatsapp').length
                   ? <select value={a.templateId} onChange={e => setA(i, { templateId: e.target.value })} className={sel}><option value="">{t('leads.automation.editor.pick_template')}</option>{tplFor(a.type === 'send_email' ? 'email' : 'whatsapp').map(tp => <option key={tp.id} value={tp.id}>{tp.name}</option>)}</select>
                   : <span className="text-xs text-amber-600 dark:text-amber-400">{t('leads.automation.editor.create_template_first', { channel: t(a.type === 'send_email' ? 'leads.automation.channel_lower.email' : 'leads.automation.channel_lower.whatsapp') })}</span>)}
-                {a.type === 'webhook' && <input value={a.url} onChange={e => setA(i, { url: e.target.value })} placeholder="https://…" className={sel + ' flex-1 min-w-[200px]'} />}
+                {a.type === 'webhook' && <input value={a.url} onChange={e => setA(i, { url: e.target.value })} placeholder="https://hooks.zapier.com/…" className={sel + ' flex-1 min-w-[200px]'} aria-label={t('leads.automation.col.url')} />}
                 <div className="ml-auto flex items-center gap-1">
                   <button type="button" onClick={() => setActions(prev => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })} disabled={i === 0} className="p-1 text-neutral-500 hover:text-primary disabled:opacity-30" aria-label={t('leads.automation.editor.move_up')} title={t('leads.automation.editor.move_up')}><ArrowUpIcon className="w-4 h-4" /></button>
                   <button type="button" onClick={() => setActions(prev => prev.filter((_, j) => j !== i))} className={ROW_DELETE_BTN} aria-label={t('leads.automation.editor.remove_action')} title={t('leads.automation.editor.remove_action')}><DeleteIcon className="w-5 h-5" /></button>
                 </div>
+                <Hint key={a.type} className="w-full pl-8">{t(`leads.automation.action_hint.${a.type}`)}</Hint>
               </li>
             ))}
           </ul>
           {actions.length < 10 && (
-            <select value="" onChange={e => { if (e.target.value) setActions(prev => [...prev, emptyAction(t, e.target.value as any)]); }} className={sel + (actions.length ? ' mt-2' : '')}>
+            <select value="" onChange={e => { if (e.target.value) setActions(prev => [...prev, emptyAction(t, e.target.value as any)]); }} className={sel + (actions.length ? ' mt-2' : '')} aria-label={t('leads.automation.editor.add_action')}>
               <option value="">{t('leads.automation.editor.add_action')}</option>
               {ACTION_TYPES.map(at => <option key={at} value={at}>{actionLabel(t, at)}</option>)}
             </select>
           )}
           <div className="flex flex-wrap items-center gap-1 mt-3">
             <span className="text-xs text-neutral-500 dark:text-neutral-400 mr-1">{t('leads.automation.editor.variables')}</span>
-            {VARIABLES.map(v => <span key={v} className={`${BADGE} ${BADGE_NEUTRAL} font-mono`}>{`{{${v}}}`}</span>)}
+            {VARIABLES.map(v => <span key={v} className={`${BADGE} ${BADGE_NEUTRAL} font-mono cursor-help`} title={t(`leads.automation.var.${v}`)}>{`{{${v}}}`}</span>)}
           </div>
         </div>
 
@@ -467,14 +503,19 @@ export const TemplatesTab: React.FC = () => {
       <SettingsCard
         title={t('leads.settings.tab.templates')}
         subtitle={t('leads.automation.templates.intro')}
+        help={[
+          t('leads.automation.templates.help.email'),
+          t('leads.automation.templates.help.whatsapp'),
+          t('leads.automation.templates.help.variables'),
+        ]}
         icon={<DocumentTextIcon className="w-5 h-5" />}
         actions={<>
-          <button onClick={newEmail} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON}`}><EnvelopeIcon className="w-4 h-4" />{t('leads.automation.templates.new_email')}</button>
-          <button onClick={newWhatsapp} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><ChatBubbleLeftRightIcon className="w-4 h-4" />{t('leads.automation.templates.new_whatsapp')}</button>
+          <button onClick={newEmail} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON}`} title={t('leads.automation.templates.new_email_title')}><EnvelopeIcon className="w-4 h-4" />{t('leads.automation.templates.new_email')}</button>
+          <button onClick={newWhatsapp} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`} title={t('leads.automation.templates.new_whatsapp_title')}><ChatBubbleLeftRightIcon className="w-4 h-4" />{t('leads.automation.templates.new_whatsapp')}</button>
         </>}
       >
         {list.length === 0 ? (
-          <EmptyState icon={<DocumentTextIcon className="w-12 h-12" />} title={t('leads.automation.templates.empty')} />
+          <EmptyState icon={<DocumentTextIcon className="w-12 h-12" />} title={t('leads.automation.templates.empty')} description={t('leads.automation.templates.empty_hint')} />
         ) : (
           <DataTable<LeadTemplate>
             tableId="leads_templates"
@@ -524,13 +565,24 @@ const TemplateEditor: React.FC<{ tpl: Partial<LeadTemplate>; onClose: () => void
   return (
     <Modal isOpen={true} onClose={onClose} title={t(tpl.id ? 'leads.automation.templates.title_edit' : 'leads.automation.templates.title_new', { channel: channelName })} size="lg">
       <div className="space-y-4">
-        <div><label className={LABEL_CLASSES}>{t('leads.automation.templates.internal_name')}</label><input value={f.name} onChange={e => setF(p => ({ ...p, name: e.target.value }))} placeholder={t('leads.automation.templates.name_placeholder')} className={inputFormStyle} autoFocus /></div>
-        {tpl.channel === 'email' && <div><label className={LABEL_CLASSES}>{t('leads.automation.templates.subject')}</label><input value={f.subject} onChange={e => setF(p => ({ ...p, subject: e.target.value }))} placeholder={t('leads.automation.templates.subject_placeholder')} className={inputFormStyle} /></div>}
+        <div>
+          <label className={LABEL_CLASSES}>{t('leads.automation.templates.internal_name')}</label>
+          <input value={f.name} onChange={e => setF(p => ({ ...p, name: e.target.value }))} placeholder={t('leads.automation.templates.name_placeholder')} className={inputFormStyle} autoFocus />
+          <Hint>{t('leads.automation.templates.internal_name_hint')}</Hint>
+        </div>
+        {tpl.channel === 'email' && (
+          <div>
+            <label className={LABEL_CLASSES}>{t('leads.automation.templates.subject')}</label>
+            <input value={f.subject} onChange={e => setF(p => ({ ...p, subject: e.target.value }))} placeholder={t('leads.automation.templates.subject_placeholder')} className={inputFormStyle} />
+            <Hint>{t('leads.automation.templates.subject_hint')}</Hint>
+          </div>
+        )}
         <div>
           <label className={LABEL_CLASSES}>{t('leads.automation.templates.message')}</label>
-          <textarea ref={bodyRef} rows={8} value={f.body} onChange={e => setF(p => ({ ...p, body: e.target.value }))} className={inputFormStyle + ' !h-auto'} />
-          <div className="flex flex-wrap gap-1 mt-2">
-            {VARIABLES.map(v => <button key={v} type="button" onClick={() => insert(v)} className={`${BADGE} ${BADGE_NEUTRAL} font-mono hover:bg-primary/10 hover:text-primary`}>{`{{${v}}}`}</button>)}
+          <textarea ref={bodyRef} rows={8} value={f.body} onChange={e => setF(p => ({ ...p, body: e.target.value }))} placeholder={t(tpl.channel === 'email' ? 'leads.automation.templates.body_placeholder_email' : 'leads.automation.templates.body_placeholder_whatsapp')} className={inputFormStyle + ' !h-auto'} />
+          <Hint className="mt-2">{t('leads.automation.templates.variables_hint')}</Hint>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {VARIABLES.map(v => <button key={v} type="button" onClick={() => insert(v)} className={`${BADGE} ${BADGE_NEUTRAL} font-mono hover:bg-primary/10 hover:text-primary`} title={t('leads.automation.templates.insert_var', { label: t(`leads.automation.var.${v}`) })}>{`{{${v}}}`}</button>)}
           </div>
           {tpl.channel === 'whatsapp' && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">{t('leads.automation.templates.whatsapp_note')}</p>}
         </div>
@@ -570,8 +622,8 @@ export const TeamsTab: React.FC<{ assignees: Assignee[]; settings: LeadSettings;
       header: t('leads.common.status_label'),
       accessor: tm => (
         <div className="flex flex-wrap gap-1">
-          {settings.defaultTeamId === tm.id && <span className={`${BADGE} ${BADGE_PRIMARY}`}>{t('leads.automation.teams.default')}</span>}
-          <span className={`${BADGE} ${tm.active ? BADGE_GREEN : BADGE_NEUTRAL}`}>{tm.active ? t('leads.common.active') : t('leads.automation.teams.paused')}</span>
+          {settings.defaultTeamId === tm.id && <span className={`${BADGE} ${BADGE_PRIMARY}`} title={t('leads.automation.teams.default_title')}>{t('leads.automation.teams.default')}</span>}
+          <span className={`${BADGE} ${tm.active ? BADGE_GREEN : BADGE_NEUTRAL}`} title={tm.active ? t('leads.automation.teams.active_title') : t('leads.automation.teams.paused_title')}>{tm.active ? t('leads.common.active') : t('leads.automation.teams.paused')}</span>
         </div>
       ),
       sortable: true, sortKey: 'active', sortValue: tm => (tm.active ? 1 : 0), filterType: 'none',
@@ -583,18 +635,27 @@ export const TeamsTab: React.FC<{ assignees: Assignee[]; settings: LeadSettings;
       <SettingsCard
         title={t('leads.settings.tab.teams')}
         subtitle={<>{t('leads.automation.teams.intro')} <strong>{t('leads.automation.teams.mode.round_robin')}</strong>: {t('leads.automation.teams.intro_round_robin')} <strong>{t('leads.automation.teams.mode.balanced')}</strong>: {t('leads.automation.teams.intro_balanced')}</>}
+        help={[
+          t('leads.automation.teams.help.where'),
+          t('leads.automation.teams.help.members'),
+          t('leads.automation.teams.help.paused'),
+          t('leads.automation.teams.help.delete'),
+        ]}
         icon={<UserGroupIcon className="w-5 h-5" />}
         actions={<button onClick={newTeam} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.automation.teams.new')}</button>}
       >
-        <div className={`${BOX} bg-neutral-50 dark:bg-neutral-900/40 flex flex-wrap items-center gap-3 mb-4`}>
-          <span className="text-sm text-neutral-700 dark:text-neutral-200 flex-1 min-w-[240px]">{t('leads.automation.teams.auto_assign_prefix')} <strong>{t('leads.automation.teams.auto_assign_strong')}</strong> {t('leads.automation.teams.auto_assign_suffix')}</span>
-          <select value={settings.defaultTeamId || ''} onChange={e => setDefault(e.target.value)} className={INPUT_SM_CLASSES + ' min-w-[220px]'}>
-            <option value="">{t('leads.automation.teams.no_distribute')}</option>
-            {teams.filter(tm => tm.active).map(tm => <option key={tm.id} value={tm.id}>{tm.name}</option>)}
-          </select>
+        <div className={`${BOX} bg-neutral-50 dark:bg-neutral-900/40 mb-4`}>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-neutral-700 dark:text-neutral-200 flex-1 min-w-[240px]">{t('leads.automation.teams.auto_assign_prefix')} <strong>{t('leads.automation.teams.auto_assign_strong')}</strong> {t('leads.automation.teams.auto_assign_suffix')}</span>
+            <select value={settings.defaultTeamId || ''} onChange={e => setDefault(e.target.value)} className={INPUT_SM_CLASSES + ' min-w-[220px]'} aria-label={t('leads.automation.teams.default_select_aria')}>
+              <option value="">{t('leads.automation.teams.no_distribute')}</option>
+              {teams.filter(tm => tm.active).map(tm => <option key={tm.id} value={tm.id}>{tm.name}</option>)}
+            </select>
+          </div>
+          <Hint className="mt-2">{t('leads.automation.teams.auto_assign_hint')}</Hint>
         </div>
         {teams.length === 0 ? (
-          <EmptyState icon={<UserGroupIcon className="w-12 h-12" />} title={t('leads.automation.teams.empty')} />
+          <EmptyState icon={<UserGroupIcon className="w-12 h-12" />} title={t('leads.automation.teams.empty')} description={t('leads.automation.teams.empty_hint')} />
         ) : (
           <DataTable<SalesTeam>
             tableId="leads_teams"
@@ -642,19 +703,21 @@ const TeamForm: React.FC<{ team: Partial<SalesTeam>; assignees: Assignee[]; onCa
   return (
     <div className="space-y-4">
       <div>
-        <label className={LABEL_CLASSES}>{t('leads.automation.editor.name')}</label>
+        <label className={LABEL_CLASSES}>{t('leads.automation.teams.name_label')}</label>
         <input value={name} onChange={e => setName(e.target.value)} placeholder={t('leads.automation.teams.name_placeholder')} className={inputFormStyle} autoFocus />
       </div>
       <div>
-        <label className={LABEL_CLASSES}>{t('leads.automation.col.mode')}</label>
+        <label className={LABEL_CLASSES}>{t('leads.automation.teams.mode_label')}</label>
         <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-700 dark:text-neutral-200">
-          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" checked={mode === 'round_robin'} onChange={() => setMode('round_robin')} className="h-4 w-4 text-primary focus:ring-primary" /> {t('leads.automation.teams.mode.round_robin')}</label>
-          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" checked={mode === 'balanced'} onChange={() => setMode('balanced')} className="h-4 w-4 text-primary focus:ring-primary" /> {t('leads.automation.teams.mode.balanced')}</label>
-          <span className="ml-auto flex items-center gap-2">{t('leads.common.active')} <Toggle checked={active} onChange={setActive} label={t('leads.common.active')} /></span>
+          <label className="flex items-center gap-1.5 cursor-pointer" title={t('leads.automation.teams.mode_hint.round_robin')}><input type="radio" checked={mode === 'round_robin'} onChange={() => setMode('round_robin')} className="h-4 w-4 text-primary focus:ring-primary" /> {t('leads.automation.teams.mode.round_robin')}</label>
+          <label className="flex items-center gap-1.5 cursor-pointer" title={t('leads.automation.teams.mode_hint.balanced')}><input type="radio" checked={mode === 'balanced'} onChange={() => setMode('balanced')} className="h-4 w-4 text-primary focus:ring-primary" /> {t('leads.automation.teams.mode.balanced')}</label>
+          <span className="ml-auto flex items-center gap-2" title={t('leads.automation.teams.active_hint')}>{t('leads.common.active')} <Toggle checked={active} onChange={setActive} label={t('leads.automation.teams.active_hint')} /></span>
         </div>
+        <Hint key={mode}>{t(`leads.automation.teams.mode_hint.${mode}`)}</Hint>
       </div>
       <fieldset className="border dark:border-neutral-600 p-3 rounded">
         <legend className="text-base font-medium px-1 text-neutral-700 dark:text-neutral-300">{t('leads.automation.col.members')}</legend>
+        <Hint className="mb-1">{t('leads.automation.teams.members_hint')}</Hint>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto mt-1">
           {assignees.map(a => (
             <label key={a.uid} className="flex items-center gap-2 p-1.5 bg-neutral-100 dark:bg-neutral-700 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-600">
@@ -679,6 +742,8 @@ const TeamForm: React.FC<{ team: Partial<SalesTeam>; assignees: Assignee[]; onCa
 
 const KNOWN_EVENTS = ['lead.created', 'lead.updated', 'lead.stage_changed', 'lead.won', 'lead.lost', 'lead.assigned', 'lead.deleted'];
 const eventLabel = (t: TFn, ev: string) => ev === '*' ? t('leads.automation.integrations.all_events') : KNOWN_EVENTS.includes(ev) ? t(`leads.automation.event.${ev}`) : ev;
+/** Qué significa cada evento (tooltip). */
+const eventHint = (t: TFn, ev: string) => ev === '*' ? t('leads.automation.event_hint.all') : KNOWN_EVENTS.includes(ev) ? t(`leads.automation.event_hint.${ev}`) : ev;
 const CHECKBOX_SM = 'h-4 w-4 text-primary rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 focus:ring-primary';
 
 export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager }) => {
@@ -727,7 +792,7 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
       accessor: h => (
         <div className="flex flex-wrap gap-x-3 gap-y-1 min-w-[220px] max-w-md">
           {['*', ...events].map(ev => (
-            <label key={ev} className="flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer">
+            <label key={ev} className="flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer" title={eventHint(t, ev)}>
               <input type="checkbox" checked={h.events.includes(ev)} onChange={e => toggleHookEvent(h, ev, e.target.checked)} className={CHECKBOX_SM} />
               {eventLabel(t, ev)}
             </label>
@@ -739,7 +804,7 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
     {
       header: t('leads.automation.col.last_send'),
       accessor: h => (
-        <span className={`${BADGE} ${h.lastStatus && h.lastStatus < 300 ? BADGE_GREEN : h.lastAt ? BADGE_RED : BADGE_NEUTRAL}`} title={h.lastError || ''}>
+        <span className={`${BADGE} ${h.lastStatus && h.lastStatus < 300 ? BADGE_GREEN : h.lastAt ? BADGE_RED : BADGE_NEUTRAL}`} title={h.lastError || t('leads.automation.integrations.last_send_title')}>
           {h.lastAt ? `${h.lastStatus || 'error'} · ${new Date(h.lastAt).toLocaleString()}` : t('leads.automation.integrations.no_sends')}
         </span>
       ),
@@ -747,7 +812,7 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
     },
     {
       header: t('leads.common.active'),
-      accessor: h => <Toggle checked={h.active} label={t('leads.common.active')} onChange={async v => { try { await leadsService.updateWebhook(h.id, { active: v }); await load(); } catch (er) { err(er, t('leads.automation.err.update')); } }} />,
+      accessor: h => <Toggle checked={h.active} label={t('leads.automation.integrations.hook_active_title')} onChange={async v => { try { await leadsService.updateWebhook(h.id, { active: v }); await load(); } catch (er) { err(er, t('leads.automation.err.update')); } }} />,
       sortable: true, sortKey: 'active', sortValue: h => (h.active ? 1 : 0), filterType: 'none',
     },
     {
@@ -755,8 +820,8 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
       accessor: h => (
         <div className="flex items-center gap-2 text-xs">
           <code className="break-all">{revealed[h.id] ? h.secret : '••••••••••••'}</code>
-          <button type="button" onClick={() => setRevealed(r => ({ ...r, [h.id]: !r[h.id] }))} className="text-primary dark:text-teal-300 hover:underline">{revealed[h.id] ? t('leads.automation.integrations.hide') : t('leads.automation.integrations.show')}</button>
-          <button type="button" onClick={() => copy(t, h.secret)} className="text-primary dark:text-teal-300 hover:underline">{t('leads.automation.integrations.copy')}</button>
+          <button type="button" onClick={() => setRevealed(r => ({ ...r, [h.id]: !r[h.id] }))} className="text-primary dark:text-teal-300 hover:underline" title={t('leads.automation.integrations.secret_title')}>{revealed[h.id] ? t('leads.automation.integrations.hide') : t('leads.automation.integrations.show')}</button>
+          <button type="button" onClick={() => copy(t, h.secret)} className="text-primary dark:text-teal-300 hover:underline" title={t('leads.automation.integrations.copy_secret_title')}>{t('leads.automation.integrations.copy')}</button>
         </div>
       ),
       filterType: 'none',
@@ -765,7 +830,7 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
 
   const keyColumns: TableColumn<LeadApiKey>[] = [
     { header: t('leads.automation.col.name'), accessor: k => <span className="font-medium text-neutral-800 dark:text-neutral-100">{k.name}</span>, sortable: true, sortKey: 'name', sortValue: k => k.name },
-    { header: t('leads.automation.col.key'), accessor: k => <code className="text-xs">pzk_{k.prefix}_…</code>, sortValue: k => k.prefix },
+    { header: t('leads.automation.col.key'), accessor: k => <code className="text-xs cursor-help" title={t('leads.automation.integrations.key_prefix_title')}>pzk_{k.prefix}_…</code>, sortValue: k => k.prefix },
     { header: t('leads.automation.col.last_used'), accessor: k => <span className="text-sm text-neutral-500 dark:text-neutral-400">{k.lastUsedAt ? t('leads.automation.integrations.key_used', { date: new Date(k.lastUsedAt).toLocaleString() }) : t('leads.automation.integrations.key_unused')}</span>, sortable: true, sortKey: 'lastUsedAt', sortValue: k => k.lastUsedAt || '' },
     { header: t('leads.common.status_label'), accessor: k => <span className={`${BADGE} ${k.revokedAt ? BADGE_RED : BADGE_GREEN}`}>{k.revokedAt ? t('leads.automation.integrations.revoked') : t('leads.automation.rules.active')}</span>, sortable: true, sortKey: 'revokedAt', sortValue: k => (k.revokedAt ? 1 : 0) },
   ];
@@ -775,9 +840,18 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
       {/* Webhooks */}
       <SettingsCard
         title={t('leads.automation.integrations.webhooks_title')}
-        subtitle={<>{t('leads.automation.integrations.webhooks_intro_1')} <code className="text-[11px]">X-Pazzi-Signature: sha256=…</code> {t('leads.automation.integrations.webhooks_intro_2')}</>}
+        subtitle={t('leads.automation.integrations.webhooks_help')}
+        help={[
+          t('leads.automation.integrations.webhooks_help_events'),
+          <>{t('leads.automation.integrations.webhooks_intro_1')} <code className="text-[11px]">X-Pazzi-Signature: sha256=…</code> {t('leads.automation.integrations.webhooks_intro_2')}</>,
+          t('leads.automation.integrations.webhooks_help_test'),
+          t('leads.automation.integrations.webhooks_help_limits'),
+        ]}
         icon={<PaperAirplaneIcon className="w-5 h-5" />}
       >
+        {hooks.length === 0 && (
+          <EmptyState icon={<PaperAirplaneIcon className="w-10 h-10" />} title={t('leads.automation.integrations.no_webhooks')} description={t('leads.automation.integrations.no_webhooks_hint')} className="!py-6" />
+        )}
         {hooks.length > 0 && (
           <DataTable<LeadWebhook>
             tableId="leads_webhooks"
@@ -787,24 +861,26 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
             searchable={false} filterable={false} paginated={false}
             actions={h => (
               <span className="inline-flex items-center gap-2">
-                <button onClick={() => test(h)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.automation.integrations.test')}</button>
+                <button onClick={() => test(h)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('leads.automation.integrations.test_title')}>{t('leads.automation.integrations.test')}</button>
                 <button onClick={() => setToDelete({ kind: 'hook', id: h.id, label: h.url })} className={ROW_DELETE_BTN} aria-label={t('leads.automation.integrations.delete_webhook')} title={t('leads.automation.integrations.delete_webhook')}><DeleteIcon className="w-5 h-5" /></button>
               </span>
             )}
           />
         )}
-        <div className={hooks.length > 0 ? 'mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700 space-y-3' : 'space-y-3'}>
+        <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700 space-y-3">
           <div>
-            <label className={LABEL_CLASSES}>{t('leads.automation.col.url')}</label>
+            <label className={LABEL_CLASSES}>{t('leads.automation.integrations.url_label')}</label>
             <input value={newUrl} onChange={e => setNewUrl(e.target.value)} placeholder="https://hooks.zapier.com/…" className={inputFormStyle} />
+            <Hint>{t('leads.automation.integrations.url_hint')}</Hint>
           </div>
           <div>
-            <label className={LABEL_CLASSES}>{t('leads.automation.col.events')}</label>
+            <label className={LABEL_CLASSES}>{t('leads.automation.integrations.events_label')}</label>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {['*', ...events].map(ev => (
-                <label key={ev} className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-200 cursor-pointer"><input type="checkbox" checked={newEvents.includes(ev)} onChange={e => setNewEvents(p => e.target.checked ? [...p, ev] : p.filter(x => x !== ev))} className={CHECKBOX_SM} /> {eventLabel(t, ev)}</label>
+                <label key={ev} className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-200 cursor-pointer" title={eventHint(t, ev)}><input type="checkbox" checked={newEvents.includes(ev)} onChange={e => setNewEvents(p => e.target.checked ? [...p, ev] : p.filter(x => x !== ev))} className={CHECKBOX_SM} /> {eventLabel(t, ev)}</label>
               ))}
             </div>
+            <Hint>{t('leads.automation.integrations.events_hint')}</Hint>
           </div>
           <button onClick={addHook} disabled={!newUrl.trim() || !newEvents.length} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON} disabled:opacity-50`}><PlusIcon className="w-4 h-4" />{t('leads.automation.integrations.add_webhook')}</button>
         </div>
@@ -814,10 +890,17 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
       <SettingsCard
         title={t('leads.automation.integrations.api_title')}
         subtitle={t('leads.automation.integrations.api_intro')}
+        help={[
+          t('leads.automation.integrations.api_help.password'),
+          t('leads.automation.integrations.api_help.once'),
+          t('leads.automation.integrations.api_help.one_per_use'),
+          t('leads.automation.integrations.api_help.no_browser'),
+          t('leads.automation.integrations.api_help.source'),
+        ]}
         icon={<KeyIcon className="w-5 h-5" />}
       >
         {keys.length === 0 ? (
-          <EmptyState icon={<KeyIcon className="w-10 h-10" />} title={t('leads.automation.integrations.no_keys')} className="!py-6" />
+          <EmptyState icon={<KeyIcon className="w-10 h-10" />} title={t('leads.automation.integrations.no_keys')} description={isManager ? t('leads.automation.integrations.no_keys_hint') : t('leads.automation.integrations.no_keys_hint_employee')} className="!py-6" />
         ) : (
           <DataTable<LeadApiKey>
             tableId="leads_api_keys"
@@ -826,15 +909,16 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
             containerClassName={TABLE_IN_CARD}
             searchable={false} filterable={false} paginated={false}
             actions={k => k.revokedAt ? null : (
-              <button onClick={() => setToDelete({ kind: 'key', id: k.id, label: k.name })} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50`}>{t('leads.automation.integrations.revoke')}</button>
+              <button onClick={() => setToDelete({ kind: 'key', id: k.id, label: k.name })} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50`} title={t('leads.automation.integrations.revoke_title')}>{t('leads.automation.integrations.revoke')}</button>
             )}
           />
         )}
         <div className={ADD_ROW}>
           {isManager ? (
             <>
-              <input value={keyName} onChange={e => setKeyName(e.target.value)} placeholder={t('leads.automation.integrations.key_name_placeholder')} className={inputFormStyle + ' !w-72 max-w-full'} />
+              <input value={keyName} onChange={e => setKeyName(e.target.value)} placeholder={t('leads.automation.integrations.key_name_placeholder')} className={inputFormStyle + ' !w-72 max-w-full'} aria-label={t('leads.automation.integrations.key_name_label')} />
               <button onClick={createKey} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.automation.integrations.create_key')}</button>
+              <Hint className="w-full">{t('leads.automation.integrations.key_name_hint')}</Hint>
             </>
           ) : (
             <div className="w-full p-3 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700 flex items-start gap-2">
@@ -845,6 +929,7 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
         </div>
         <div className="mt-4">
           <label className={LABEL_CLASSES}>{t('leads.automation.integrations.example')}</label>
+          <Hint className="mb-2 -mt-0.5">{t('leads.automation.integrations.example_hint')}</Hint>
           <pre className="text-[11px] bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-x-auto whitespace-pre border border-neutral-200 dark:border-neutral-700">{curl}</pre>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">{t('leads.automation.integrations.fields')} <code>name</code> {t('leads.automation.integrations.required')}, <code>lastName</code>, <code>companyName</code>, <code>email</code>, <code>phone</code>, <code>whatsapp</code>, <code>value</code>, <code>source</code>, <code>notes</code>, <code>pipelineId</code>, <code>stageId</code>. {t('leads.automation.integrations.rate_limit')} <code>GET {API_URL}/public/v1/ping</code>.</p>
         </div>
@@ -857,6 +942,7 @@ export const IntegrationsTab: React.FC<{ isManager: boolean }> = ({ isManager })
             <p className="text-sm text-amber-800 dark:text-amber-300">{t('leads.automation.integrations.copy_now_1')} <strong>{t('leads.automation.integrations.copy_now_2')}</strong>.</p>
           </div>
           <code className="block text-xs break-all p-3 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">{createdKey}</code>
+          <Hint className="-mt-2">{t('leads.automation.integrations.new_key_hint')}</Hint>
           <div className={MODAL_FOOTER}>
             <button onClick={() => setCreatedKey(null)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.automation.integrations.done')}</button>
             <button onClick={() => createdKey && copy(t, createdKey)} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.automation.integrations.copy')}</button>
@@ -910,19 +996,23 @@ export const GoalsTab: React.FC<{ assignees: Assignee[] }> = ({ assignees }) => 
     <SettingsCard
       title={t('leads.settings.tab.goals')}
       subtitle={t('leads.automation.goals.intro')}
+      help={[
+        ...METRICS.map(m => <><strong>{goalLabel(t, m)}</strong>: {t(`leads.automation.goals.metric_hint.${m}`)}</>),
+        t('leads.automation.goals.help.timezone'),
+      ]}
       icon={<ChartBarIcon className="w-5 h-5" />}
       actions={<>
-        <input type="month" value={period} onChange={e => e.target.value && setPeriod(e.target.value)} className={INPUT_SM_CLASSES + ' !h-10'} />
-        <button onClick={copyPrev} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.automation.goals.copy_prev')}</button>
+        <input type="month" value={period} onChange={e => e.target.value && setPeriod(e.target.value)} className={INPUT_SM_CLASSES + ' !h-10'} aria-label={t('leads.automation.goals.month_title')} title={t('leads.automation.goals.month_title')} />
+        <button onClick={copyPrev} className={BUTTON_SECONDARY_SM_CLASSES} title={t('leads.automation.goals.copy_prev_title')}>{t('leads.automation.goals.copy_prev')}</button>
       </>}
     >
-      <PlainTable head={<><th className={TH_CLASSES}>{t('leads.common.assignee')}</th>{METRICS.map(m => <th key={m} className={TH_CLASSES}>{goalLabel(t, m)}</th>)}</>}>
+      <PlainTable head={<><th className={TH_CLASSES}>{t('leads.common.assignee')}</th>{METRICS.map(m => <th key={m} className={`${TH_CLASSES} cursor-help`} title={t(`leads.automation.goals.metric_hint.${m}`)}>{goalLabel(t, m)}</th>)}</>}>
         {assignees.map(a => (
           <tr key={a.uid} className={TR_CLASSES}>
             <td className={`${TD_CLASSES} whitespace-nowrap font-medium`}>{a.name}</td>
             {METRICS.map(m => (
               <td key={m} className={TD_CLASSES}>
-                <input key={`${period}-${a.uid}-${m}-${value(a.uid, m) ?? ''}`} type="number" min={0} defaultValue={value(a.uid, m) ?? ''} onBlur={e => save(a.uid, m, e.target.value)} placeholder="—" className={INPUT_SM_CLASSES + ' w-28 text-right'} />
+                <input key={`${period}-${a.uid}-${m}-${value(a.uid, m) ?? ''}`} type="number" min={0} defaultValue={value(a.uid, m) ?? ''} onBlur={e => save(a.uid, m, e.target.value)} placeholder="—" className={INPUT_SM_CLASSES + ' w-28 text-right'} aria-label={t('leads.automation.goals.input_aria', { metric: goalLabel(t, m), name: a.name })} />
               </td>
             ))}
           </tr>

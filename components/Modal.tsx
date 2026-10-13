@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { XMarkIcon, ExclamationTriangleIcon } from './icons'; // Adjusted path
 import { BUTTON_SECONDARY_SM_CLASSES } from '../constants'; // Adjusted path
 import { useTranslation } from '../contexts/GlobalSettingsContext';
@@ -44,6 +45,22 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, onClose, disableEscClose, isDirty, confirmLeave]);
 
+  // Bloquea el scroll del documento mientras haya un modal abierto (con contador para modales
+  // anidados): evita que el autofocus/scroll desplace la página y deje una franja sin cubrir.
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') return;
+    const body = document.body;
+    const count = Number(body.dataset.modalCount || '0');
+    if (count === 0) body.dataset.modalPrevOverflow = body.style.overflow;
+    body.dataset.modalCount = String(count + 1);
+    body.style.overflow = 'hidden';
+    return () => {
+      const next = Math.max(0, Number(body.dataset.modalCount || '1') - 1);
+      body.dataset.modalCount = String(next);
+      if (next === 0) { body.style.overflow = body.dataset.modalPrevOverflow || ''; delete body.dataset.modalPrevOverflow; }
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const sizeClasses: Record<string, string> = {
@@ -70,7 +87,9 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     if (e.target === e.currentTarget && !disableEscClose) requestClose();
   };
 
-  return (
+  // Portal a <body>: el fondo cubre SIEMPRE toda la ventana (incluido el navbar), sin depender de
+  // contenedores con scroll/transform/z-index donde se renderice el modal.
+  return createPortal(
     <div onMouseDown={handleBackdrop} className={`fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 z-50 flex items-center justify-center ${isScreen ? '' : 'p-4'}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div className={`relative bg-white dark:bg-neutral-800 shadow-xl w-full ${sizeClasses[size]} ${isScreen ? 'max-h-none rounded-none' : 'max-h-[90vh] rounded-lg'} flex flex-col`}>
         <div className="flex justify-between items-center p-5 border-b border-neutral-200 dark:border-neutral-700">
@@ -105,7 +124,8 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

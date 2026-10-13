@@ -22,7 +22,7 @@ import { timezoneOptions } from '../../utils/timezones';
 import {
   RulesTab, TemplatesTab, TeamsTab, IntegrationsTab, GoalsTab,
   SettingsCard, PlainTable, Toggle, TH_CLASSES, TD_CLASSES, TR_CLASSES, TABLE_IN_CARD,
-  BADGE, BADGE_NEUTRAL, LABEL_CLASSES, BTN_ICON, ROW_DELETE_BTN, ADD_ROW, BOX,
+  BADGE, BADGE_NEUTRAL, LABEL_CLASSES, BTN_ICON, ROW_DELETE_BTN, ADD_ROW, BOX, Hint,
 } from './LeadsAutomationTabs';
 
 type Tab = 'pipelines' | 'sources' | 'tags' | 'fields' | 'lost' | 'form' | 'automation' | 'rules' | 'templates' | 'teams' | 'integrations' | 'goals';
@@ -117,7 +117,7 @@ export const LeadsSettingsPage: React.FC = () => {
       {/* Pestañas */}
       <div className="flex border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
         {TABS.map(tb => (
-          <button key={tb.key} type="button" onClick={() => setTab(tb.key)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${tab === tb.key ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>{t(tb.labelKey)}</button>
+          <button key={tb.key} type="button" onClick={() => setTab(tb.key)} title={t(`leads.settings.tab_hint.${tb.key}`)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${tab === tb.key ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>{t(tb.labelKey)}</button>
         ))}
       </div>
 
@@ -192,13 +192,14 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
 
   return (
     <>
-      <SettingsCard title={t('leads.settings.tab.pipelines')} icon={<Squares2X2Icon className="w-5 h-5" />}>
+      <SettingsCard title={t('leads.settings.tab.pipelines')} subtitle={t('leads.settings.pipelines.help')} icon={<Squares2X2Icon className="w-5 h-5" />}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={LABEL_CLASSES}>{t('leads.common.pipeline')}</label>
+            <label className={LABEL_CLASSES}>{t('leads.settings.pipelines.select_label')}</label>
             <select value={pipelineId} onChange={e => setPipelineId(e.target.value)} className={inputFormStyle}>
               {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}{p.isDefault ? t('leads.settings.pipelines.default_suffix') : ''}</option>)}
             </select>
+            <Hint>{t('leads.settings.pipelines.select_hint')}</Hint>
           </div>
           <div>
             <label className={LABEL_CLASSES}>{t('leads.settings.pipelines.new_label')}</label>
@@ -206,6 +207,7 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
               <input value={newPipeline} onChange={e => setNewPipeline(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addPipeline(); }} placeholder={t('leads.settings.pipelines.new_placeholder')} className={inputFormStyle + ' flex-1'} />
               <button onClick={addPipeline} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON} flex-shrink-0`}><PlusIcon className="w-4 h-4" />{t('leads.settings.pipelines.create_btn')}</button>
             </div>
+            <Hint>{t('leads.settings.pipelines.new_hint')}</Hint>
           </div>
         </div>
 
@@ -214,26 +216,41 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
             <label className={LABEL_CLASSES}>{t('leads.settings.pipelines.name_label')}</label>
             <div className="flex flex-wrap items-center gap-2">
               <input value={pipeName} onChange={e => setPipeName(e.target.value)} className={inputFormStyle + ' !w-72 max-w-full'} />
-              <button onClick={() => savePipeline({ name: pipeName.trim() })} disabled={!pipeName.trim() || pipeName === pipeline.name} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{t('leads.settings.pipelines.rename')}</button>
-              {!pipeline.isDefault && <button onClick={() => savePipeline({ isDefault: true })} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.pipelines.make_default')}</button>}
+              <button onClick={() => savePipeline({ name: pipeName.trim() })} disabled={!pipeName.trim() || pipeName === pipeline.name} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`} title={t('leads.settings.pipelines.rename_title')}>{t('leads.settings.pipelines.rename')}</button>
+              {!pipeline.isDefault && <button onClick={() => savePipeline({ isDefault: true })} className={BUTTON_SECONDARY_SM_CLASSES} title={t('leads.settings.pipelines.make_default_title')}>{t('leads.settings.pipelines.make_default')}</button>}
               {pipelines.length > 1 && (
                 <button onClick={() => askConfirm({ title: t('leads.settings.pipelines.delete_title'), message: t('leads.settings.pipelines.delete_msg', { name: pipeline.name }), run: async () => { try { await leadsService.deletePipeline(pipeline.id); await reload(); toast.success(t('leads.settings.pipelines.deleted')); } catch (e) { err(e, t('leads.settings.err.delete')); } } })}
+                  title={t('leads.settings.pipelines.delete_btn_title')}
                   className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 sm:ml-auto`}><DeleteIcon className="w-4 h-4" />{t('leads.settings.pipelines.delete_title')}</button>
               )}
             </div>
+            {/* key: se remonta al cambiar (evita el choque del traductor de Chrome con texto que cambia). */}
+            <Hint key={pipeline.isDefault ? 'default' : 'other'}>{pipeline.isDefault ? t('leads.settings.pipelines.is_default_hint') : t('leads.settings.pipelines.not_default_hint')}</Hint>
           </div>
         )}
       </SettingsCard>
 
       {pipeline && (
-        <SettingsCard title={t('leads.settings.stages.title')} subtitle={t('leads.settings.stages.help')} icon={<ListBulletIcon className="w-5 h-5" />}>
+        <SettingsCard
+          title={t('leads.settings.stages.title')}
+          subtitle={t('leads.settings.stages.help')}
+          help={[
+            t('leads.settings.stages.help_open'),
+            t('leads.settings.stages.help_won'),
+            t('leads.settings.stages.help_lost'),
+            t('leads.settings.stages.help_probability'),
+            t('leads.settings.stages.help_type_change'),
+            t('leads.settings.stages.help_delete'),
+          ]}
+          icon={<ListBulletIcon className="w-5 h-5" />}
+        >
           <PlainTable head={<>
-            <th className={TH_CLASSES}>{t('leads.settings.col.order')}</th>
-            <th className={TH_CLASSES}>{t('leads.settings.col.color')}</th>
-            <th className={TH_CLASSES}>{t('leads.settings.col.name')}</th>
-            <th className={TH_CLASSES}>{t('leads.settings.col.type')}</th>
-            <th className={TH_CLASSES}>{t('leads.common.probability')}</th>
-            <th className={TH_CLASSES}>{t('common.actions')}</th>
+            <th className={`${TH_CLASSES} cursor-help`} title={t('leads.settings.stages.col_order_title')}>{t('leads.settings.col.order')}</th>
+            <th className={`${TH_CLASSES} cursor-help`} title={t('leads.settings.stages.col_color_title')}>{t('leads.settings.col.color')}</th>
+            <th className={`${TH_CLASSES} cursor-help`} title={t('leads.settings.stages.col_name_title')}>{t('leads.settings.col.name')}</th>
+            <th className={`${TH_CLASSES} cursor-help`} title={t('leads.settings.stages.type_title')}>{t('leads.settings.col.type')}</th>
+            <th className={`${TH_CLASSES} cursor-help`} title={t('leads.settings.stages.probability_title')}>{t('leads.common.probability')}</th>
+            <th className={`${TH_CLASSES} cursor-help`} title={t('leads.settings.stages.move_to_title')}>{t('leads.settings.stages.col_delete')}</th>
           </>}>
             {stages.map((s, i) => (
               <StageRow key={s.id} stage={s} index={i} total={stages.length} others={stages.filter(x => x.id !== s.id)}
@@ -243,13 +260,14 @@ const PipelinesTab: React.FC<{ pipelines: Pipeline[]; pipeline?: Pipeline; pipel
             ))}
           </PlainTable>
           <div className={ADD_ROW}>
-            <input value={newStage.name} onChange={e => setNewStage(p => ({ ...p, name: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addStage(); }} placeholder={t('leads.settings.stages.new_placeholder')} className={inputFormStyle + ' !w-64 max-w-full'} />
-            <select value={newStage.type} onChange={e => setNewStage(p => ({ ...p, type: e.target.value as any }))} className={inputFormStyle + ' !w-auto'}>
+            <input value={newStage.name} onChange={e => setNewStage(p => ({ ...p, name: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') addStage(); }} placeholder={t('leads.settings.stages.new_placeholder')} className={inputFormStyle + ' !w-64 max-w-full'} aria-label={t('leads.settings.stages.new_aria')} />
+            <select value={newStage.type} onChange={e => setNewStage(p => ({ ...p, type: e.target.value as any }))} className={inputFormStyle + ' !w-auto'} aria-label={t('leads.settings.col.type')} title={t('leads.settings.stages.type_title')}>
               <option value="open">{t('leads.common.stage_type.open')}</option>
               <option value="won">{t('leads.settings.stages.type_won_close')}</option>
               <option value="lost">{t('leads.settings.stages.type_lost_close')}</option>
             </select>
             <button onClick={addStage} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.stages.add_btn')}</button>
+            <Hint className="w-full">{t('leads.settings.stages.add_hint')}</Hint>
           </div>
         </SettingsCard>
       )}
@@ -276,15 +294,15 @@ const StageRow: React.FC<{ stage: PipelineStage; index: number; total: number; o
       </td>
       <td className={TD_CLASSES}>
         <div className="relative">
-          <button type="button" onClick={() => setShowColors(v => !v)} className="w-6 h-6 rounded-full border border-neutral-300 dark:border-neutral-600 shadow-sm" style={{ background: stage.color || '#94a3b8' }} aria-label={t('leads.settings.stages.color_aria')} />
+          <button type="button" onClick={() => setShowColors(v => !v)} className="w-6 h-6 rounded-full border border-neutral-300 dark:border-neutral-600 shadow-sm" style={{ background: stage.color || '#94a3b8' }} aria-label={t('leads.settings.stages.color_aria')} title={t('leads.settings.stages.col_color_title')} />
           {showColors && <div className="absolute z-20 top-8 left-0 p-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg w-40"><ColorPicker value={stage.color} onChange={c => { setShowColors(false); onUpdate(stage, { color: c }); }} /></div>}
         </div>
       </td>
       <td className={TD_CLASSES}>
-        <input value={name} onChange={e => setName(e.target.value)} onBlur={() => { if (name.trim() && name !== stage.name) onUpdate(stage, { name: name.trim() }); }} className={INPUT_SM_CLASSES + ' w-48'} />
+        <input value={name} onChange={e => setName(e.target.value)} onBlur={() => { if (name.trim() && name !== stage.name) onUpdate(stage, { name: name.trim() }); }} className={INPUT_SM_CLASSES + ' w-48'} aria-label={t('leads.settings.stages.name_aria')} title={t('leads.settings.stages.col_name_title')} />
       </td>
       <td className={TD_CLASSES}>
-        <select value={stage.type} onChange={e => onUpdate(stage, { type: e.target.value as any })} className={INPUT_SM_CLASSES}>
+        <select value={stage.type} onChange={e => onUpdate(stage, { type: e.target.value as any })} className={INPUT_SM_CLASSES} aria-label={t('leads.settings.col.type')} title={t('leads.settings.stages.type_title')}>
           <option value="open">{t('leads.common.stage_type.open')}</option>
           <option value="won">{t('leads.common.status.won')}</option>
           <option value="lost">{t('leads.common.status.lost')}</option>
@@ -292,17 +310,17 @@ const StageRow: React.FC<{ stage: PipelineStage; index: number; total: number; o
       </td>
       <td className={TD_CLASSES}>
         <div className="flex items-center gap-1">
-          <input type="number" min={0} max={100} value={prob} onChange={e => setProb(e.target.value)} onBlur={() => { const v = prob === '' ? null : Math.max(0, Math.min(100, Number(prob))); if (v !== (stage.probability ?? null)) onUpdate(stage, { probability: v }); }} className={INPUT_SM_CLASSES + ' w-20 text-right'} placeholder="%" />
+          <input type="number" min={0} max={100} value={prob} onChange={e => setProb(e.target.value)} onBlur={() => { const v = prob === '' ? null : Math.max(0, Math.min(100, Number(prob))); if (v !== (stage.probability ?? null)) onUpdate(stage, { probability: v }); }} className={INPUT_SM_CLASSES + ' w-20 text-right'} placeholder="%" aria-label={t('leads.common.probability')} title={t('leads.settings.stages.probability_title')} />
           <span className="text-sm text-neutral-400">%</span>
         </div>
       </td>
       <td className={`${TD_CLASSES} whitespace-nowrap`}>
         {total > 1 && (
           <div className="flex items-center gap-1">
-            <select value={moveTo} onChange={e => setMoveTo(e.target.value)} className={INPUT_SM_CLASSES + ' max-w-[180px]'} title={t('leads.settings.stages.move_to_title')}>
+            <select value={moveTo} onChange={e => setMoveTo(e.target.value)} className={INPUT_SM_CLASSES + ' max-w-[180px]'} title={t('leads.settings.stages.move_to_title')} aria-label={t('leads.settings.stages.move_to_aria', { name: stage.name })}>
               {others.map(o => <option key={o.id} value={o.id}>→ {o.name}</option>)}
             </select>
-            <button type="button" onClick={() => onDelete(moveTo)} className={ROW_DELETE_BTN} aria-label={t('leads.settings.stages.delete_aria', { name: stage.name })} title={t('leads.settings.stages.delete_title')}><DeleteIcon className="w-5 h-5" /></button>
+            <button type="button" onClick={() => onDelete(moveTo)} className={ROW_DELETE_BTN} aria-label={t('leads.settings.stages.delete_aria', { name: stage.name })} title={t('leads.settings.stages.delete_btn_title')}><DeleteIcon className="w-5 h-5" /></button>
           </div>
         )}
       </td>
@@ -311,9 +329,10 @@ const StageRow: React.FC<{ stage: PipelineStage; index: number; total: number; o
 };
 
 const InlineName: React.FC<{ value: string; onSave: (v: string) => void }> = ({ value, onSave }) => {
+  const { t } = useTranslation();
   const [v, setV] = useState(value);
   useEffect(() => setV(value), [value]);
-  return <input value={v} onChange={e => setV(e.target.value)} onBlur={() => { if (v.trim() && v !== value) onSave(v.trim()); }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className={INPUT_SM_CLASSES + ' w-64 max-w-full'} />;
+  return <input value={v} onChange={e => setV(e.target.value)} onBlur={() => { if (v.trim() && v !== value) onSave(v.trim()); }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className={INPUT_SM_CLASSES + ' w-64 max-w-full'} aria-label={t('leads.settings.col.name')} title={t('leads.settings.inline_edit_title')} />;
 };
 
 // ── Fuentes ──
@@ -323,10 +342,15 @@ const SourcesTab: React.FC<{ sources: LeadSource[]; reload: () => Promise<void>;
   const add = async () => { if (!name.trim()) return; try { await leadsService.createSource(name.trim()); setName(''); await reload(); } catch (e) { err(e, t('leads.settings.err.create')); } };
   const columns: TableColumn<LeadSource>[] = [
     { header: t('leads.settings.col.name'), accessor: s => <InlineName value={s.name} onSave={async (v) => { try { await leadsService.updateSource(s.id, { name: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />, sortable: true, sortKey: 'name', sortValue: s => s.name },
-    { header: t('leads.settings.sources.active'), accessor: s => <Toggle checked={s.active !== false} label={t('leads.settings.sources.active')} onChange={async v => { try { await leadsService.updateSource(s.id, { active: v }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} />, sortable: true, sortKey: 'active', sortValue: s => (s.active !== false ? 1 : 0) },
+    { header: t('leads.settings.sources.active'), accessor: s => <Toggle checked={s.active !== false} label={t('leads.settings.sources.active_title')} onChange={async v => { try { await leadsService.updateSource(s.id, { active: v }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} />, sortable: true, sortKey: 'active', sortValue: s => (s.active !== false ? 1 : 0) },
   ];
   return (
-    <SettingsCard title={t('leads.settings.tab.sources')} subtitle={t('leads.settings.sources.help')} icon={<FireIcon className="w-5 h-5" />}>
+    <SettingsCard
+      title={t('leads.settings.tab.sources')}
+      subtitle={t('leads.settings.sources.help')}
+      help={[t('leads.settings.sources.help_auto'), t('leads.settings.sources.help_api'), t('leads.settings.sources.help_edit')]}
+      icon={<FireIcon className="w-5 h-5" />}
+    >
       <DataTable<LeadSource>
         tableId="leads_settings_sources"
         data={sources}
@@ -359,7 +383,7 @@ const TagsTab: React.FC<{ tags: LeadTag[]; reload: () => Promise<void>; askConfi
   return (
     <SettingsCard title={t('leads.settings.tab.tags')} subtitle={t('leads.settings.tags.help')} icon={<TagIcon className="w-5 h-5" />}>
       {tags.length === 0 ? (
-        <EmptyState icon={<TagIcon className="w-12 h-12" />} title={t('leads.settings.tags.empty')} className="!py-8" />
+        <EmptyState icon={<TagIcon className="w-12 h-12" />} title={t('leads.settings.tags.empty')} description={t('leads.settings.tags.empty_hint')} className="!py-8" />
       ) : (
         <DataTable<LeadTag>
           tableId="leads_settings_tags"
@@ -373,8 +397,8 @@ const TagsTab: React.FC<{ tags: LeadTag[]; reload: () => Promise<void>; askConfi
         />
       )}
       <div className={ADD_ROW}>
-        <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder={t('leads.settings.tags.new_placeholder')} className={inputFormStyle + ' !w-64 max-w-full'} />
-        <ColorPicker value={color} onChange={setColor} />
+        <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder={t('leads.settings.tags.new_placeholder')} className={inputFormStyle + ' !w-64 max-w-full'} aria-label={t('leads.settings.tags.new_aria')} />
+        <div title={t('leads.settings.tags.color_title')}><ColorPicker value={color} onChange={setColor} /></div>
         <button onClick={add} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.add_btn')}</button>
       </div>
     </SettingsCard>
@@ -396,12 +420,21 @@ const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<voi
     { header: t('leads.settings.col.name'), accessor: f => <InlineName value={f.label} onSave={async (v) => { try { await leadsService.updateCustomField(f.id, { label: v }); await reload(); } catch (e) { err(e, t('leads.settings.err.save')); } }} />, sortable: true, sortKey: 'label', sortValue: f => f.label },
     { header: t('leads.settings.col.type'), accessor: f => <span className={`${BADGE} ${BADGE_NEUTRAL}`}>{FIELD_TYPES.includes(f.type) ? t(fieldTypeKey(f.type)) : ''}</span>, sortable: true, sortKey: 'type', sortValue: f => f.type },
     { header: t('leads.settings.col.options'), accessor: f => <span className="block text-sm text-neutral-500 dark:text-neutral-400 truncate max-w-[240px]">{f.type === 'select' ? (f.options || []).join(', ') : '—'}</span> },
-    { header: t('leads.settings.required'), accessor: f => <input type="checkbox" checked={!!f.required} onChange={async e => { try { await leadsService.updateCustomField(f.id, { required: e.target.checked }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} className={CHECKBOX} aria-label={t('leads.settings.required')} />, sortable: true, sortKey: 'required', sortValue: f => (f.required ? 1 : 0) },
+    { header: t('leads.settings.required'), accessor: f => <input type="checkbox" checked={!!f.required} onChange={async e => { try { await leadsService.updateCustomField(f.id, { required: e.target.checked }); await reload(); } catch (er) { err(er, t('leads.settings.err.save')); } }} className={CHECKBOX} aria-label={t('leads.settings.required')} title={t('leads.settings.fields.required_title')} />, sortable: true, sortKey: 'required', sortValue: f => (f.required ? 1 : 0) },
   ];
   return (
-    <SettingsCard title={t('leads.settings.tab.fields')} subtitle={t('leads.settings.fields.help')} icon={<DocumentTextIcon className="w-5 h-5" />}>
+    <SettingsCard
+      title={t('leads.settings.tab.fields')}
+      subtitle={t('leads.settings.fields.help')}
+      help={[
+        t('leads.settings.fields.help_required'),
+        t('leads.settings.fields.help_edit'),
+        t('leads.settings.fields.help_delete'),
+      ]}
+      icon={<DocumentTextIcon className="w-5 h-5" />}
+    >
       {fields.length === 0 ? (
-        <EmptyState icon={<DocumentTextIcon className="w-12 h-12" />} title={t('leads.settings.fields.empty')} className="!py-8" />
+        <EmptyState icon={<DocumentTextIcon className="w-12 h-12" />} title={t('leads.settings.fields.empty')} description={t('leads.settings.fields.empty_hint')} className="!py-8" />
       ) : (
         <DataTable<LeadCustomField>
           tableId="leads_settings_fields"
@@ -415,13 +448,15 @@ const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<voi
         />
       )}
       <div className={ADD_ROW}>
-        <input value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} placeholder={t('leads.settings.fields.name_placeholder')} className={inputFormStyle + ' !w-60 max-w-full'} />
-        <select value={draft.type} onChange={e => setDraft(d => ({ ...d, type: e.target.value as LeadCustomFieldType }))} className={inputFormStyle + ' !w-auto'}>
+        <input value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} placeholder={t('leads.settings.fields.name_placeholder')} className={inputFormStyle + ' !w-60 max-w-full'} aria-label={t('leads.settings.fields.name_aria')} />
+        <select value={draft.type} onChange={e => setDraft(d => ({ ...d, type: e.target.value as LeadCustomFieldType }))} className={inputFormStyle + ' !w-auto'} aria-label={t('leads.settings.fields.type_title')} title={t('leads.settings.fields.type_title')}>
           {FIELD_TYPES.map(ft => <option key={ft} value={ft}>{t(fieldTypeKey(ft))}</option>)}
         </select>
-        {draft.type === 'select' && <input value={draft.options} onChange={e => setDraft(d => ({ ...d, options: e.target.value }))} placeholder={t('leads.settings.fields.options_placeholder')} className={inputFormStyle + ' !w-60 max-w-full'} />}
-        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer"><input type="checkbox" checked={draft.required} onChange={e => setDraft(d => ({ ...d, required: e.target.checked }))} className={CHECKBOX} /> {t('leads.settings.required')}</label>
+        {draft.type === 'select' && <input value={draft.options} onChange={e => setDraft(d => ({ ...d, options: e.target.value }))} placeholder={t('leads.settings.fields.options_placeholder')} className={inputFormStyle + ' !w-60 max-w-full'} aria-label={t('leads.settings.col.options')} />}
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer" title={t('leads.settings.fields.required_title')}><input type="checkbox" checked={draft.required} onChange={e => setDraft(d => ({ ...d, required: e.target.checked }))} className={CHECKBOX} /> {t('leads.settings.required')}</label>
         <button onClick={add} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.fields.add_btn')}</button>
+        {/* key: se remonta al cambiar de tipo (evita el choque del traductor de Chrome con texto que cambia). */}
+        <Hint key={draft.type} className="w-full">{t(`leads.settings.fields.type_hint.${draft.type}`)}</Hint>
       </div>
     </SettingsCard>
   );
@@ -444,19 +479,24 @@ const LostReasonsTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSe
   ];
   return (
     <SettingsCard title={t('leads.settings.tab.lost')} subtitle={t('leads.settings.lost.help')} icon={<ExclamationTriangleIcon className="w-5 h-5" />}>
-      <DataTable<{ id: string; reason: string }>
-        tableId="leads_settings_lost"
-        data={rows}
-        columns={columns}
-        containerClassName={TABLE_IN_CARD}
-        searchable={false} filterable={false} paginated={false}
-        actions={r => (
-          <button type="button" onClick={() => save(list.filter((_, j) => String(j) !== r.id))} disabled={saving} className={`${ROW_DELETE_BTN} disabled:opacity-50`} aria-label={t('leads.settings.lost.remove_aria', { name: r.reason })} title={t('leads.common.delete')}><DeleteIcon className="w-5 h-5" /></button>
-        )}
-      />
+      {rows.length === 0 ? (
+        <EmptyState icon={<ExclamationTriangleIcon className="w-12 h-12" />} title={t('leads.settings.lost.empty')} description={t('leads.settings.lost.empty_hint')} className="!py-8" />
+      ) : (
+        <DataTable<{ id: string; reason: string }>
+          tableId="leads_settings_lost"
+          data={rows}
+          columns={columns}
+          containerClassName={TABLE_IN_CARD}
+          searchable={false} filterable={false} paginated={false}
+          actions={r => (
+            <button type="button" onClick={() => save(list.filter((_, j) => String(j) !== r.id))} disabled={saving} className={`${ROW_DELETE_BTN} disabled:opacity-50`} aria-label={t('leads.settings.lost.remove_aria', { name: r.reason })} title={t('leads.settings.lost.remove_title')}><DeleteIcon className="w-5 h-5" /></button>
+          )}
+        />
+      )}
       <div className={ADD_ROW}>
-        <input value={item} onChange={e => setItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && item.trim()) { save([...list, item.trim()]); setItem(''); } }} placeholder={t('leads.settings.lost.new_placeholder')} className={inputFormStyle + ' !w-72 max-w-full'} />
+        <input value={item} onChange={e => setItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && item.trim()) { save([...list, item.trim()]); setItem(''); } }} placeholder={t('leads.settings.lost.new_placeholder')} className={inputFormStyle + ' !w-72 max-w-full'} aria-label={t('leads.settings.lost.new_aria')} />
         <button onClick={() => { if (item.trim()) { save([...list, item.trim()]); setItem(''); } }} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON} disabled:opacity-50`}><PlusIcon className="w-4 h-4" />{t('leads.settings.add_btn')}</button>
+        <Hint className="w-full">{t('leads.settings.lost.add_hint')}</Hint>
       </div>
     </SettingsCard>
   );
@@ -492,32 +532,55 @@ const FormTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSettings)
       <SettingsCard
         title={t('leads.settings.tab.form')}
         subtitle={t('leads.settings.form.help')}
+        help={[
+          t('leads.settings.form.help_fields'),
+          t('leads.settings.form.help_duplicates'),
+          t('leads.settings.form.help_spam'),
+          t('leads.settings.form.help_save'),
+        ]}
         icon={<DocumentTextIcon className="w-5 h-5" />}
       >
         <div className={`${BOX} flex items-center justify-between gap-4 mb-4 ${draft.formEnabled ? 'bg-green-50 dark:bg-green-900/20 !border-green-300 dark:!border-green-700' : 'bg-neutral-50 dark:bg-neutral-900'}`}>
-          <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.form.enabled')}</p>
+          <div>
+            <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{t('leads.settings.form.enabled')}</p>
+            <Hint className="mt-0.5">{t('leads.settings.form.enabled_hint')}</Hint>
+          </div>
           <Toggle checked={draft.formEnabled} onChange={v => setDraft(d => ({ ...d, formEnabled: v }))} label={t('leads.settings.form.enabled')} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div><label className={LABEL_CLASSES}>{t('leads.settings.form.title_label')}</label><input value={draft.formTitle} onChange={e => setDraft(d => ({ ...d, formTitle: e.target.value }))} placeholder={t('leads.settings.form.title_placeholder')} className={inputFormStyle} /></div>
-          <div><label className={LABEL_CLASSES}>{t('leads.settings.form.success_label')}</label><input value={draft.formSuccessMessage} onChange={e => setDraft(d => ({ ...d, formSuccessMessage: e.target.value }))} placeholder={t('leads.settings.form.success_placeholder')} className={inputFormStyle} /></div>
-          <div><label className={LABEL_CLASSES}>{t('leads.common.pipeline')}</label>
+          <div>
+            <label className={LABEL_CLASSES}>{t('leads.settings.form.title_label')}</label>
+            <input value={draft.formTitle} onChange={e => setDraft(d => ({ ...d, formTitle: e.target.value }))} placeholder={t('leads.settings.form.title_placeholder')} className={inputFormStyle} />
+            <Hint>{t('leads.settings.form.title_hint')}</Hint>
+          </div>
+          <div>
+            <label className={LABEL_CLASSES}>{t('leads.settings.form.success_label')}</label>
+            <input value={draft.formSuccessMessage} onChange={e => setDraft(d => ({ ...d, formSuccessMessage: e.target.value }))} placeholder={t('leads.settings.form.success_placeholder')} className={inputFormStyle} />
+            <Hint>{t('leads.settings.form.success_hint')}</Hint>
+          </div>
+          <div>
+            <label className={LABEL_CLASSES}>{t('leads.settings.form.pipeline_label')}</label>
             <select value={draft.formPipelineId} onChange={e => setDraft(d => ({ ...d, formPipelineId: e.target.value, formStageId: '' }))} className={inputFormStyle}>
               <option value="">{t('leads.settings.form.default_pipeline')}</option>
               {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+            <Hint>{t('leads.settings.form.pipeline_hint')}</Hint>
           </div>
-          <div><label className={LABEL_CLASSES}>{t('leads.settings.form.initial_stage')}</label>
+          <div>
+            <label className={LABEL_CLASSES}>{t('leads.settings.form.initial_stage')}</label>
             <select value={draft.formStageId} onChange={e => setDraft(d => ({ ...d, formStageId: e.target.value }))} className={inputFormStyle}>
               <option value="">{t('leads.settings.form.first_stage')}</option>
               {(pipe?.stages || []).filter(s => s.type === 'open').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
+            <Hint>{t('leads.settings.form.initial_stage_hint')}</Hint>
           </div>
-          <div className="sm:col-span-2"><label className={LABEL_CLASSES}>{t('leads.settings.form.assign_to')}</label>
+          <div className="sm:col-span-2">
+            <label className={LABEL_CLASSES}>{t('leads.settings.form.assign_to')}</label>
             <select value={draft.formAssigneeId} onChange={e => setDraft(d => ({ ...d, formAssigneeId: e.target.value }))} className={inputFormStyle}>
               <option value="">{t('leads.settings.form.nobody')}</option>
               {assignees.map(a => <option key={a.uid} value={a.uid}>{a.name}</option>)}
             </select>
+            <Hint>{t('leads.settings.form.assign_to_hint')}</Hint>
           </div>
         </div>
         <div className="flex justify-end pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-700">
@@ -526,15 +589,16 @@ const FormTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSettings)
       </SettingsCard>
 
       {link && (
-        <SettingsCard title={t('leads.settings.form.public_link')} icon={<InformationCircleIcon className="w-5 h-5" />}>
+        <SettingsCard title={t('leads.settings.form.share_title')} subtitle={t('leads.settings.form.share_help')} icon={<InformationCircleIcon className="w-5 h-5" />}>
           <div className="space-y-4">
             <div>
               <label className={LABEL_CLASSES}>{t('leads.settings.form.public_link')}</label>
               <div className="flex flex-wrap items-center gap-2">
-                <input readOnly value={link} className={inputFormStyle + ' flex-1 min-w-[220px] font-mono !text-sm'} onFocus={e => e.currentTarget.select()} />
-                <button onClick={() => copy(link)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.copy')}</button>
-                <a href={link} target="_blank" rel="noreferrer" className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.open')}</a>
+                <input readOnly value={link} className={inputFormStyle + ' flex-1 min-w-[220px] font-mono !text-sm'} onFocus={e => e.currentTarget.select()} aria-label={t('leads.settings.form.public_link')} />
+                <button onClick={() => copy(link)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('leads.settings.form.copy_link_title')}>{t('leads.settings.form.copy')}</button>
+                <a href={link} target="_blank" rel="noreferrer" className={BUTTON_SECONDARY_SM_CLASSES} title={t('leads.settings.form.open_title')}>{t('leads.settings.form.open')}</a>
               </div>
+              <Hint>{t('leads.settings.form.public_link_hint')}</Hint>
               {!draft.formEnabled && (
                 <div className="mt-2 p-3 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700 flex items-start gap-2">
                   <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
@@ -545,12 +609,14 @@ const FormTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSettings)
             <div>
               <label className={LABEL_CLASSES}>{t('leads.settings.form.embed_label')}</label>
               <div className="flex flex-wrap items-start gap-2">
-                <textarea readOnly rows={3} value={embed} className={inputFormStyle + ' !h-auto flex-1 min-w-[220px] font-mono !text-sm'} onFocus={e => e.currentTarget.select()} />
-                <button onClick={() => copy(embed)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('leads.settings.form.copy')}</button>
+                <textarea readOnly rows={3} value={embed} className={inputFormStyle + ' !h-auto flex-1 min-w-[220px] font-mono !text-sm'} onFocus={e => e.currentTarget.select()} aria-label={t('leads.settings.form.embed_label')} />
+                <button onClick={() => copy(embed)} className={BUTTON_SECONDARY_SM_CLASSES} title={t('leads.settings.form.copy_embed_title')}>{t('leads.settings.form.copy')}</button>
               </div>
+              <Hint>{t('leads.settings.form.embed_hint')}</Hint>
             </div>
             <div className="pt-4 border-t border-neutral-200 dark:border-neutral-700">
-              <button onClick={regenerate} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50`}>{t('leads.settings.form.regenerate')}</button>
+              <button onClick={regenerate} className={`${BUTTON_SECONDARY_SM_CLASSES} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50`} title={t('leads.settings.form.regenerate_hint')}>{t('leads.settings.form.regenerate')}</button>
+              <Hint>{t('leads.settings.form.regenerate_hint')}</Hint>
             </div>
           </div>
         </SettingsCard>
@@ -578,21 +644,37 @@ const AutomationTab: React.FC<{ settings: LeadSettings; setSettings: (s: LeadSet
           disabled={!isManager}
           onChange={e => { updateGlobalSettings({ timezone: e.target.value }); toast.success(t('leads.settings.tz.saved')); }}
           className={inputFormStyle}
+          aria-label={t('leads.settings.tz.title')}
         >
           {timezoneOptions(globalSettings.timezone).map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
         </select>
-        {!isManager && <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('leads.settings.tz.manager_only')}</p>}
+        {!isManager && <Hint>{t('leads.settings.tz.manager_only')}</Hint>}
       </SettingsCard>
 
-      <SettingsCard title={t('leads.settings.automation.cold_title')} subtitle={t('leads.settings.automation.cold_help')} icon={<FireIcon className="w-5 h-5" />}>
+      <SettingsCard
+        title={t('leads.settings.automation.cold_title')}
+        subtitle={t('leads.settings.automation.cold_help')}
+        help={[
+          t('leads.settings.automation.cold_help_activity'),
+          t('leads.settings.automation.cold_help_notify'),
+          t('leads.settings.automation.cold_help_filter'),
+        ]}
+        icon={<FireIcon className="w-5 h-5" />}
+      >
         <div className="flex flex-wrap items-center gap-2">
-          <input type="number" min={1} max={365} value={coldDays} onChange={e => setColdDays(e.target.value)} className={inputFormStyle + ' !w-28'} />
+          <input type="number" min={1} max={365} value={coldDays} onChange={e => setColdDays(e.target.value)} className={inputFormStyle + ' !w-28'} aria-label={t('leads.settings.automation.cold_days_aria')} />
           <span className="text-sm text-neutral-500 dark:text-neutral-400">{t('leads.settings.automation.days')}</span>
           <button onClick={() => { const n = Math.max(1, Math.min(365, Number(coldDays) || 7)); update({ coldDays: n }); }} className={BUTTON_PRIMARY_SM_CLASSES}>{t('leads.common.save')}</button>
         </div>
+        <Hint className="mt-2">{t('leads.settings.automation.cold_example')}</Hint>
       </SettingsCard>
 
-      <SettingsCard title={t('leads.settings.automation.capture_title')} icon={<SparklesIcon className="w-5 h-5" />}>
+      <SettingsCard
+        title={t('leads.settings.automation.capture_title')}
+        subtitle={t('leads.settings.automation.capture_help')}
+        help={[t('leads.settings.automation.capture_help_where'), t('leads.settings.automation.capture_help_module')]}
+        icon={<SparklesIcon className="w-5 h-5" />}
+      >
         <div className="space-y-3">
           <div className={`${BOX} flex items-start justify-between gap-4`}>
             <div>
