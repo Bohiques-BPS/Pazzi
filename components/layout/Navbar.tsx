@@ -16,6 +16,7 @@ import { AddAccountModal } from '../AddAccountModal';
 import { timeclockService } from '../../services/timeclock';
 import { QuickSettingsButton } from '../ui/QuickSettingsButton';
 import { NavCommand } from './NavCommand';
+import { JoinRequestDecisionModal, parseJoinRequestLink, type JoinRequestTarget } from '../pm/JoinRequestDecisionModal';
 import { hubPath } from '../../utils/moduleNav';
 import { toast } from '../../hooks/useToast';
 import logo from '../../assets/logo.png';
@@ -71,6 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [joinRequestTarget, setJoinRequestTarget] = useState<JoinRequestTarget | null>(null);
   const [punching, setPunching] = useState(false);
 
   // Ponche rápido del usuario conectado (alterna Entrada/Salida en el backend).
@@ -176,6 +178,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
   const handleNotificationClick = (notification: Notification) => {
     markNotificationAsRead(notification.id);
     setNotificationDropdownOpen(false);
+    // Solicitud para unirse a un proyecto → modal para decidir ahí mismo (sin salir de la pantalla).
+    const jr = parseJoinRequestLink(notification.link, notification.message);
+    if (jr) { setJoinRequestTarget(jr); return; }
     if (notification.link) {
         // Compat: enlaces viejos con '#/...' (hash) → ruta limpia para BrowserRouter.
         let to = notification.link.startsWith('#') ? notification.link.slice(1) : notification.link;
@@ -467,6 +472,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
         </div>
       </div>
       <AddAccountModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} />
+      <JoinRequestDecisionModal target={joinRequestTarget} onClose={() => setJoinRequestTarget(null)} />
     </nav>
   );
 };

@@ -8,6 +8,7 @@ import { AppModule } from '../types';
 import { useTranslation } from '../contexts/GlobalSettingsContext';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
 import { BUTTON_SECONDARY_SM_CLASSES } from '../constants';
+import { JoinRequestDecisionModal, parseJoinRequestLink, type JoinRequestTarget } from '../components/pm/JoinRequestDecisionModal';
 
 const PAGE_SIZE = 20;
 
@@ -27,6 +28,7 @@ export const NotificationsPage: React.FC = () => {
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [joinRequestTarget, setJoinRequestTarget] = useState<JoinRequestTarget | null>(null);
 
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -52,6 +54,9 @@ export const NotificationsPage: React.FC = () => {
             markNotificationAsRead(n.id);
             setItems(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
         }
+        // Solicitud para unirse a un proyecto → modal para aprobar / rechazar.
+        const jr = parseJoinRequestLink(n.link, n.message);
+        if (jr) { setJoinRequestTarget(jr); return; }
         if (n.link) {
             let to = n.link.startsWith('#') ? n.link.slice(1) : n.link;
             if (to.startsWith('/pos/invoices') && !/[?&]invoice=/.test(to)) {
@@ -131,6 +136,7 @@ export const NotificationsPage: React.FC = () => {
                     </button>
                 </div>
             )}
+            <JoinRequestDecisionModal target={joinRequestTarget} onClose={() => setJoinRequestTarget(null)} />
         </div>
     );
 };
