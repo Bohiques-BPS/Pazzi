@@ -89,7 +89,16 @@ export const ReceiptSettingsPage: React.FC = () => {
         .then(c => { setWebusb(c); toast.success(t('posx.receipt.toast.usbSelected', { name: c.productName || '' })); })
         .catch(err => toast.error(err?.message || t('posx.receipt.toast.usbSelectFailed')));
     const testUsb = () => printWebUsbTest(cfg)
-        .then(() => toast.success(t('posx.receipt.toast.testReceiptSentUsb'))).catch(err => toast.error(`USB: ${err?.message || t('posx.receipt.toast.printFailed')}`));
+        .then(() => toast.success(t('posx.receipt.toast.testReceiptSentUsb')))
+        .catch(err => {
+            const msg = String(err?.message || '');
+            // En Windows el driver de la impresora tiene el dispositivo tomado → "Access denied".
+            if (/access denied|acceso denegado|denied|unable to claim|claim interface/i.test(msg)) {
+                toast.error('Windows tiene la impresora ocupada por su driver. Usa el modo "QZ Tray" (recomendado), o instala el driver WinUSB con Zadig para poder usar WebUSB.');
+            } else {
+                toast.error(`USB: ${msg || t('posx.receipt.toast.printFailed')}`);
+            }
+        });
 
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
@@ -387,6 +396,21 @@ export const ReceiptSettingsPage: React.FC = () => {
                                 ? t('posx.receipt.printer.desc.webusb')
                                 : t('posx.receipt.printer.desc.browser')}
                         </p>
+                        {printMode === 'browser' && (
+                            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-neutral-700 dark:text-neutral-200 mb-1">
+                                <p className="font-semibold text-primary mb-1">Imprimir gratis, sin instalar nada</p>
+                                <p className="text-neutral-600 dark:text-neutral-300 mb-2">
+                                    El modo Navegador imprime con el cuadro de impresión del navegador. Es gratis y no requiere ningún programa.
+                                </p>
+                                <p className="font-medium text-neutral-700 dark:text-neutral-200">Para imprimir SIN el cuadro de diálogo (silencioso), en una PC de caja:</p>
+                                <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-300 mt-1">
+                                    <li>Pon tu impresora térmica como <strong>impresora predeterminada</strong> de Windows.</li>
+                                    <li>Cierra Chrome por completo y ábrelo con la bandera <code className="px-1 bg-neutral-200 dark:bg-neutral-700 rounded">--kiosk-printing</code>. Ej: crea un acceso directo a Chrome y al final del "Destino" agrega un espacio y <code className="px-1 bg-neutral-200 dark:bg-neutral-700 rounded">--kiosk-printing</code>.</li>
+                                    <li>Al imprimir desde el POS, saldrá directo a la impresora, sin diálogo. (Funciona igual en Edge.)</li>
+                                </ol>
+                                <p className="mt-2 text-neutral-500 dark:text-neutral-400">Sin esa bandera, el navegador mostrará el cuadro de impresión cada vez (también gratis, solo con un clic extra).</p>
+                            </div>
+                        )}
                         {printMode === 'webusb' && (
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -406,6 +430,26 @@ export const ReceiptSettingsPage: React.FC = () => {
                         )}
                         {printMode === 'qz' && (
                             <div className="space-y-3">
+                                {/* Ayuda: cómo instalar QZ Tray para poder imprimir */}
+                                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-neutral-700 dark:text-neutral-200">
+                                    <p className="font-semibold text-primary mb-1">¿Primera vez? Instala QZ Tray en esta PC</p>
+                                    <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-300">
+                                        <li>
+                                            Descarga QZ Tray (gratis):{' '}
+                                            <a href="https://qz.io/download/" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">qz.io/download</a>
+                                            {' '}— elige la versión de Windows.
+                                        </li>
+                                        <li>Instálalo y ábrelo. Queda corriendo en la <strong>bandeja del sistema</strong> (junto al reloj, abajo a la derecha). Debe estar abierto siempre que quieras imprimir.</li>
+                                        <li>La primera vez, el navegador y QZ Tray pedirán <strong>permiso de conexión</strong>: acepta/permite (marca "recordar").</li>
+                                        <li>Conecta tu impresora térmica por USB (usa su driver normal de Windows) y pulsa <strong>«Detectar impresoras»</strong> aquí abajo.</li>
+                                    </ol>
+                                    <p className="mt-2 text-neutral-500 dark:text-neutral-400">
+                                        A diferencia de WebUSB, QZ Tray usa el driver normal de la impresora, así que <strong>no da el error «Access denied»</strong> de Windows.
+                                    </p>
+                                    <p className="mt-2 text-neutral-500 dark:text-neutral-400">
+                                        💡 QZ Tray es <strong>gratis</strong> (open source). La primera vez te pedirá permiso: pulsa <strong>«Permitir» + «Recordar»</strong> y no vuelve a preguntar. (La licencia de pago solo quita ese aviso inicial — no es necesaria.) ¿Prefieres no instalar nada? Mira el modo <strong>Navegador</strong>.
+                                    </p>
+                                </div>
                                 <div className="flex justify-end">
                                     <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detectPrinters')}</button>
                                 </div>
