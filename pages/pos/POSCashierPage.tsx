@@ -720,6 +720,43 @@ export const POSCashierPage: React.FC = () => {
     }, [cart, selectedClient, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate, settings.taxBreakdownEnabled, settings.taxStateRate, settings.taxMunicipalRate, settings.taxReducedRate]);
 
     // Agrega al carrito una línea ya resuelta (producto simple o una variación específica).
+    // ── Recursos del proyecto → carrito ──
+    // Al asociar la venta a un proyecto se cargan los productos del catálogo asignados en su pestaña
+    // "Recursos" (automático si el carrito está vacío; si no, con el botón). Los recursos
+    // personalizados no son productos del catálogo y no se pueden cobrar en el POS: se avisa.
+    const autoLoadedProjectRef = useRef<string | null>(null);
+    const [loadingProjectResources, setLoadingProjectResources] = useState(false);
+    const selectedProject = selectedProjectId ? clientProjects.find(p => p.id === selectedProjectId) : undefined;
+    const projectResourceCount = (selectedProject?.assignedProducts || []).filter(r => r.productId && r.quantity > 0).length;
+    const loadProjectResources = async (projectId: string) => {
+        const proj = clientProjects.find(p => p.id === projectId);
+        if (!proj) return;
+        const resources = (proj.assignedProducts || []).filter(r => r.productId && r.quantity > 0);
+        const custom = (proj.customProducts || []).filter(c => c && c.name);
+        if (!resources.length && !custom.length) return;
+        setLoadingProjectResources(true);
+        let added = 0; let failed = 0;
+        try {
+            for (const r of resources) {
+                try {
+                    const p = (products.find(x => x.id === r.productId) as Product | undefined) || await productsService.getByIdNormalized(r.productId);
+                    if (!p || (p as any).isActive === false) { failed++; continue; }
+                    addResolvedToCart({ ...p, unitPrice: getEffectiveUnitPrice(p), quantity: Math.max(1, Math.floor(r.quantity)) } as CartItem);
+                    added++;
+                } catch { failed++; }
+            }
+        } finally { setLoadingProjectResources(false); }
+        if (added) toast.success(t('posx.cashier.project_resources_loaded', { count: added }));
+        if (failed) toast.warning(t('posx.cashier.project_resources_failed', { count: failed }));
+        if (custom.length) toast.warning(t('posx.cashier.project_custom_not_billable', { names: custom.map(c => c.name).join(', ') }));
+    };
+    const handleSelectProject = (projectId: string | null) => {
+        setSelectedProjectId(projectId);
+        if (!projectId || autoLoadedProjectRef.current === projectId) return;
+        // Automático solo con el carrito vacío, para no duplicar ni mezclar con lo que ya se marcó.
+        if (cart.length === 0) { autoLoadedProjectRef.current = projectId; loadProjectResources(projectId); }
+    };
+
     const addResolvedToCart = (item: CartItem) => {
         const qty = Math.max(1, item.quantity || 1);
         setCart(prev => {
@@ -1519,10 +1556,15 @@ export const POSCashierPage: React.FC = () => {
                                         <BriefcaseIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" /> {t('posx.cashier.associate_project')}
                                     </label>
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                        <select value={selectedProjectId || ''} onChange={(e) => setSelectedProjectId(e.target.value || null)} className="flex-grow text-sm sm:text-base px-3 py-1.5 sm:py-2 border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 rounded-md shadow-sm focus:ring-primary focus:border-primary">
+                                        <select value={selectedProjectId || ''} onChange={(e) => handleSelectProject(e.target.value || null)} className="flex-grow text-sm sm:text-base px-3 py-1.5 sm:py-2 border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 rounded-md shadow-sm focus:ring-primary focus:border-primary">
                                             <option value="">{t('posx.cashier.general_sale_no_project')}</option>
                                             {clientProjects.map(proj => (<option key={proj.id} value={proj.id}>{proj.name}</option>))}
                                         </select>
+                                        {selectedProjectId && projectResourceCount > 0 && (
+                                            <button type="button" disabled={loadingProjectResources} onClick={() => { autoLoadedProjectRef.current = selectedProjectId; loadProjectResources(selectedProjectId); }} className={`${BUTTON_SECONDARY_SM_CLASSES} flex-shrink-0 disabled:opacity-60`} title={t('posx.cashier.load_project_resources_title')}>
+                                                {t('posx.cashier.load_project_resources', { count: projectResourceCount })}
+                                            </button>
+                                        )}
                                         <button type="button" onClick={() => setActiveModal('createProject')} className="flex items-center justify-center flex-shrink-0 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-base py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-md shadow-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-green-400 dark:focus:ring-offset-neutral-800" title={t('posx.cashier.new_project_title')}>
                                             <PlusIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5"/> {t('pos.new_project')}
                                         </button>
