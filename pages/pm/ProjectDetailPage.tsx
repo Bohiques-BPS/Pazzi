@@ -30,6 +30,8 @@ import { getSocket, joinProjectRoom } from '../../services/socket';
 import { markProjectChatRead } from '../../hooks/useChatUnread';
 import { ApiError, API_URL } from '../../services/api';
 import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
+import { ClientProjectsPanel } from '../../components/pm/ClientProjectsPanel';
+import { ProjectJoinRequestsPanel } from '../../components/pm/ProjectJoinRequestsPanel';
 
 
 type ActiveTab = 'details' | 'chat' | 'tasks' | 'seguimiento' | 'historico';
@@ -39,7 +41,7 @@ export const ProjectDetailPage: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { getProjectById, projects } = useData();
+    const { getProjectById, projects, projectsLoading, setProjects } = useData();
     const { can } = usePermissions();
     // El Histórico solo lo ve el MANAGER (can()===true) o quien tenga el permiso de ver histórico.
     const canViewHistory = can('projects.viewHistory');
@@ -56,6 +58,33 @@ export const ProjectDetailPage: React.FC = () => {
         }
     }, [projectId, getProjectById, projects]);
 
+    // Respaldo: si el proyecto no está en la lista cacheada (p. ej. te acaban de aprobar la solicitud
+    // para unirte y la lista se cargó antes), se pide al servidor una vez y se agrega al contexto.
+    const [fetchingProject, setFetchingProject] = useState(false);
+    const triedFetchRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!projectId || projectId === 'new' || projectsLoading) return;
+        if (getProjectById(projectId) || triedFetchRef.current === projectId) return;
+        triedFetchRef.current = projectId;
+        setFetchingProject(true);
+        projectsService.getById(projectId)
+            .then(raw => {
+                const n = normalizeProjectFromApi(raw);
+                setProjects(prev => prev.some(p => p.id === n.id) ? prev : [...prev, n]);
+            })
+            .catch(() => { /* sin acceso o no existe: se muestra "no encontrado" */ })
+            .finally(() => setFetchingProject(false));
+    }, [projectId, projectsLoading, getProjectById, setProjects]);
+
+    // Tras aprobar una solicitud de unión: refresca el proyecto (miembros) desde el servidor.
+    const refreshProjectMembers = useCallback(async () => {
+        if (!projectId || projectId === 'new') return;
+        try {
+            const n = normalizeProjectFromApi(await projectsService.getById(projectId));
+            setProjects(prev => prev.map(p => p.id === n.id ? { ...p, ...n } : p));
+        } catch { /* noop */ }
+    }, [projectId, setProjects]);
+
     // Si llega a ?tab=historico sin permiso (URL directa), cae a Detalles.
     useEffect(() => {
         if (activeTab === 'historico' && !canViewHistory) setActiveTab('details');
@@ -71,6 +100,9 @@ export const ProjectDetailPage: React.FC = () => {
     };
 
     if (project === null && projectId !== 'new') {
+        if (fetchingProject || projectsLoading) {
+            return <div className="text-center p-8 text-neutral-500 dark:text-neutral-400">{t('common.loading')}</div>;
+        }
         return (
             <div className="text-center p-8">
                 <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">{t('pm2x.project.not_found')}</h2>
@@ -108,6 +140,15 @@ export const ProjectDetailPage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* Solicitudes pendientes para unirse (solo visible para quien puede decidir). */}
+            {!isNewProject && projectData && (
+                <ProjectJoinRequestsPanel
+                    project={projectData}
+                    onApproved={refreshProjectMembers}
+                    focus={searchParams.get('joinRequests') === '1'}
+                />
+            )}
 
             {/* La barra de pestañas externa (Detalles/Chat/Tareas/…) solo aplica a un proyecto
                 existente. En uno NUEVO solo habría "Detalles", que duplicaría la pestaña interna
@@ -503,6 +544,11 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Al CREAR: proyectos existentes del cliente (evitar duplicados / solicitar unirse). */}
+                    {!project && selectedClientDetails && (
+                        <ClientProjectsPanel clientId={selectedClientDetails.id} />
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

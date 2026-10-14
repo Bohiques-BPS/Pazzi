@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Modal, ConfirmationModal } from '../Modal';
 import { Task } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -81,6 +81,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
     const [attachments, setAttachments] = useState<TaskAttachment[]>(((task as any).attachments as TaskAttachment[]) || []);
     const [uploadingImg, setUploadingImg] = useState(false);
+    const attachInputRef = useRef<HTMLInputElement>(null); // la zona punteada también abre el selector
+    const [dragOver, setDragOver] = useState(false); // arrastrar imágenes sobre la zona
 
     // Solo se pueden asignar tareas a personas ASIGNADAS al proyecto. La asignación del proyecto
     // guarda User.id; los empleados enlazan con userId (o su propio id según el flujo), así que
@@ -605,11 +607,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 </div>
 
                 {/* Imágenes adjuntas (pegar con Ctrl+V o seleccionar) */}
-                <div onPaste={handleAttachPaste}>
+                <div onPaste={handleAttachPaste} onDragOver={e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); setDragOver(true); } }} onDragLeave={() => setDragOver(false)} onDrop={e => { e.preventDefault(); setDragOver(false); const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/')); if (files.length) handleImageFiles(files); }}>
                     <div className="flex items-center justify-between">
                         <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">🖼️ Imágenes</label>
                         <label className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer" title="Pega una imagen (Ctrl+V) o selecciónala">
-                            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
+                            <input ref={attachInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleImageFiles(Array.from(e.target.files || [])); e.currentTarget.value = ''; }} />
                             {uploadingImg ? 'Subiendo…' : '+ Adjuntar'}
                         </label>
                     </div>
@@ -630,9 +632,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             ))}
                         </div>
                     ) : (
-                        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md px-3 py-3 text-center">
-                            Pega una imagen aquí (Ctrl+V) o usa “+ Adjuntar”.
-                        </p>
+                        <button type="button" disabled={uploadingImg} onClick={() => attachInputRef.current?.click()} className={`mt-1 w-full border border-dashed rounded-md px-3 py-3 text-center text-xs transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${dragOver ? 'border-primary bg-primary/10 text-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-400 dark:text-neutral-500 hover:border-primary hover:text-primary'}`}>
+                            {uploadingImg ? 'Subiendo…' : 'Haz clic para elegir una imagen, arrástrala aquí o pégala (Ctrl+V).'}
+                        </button>
                     )}
                 </div>
 

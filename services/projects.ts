@@ -65,6 +65,41 @@ export interface DailyActivityReport {
     items: { id: string; type: string; at: string; title: string; projectName: string; description?: string }[];
 }
 
+export type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+/** Proyecto de un cliente en versión mínima (sin tareas/presupuesto/recursos/chat). */
+export interface ClientProjectSummary {
+    id: string;
+    name: string;
+    status: string;
+    workMode?: string;
+    workStartDate?: string | null;
+    workEndDate?: string | null;
+    visitDate?: string | null;
+    createdAt: string;
+    /** Nombres de los encargados del proyecto. */
+    managers: string[];
+    memberCount: number;
+    isMember: boolean;
+    /** ¿El usuario actual lo podría abrir (miembro, "ver todos" o gerente)? */
+    canOpen: boolean;
+    joinRequest: { status: 'none' | 'pending' | 'rejected'; id: string | null; decidedAt?: string | null };
+}
+
+/** Solicitud de unión (vista de quien decide). */
+export interface ProjectJoinRequestItem {
+    id: string;
+    projectId: string;
+    userId: string;
+    status: JoinRequestStatus;
+    message?: string | null;
+    createdAt: string;
+    decidedAt?: string | null;
+    decidedByName?: string | null;
+    user: { id: string; name: string; email: string; profilePictureUrl?: string | null };
+    alreadyMember: boolean;
+}
+
 export const projectsService = {
   getAll: (filters?: { status?: string; clientId?: string; employeeId?: string }) =>
     api.get<any[]>('/projects', filters as any),
@@ -89,4 +124,19 @@ export const projectsService = {
   /** Analiza un documento/transcripción y devuelve posibles tareas (no crea nada). */
   extractTasks: (id: string, transcript: string) =>
     api.post<{ suggestions: { title: string; description?: string; assigneeHint?: string; dueDateHint?: string; priority?: 'low' | 'medium' | 'high' | 'urgent' }[] }>(`/projects/${id}/extract-tasks`, { transcript }),
+  /** Resumen MÍNIMO de los proyectos de un cliente (formulario de crear proyecto). */
+  getClientSummary: (clientId: string) =>
+    api.get<{ projects: ClientProjectSummary[] }>(`/projects/by-client/${clientId}/summary`),
+  /** Solicitudes para unirse a un proyecto. */
+  requestJoin: (id: string, message?: string) =>
+    api.post<{ id: string; status: JoinRequestStatus; projectId: string; createdAt: string }>(`/projects/${id}/join-requests`, { message: message || undefined }),
+  listJoinRequests: (id: string, status: 'pending' | 'all' = 'pending') =>
+    api.get<ProjectJoinRequestItem[]>(`/projects/${id}/join-requests`, { status }),
+  approveJoinRequest: (id: string, requestId: string) =>
+    api.post<{ id: string; status: JoinRequestStatus; userId?: string; memberAdded?: boolean; alreadyProcessed?: boolean }>(`/projects/${id}/join-requests/${requestId}/approve`),
+  rejectJoinRequest: (id: string, requestId: string) =>
+    api.post<{ id: string; status: JoinRequestStatus; alreadyProcessed?: boolean }>(`/projects/${id}/join-requests/${requestId}/reject`),
+  cancelJoinRequest: (id: string, requestId: string) =>
+    api.post<{ id: string; status: JoinRequestStatus }>(`/projects/${id}/join-requests/${requestId}/cancel`),
 };
+

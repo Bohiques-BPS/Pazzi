@@ -67,6 +67,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
     const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+    const [dragOver, setDragOver] = useState(false); // arrastrar imágenes sobre la zona
 
     // Reinicia el formulario cada vez que se abre.
     useEffect(() => {
@@ -230,7 +231,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                     <RichTextEditor value={description} onChange={setDescription} placeholder={t('cmpx.task.description_ph')} />
                 </div>
 
-                <div>
+                <div onDragOver={e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); setDragOver(true); } }} onDragLeave={() => setDragOver(false)} onDrop={e => { e.preventDefault(); setDragOver(false); const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/')); if (files.length) handleImageFiles(files); }}>
                     <div className="flex items-center justify-between">
                         <label className={label}>🖼️ Imágenes</label>
                         <button type="button" onClick={() => fileRef.current?.click()} className="text-xs text-primary hover:underline">{uploading ? 'Subiendo…' : '+ Adjuntar'}</button>
@@ -246,7 +247,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                             ))}
                         </div>
                     ) : (
-                        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-md px-3 py-3 text-center">Pega una imagen aquí (Ctrl+V) o usa “+ Adjuntar”.</p>
+                        <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()} className={`mt-1 w-full border border-dashed rounded-md px-3 py-3 text-center text-xs transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${dragOver ? 'border-primary bg-primary/10 text-primary' : 'border-neutral-300 dark:border-neutral-600 text-neutral-400 dark:text-neutral-500 hover:border-primary hover:text-primary'}`}>{uploading ? 'Subiendo…' : 'Haz clic para elegir una imagen, arrástrala aquí o pégala (Ctrl+V).'}</button>
                     )}
                 </div>
 
