@@ -90,10 +90,13 @@ export const MyTasksPage: React.FC = () => {
         const isDone = r.status === 'Hecho';
         const overdue = r.dueDate && new Date(String(r.dueDate).split('T')[0] + 'T00:00:00') < startOfToday() && !isDone;
         return (
-            <button
+            <div
                 key={r.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelected(r)}
-                className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/40 transition-colors"
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(r); } }}
+                className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/40 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -115,7 +118,19 @@ export const MyTasksPage: React.FC = () => {
                         {fmtDue(r.dueDate)}
                     </span>
                 )}
-            </button>
+                {/* Abre el tablero del proyecto con esta tarea seleccionada (mismo enlace que las notificaciones). */}
+                {r.projectId && (
+                    <Link
+                        to={`/pm/projects/${r.projectId}?tab=tasks&task=${r.id}`}
+                        onClick={e => e.stopPropagation()}
+                        onKeyDown={e => e.stopPropagation()}
+                        className="flex-shrink-0 text-[11px] font-semibold px-2 py-1 rounded border border-primary/40 text-primary hover:bg-primary/10 whitespace-nowrap"
+                        title="Abrir el tablero del proyecto con esta tarea"
+                    >
+                        Ver en tablero
+                    </Link>
+                )}
+            </div>
         );
     };
 
