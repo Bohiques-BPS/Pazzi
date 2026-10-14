@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { usePagination, PaginationFooter } from '../../components/ui/tableTools';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
@@ -15,6 +15,8 @@ import { ClientNameLink } from '../../components/ui/EntityNameLink';
 import { MoneyInput } from '../../components/ui/MoneyInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { RecurringEmailTemplateModal } from '../../components/pos/RecurringEmailTemplateModal';
+import { ProjectSelectForClient } from '../../components/pos/ProjectSelectForClient';
+import { buildInvoiceTaxContext, productTaxRate as prodRate } from '../../utils/invoiceTax';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 // Los *_LABEL guardan CLAVES i18n; se resuelven con t() al renderizar.
@@ -109,6 +111,12 @@ export const RecurringPaymentsPage: React.FC = () => {
     // Form. mode = '' hasta que el usuario elija un modo (no se muestran los campos antes).
     const [mode, setMode] = useState<'' | RecurringMode>('');
     const [clientId, setClientId] = useState('');
+    // Proyecto vinculado (opcional): las facturas del plan aparecen en la Facturación del proyecto.
+    const [projectId, setProjectId] = useState('');
+    const [editProjectName, setEditProjectName] = useState<string | null>(null);
+    // A dónde volver tras crear el plan (p. ej. la pestaña Facturación del proyecto que lo abrió).
+    const [returnTo, setReturnTo] = useState<string | null>(null);
+    const navigate = useNavigate();
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
     const [openLine, setOpenLine] = useState<number | null>(null);
     const [interval, setInterval] = useState<CreateRecurringInput['interval']>('monthly');
@@ -145,10 +153,25 @@ export const RecurringPaymentsPage: React.FC = () => {
 
     // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
     const [recSearchParams, setRecSearchParams] = useSearchParams();
+    // Prellenado opcional (desde un Proyecto): clientId, projectId, description, mode, returnTo.
     useEffect(() => {
         if (recSearchParams.get('new') !== '1') return;
         resetForm(); setShowForm(true);
-        recSearchParams.delete('new');
+        const pre = {
+            clientId: recSearchParams.get('clientId'), projectId: recSearchParams.get('projectId'),
+            description: recSearchParams.get('description'), mode: recSearchParams.get('mode'), returnTo: recSearchParams.get('returnTo'),
+        };
+        if (pre.mode === 'invoice_link' || pre.mode === 'auto_charge') setMode(pre.mode);
+        if (pre.clientId) {
+            setClientId(pre.clientId);
+            const c = clients.find(x => x.id === pre.clientId);
+            if (c?.email) setEmail(c.email);
+        }
+        if (pre.projectId) setProjectId(pre.projectId);
+        if (pre.description) setDescription(pre.description);
+        // Solo rutas internas (evita redirecciones abiertas).
+        if (pre.returnTo && pre.returnTo.startsWith('/') && !pre.returnTo.startsWith('//')) setReturnTo(pre.returnTo);
+        ['new', 'clientId', 'projectId', 'description', 'mode', 'returnTo'].forEach(k => recSearchParams.delete(k));
         setRecSearchParams(recSearchParams, { replace: true });
     }, [recSearchParams]); // eslint-disable-line
 
@@ -159,7 +182,7 @@ export const RecurringPaymentsPage: React.FC = () => {
 
     const resetForm = () => {
         setEditId(null); setMode('');
-        setClientId(''); setLines([emptyItem()]); setInterval('monthly'); setDescription('');
+        setClientId(''); setProjectId(''); setEditProjectName(null); setReturnTo(null); setLines([emptyItem()]); setInterval('monthly'); setDescription('');
         setIntervalCount('1'); setMonthlyDay(''); setRetryEnabled(true); setMaxRetries('3'); setStartDate(''); setExecType('indefinite'); setEndDate(''); setMaxOccurrences('');
         setCard(''); setExpiry(''); setCvv(''); setZip(''); setEnrollByClient(false);
         setEmail(''); setSendEmail(true); setMethods(['agilpay', 'ath']); setGraceDays('3');
@@ -171,6 +194,8 @@ export const RecurringPaymentsPage: React.FC = () => {
         setEditId(rp.id);
         setMode(rp.mode);
         setClientId(rp.clientId);
+        setProjectId(rp.projectId || '');
+        setEditProjectName(rp.projectName || null);
         const its = Array.isArray(rp.items) ? rp.items : null;
         setLines(its && its.length
             ? its.map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), taxRate: it.taxRate ?? undefined }))
@@ -198,6 +223,8 @@ export const RecurringPaymentsPage: React.FC = () => {
 
     // Al elegir cliente, precargar su correo (siempre que el cliente tenga uno).
     const onSelectClient = (id: string) => {
+        // Los proyectos son del cliente: al cambiarlo se quita el proyecto elegido.
+        if (id !== clientId) setProjectId('');
         setClientId(id);
         const c = clients.find(c => c.id === id);
         if (c?.email) setEmail(c.email);
@@ -208,34 +235,9 @@ export const RecurringPaymentsPage: React.FC = () => {
     const addLine = () => setLines(ls => [...ls, emptyItem()]);
     const removeLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : [emptyItem()]);
 
-    // Tasa de IVU de un producto (el BE la expone como ivaRate; el público como ivuRate).
-    const prodRate = (p: any): number | undefined => (p?.ivaRate != null ? p.ivaRate : p?.ivuRate);
-    const productByName = useMemo(() => {
-        const m = new Map<string, any>();
-        for (const p of (products || [])) m.set(p.name.trim().toLowerCase(), p);
-        return m;
-    }, [products]);
-    const bd = !!(settings as any).taxBreakdownEnabled;
+    // Tasa de IVU efectiva de una línea (lógica compartida con Facturas en utils/invoiceTax).
     const selClient: any = clients.find(c => c.id === clientId);
-    const exemptState = !!selClient?.taxExemptState;
-    const exemptMunicipal = !!selClient?.taxExemptMunicipal
-        || (selClient?.municipalTaxExemptionUntil && new Date(selClient.municipalTaxExemptionUntil).getTime() > Date.now());
-    const clientFullyExempt = exemptState && exemptMunicipal;
-    const stateR = exemptState ? 0 : (Number((settings as any).taxStateRate) || 0);
-    const municipalR = exemptMunicipal ? 0 : (Number((settings as any).taxMunicipalRate) || 0);
-    const reducedR = exemptState ? 0 : (Number((settings as any).taxReducedRate) || 0);
-    // Tasa de IVU efectiva de una línea (misma lógica que el formulario de Facturas).
-    const lineTaxRate = (l: DraftItem): number | undefined => {
-        const prod = productByName.get(l.name.trim().toLowerCase());
-        const explicit = l.taxRate != null ? l.taxRate : (prod ? prodRate(prod) : undefined);
-        if (explicit === 0) return 0;
-        if (bd) {
-            const reduced = prod ? !!(prod as any).reducedTax : false;
-            return reduced ? reducedR : (stateR + municipalR);
-        }
-        if (clientFullyExempt) return 0;
-        return explicit != null ? explicit : (Number((settings as any).defaultTaxRate) || 0);
-    };
+    const { lineTaxRate } = useMemo(() => buildInvoiceTaxContext(settings, selClient, products), [settings, selClient, products]);
     const subtotal = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0);
     const taxTotal = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
     const grandTotal = subtotal + taxTotal;
@@ -262,6 +264,7 @@ export const RecurringPaymentsPage: React.FC = () => {
 
         const base: CreateRecurringInput = {
             clientId, mode, items, interval, description: description || undefined,
+            projectId: projectId || null,
             intervalCount: Math.max(1, Number(intervalCount) || 1),
             monthlyDay: (['monthly', 'quarterly', 'annual'].includes(interval) && Number(monthlyDay) >= 1 && Number(monthlyDay) <= 31) ? Number(monthlyDay) : null,
             retryEnabled,
@@ -305,16 +308,19 @@ export const RecurringPaymentsPage: React.FC = () => {
         try {
             if (editId) {
                 // Editar: no cambia modo ni re-tokeniza; actualiza configuración y montos.
-                await recurringService.update(editId, {
+                const upd = await recurringService.update(editId, {
                     items, interval, description: description || null,
+                    projectId: projectId || null,
                     intervalCount: base.intervalCount, monthlyDay: base.monthlyDay,
                     retryEnabled, maxRetries: base.maxRetries,
                     startDate: base.startDate, endDate: base.endDate, maxOccurrences: base.maxOccurrences,
                     ...(mode === 'invoice_link' ? { email: (base.email ?? null), sendEmail, linkMethods: methods, graceDays: base.graceDays } : {}),
                 });
                 toast.success(t('posx.recurring.toast.updated') || 'Pago recurrente actualizado.');
+                if (upd?.warning) toast.warning(upd.warning);
             } else {
                 const res: any = await recurringService.create(base);
+                if (res?.warning) toast.warning(res.warning);
                 if (mode === 'auto_charge' && enrollByClient) {
                     const link = res?.enrollLink;
                     toast.success(res?.emailSent
@@ -325,7 +331,10 @@ export const RecurringPaymentsPage: React.FC = () => {
                     toast.success(mode === 'invoice_link' ? t('posx.recurring.toast.createdInvoice') : t('posx.recurring.toast.createdCharge'));
                 }
             }
+            const back = !editId ? returnTo : null;
             setShowForm(false); resetForm(); load();
+            // Creado desde un proyecto → volver a su pestaña Facturación.
+            if (back) navigate(back);
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.createFailed'));
         } finally { setSaving(false); }
@@ -455,6 +464,11 @@ export const RecurringPaymentsPage: React.FC = () => {
                     <div>
                         <label className={LABEL}>{t('posx.recurring.form.client')}</label>
                         <ClientAutocomplete clients={clients.filter(c => !c.isDefault)} value={clientId} onChange={onSelectClient} placeholder={t('posx.recurring.form.select')} />
+                    </div>
+                    <div>
+                        <label className={LABEL}>{t('posx.invoices.project_label')} <span className="text-neutral-400 text-xs font-normal">({t('cmp.onb.optional')})</span></label>
+                        <ProjectSelectForClient clientId={clientId} value={projectId} onChange={setProjectId} currentLabel={editProjectName} />
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.recurring.form.project_hint')}</p>
                     </div>
 
                     {/* Grupo: Productos / servicios del período (tipo factura) */}
@@ -738,6 +752,11 @@ export const RecurringPaymentsPage: React.FC = () => {
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLOR[rp.status]}`}>{t(STATUS_LABEL[rp.status])}</span>
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${isInvoice ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{isInvoice ? `📧 ${t('posx.recurring.mode.invoiceLink')}` : `💳 ${t('posx.recurring.badge.autoCharge')}`}</span>
                                 <span className="font-semibold"><ClientNameLink clientId={rp.clientId} name={rp.clientName} /></span>
+                                {rp.projectId && (
+                                    <button type="button" onClick={() => navigate(`/pm/projects/${rp.projectId}?tab=details&sub=billing`)} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:underline max-w-[200px] truncate" title={rp.projectName || ''}>
+                                        {t('posx.invoices.project_label')}: {rp.projectName || t('posx.invoices.project_linked')}
+                                    </button>
+                                )}
                                 <span className="text-neutral-500">· {money(rp.amount)} {t(INTERVAL_LABEL[rp.interval])}</span>
                                 {!isInvoice && rp.cardLast4 && <span className="text-xs text-neutral-400">·•••• {rp.cardLast4}</span>}
                                 {isInvoice && cur && <span className={`text-xs px-2 py-0.5 rounded-full ${PAY_BADGE[cur] || 'bg-neutral-100 text-neutral-600'}`}>{PAY_LABEL[cur] ? t(PAY_LABEL[cur]) : cur}</span>}

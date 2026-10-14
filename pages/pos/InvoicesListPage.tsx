@@ -14,259 +14,20 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { InputModal } from '../../components/InputModal';
 import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
+import { ShareModal, PaymentsModal, PayModal, INVOICE_STATUS as STATUS, PAY_METHODS, hoyISO, fechaAIso, isoAFecha, money, invoicePdfBusinessFromSettings, useInvoiceEmailSender, copyInvoiceLink } from '../../components/pos/InvoiceModals';
+import { ProjectSelectForClient } from '../../components/pos/ProjectSelectForClient';
+import { buildInvoiceTaxContext, productTaxRate as prodRate, normalizeTaxRate as normRate } from '../../utils/invoiceTax';
 import { InvoiceTypeSelect } from '../../components/pos/InvoiceTypeSelect';
 import { MoneyInput } from '../../components/ui/MoneyInput';
 import { InvoiceDesignPreview } from '../../components/pos/InvoiceDesignPreview';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { splitTax } from '../../utils/taxBreakdown';
-import { printInvoicePaymentReceipt } from '../../utils/printInvoicePaymentReceipt';
 import { invoicePdfBlobUrl, downloadInvoicePdf, openInvoicePdf, type InvoicePdfBusiness } from '../../utils/invoiceClientPdf';
 import { clientDocName } from '../../utils/clientName';
 
-const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
-const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
-
-const STATUS: Record<string, { label: string; cls: string }> = {
-    pending: { label: 'Pendiente', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-    partial: { label: 'Pago parcial', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-    paid: { label: 'Pagada', cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-    cancelled: { label: 'Cancelada', cls: 'bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300' },
-};
-
 type DraftItem = { name: string; quantity: string; unitPrice: string; taxRate?: number };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
-
-/** Modal que muestra el link público + QR de una factura. */
-const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void }> = ({ invoice, onClose }) => {
-    const { t } = useTranslation();
-    const [qr, setQr] = useState<string>('');
-    const link = invoice ? publicLink(invoice.publicToken) : '';
-
-    useEffect(() => {
-        let alive = true;
-        if (invoice) {
-            import('qrcode').then(QR => QR.toDataURL(link, { width: 240, margin: 1 }))
-                .then(url => { if (alive) setQr(url); })
-                .catch(() => { if (alive) setQr(''); });
-        } else { setQr(''); }
-        return () => { alive = false; };
-    }, [invoice, link]);
-
-    const copy = async () => {
-        try { await navigator.clipboard.writeText(link); toast.success(t('posx.invoices.share_copy_ok')); }
-        catch { toast.error(t('posx.invoices.share_copy_fail')); }
-    };
-
-    return (
-        <Modal isOpen={!!invoice} onClose={onClose} title={t('posx.invoices.share_title', { num: invoice?.number ? `#${invoice.number}` : '' })} size="sm">
-            <div className="space-y-4 text-center">
-                <p className="text-sm text-neutral-500">{t('posx.invoices.share_desc')}</p>
-                {qr ? <img src={qr} alt="QR" className="mx-auto rounded-md border border-neutral-200 dark:border-neutral-700" /> : <div className="h-40 flex items-center justify-center text-neutral-400">{t('posx.invoices.generating_qr')}</div>}
-                <div className="flex gap-2">
-                    <input readOnly value={link} className={`${INPUT_SM_CLASSES} w-full text-xs`} onFocus={e => e.target.select()} />
-                    <button onClick={copy} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.invoices.copy')}</button>
-                </div>
-                <a href={link} target="_blank" rel="noreferrer" className="inline-block text-sm text-primary hover:underline">{t('posx.invoices.open_client_view')}</a>
-            </div>
-        </Modal>
-    );
-};
-
-/** Modal de SOLO LECTURA: historial de abonos/pagos de una factura. */
-const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onAddPayment?: () => void }> = ({ invoice, onClose, onAddPayment }) => {
-    const { t } = useTranslation();
-    const { settings } = useGlobalSettings();
-    if (!invoice) return null;
-    const payments = [...(invoice.payments || [])].sort((a, b) => new Date(a.paidAt || 0).getTime() - new Date(b.paidAt || 0).getTime());
-    const paid = invoice.amountPaid ?? payments.reduce((s, p) => s + (p.amount || 0), 0);
-    const balance = Math.max(0, (invoice.total || 0) - paid);
-    const st = STATUS[invoice.status];
-    // Se puede abonar mientras quede saldo y la factura no esté anulada.
-    const canAddPayment = !!onAddPayment && balance > 0.001 && invoice.status !== 'cancelled' && invoice.status !== 'paid';
-    const store = { businessName: (settings as any)?.receiptConfig?.businessName, address: (settings as any)?.receiptConfig?.address, phone: (settings as any)?.receiptConfig?.phone };
-    // Imprime (→ guardar como PDF) un recibo del abono i (0-based). El acumulado incluye hasta ese abono.
-    const printAbono = (i: number) => {
-        const p = payments[i];
-        const paidTotal = payments.slice(0, i + 1).reduce((s, x) => s + (x.amount || 0), 0);
-        printInvoicePaymentReceipt({ invoiceNumber: invoice.number, clientName: invoice.clientName, payment: p, total: invoice.total || 0, paidTotal, index: i + 1 }, store);
-    };
-    return (
-        <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="lg">
-            <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm text-neutral-600 dark:text-neutral-300">
-                        {invoice.clientName ? <span className="font-medium">{invoice.clientName}</span> : <span className="text-neutral-400">Sin cliente</span>}
-                    </div>
-                    {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>}
-                </div>
-
-                {/* Resumen */}
-                <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-700">
-                        <p className="text-[11px] uppercase tracking-wide text-neutral-400">Total</p>
-                        <p className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(invoice.total || 0)}</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                        <p className="text-[11px] uppercase tracking-wide text-green-600 dark:text-green-400">Pagado</p>
-                        <p className="text-lg font-bold text-green-600 dark:text-green-400 tabular-nums">{money(paid)}</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                        <p className="text-[11px] uppercase tracking-wide text-red-600 dark:text-red-400">Saldo</p>
-                        <p className="text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">{money(balance)}</p>
-                    </div>
-                </div>
-
-                {/* Lista de abonos */}
-                {payments.length === 0 ? (
-                    <p className="text-sm text-neutral-400 dark:text-neutral-500 text-center py-6">Esta factura aún no tiene abonos registrados.</p>
-                ) : (
-                    <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
-                                <tr>
-                                    <th className="text-left font-medium px-3 py-2">#</th>
-                                    <th className="text-left font-medium px-3 py-2">Fecha</th>
-                                    <th className="text-left font-medium px-3 py-2">Método</th>
-                                    <th className="text-left font-medium px-3 py-2">Referencia</th>
-                                    <th className="text-right font-medium px-3 py-2">Monto</th>
-                                    <th className="text-right font-medium px-3 py-2"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {payments.map((p, i) => (
-                                    <tr key={p.id} className="border-t border-neutral-100 dark:border-neutral-700/60">
-                                        <td className="px-3 py-2 text-neutral-400 tabular-nums">{i + 1}</td>
-                                        <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}</td>
-                                        <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.method || '—'}</td>
-                                        <td className="px-3 py-2 text-neutral-400 dark:text-neutral-500 truncate max-w-[220px]">{p.reference || ''}</td>
-                                        <td className="px-3 py-2 text-right font-semibold text-green-600 dark:text-green-400 tabular-nums">{money(p.amount)}</td>
-                                        <td className="px-3 py-2 text-right whitespace-nowrap">
-                                            <button
-                                                type="button"
-                                                onClick={() => printAbono(i)}
-                                                title="Descargar recibo de este abono"
-                                                className="text-xs font-medium text-primary hover:underline"
-                                            >
-                                                Recibo
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot className="bg-neutral-50 dark:bg-neutral-900/40">
-                                <tr className="border-t border-neutral-200 dark:border-neutral-700">
-                                    <td colSpan={4} className="px-3 py-2 text-right font-medium text-neutral-500 dark:text-neutral-400">Total pagado</td>
-                                    <td className="px-3 py-2 text-right font-bold text-green-600 dark:text-green-400 tabular-nums">{money(paid)}</td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                )}
-
-                <p className="text-xs text-neutral-400">{t('posx.invoices.payments_ro_note') || 'Para editar o eliminar un abono ya registrado usa Editar en la factura (pide PIN de supervisor).'}</p>
-                <div className="flex justify-between items-center pt-1 gap-2">
-                    {canAddPayment
-                        ? <button onClick={() => onAddPayment!()} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.invoices.abonos_add') || '+ Añadir abono'}</button>
-                        : <span />}
-                    <button onClick={onClose} className={BUTTON_CLOSE_SM_CLASSES}>{t('common.close') || 'Cerrar'}</button>
-                </div>
-            </div>
-        </Modal>
-    );
-};
-
-/** Métodos de cobro para registrar un abono manualmente. */
-const PAY_METHODS = ['ATH Móvil', 'AgilPay / Tarjeta', 'Efectivo', 'Transferencia', 'Cheque', 'Otro'];
-/** Hoy en YYYY-MM-DD local (lo que usa <input type="date">). */
-const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-/** "YYYY-MM-DD" -> ISO al mediodía local, para que el día no se corra por zona horaria. */
-const fechaAIso = (v: string) => new Date(`${v}T12:00:00`).toISOString();
-/** Fecha guardada -> YYYY-MM-DD local (hoy si no hay). */
-const isoAFecha = (iso?: string | null) => { if (!iso) return hoyISO(); const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-
-/** Modal con diseño de formulario para registrar un abono/pago a una factura. */
-const PayModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onDone: () => void }> = ({ invoice, onClose, onDone }) => {
-    const { t } = useTranslation();
-    const balance = invoice ? Math.max(0, (invoice.total || 0) - (invoice.amountPaid || 0)) : 0;
-    const [amount, setAmount] = useState('');
-    const [method, setMethod] = useState(PAY_METHODS[0]);
-    const [reference, setReference] = useState('');
-    // Fecha del abono: hoy por defecto; se cambia solo si el pago fue otro día.
-    const [date, setDate] = useState(hoyISO());
-    const [saving, setSaving] = useState(false);
-
-    // Al abrir, precargar el saldo pendiente y limpiar el resto.
-    useEffect(() => {
-        if (invoice) { setAmount(balance.toFixed(2)); setMethod(PAY_METHODS[0]); setReference(''); setDate(hoyISO()); }
-    }, [invoice]); // eslint-disable-line
-
-    const submit = async () => {
-        if (!invoice) return;
-        const amt = parseFloat(String(amount).replace(',', '.'));
-        if (!(amt > 0)) return toast.error(t('posx.invoices.err_amount'));
-        if (amt > balance + 0.001) return toast.error(t('posx.invoices.err_amount_over', { balance: money(balance) }));
-        setSaving(true);
-        try {
-            const res: any = await invoicesService.markPaid(invoice.id, { method, reference: reference.trim() || undefined, amount: amt, paidAt: date !== hoyISO() ? fechaAIso(date) : undefined });
-            toast.success(t('posx.invoices.payment_recorded'));
-            // El recibo se envía en segundo plano: avisamos si hay correo destino (o si no lo hay).
-            if (res?.emailQueued && res?.emailTo) toast.success(t('posx.invoices.receipt_sending', { email: res.emailTo }) || `Enviando el recibo a ${res.emailTo}…`);
-            else if (!res?.emailTo) toast.warning(t('posx.invoices.no_client_email') || 'El cliente no tiene correo; no se enviará el recibo.');
-            onDone(); onClose();
-        } catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_payment')); }
-        finally { setSaving(false); }
-    };
-
-    const labelCls = 'block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1';
-
-    return (
-        <Modal isOpen={!!invoice} onClose={onClose} title={t('posx.invoices.pay_title', { num: invoice?.number ? `#${invoice.number}` : '' })} size="sm">
-            <div className="space-y-4">
-                {/* Resumen del saldo */}
-                <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-700/40 rounded-md px-3 py-2 text-sm">
-                    <span className="text-neutral-500">{t('pos.receivable.col.balance')}</span>
-                    <span className="font-bold text-red-600 dark:text-red-400 tabular-nums">{money(balance)}</span>
-                </div>
-
-                <div>
-                    <label className={labelCls}>{t('posx.invoices.pay_amount')}</label>
-                    <div className="flex gap-2">
-                        <div className="flex-1"><MoneyInput value={amount} onChange={setAmount} onEnter={submit} autoFocus placeholder={t('posx.invoices.amount_placeholder')} className={`${INPUT_SM_CLASSES} w-full text-lg tabular-nums`} /></div>
-                        <button type="button" onClick={() => setAmount(balance.toFixed(2))} className={`${BUTTON_SECONDARY_SM_CLASSES} whitespace-nowrap`}>{t('pay.full_balance')}</button>
-                    </div>
-                </div>
-
-                <div>
-                    <label className={labelCls}>{t('posx.invoices.pay_method')}</label>
-                    <select value={method} onChange={e => setMethod(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
-                        {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                </div>
-
-                <div>
-                    <label className={labelCls}>{t('posx.invoices.abonos_date')}</label>
-                    <input type="date" value={date} max={hoyISO()} onChange={e => setDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} />
-                </div>
-                <div>
-                    <label className={labelCls}>{t('posx.invoices.pay_reference')} <span className="text-neutral-400 text-xs font-normal">{t('cmp.onb.optional')}</span></label>
-                    <input
-                        type="text" value={reference} onChange={e => setReference(e.target.value)}
-                        placeholder={t('posx.invoices.pay_reference_ph')} className={`${INPUT_SM_CLASSES} w-full`}
-                    />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
-                    <button type="button" onClick={onClose} disabled={saving} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    <button type="button" onClick={submit} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                        {saving ? t('cmpx.agilpay.processing') : t('posx.invoices.pay_submit')}
-                    </button>
-                </div>
-            </div>
-        </Modal>
-    );
-};
 
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -315,7 +76,7 @@ export const InvoicesListPage: React.FC = () => {
     // (el endpoint del servidor daba 502 por el límite de RAM de Render).
     const [pdfInvoice, setPdfInvoice] = useState<Invoice | null>(null);
     const [pdfUrl, setPdfUrl] = useState<string>('');
-    const [emailFor, setEmailFor] = useState<Invoice | null>(null);
+    const emailSender = useInvoiceEmailSender();
     const [toDelete, setToDelete] = useState<Invoice | null>(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -345,14 +106,19 @@ export const InvoicesListPage: React.FC = () => {
     const [invDate, setInvDate] = useState(hoyISO());
     // Vencimiento de la factura (opcional; vacío = sin vencimiento). Puede ser futura.
     const [dueDate, setDueDate] = useState('');
+    // Proyecto al que pertenece la factura (opcional; proyectos del cliente elegido).
+    const [projectId, setProjectId] = useState('');
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
     // Filtros extra
     const [cashierF, setCashierF] = useState('all');
     const [typeF, setTypeF] = useState('all');
+    const [projectF, setProjectF] = useState('all');
     const [saving, setSaving] = useState(false);
 
     // Al elegir cliente, autocompleta su correo (si tiene).
     const onSelectClient = (id: string) => {
+        // Al cambiar de cliente se quita el proyecto (los proyectos son del cliente).
+        if (id !== clientId) setProjectId('');
         setClientId(id);
         const c = clients.find(x => x.id === id);
         if (c?.email) setEmail(c.email);
@@ -371,7 +137,7 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); setProjectId(''); };
     // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
     useEffect(() => {
         if (invSearchParams.get('new') !== '1') return;
@@ -402,6 +168,7 @@ export const InvoicesListPage: React.FC = () => {
         setAllowPartial(inv.allowPartial !== false);
         setInvDate(isoAFecha(inv.createdAt));
         setDueDate(inv.dueDate ? isoAFecha(inv.dueDate) : '');
+        setProjectId(inv.projectId || '');
         setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), taxRate: (it as any).taxRate ?? undefined })));
         setSendOnCreate(false);
         setShowForm(true);
@@ -418,50 +185,19 @@ export const InvoicesListPage: React.FC = () => {
         () => new Set((products || []).map(p => p.name.trim().toLowerCase())),
         [products]
     );
-    // Producto por nombre → para resolver la tasa de IVU (ivuRate=0 si es exento).
-    const productByName = useMemo(() => {
-        const m = new Map<string, any>();
-        for (const p of (products || [])) m.set(p.name.trim().toLowerCase(), p);
-        return m;
-    }, [products]);
-    // Tasa de IVU de un producto (el BE la llama ivaRate; el público la renombra a ivuRate).
-    const prodRate = (p: any): number | undefined => (p?.ivaRate != null ? p.ivaRate : p?.ivuRate);
-    // Config del desglose IVU (misma lógica que el POS). Con el desglose activo, la tasa la
-    // define la config (Estatal+Municipal), NO el ivuRate del producto → poner 0 = sin IVU.
-    const bd = !!settings.taxBreakdownEnabled;
-    // Exención de IVU por CLIENTE (ej. dueños de finca): al elegir el cliente, pone estatal/municipal en 0.
+    // IVU por línea (lógica compartida en utils/invoiceTax): desglose Estatal/Municipal, productos
+    // exentos y exención de IVU por CLIENTE (al elegir el cliente, pone estatal/municipal en 0).
     const invClient: any = clients.find(c => c.id === clientId);
-    const exemptState = !!invClient?.taxExemptState;
-    const exemptMunicipal = !!invClient?.taxExemptMunicipal
-        || (invClient?.municipalTaxExemptionUntil && new Date(invClient.municipalTaxExemptionUntil).getTime() > Date.now());
-    const clientFullyExempt = exemptState && exemptMunicipal;
-    const stateR = exemptState ? 0 : (Number(settings.taxStateRate) || 0);
-    const municipalR = exemptMunicipal ? 0 : (Number(settings.taxMunicipalRate) || 0);
-    const reducedR = exemptState ? 0 : (Number(settings.taxReducedRate) || 0);
-    // Tasa de IVU efectiva de una línea.
-    const lineTaxRate = (l: DraftItem): number | undefined => {
-        const prod = productByName.get(l.name.trim().toLowerCase());
-        const explicit = l.taxRate != null ? l.taxRate : (prod ? prodRate(prod) : undefined);
-        // Producto EXENTO (tasa 0) → 0 en cualquier modo.
-        if (explicit === 0) return 0;
-        if (bd) {
-            // Desglose activo: tasa reducida si el producto está marcado; si no, Estatal+Municipal
-            // (ya con la exención del cliente aplicada arriba).
-            const reduced = prod ? !!(prod as any).reducedTax : false;
-            return reduced ? reducedR : (stateR + municipalR);
-        }
-        // Clásico: cliente exento total → 0; si no, tasa del producto o el default global del negocio
-        // (mismo fallback que aplica el servidor al crear, para que el IVU mostrado coincida).
-        if (clientFullyExempt) return 0;
-        return explicit != null ? explicit : (Number((settings as any).defaultTaxRate) || 0);
-    };
+    const { lineTaxRate, bd, stateR, municipalR } = useMemo(
+        () => buildInvoiceTaxContext(settings, invClient, products),
+        [settings, invClient, products]
+    );
 
     // ── Preview en vivo del diseño de la factura ──
     const previewMergedDesign = { ...gDesign, ...design, labels: { ...(gDesign.labels || {}), ...(design.labels || {}) } };
     const previewRC: any = (settings as any).receiptConfig || {};
     const previewBusiness = { name: previewRC.businessName, logoUrl: previewRC.logoUrl, rnc: previewRC.rnc, address: previewRC.address, phone: previewRC.phone };
     const previewItems = lines.map(l => ({ name: l.name, quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0 }));
-    const normRate = (r?: number) => r == null ? 0 : (r > 1 ? r / 100 : r); // acepta fracción (0.115) o % (11.5)
     const previewTax = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
     const previewClientName = invClient ? clientDocName(invClient) : (clientQuery.trim() || undefined); // alias del cliente si lo tiene
 
@@ -538,7 +274,8 @@ export const InvoicesListPage: React.FC = () => {
                     type: invType.trim() || null,
                     createdAt: editingInvoice && invDate !== isoAFecha(editingInvoice.createdAt) ? fechaAIso(invDate) : undefined,
                     dueDate: dueDate || null,
-                });
+                    projectId: projectId || null,
+                }).then(r => { if (r?.warning) toast.warning(r.warning); });
                 toast.success(t('posx.invoices.updated'));
                 setShowForm(false); resetForm(); load();
             } else {
@@ -554,7 +291,9 @@ export const InvoicesListPage: React.FC = () => {
                     createdAt: invDate !== hoyISO() ? fechaAIso(invDate) : undefined,
                     dueDate: dueDate || undefined,
                     initialPayments: abonos.map(a => ({ method: a.method, amount: Number(a.amount) || 0, reference: a.reference.trim() || undefined, paidAt: a.date && a.date !== hoyISO() ? fechaAIso(a.date) : undefined })).filter(a => a.amount > 0),
+                    projectId: projectId || undefined,
                 });
+                if (created?.warning) toast.warning(created.warning);
                 toast.success(sendOnCreate && email.trim() ? t('posx.invoices.created_sent', { email: email.trim() }) : t('posx.invoices.created'));
                 setShowForm(false); resetForm(); load();
                 setShare(created); // abre el modal con el link/QR
@@ -618,48 +357,14 @@ export const InvoicesListPage: React.FC = () => {
         }
     };
 
-    const sendByEmail = async (inv: Invoice) => {
-        try {
-            const r = await invoicesService.send(inv.id);
-            toast.success(t('posx.invoices.sent_to', { to: r.to }));
-        } catch (err) {
-            // Si no hay correo del cliente, lo pedimos con un modal y reintentamos.
-            setEmailFor(inv);
-        }
-    };
-
-    const confirmSendEmail = async (to: string) => {
-        if (!emailFor) return;
-        const inv = emailFor;
-        setEmailFor(null);
-        try {
-            const r = await invoicesService.send(inv.id, to.trim());
-            toast.success(t('posx.invoices.sent_to', { to: r.to }));
-        } catch (e) {
-            toast.error(e instanceof ApiError ? e.message : t('posx.invoices.err_send'));
-        }
-    };
+    // Envío por correo (con fallback: pide el correo si el cliente no tiene). Compartido con Proyectos.
+    const sendByEmail = emailSender.send;
 
     // Abre el modal de abono (reemplaza los prompts nativos).
     const markPaid = (inv: Invoice) => setPayFor(inv);
 
     // Datos del negocio para el encabezado del PDF (del recibo configurado).
-    const pdfBiz: InvoicePdfBusiness = useMemo(() => {
-        const rc: any = (settings as any)?.receiptConfig || {};
-        const id: any = rc.invoiceDesign || {};
-        // Qué datos del negocio salen en la factura (Config. Factura). showBusiness/showLogo/showClient
-        // vienen del diseño de factura; dirección/teléfono/correo/RNC usan los toggles del recibo.
-        const design = {
-            showLogo: id.showLogo, showBusiness: id.showBusiness, showClient: id.showClient,
-            // Granulares: usa el toggle del diseño de factura; si no está definido, cae al del recibo.
-            showAddress: id.showAddress ?? rc.showAddress, showPhone: id.showPhone ?? rc.showPhone,
-            showEmail: id.showEmail ?? rc.showEmail, showRnc: id.showRnc ?? rc.showRnc,
-        };
-        // Tasas IVU para desglosar Estatal/Municipal en el PDF (solo si el breakdown está activo).
-        const taxStateRate = settings.taxBreakdownEnabled ? (Number(settings.taxStateRate) || 0) : 0;
-        const taxMunicipalRate = settings.taxBreakdownEnabled ? (Number(settings.taxMunicipalRate) || 0) : 0;
-        return { businessName: rc.businessName, rnc: rc.rnc, address: rc.address, phone: rc.phone, email: rc.email, logoUrl: rc.logoUrl, design, taxStateRate, taxMunicipalRate };
-    }, [settings]);
+    const pdfBiz: InvoicePdfBusiness = useMemo(() => invoicePdfBusinessFromSettings(settings), [settings]);
 
     // URL blob para la vista previa del PDF (generado en el navegador). Se revoca al cambiar/cerrar.
     useEffect(() => {
@@ -740,10 +445,7 @@ export const InvoicesListPage: React.FC = () => {
         finally { setDeleting(false); }
     };
 
-    const copyLink = async (inv: Invoice) => {
-        try { await navigator.clipboard.writeText(publicLink(inv.publicToken)); toast.success(t('posx.invoices.share_copy_ok')); }
-        catch { toast.error(t('posx.invoices.share_copy_fail')); }
-    };
+    const copyLink = (inv: Invoice) => copyInvoiceLink(inv, t);
 
     // Filtrado (cliente/número/descripción, estado, rango de fechas, rango de montos, solo con saldo).
     const filtered = useMemo(() => {
@@ -755,6 +457,8 @@ export const InvoicesListPage: React.FC = () => {
             if (statusF !== 'all' && inv.status !== statusF) return false;
             if (cashierF !== 'all' && (inv.cashierName || '') !== cashierF) return false;
             if (typeF !== 'all' && (inv.type || '') !== typeF) return false;
+            if (projectF === 'none' && inv.projectId) return false;
+            if (projectF !== 'all' && projectF !== 'none' && inv.projectId !== projectF) return false;
             const bal = (inv.total || 0) - (inv.amountPaid || 0);
             if (onlyBalance && bal <= 0.001) return false;
             if (!isNaN(min) && (inv.total || 0) < min) return false;
@@ -763,16 +467,22 @@ export const InvoicesListPage: React.FC = () => {
             if (from && ts < from) return false;
             if (to && ts > to) return false;
             if (q) {
-                const hay = `${inv.number ?? ''} ${inv.clientName ?? ''} ${inv.clientEmail ?? ''} ${inv.description ?? ''} ${inv.type ?? ''} ${inv.cashierName ?? ''}`.toLowerCase();
+                const hay = `${inv.number ?? ''} ${inv.clientName ?? ''} ${inv.clientEmail ?? ''} ${inv.description ?? ''} ${inv.type ?? ''} ${inv.cashierName ?? ''} ${inv.projectName ?? ''}`.toLowerCase();
                 if (!hay.includes(q)) return false;
             }
             return true;
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [items, search, statusF, cashierF, typeF, dateFrom, dateTo, minAmount, maxAmount, onlyBalance]);
-    const hasActiveFilters = !!(statusF !== 'all' || cashierF !== 'all' || typeF !== 'all' || dateFrom || dateTo || minAmount || maxAmount || onlyBalance);
-    const clearFilters = () => { setStatusF('all'); setCashierF('all'); setTypeF('all'); setDateFrom(''); setDateTo(''); setMinAmount(''); setMaxAmount(''); setOnlyBalance(false); };
+    }, [items, search, statusF, cashierF, typeF, projectF, dateFrom, dateTo, minAmount, maxAmount, onlyBalance]);
+    const hasActiveFilters = !!(statusF !== 'all' || cashierF !== 'all' || typeF !== 'all' || projectF !== 'all' || dateFrom || dateTo || minAmount || maxAmount || onlyBalance);
+    const clearFilters = () => { setStatusF('all'); setCashierF('all'); setTypeF('all'); setProjectF('all'); setDateFrom(''); setDateTo(''); setMinAmount(''); setMaxAmount(''); setOnlyBalance(false); };
     const cashierOptions = useMemo(() => [...new Set(items.map(i => i.cashierName).filter(Boolean))] as string[], [items]);
     const typeOptions = useMemo(() => [...new Set(items.map(i => i.type).filter(Boolean))] as string[], [items]);
+    // Proyectos presentes en las facturas cargadas (para el filtro).
+    const projectOptions = useMemo(() => {
+        const m = new Map<string, string>();
+        for (const i of items) if (i.projectId) m.set(i.projectId, i.projectName || i.projectId);
+        return [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [items]);
 
     const columns: TableColumn<Invoice>[] = useMemo(() => [
         {
@@ -783,6 +493,12 @@ export const InvoicesListPage: React.FC = () => {
         { header: t('common.name'), sortValue: inv => inv.clientName || '', accessor: (inv) => inv.clientName ? <ClientNameLink clientId={inv.clientId} name={inv.clientName} /> : <span className="text-neutral-400">—</span> },
         { header: t('common.email'), sortValue: inv => inv.clientEmail || '', accessor: (inv) => inv.clientEmail || <span className="text-neutral-400">—</span> },
         { header: t('posx.invoices.cashier_label'), sortValue: inv => inv.cashierName || '', accessor: (inv) => inv.cashierName ? <EmployeeNameLink userId={inv.createdByUserId} name={inv.cashierName} /> : <span className="text-neutral-400">—</span> },
+        {
+            header: t('posx.invoices.project_label'), sortValue: inv => inv.projectName || '',
+            accessor: (inv) => inv.projectId
+                ? <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/pm/projects/${inv.projectId}?tab=details&sub=billing`); }} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:underline max-w-[180px] truncate" title={inv.projectName || ''}>{inv.projectName || t('posx.invoices.project_linked')}</button>
+                : <span className="text-neutral-400">—</span>,
+        },
         { header: t('posx.invoices.type_label'), sortValue: inv => inv.type || '', accessor: (inv) => inv.type ? <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-200">{inv.type}</span> : <span className="text-neutral-400">—</span> },
         { header: t('common.total'), sortValue: inv => inv.total, className: 'text-right', accessor: (inv) => <span className="font-medium tabular-nums">{money(inv.total)}</span> },
         {
@@ -794,7 +510,7 @@ export const InvoicesListPage: React.FC = () => {
             accessor: (inv) => { const bal = (inv.total || 0) - (inv.amountPaid || 0); return <span className={`tabular-nums ${bal > 0.001 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-neutral-400'}`}>{money(Math.max(0, bal))}</span>; },
         },
         { header: t('common.date'), sortValue: inv => inv.createdAt, accessor: (inv) => <span className="text-sm text-neutral-600 dark:text-neutral-300 whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</span> },
-    ] as TableColumn<Invoice>[], [t, items]);
+    ] as TableColumn<Invoice>[], [t, items, navigate]);
 
     const onRowClick = (inv: Invoice) => {
         if (inv.status === 'pending' || inv.status === 'partial') openEdit(inv);
@@ -868,6 +584,10 @@ export const InvoicesListPage: React.FC = () => {
                         <div>
                             <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Vencimiento <span className="text-neutral-400">(opcional)</span></label>
                             <input type="date" value={dueDate} min={invDate} onChange={e => setDueDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} title="Fecha de vencimiento de la factura" />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.project_label')} <span className="text-neutral-400">({t('cmp.onb.optional')})</span></label>
+                            <ProjectSelectForClient clientId={clientId} value={projectId} onChange={setProjectId} currentLabel={editingInvoice?.projectName} />
                         </div>
                     </div>
 
@@ -1207,6 +927,13 @@ export const InvoicesListPage: React.FC = () => {
                                     {typeOptions.map(tp => <option key={tp} value={tp}>{tp}</option>)}
                                 </select>
                             </div>
+                            <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.project_label')}</label>
+                                <select value={projectF} onChange={e => setProjectF(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
+                                    <option value="all">{t('posx.invoices.filter.all_projects')}</option>
+                                    <option value="none">{t('posx.invoices.filter.no_project')}</option>
+                                    {projectOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                            </div>
                             <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.date_from')}</label><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
                             <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.date_to')}</label><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} /></div>
                             <div><label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.filter.min')}</label><input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder="0" className={`${INPUT_SM_CLASSES} w-full`} /></div>
@@ -1311,17 +1038,7 @@ export const InvoicesListPage: React.FC = () => {
                     </div>
                 </div>
             </Modal>
-            <InputModal
-                isOpen={!!emailFor}
-                title={t('posx.invoices.send_email_title') || 'Enviar factura por correo'}
-                label={t('posx.invoices.prompt_email') || 'Correo del cliente:'}
-                placeholder="cliente@correo.com"
-                inputType="email"
-                confirmText={t('posx.invoices.send') || 'Enviar'}
-                cancelText={t('common.cancel') || 'Cancelar'}
-                onConfirm={confirmSendEmail}
-                onClose={() => setEmailFor(null)}
-            />
+            {emailSender.modal}
             <InputModal
                 isOpen={tplNameOpen}
                 title={t('posx.invoices.tpl_save') || 'Guardar como plantilla'}

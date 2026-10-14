@@ -202,7 +202,9 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const [customProduct, setCustomProduct] = useState({ name: '', quantity: 1, unitPrice: 0 });
     const [currentProduct, setCurrentProduct] = useState<string>('');
     const [currentQuantity, setCurrentQuantity] = useState<number>(1);
-    const [activeDetailsTab, setActiveDetailsTab] = useState<ActiveDetailsTab>('Detalles');
+    // ?sub=billing abre directo la sub-pestaña Facturación (enlaces desde Facturas / Pagos recurrentes).
+    const [detailSearchParams] = useSearchParams();
+    const [activeDetailsTab, setActiveDetailsTab] = useState<ActiveDetailsTab>(project && detailSearchParams.get('sub') === 'billing' ? 'Facturación' : 'Detalles');
     const [currentSingleWorkDay, setCurrentSingleWorkDay] = useState<string>(defaultToday);
     const [currentWorkDayRange, setCurrentWorkDayRange] = useState<WorkDayTimeRange>({...defaultWorkDayTime});
     const [conflictDetails, setConflictDetails] = useState<{ conflictingProjects: { project: Project; employee: Employee }[]; date: string; actionToConfirm: () => void; } | null>(null);
@@ -372,6 +374,10 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                 setProjects(prev => [...prev, normalized]);
                 setImageFile(null);
                 toast.success(t('pm2x.project.created'));
+                // No se crean facturas automáticamente: solo se indica dónde facturar el proyecto.
+                if ((normalized.assignedProducts?.length || 0) + (normalized.customProducts?.length || 0) > 0) {
+                    toast(t('pm2x.projinv.created_hint'), { duration: 6000 });
+                }
                 onSuccess(normalized);
             }
         } catch (err: any) {
@@ -641,7 +647,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                     </div>
                  </fieldset>
                  {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}>
-                    {activeDetailsTab === 'Facturación' && <ProjectInvoicesTab projectId={project.id} />}
+                    {activeDetailsTab === 'Facturación' && <ProjectInvoicesTab project={project} />}
                  </fieldset>}
             </div>
             {canEditDetails && (

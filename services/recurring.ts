@@ -35,6 +35,9 @@ export interface RecurringPayment {
     id: string;
     clientId: string;
     clientName: string;
+    /** Proyecto vinculado (opcional): las facturas del plan quedan en la Facturación del proyecto. */
+    projectId?: string | null;
+    projectName?: string | null;
     mode: RecurringMode;
     cardLast4?: string | null;
     enrollToken?: string | null;
@@ -67,6 +70,7 @@ export interface RecurringPayment {
 
 export interface CreateRecurringInput {
     clientId: string;
+    projectId?: string | null;      // proyecto vinculado (opcional)
     mode: RecurringMode;
     amount?: number;                // opcional: si se envían `items`, el total se calcula del detalle
     items?: RecurringItem[];        // líneas tipo factura (producto/cantidad/precio/IVU)
@@ -96,6 +100,7 @@ export interface CreateRecurringInput {
 
 /** Campos editables de un plan recurrente (todos opcionales). */
 export interface UpdateRecurringInput {
+    projectId?: string | null;      // vincular/desvincular proyecto (null lo quita)
     amount?: number;
     items?: RecurringItem[] | null;
     taxRate?: number | null;
@@ -115,14 +120,16 @@ export interface UpdateRecurringInput {
 }
 
 export const recurringService = {
-    create: (data: CreateRecurringInput) => api.post<{ recurring: RecurringPayment }>('/payments/recurring', data),
-    update: (id: string, data: UpdateRecurringInput) => api.put<{ recurring: RecurringPayment }>(`/payments/recurring/${id}`, data),
+    create: (data: CreateRecurringInput) => api.post<{ recurring: RecurringPayment; warning?: string }>('/payments/recurring', data),
+    update: (id: string, data: UpdateRecurringInput) => api.put<{ recurring: RecurringPayment; warning?: string }>(`/payments/recurring/${id}`, data),
     /** force=true: el usuario confirmó cobrar aunque hubo un cobro hace pocos minutos (409 RECENT_CHARGE). */
     chargeNow: (id: string, force = false) => api.post<{ status: string; message: string; reference?: string }>(`/payments/recurring/${id}/charge`, { force }),
     setStatus: (id: string, action: 'pause' | 'resume' | 'cancel') => api.post<RecurringPayment>(`/payments/recurring/${id}/${action}`),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/payments/recurring/${id}/restore`),
     list: (deleted?: boolean) => api.get<RecurringPayment[]>(`/payments/recurring${deleted ? '?deleted=1' : ''}`),
+    /** Planes vinculados a un proyecto (pestaña Facturación del proyecto). */
+    listByProject: (projectId: string) => api.get<RecurringPayment[]>('/payments/recurring', { projectId }),
     /** Plantillas editables: "Autoriza tu pago recurrente" y el aviso previo al débito (variables {{negocio}}, {{cliente}}, …). */
     getEmailTemplate: (key: RecurringEmailTemplateKey = 'recurringEnroll') => api.get<EnrollEmailTemplate>('/payments/recurring/email-template', { key }),
     /** Vacío (subject y body) = volver al texto por defecto. Solo gerente. */

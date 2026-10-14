@@ -18,6 +18,11 @@ export interface Invoice {
     createdByUserId?: string | null;
     cashierName?: string | null;
     type?: string | null;
+    /** Proyecto al que pertenece la factura (opcional) y su nombre (enriquecido por el BE en la lista). */
+    projectId?: string | null;
+    projectName?: string | null;
+    /** Aviso no bloqueante del BE (ej. el cliente de la factura no coincide con el del proyecto). */
+    warning?: string;
     publicToken: string;
     items: InvoiceItemInput[];
     subtotal: number;
@@ -60,6 +65,7 @@ export interface CreateInvoiceInput {
     initialPayments?: { method?: string | null; amount: number; reference?: string | null; paidAt?: string | null }[]; // abonos ya realizados
     createdAt?: string | null; // fecha de la factura, si no es hoy (solo hacia atras)
     dueDate?: string | null;   // vencimiento de la factura (opcional; puede ser futura)
+    projectId?: string | null; // proyecto al que pertenece la factura (opcional)
 }
 
 export interface UpdateInvoiceInput {
@@ -73,6 +79,7 @@ export interface UpdateInvoiceInput {
     allowPartial?: boolean;
     type?: string | null;
     dueDate?: string | null;   // vencimiento (puede ser futura; '' o null lo limpia)
+    projectId?: string | null; // vincular/desvincular proyecto (null lo quita)
 }
 
 /** Términos y condiciones del negocio (Configuración de facturas): enlace o texto. */
@@ -130,6 +137,8 @@ export interface PublicInvoice {
 export const invoicesService = {
     // ── Auth (POS) ──
     list: (deleted?: boolean) => api.get<Invoice[]>(`/invoices${deleted ? '?deleted=1' : ''}`),
+    /** Facturas de un proyecto (pestaña Facturación del proyecto). */
+    listByProject: (projectId: string) => api.get<Invoice[]>('/invoices', { projectId }),
     create: (data: CreateInvoiceInput) => api.post<Invoice>('/invoices', data),
     update: (id: string, data: UpdateInvoiceInput) => api.put<Invoice>(`/invoices/${id}`, data),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/invoices/${id}`),
