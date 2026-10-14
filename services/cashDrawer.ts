@@ -10,6 +10,8 @@
  * Descargar QZ Tray: https://qz.io/download/
  */
 
+import { applyQzSecurity } from './qzSign';
+
 const KEY = 'pazzi_cashdrawer';
 // Comando estándar de apertura de gaveta ESC/POS: ESC p m t1 t2 → 1B 70 00 19 FA (pin 2).
 const DEFAULT_KICK_HEX = '1B700019FA';
@@ -58,12 +60,10 @@ export async function ensureConnected(): Promise<any> {
     } catch {
         throw new Error('No se pudo cargar el módulo de impresión (QZ Tray).');
     }
-    // Modo sin firma (uso local): QZ pedirá permiso la primera vez; el cajero marca "Recordar".
-    if (qz.security && !(qz as any).__pazziSec) {
-        qz.security.setCertificatePromise((resolve: any) => resolve());
-        qz.security.setSignaturePromise(() => (resolve: any) => resolve());
-        (qz as any).__pazziSec = true;
-    }
+    // Firma de QZ: si este dispositivo tiene certificado+llave guardados, firma las peticiones y
+    // QZ no vuelve a pedir permiso (impresión silenciosa). Si no, cae a modo sin firma (con aviso).
+    // Se reaplica siempre (no se cachea) para que al generar la firma surta efecto sin recargar.
+    applyQzSecurity(qz);
     if (qz.websocket.isActive()) return qz;
     try {
         // Reintenta la conexión: QZ Tray puede tardar en levantar el WebSocket seguro.

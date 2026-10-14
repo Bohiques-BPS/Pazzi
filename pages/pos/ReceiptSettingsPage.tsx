@@ -9,6 +9,7 @@ import { getDrawerConfig, setDrawerConfig, listPrinters, openCashDrawer, type Dr
 import { getLabelConfig, setLabelConfig, printBarcodeLabel, type LabelConfig } from '../../services/labelPrinter';
 import { getReceiptPrinterConfig, setReceiptPrinterConfig, printTestReceipt, type ReceiptPrinterConfig } from '../../services/receiptPrinter';
 import { getWebUsbConfig, setWebUsbConfig, isWebUsbSupported, requestWebUsbPrinter, printWebUsbTest, type WebUsbPrinterConfig } from '../../services/webusbPrinter';
+import { getQzCert, hasQzSignature, generateQzSignature, setQzSignature } from '../../services/qzSign';
 import { toast } from '../../hooks/useToast';
 
 // label/placeholder guardan CLAVES i18n; se resuelven con t() al renderizar.
@@ -99,6 +100,31 @@ export const ReceiptSettingsPage: React.FC = () => {
                 toast.error(`USB: ${msg || t('posx.receipt.toast.printFailed')}`);
             }
         });
+
+    // Firma de QZ (impresión sin avisos) — par certificado/llave POR DISPOSITIVO (localStorage).
+    const [qzSigned, setQzSigned] = useState<boolean>(hasQzSignature());
+    const [qzCertText, setQzCertText] = useState<string>(getQzCert() || '');
+    const generateSignature = () => {
+        try {
+            const cert = generateQzSignature();
+            setQzCertText(cert);
+            setQzSigned(true);
+            toast.success('Certificado de firma generado. Cópialo a QZ Tray (pasos abajo).');
+        } catch (err: any) {
+            toast.error(`No se pudo generar la firma: ${err?.message || 'error'}`);
+        }
+    };
+    const copyQzCert = () => {
+        navigator.clipboard?.writeText(qzCertText)
+            .then(() => toast.success('Certificado copiado al portapapeles.'))
+            .catch(() => toast.error('No se pudo copiar. Selecciónalo y copia manualmente.'));
+    };
+    const clearSignature = () => {
+        setQzSignature('', '');
+        setQzCertText('');
+        setQzSigned(false);
+        toast.success('Firma eliminada. QZ volverá a pedir permiso en cada impresión.');
+    };
 
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
@@ -450,6 +476,44 @@ export const ReceiptSettingsPage: React.FC = () => {
                                         💡 QZ Tray es <strong>gratis</strong> (open source). La primera vez te pedirá permiso: pulsa <strong>«Permitir» + «Recordar»</strong> y no vuelve a preguntar. (La licencia de pago solo quita ese aviso inicial — no es necesaria.) ¿Prefieres no instalar nada? Mira el modo <strong>Navegador</strong>.
                                     </p>
                                 </div>
+
+                                {/* Firma de QZ: quita el aviso "Permitir" de cada impresión (sin firma, QZ bloquea "Recordar"). */}
+                                <div className={`rounded-md border p-3 text-xs ${qzSigned ? 'border-green-400/50 bg-green-50 dark:bg-green-900/20' : 'border-amber-400/50 bg-amber-50 dark:bg-amber-900/20'} text-neutral-700 dark:text-neutral-200`}>
+                                    <p className="font-semibold mb-1 flex items-center gap-2">
+                                        {qzSigned
+                                            ? <><span className="text-green-600 dark:text-green-400">✓</span> Firma activa — impresión sin avisos</>
+                                            : <><span className="text-amber-600 dark:text-amber-400">!</span> QZ pregunta en cada impresión</>}
+                                    </p>
+                                    <p className="text-neutral-600 dark:text-neutral-300 mb-2">
+                                        Sin firma, QZ Tray deshabilita la casilla <strong>«Recordar»</strong> y pide permiso cada vez. Genera un certificado en esta PC, confíalo en QZ Tray (pasos abajo) y el aviso desaparece.
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button type="button" onClick={generateSignature} className={BUTTON_PRIMARY_SM_CLASSES}>
+                                            {qzSigned ? 'Regenerar certificado' : 'Generar certificado de firma'}
+                                        </button>
+                                        {qzSigned && (
+                                            <>
+                                                <button type="button" onClick={copyQzCert} className={BUTTON_SECONDARY_SM_CLASSES}>Copiar certificado</button>
+                                                <button type="button" onClick={clearSignature} className="text-red-500 text-xs hover:underline self-center">Quitar firma</button>
+                                            </>
+                                        )}
+                                    </div>
+                                    {qzSigned && (
+                                        <div className="mt-2">
+                                            <label className="block text-[11px] text-neutral-500 mb-1">Certificado (para confiar en QZ Tray):</label>
+                                            <textarea readOnly value={qzCertText} rows={4} onFocus={e => e.currentTarget.select()}
+                                                className="w-full font-mono text-[10px] leading-tight rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 p-2 resize-none" />
+                                            <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-300 mt-2">
+                                                <li>Pulsa <strong>«Copiar certificado»</strong> y pégalo en un archivo nuevo, p. ej. <code className="px-1 bg-neutral-200 dark:bg-neutral-700 rounded">C:\Program Files\QZ Tray\pazzi-cert.txt</code></li>
+                                                <li>Abre <code className="px-1 bg-neutral-200 dark:bg-neutral-700 rounded">C:\Program Files\QZ Tray\qz-tray.properties</code> y agrega la línea:<br/><code className="px-1 bg-neutral-200 dark:bg-neutral-700 rounded">authcert.override=C:/Program Files/QZ Tray/pazzi-cert.txt</code></li>
+                                                <li>Reinicia QZ Tray (clic derecho en la bandeja → <strong>Exit</strong>, y vuelve a abrirlo).</li>
+                                                <li>Imprime una prueba: ya no debe aparecer el aviso.</li>
+                                            </ol>
+                                            <p className="mt-2 text-neutral-500 dark:text-neutral-400">La llave privada se guarda <strong>solo en esta PC</strong> (no se sube a ningún lado). Repite «Generar» en cada caja, o copia el mismo certificado y llave si quieres compartirlos.</p>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="flex justify-end">
                                     <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detectPrinters')}</button>
                                 </div>

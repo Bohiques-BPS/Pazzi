@@ -16,6 +16,7 @@
     "jsbarcode": "^3.12.1",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
+    "jsrsasign": "^11.1.0",
     "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.4",
     "qz-tray": "^2.2.4",
@@ -28,6 +29,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/jsrsasign": "^10.5.15",
     "@types/node": "^22.14.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.15",
