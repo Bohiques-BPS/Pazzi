@@ -1042,7 +1042,7 @@ const CreateLeadModal: React.FC<{
   const clientId = prefill?.clientId || '';
   const [f, setF] = useState({
     name: prefill?.name || '', lastName: prefill?.lastName || '', companyName: prefill?.companyName || '',
-    email: prefill?.email || '', phone: prefill?.phone || '', value: '', sourceId: activeSources.find(s => s.name === 'Manual')?.id || '',
+    email: prefill?.email || '', email2: '', phone: prefill?.phone || '', phone2: '', value: '', sourceId: activeSources.find(s => s.name === 'Manual')?.id || '',
     assignedUserId: currentUserId || '', stageId: openStages[0]?.id || pipeline?.stages[0]?.id || '', nextActionAt: '', expectedCloseAt: '', notes: '',
     lostReason: '', closedAt: '',
   });
@@ -1091,7 +1091,7 @@ const CreateLeadModal: React.FC<{
     try {
       const lead = await leadsService.create({
         name: f.name.trim(), lastName: f.lastName || null, companyName: f.companyName || null,
-        email: f.email || null, phone: f.phone || null, value: f.value ? Number(f.value) : null,
+        email: f.email || null, email2: f.email2 || null, phone: f.phone || null, phone2: f.phone2 || null, value: f.value ? Number(f.value) : null,
         pipelineId: pipeline?.id, stageId: f.stageId || undefined, sourceId: f.sourceId || null,
         assignedUserId: f.assignedUserId || null, notes: f.notes || null,
         nextActionAt: !isClosed && f.nextActionAt ? new Date(f.nextActionAt).toISOString() : null,
@@ -1122,7 +1122,9 @@ const CreateLeadModal: React.FC<{
           <div>{lbl(t('leads.common.company'))}<input value={f.companyName} onChange={e => set('companyName', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.board.create.estimated_value'))}<input type="number" step="0.01" value={f.value} onChange={e => set('value', e.target.value)} className={inputFormStyle} placeholder="0.00" /></div>
           <div>{lbl(t('leads.common.email'))}<input type="email" value={f.email} onChange={e => set('email', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.common.email2'))}<input type="email" value={f.email2} onChange={e => set('email2', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.phone'))}<input type="tel" value={f.phone} onChange={e => set('phone', e.target.value)} className={inputFormStyle} /></div>
+          <div>{lbl(t('leads.common.phone2'))}<input type="tel" value={f.phone2} onChange={e => set('phone2', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.stage'))}
             <select value={f.stageId} onChange={e => set('stageId', e.target.value)} className={inputFormStyle}>
               {closedStages.length > 0 ? (

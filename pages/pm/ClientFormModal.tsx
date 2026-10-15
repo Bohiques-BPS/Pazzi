@@ -59,9 +59,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const effectiveClient = client || savedClient;
 
     const initialFormState: ClientFormData = { 
-        name: '', 
-        lastName: '', 
-        email: '', 
+        name: '',
+        lastName: '',
+        email: '',
+        email2: '',
         phone: '',
         isActive: true,
         address: '', city: '', country: '', zip: '',
@@ -348,6 +349,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             </div>
             <div><label className="block text-sm font-medium">{t('client.field.fax')}</label><input type="tel" name="fax" value={formData.fax} onChange={handleChange} className={inputFormStyle} /></div>
             <div><label className="block text-sm font-medium">{t('common.email')}</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} /></div>
+            <div><label className="block text-sm font-medium">{t('common.email')} 2</label><input type="email" name="email2" value={formData.email2 || ''} onChange={handleChange} className={inputFormStyle} /></div>
             <div><label className="block text-sm font-medium">{t('client.field.contact_person')}</label><input type="text" name="contactPersonName" value={formData.contactPersonName} onChange={handleChange} className={inputFormStyle}/></div>
              <div className="grid grid-cols-2 gap-2">
                 {canSeeSsn && (

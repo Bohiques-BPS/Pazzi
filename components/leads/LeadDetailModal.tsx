@@ -69,7 +69,7 @@ const toLocalInput = (iso?: string | null, withTime = true) => {
 
 const formFromLead = (l: Lead) => ({
   name: l.name || '', lastName: l.lastName || '', companyName: l.companyName || '',
-  email: l.email || '', phone: l.phone || '', whatsapp: l.whatsapp || '',
+  email: l.email || '', email2: l.email2 || '', phone: l.phone || '', phone2: l.phone2 || '', whatsapp: l.whatsapp || '',
   value: l.value != null ? String(l.value) : '', probability: l.probability != null ? String(l.probability) : '',
   sourceId: l.sourceId || '', notes: l.notes || '',
   nextActionAt: toLocalInput(l.nextActionAt), expectedCloseAt: toLocalInput(l.expectedCloseAt, false),
@@ -171,7 +171,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     try {
       const updated = await leadsService.update(lead.id, {
         name: form.name.trim(), lastName: form.lastName || null, companyName: form.companyName || null,
-        email: form.email || null, phone: form.phone || null, whatsapp: form.whatsapp || null,
+        email: form.email || null, email2: form.email2 || null, phone: form.phone || null, phone2: form.phone2 || null, whatsapp: form.whatsapp || null,
         value: form.value ? Number(form.value) : null,
         probability: form.probability !== '' ? Math.max(0, Math.min(100, Math.round(Number(form.probability)))) : null,
         sourceId: form.sourceId || null, notes: form.notes || null,
@@ -464,7 +464,9 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             <div>{label(t('leads.common.last_name'))}{inp('lastName')}</div>
             <div>{label(t('leads.common.company'))}{inp('companyName')}</div>
             <div>{label(t('leads.common.email'))}{inp('email', 'email')}</div>
+            <div>{label(t('leads.common.email2'))}{inp('email2', 'email')}</div>
             <div>{label(t('leads.common.phone'))}{inp('phone', 'tel')}</div>
+            <div>{label(t('leads.common.phone2'))}{inp('phone2', 'tel')}</div>
             <div>{label(t('leads.common.channel.whatsapp'))}{inp('whatsapp', 'tel')}</div>
             <div>{label(t('leads.common.source'))}
               <select value={form.sourceId} disabled={!canEdit} onChange={e => setForm(f => ({ ...f, sourceId: e.target.value }))} className={inputFormStyle}>

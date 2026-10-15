@@ -329,6 +329,7 @@ export interface Client {
     lastName: string;
     displayName?: string; // alias para documentos (factura/recibo): si se llena, se usa en vez de Nombre+Apellido
     email: string;
+    email2?: string; // segundo correo (opcional)
     phone?: string;
     address?: string;
     clientType: 'Particular' | 'Empresa';
@@ -827,7 +828,9 @@ export interface Lead {
     lastName?: string | null;
     companyName?: string | null;
     email?: string | null;
+    email2?: string | null; // segundo correo (opcional)
     phone?: string | null;
+    phone2?: string | null; // segundo teléfono (opcional)
     whatsapp?: string | null;
     pipelineId: string;
     stageId: string;
