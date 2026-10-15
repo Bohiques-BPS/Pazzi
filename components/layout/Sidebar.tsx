@@ -134,35 +134,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
 
     if (item.type === 'group') {
       const isGroupOpen = openGroups.has(item.name);
-      
+
       return (
-        <div key={`${item.name}-${index}`}>
+        <div key={`${item.name}-${index}`} className="mt-1.5 first:mt-0">
           <button
             onClick={() => toggleGroup(item.name)}
-            className={`flex items-center justify-between gap-1 w-full py-2 px-2 rounded-md transition duration-200 focus:outline-none text-lg hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white ${isGroupOpen ? 'font-semibold text-primary dark:text-teal-300' : 'font-normal text-neutral-600 dark:text-neutral-300'}`}
+            className={`flex items-center justify-between gap-2 w-full py-2 px-3 rounded-lg transition-colors focus:outline-none text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 ${isGroupOpen ? 'text-neutral-800 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-300'}`}
             aria-expanded={isGroupOpen}
             aria-controls={`group-content-${item.name}`}
           >
-            <div className="flex items-center min-w-0">
-              {Icon && <span className="mr-2 flex-shrink-0"><Icon className="w-5 h-5" /></span>}
+            <span className="flex items-center min-w-0 gap-2.5">
+              {Icon && <Icon className="w-[18px] h-[18px] flex-shrink-0 text-primary/80 dark:text-teal-300/90" />}
               <span className="truncate">{translatedName}</span>
-            </div>
-            <ChevronDownIcon className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isGroupOpen ? 'transform rotate-180' : ''}`} />
+            </span>
+            <ChevronDownIcon className={`w-4 h-4 flex-shrink-0 text-neutral-400 transition-transform duration-200 ${isGroupOpen ? 'transform rotate-180' : ''}`} />
           </button>
-          <div 
+          <div
             id={`group-content-${item.name}`}
             className={`overflow-hidden transition-all duration-300 ease-in-out ${isGroupOpen ? 'max-h-screen' : 'max-h-0'}`}
           >
-            <div className="pt-1 pl-3">
+            <div className="mt-0.5 ml-[18px] pl-3 border-l border-neutral-200 dark:border-neutral-700 space-y-0.5">
               {item.children.map((child, childIndex) => renderSidebarItem(child, childIndex))}
             </div>
           </div>
         </div>
       );
     }
-    
+
     let isActive = location.pathname === item.path;
-    if (item.path === '/pm/projects' && location.pathname.startsWith('/pm/projects')) { 
+    if (item.path === '/pm/projects' && location.pathname.startsWith('/pm/projects')) {
         isActive = true;
     }
     if (currentUser?.role === UserRole.CLIENT_PROJECT && item.path === '/project-client/dashboard' && location.pathname.startsWith('/project-client/chat')) {
@@ -175,10 +175,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         key={item.path}
         to={item.path}
         onClick={handleLinkClick}
-        className={`relative flex items-center py-2 px-2 rounded-md transition duration-200 text-lg font-normal ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
+        className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-sm ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-500 dark:text-neutral-400 font-normal hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
       >
-        {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary" aria-hidden="true" />}
-        {Icon && <span className="mr-2 w-6 h-6 flex items-center justify-center flex-shrink-0"><Icon className="w-5 h-5" /></span>}
+        {Icon && <Icon className="w-[18px] h-[18px] flex-shrink-0" />}
         <span className="truncate">{translatedName}</span>
         {item.path === '/pm/chat' && unreadChats > 0 && (
           <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center" aria-label={`${unreadChats} sin leer`}>
@@ -190,20 +189,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   };
 
   return (
-    <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 space-y-1 py-7 px-2 fixed inset-y-0 left-0 top-[65px] transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
-      {/* Módulo actual (en bold) como encabezado del sidebar → enlaza a la vista principal del módulo. */}
+    <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 py-5 px-3 fixed inset-y-0 left-0 top-[65px] overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
+      {/* Módulo actual como encabezado del sidebar → enlaza a la vista principal del módulo. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
-        <Link to={hubPath(currentModule)} className="block px-2 pb-2 mb-1 border-b border-neutral-200 dark:border-neutral-700 group" title={t('hub.go') || 'Ver todas las secciones'}>
-          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
+        <Link to={hubPath(currentModule)} className="block px-3 pb-3 mb-2 border-b border-neutral-200 dark:border-neutral-700 group" title={t('hub.go') || 'Ver todas las secciones'}>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
         </Link>
       )}
-      <nav className="mt-2">
+      <nav className="space-y-0.5">
         {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
           <Link
             to={hubPath(currentModule)}
-            className={`relative flex items-center py-2 px-2 rounded-md transition duration-200 text-lg font-normal ${location.pathname.startsWith('/inicio') ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300' : 'text-neutral-600 dark:text-neutral-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-white'}`}
+            className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-sm ${location.pathname.startsWith('/inicio') ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
           >
-            <Squares2X2Icon className="w-6 h-6 mr-3 flex-shrink-0" />
+            <Squares2X2Icon className="w-[18px] h-[18px] flex-shrink-0" />
             <span>{t('hub.home') || 'Inicio'}</span>
           </Link>
         )}
