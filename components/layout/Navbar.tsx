@@ -68,26 +68,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
   const { t } = useTranslation(); // Use hook
   const { settings } = useGlobalSettings();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // Nombre de la sección/página actual, para el breadcrump del navbar (match más específico por ruta).
-  const currentPageName = useMemo(() => {
-    const mod = APP_MODULES_CONFIG.find(m => m.name === currentModule) as any;
-    if (!mod) return '';
-    const lists: any[] = [
-      ...(mod.subModulesTienda || []), ...(mod.subModulesProject || []),
-      ...(mod.subModulesPOS || []), ...(mod.subModulesEcommerce || []),
-      ...(mod.subModulesLeads || []), ...(mod.subModulesAdmin || []),
-      ...(mod.subModulesProjectClient || []),
-    ];
-    let best = '', bestLen = 0;
-    const walk = (items: any[]) => items.forEach(it => {
-      if (it.type === 'group') walk(it.children || []);
-      else if (it.path && location.pathname.startsWith(it.path) && it.path.length > bestLen) { best = it.name; bestLen = it.path.length; }
-    });
-    walk(lists);
-    return best ? t(best) : '';
-  }, [currentModule, location.pathname, t]);
 
   // Logo del negocio (arriba a la derecha). Fuente: GlobalSettings.receiptConfig.
   const rc = settings.receiptConfig || ({} as any);
@@ -103,7 +83,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
     && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
-  const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [joinRequestTarget, setJoinRequestTarget] = useState<JoinRequestTarget | null>(null);
   const [punching, setPunching] = useState(false);
@@ -124,13 +103,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
     }
   };
   // Cerrar los dropdowns al hacer clic fuera de su contenedor.
-  const moduleRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (moduleRef.current && !moduleRef.current.contains(target)) setModuleDropdownOpen(false);
       if (notifRef.current && !notifRef.current.contains(target)) setNotificationDropdownOpen(false);
       if (userRef.current && !userRef.current.contains(target)) setUserDropdownOpen(false);
     };
@@ -148,7 +125,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
 
   // Misma regla que el Home y las rutas (hooks/useModuleAccess): apagado → nadie; gerente → todos;
   // colaborador → si tiene al menos un permiso de alguno de los enlaces del módulo.
-  const availableModulesForSelector = APP_MODULES_CONFIG.filter(mod => canAccessModule(mod.name as AppModule));
 
 
   const getModuleBasePath = (moduleName: AppModule) => {
@@ -239,72 +215,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
             >
               <SidebarToggleIcon collapsed={sidebarCollapsed} className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300 transition-colors" />
             </button>
-          }
-          
-          {/* Module Selector */}
-          {availableModulesForSelector.length > 0 && (
-            <div className="relative mr-1.5 sm:mr-3" ref={moduleRef}>
-                {/* Mobile/Tablet */}
-                <button 
-                    id="navbar-module-selector-button-mobile"
-                    onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
-                    className="md:hidden px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md flex items-center text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-600 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 whitespace-nowrap"
-                    aria-haspopup="true"
-                    aria-expanded={moduleDropdownOpen}
-                    aria-controls="module-menu"
-                >
-                    <span className="max-w-[80px] truncate">{t(`module.${currentModule}`)}</span> <ChevronDownIcon className="w-4 h-4 text-slate-600 dark:text-slate-300 ml-0.5" />
-                </button>
-
-                {/* Desktop */}
-                <button
-                    id="navbar-module-selector-button-desktop"
-                    onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
-                    className="hidden md:flex items-center justify-center p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-md border border-neutral-300 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    aria-label={t('cmp.navbar.select_module')}
-                    aria-haspopup="true"
-                    aria-expanded={moduleDropdownOpen}
-                    aria-controls="module-menu"
-                >
-                    <Squares2X2Icon className="w-6 h-6 text-slate-600 dark:text-slate-300" />
-                </button>
-
-                {/* Dropdown */}
-                {moduleDropdownOpen && (
-                    <div 
-                        id="module-menu" 
-                        className="absolute mt-2 w-64 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-30 border border-neutral-200 dark:border-neutral-600 left-0"
-                    >
-                        {availableModulesForSelector.map(mod => (
-                            <button
-                                key={mod.name}
-                                onClick={() => {
-                                    setCurrentModule(mod.name);
-                                    setModuleDropdownOpen(false);
-                                    navigate(hubPath(mod.name));
-                                }}
-                                className="block w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
-                                role="menuitem"
-                            >
-                                {t(`module.${mod.name}`)}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-          )}
-
-          {/* Breadcrumb: Módulo › Sección actual (el logo ahora vive arriba del sidebar) */}
-          { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
-            <nav className="hidden md:flex items-center gap-1.5 text-sm min-w-0 ml-1" aria-label="breadcrumb">
-                <Link to={hubPath(currentModule)} className="font-medium text-neutral-700 dark:text-neutral-200 hover:text-primary truncate">{t(`module.${currentModule}`)}</Link>
-                {currentPageName && (
-                    <>
-                        <ChevronRightIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />
-                        <span className="text-neutral-500 dark:text-neutral-400 truncate">{currentPageName}</span>
-                    </>
-                )}
-            </nav>
           }
           
           {/* Client Project Nav Links */}

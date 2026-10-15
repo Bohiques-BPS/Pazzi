@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { AppModule, UserRole } from '../../types'; 
-import { APP_MODULES_CONFIG, SidebarItemConfig, SubModuleGroup, SubModuleLink } from '../../constants'; 
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { AppModule, UserRole } from '../../types';
+import { APP_MODULES_CONFIG, SidebarItemConfig, SubModuleGroup, SubModuleLink } from '../../constants';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
 import { useChatUnread } from '../../hooks/useChatUnread';
 import { hubPath } from '../../utils/moduleNav';
@@ -16,17 +17,30 @@ interface SidebarProps {
     isOpen: boolean;
     currentModule: AppModule;
     setSidebarOpen: (isOpen: boolean) => void;
+    /** Cambiar de módulo (el selector ahora vive en el sidebar). */
+    setCurrentModule?: (m: AppModule) => void;
     /** Colapsado en escritorio (oculto). En móvil manda `isOpen` (drawer). */
     collapsed?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSidebarOpen, collapsed = false }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSidebarOpen, setCurrentModule, collapsed = false }) => {
   // En escritorio: visible salvo que esté colapsado. En móvil: drawer según isOpen.
   const desktopTransform = collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0';
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { canAccessModule } = useModuleAccess();
   const { t } = useTranslation(); // Use translation hook
   const moduleConfig = APP_MODULES_CONFIG.find(m => m.name === currentModule);
+  const [moduleMenuOpen, setModuleMenuOpen] = useState(false);
+  // Módulos a los que el usuario tiene acceso (para el selector del sidebar).
+  const availableModules = APP_MODULES_CONFIG.filter(m => canAccessModule(m.name as AppModule));
+  const pickModule = (m: AppModule) => {
+    setCurrentModule?.(m);
+    setModuleMenuOpen(false);
+    if (isOpen && window.innerWidth < 1024) setSidebarOpen(false);
+    navigate(hubPath(m));
+  };
   // Por defecto TODOS los grupos CERRADOS; solo UNO abierto a la vez (acordeón).
   // null = ninguno abierto.
   // Varios grupos pueden estar abiertos a la vez: abrir uno NO cierra el anterior, así el menú no
@@ -205,11 +219,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         <img src={logo}      alt="Pazzi" className="h-7 sm:h-9 dark:hidden" />
         <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
       </Link>
-      {/* Módulo actual como encabezado del sidebar → enlaza a la vista principal del módulo. */}
+      {/* Selector de MÓDULO (antes estaba en el navbar). Muestra el módulo actual y permite cambiar. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
-        <Link to={hubPath(currentModule)} className="block px-3 pt-1 pb-2 mb-1 group" title={t('hub.go') || 'Ver todas las secciones'}>
-          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
-        </Link>
+        <div className="relative px-1 mb-2">
+          <button
+            type="button"
+            onClick={() => setModuleMenuOpen(o => !o)}
+            className="w-full flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/40 hover:border-primary/40 transition-colors"
+            aria-haspopup="true"
+            aria-expanded={moduleMenuOpen}
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <Squares2X2Icon className="w-[18px] h-[18px] flex-shrink-0 text-primary/80 dark:text-teal-300/90" />
+              <span className="text-base font-bold text-neutral-800 dark:text-neutral-100 truncate">{t(`module.${currentModule}`)}</span>
+            </span>
+            <ChevronDownIcon className={`w-4 h-4 flex-shrink-0 text-neutral-400 transition-transform ${moduleMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {moduleMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setModuleMenuOpen(false)} />
+              <div className="absolute left-1 right-1 mt-1 z-20 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
+                {availableModules.map(mod => (
+                  <button
+                    key={mod.name}
+                    type="button"
+                    onClick={() => pickModule(mod.name as AppModule)}
+                    className={`block w-full text-left px-3 py-2 text-sm transition-colors ${mod.name === currentModule ? 'bg-primary/10 text-primary dark:text-teal-300 font-medium' : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                  >
+                    {t(`module.${mod.name}`)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
       <nav className="space-y-0.5">
         {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (

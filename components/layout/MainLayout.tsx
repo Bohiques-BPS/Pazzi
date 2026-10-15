@@ -121,7 +121,7 @@ export const MainLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
       {/* Sidebar de ALTO COMPLETO (incluye el logo arriba). El navbar y el contenido van a su derecha. */}
-      {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} collapsed={sidebarCollapsed} currentModule={currentModule} setSidebarOpen={setSidebarOpen} />}
+      {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} collapsed={sidebarCollapsed} currentModule={currentModule} setCurrentModule={setCurrentModule} setSidebarOpen={setSidebarOpen} />}
       {!isPOSCashierPage && <Navbar onToggleSidebar={toggleSidebar} onToggleCollapse={toggleCollapse} sidebarCollapsed={sidebarCollapsed} currentModule={currentModule} setCurrentModule={setCurrentModule} />}
       <main className={`min-w-0 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 transition-[margin] duration-200 ease-in-out ${!isPOSCashierPage ? `mt-[65px] h-[calc(100vh-65px)] overflow-y-auto p-6 ${sidebarCollapsed ? '' : 'lg:ml-72'}` : ''}`}>
         <Outlet />
