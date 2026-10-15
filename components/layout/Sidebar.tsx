@@ -8,7 +8,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
 import { useChatUnread } from '../../hooks/useChatUnread';
 import { hubPath } from '../../utils/moduleNav';
-import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon } from '../icons'; 
+import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon, HomeIcon } from '../icons';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -139,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         <div key={`${item.name}-${index}`} className="mt-1.5 first:mt-0">
           <button
             onClick={() => toggleGroup(item.name)}
-            className={`flex items-center justify-between gap-2 w-full py-2 px-3 rounded-lg transition-colors focus:outline-none text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 ${isGroupOpen ? 'text-neutral-800 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-300'}`}
+            className={`flex items-center justify-between gap-2 w-full py-2 px-3 rounded-lg transition-colors focus:outline-none text-[15px] font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 ${isGroupOpen ? 'text-neutral-800 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-300'}`}
             aria-expanded={isGroupOpen}
             aria-controls={`group-content-${item.name}`}
           >
@@ -175,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         key={item.path}
         to={item.path}
         onClick={handleLinkClick}
-        className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-sm ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-500 dark:text-neutral-400 font-normal hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
+        className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-500 dark:text-neutral-400 font-normal hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
       >
         {Icon && <Icon className="w-[18px] h-[18px] flex-shrink-0" />}
         <span className="truncate">{translatedName}</span>
@@ -193,16 +193,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
       {/* Módulo actual como encabezado del sidebar → enlaza a la vista principal del módulo. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
         <Link to={hubPath(currentModule)} className="block px-3 pb-3 mb-2 border-b border-neutral-200 dark:border-neutral-700 group" title={t('hub.go') || 'Ver todas las secciones'}>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
+          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
         </Link>
       )}
       <nav className="space-y-0.5">
         {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
           <Link
             to={hubPath(currentModule)}
-            className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-sm ${location.pathname.startsWith('/inicio') ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
+            className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${location.pathname.startsWith('/inicio') ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
           >
-            <Squares2X2Icon className="w-[18px] h-[18px] flex-shrink-0" />
+            <HomeIcon className="w-5 h-5 flex-shrink-0" />
             <span>{t('hub.home') || 'Inicio'}</span>
           </Link>
         )}
