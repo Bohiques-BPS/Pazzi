@@ -28,6 +28,8 @@ import { clientDocName } from '../../utils/clientName';
 
 type DraftItem = { name: string; quantity: string; unitPrice: string; description?: string; taxRate?: number };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
+/** Convierte la descripción del producto (puede traer HTML del editor) a texto plano para la factura. */
+const plainDesc = (html?: string | null) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
@@ -740,7 +742,7 @@ export const InvoicesListPage: React.FC = () => {
                                                 {matches.map(p => (
                                                     <li
                                                         key={p.id}
-                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? ''), taxRate: prodRate(p) }); setOpenLine(null); }}
+                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? ''), taxRate: prodRate(p), ...((!l.description || !l.description.trim()) && plainDesc((p as any).description) ? { description: plainDesc((p as any).description) } : {}) }); setOpenLine(null); }}
                                                         className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm flex justify-between gap-2"
                                                     >
                                                         <span className="truncate">{p.name}</span>

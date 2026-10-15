@@ -11,7 +11,7 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 export interface ReceiptSale {
     saleNumber: string;
     date: string; // ISO
-    items: { name: string; quantity: number; unitPrice: number; note?: string }[];
+    items: { name: string; quantity: number; unitPrice: number; note?: string; description?: string }[];
     subtotal: number;
     tax: number;
     /** Desglose de IVU (PR), opcional: si viene, el recibo muestra Estatal/Municipal/Reducido. */
@@ -56,6 +56,7 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
     const showClient = d.showClient !== false;
     const showPay = d.showPaymentMethod !== false;
     const showNotes = d.showNotes !== false;
+    const showLineDesc = !!d.showLineDescription;
 
     const template = d.template || 'modern';
     const bizLines = [
@@ -95,6 +96,7 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
         <tr>
             <td style="padding:8px 6px;border-bottom:1px solid #eee;">
                 <div style="font-weight:600;">${esc(it.name)}</div>
+                ${showLineDesc && (it as any).description ? `<div style="color:#666;font-size:11px;margin-top:2px;">${esc(String((it as any).description))}</div>` : ''}
                 ${showNotes && it.note ? `<div style="color:#666;font-size:11px;margin-top:2px;">${esc(it.note)}</div>` : ''}
             </td>
             <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;">${it.quantity}</td>

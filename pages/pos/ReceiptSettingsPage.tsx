@@ -40,8 +40,8 @@ const SAMPLE: ReceiptSale = {
     saleNumber: 'AB12CD34',
     date: new Date().toISOString(),
     items: [
-        { name: 'CABLE PULLER', quantity: 1, unitPrice: 24.99 },
-        { name: 'TORNILLO 1/4" (caja)', quantity: 2, unitPrice: 5.50 },
+        { name: 'CABLE PULLER', quantity: 1, unitPrice: 24.99, description: 'Jalacables de acero, 30m' },
+        { name: 'TORNILLO 1/4" (caja)', quantity: 2, unitPrice: 5.50, description: 'Cabeza hexagonal, caja de 100' },
     ],
     subtotal: 35.99, tax: 4.14, discount: 0, total: 40.13,
     payments: [{ method: 'Efectivo', amount: 50 }],

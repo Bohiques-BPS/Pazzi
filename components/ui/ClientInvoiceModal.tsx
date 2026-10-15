@@ -80,7 +80,9 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
     }, [created]);
 
     // IVU por línea con la misma lógica que Facturas (desglose, productos exentos, cliente exento).
-    const { lineTaxRate, bd, stateR, municipalR } = useMemo(() => buildInvoiceTaxContext(settings, client, products), [settings, client, products]);
+    const { lineTaxRate, bd, stateR, municipalR, productByName } = useMemo(() => buildInvoiceTaxContext(settings, client, products), [settings, client, products]);
+    // Descripción del producto (puede traer HTML) → texto plano para la línea de la factura.
+    const plainDesc = (html?: string | null) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
     const setLine = (i: number, patch: Partial<DraftItem>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
     const addLine = () => setLines(ls => [...ls, emptyItem()]);
@@ -181,8 +183,16 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
                         {lines.map((l, i) => (
                             <div key={i} className="flex flex-col gap-1 border-b border-neutral-100 dark:border-neutral-700/60 pb-2">
                                 <div className="flex gap-2 items-center">
-                                    {/* Al cambiar el nombre se descarta la tasa precargada: se resuelve por el producto del catálogo. */}
-                                    <input type="text" value={l.name} onChange={e => setLine(i, { name: e.target.value, taxRate: undefined })} placeholder={t('cmpx.invoice.item_desc_ph')} className={`${INPUT_SM_CLASSES} flex-1`} />
+                                    {/* Al cambiar el nombre se descarta la tasa precargada: se resuelve por el producto del catálogo.
+                                        Si el nombre coincide con un producto, se auto-rellena su descripción (editable, solo si está vacía). */}
+                                    <input type="text" value={l.name} onChange={e => {
+                                        const name = e.target.value;
+                                        const patch: Partial<DraftItem> = { name, taxRate: undefined };
+                                        const prod: any = productByName.get(name.trim().toLowerCase());
+                                        const pd = prod ? plainDesc(prod.description) : '';
+                                        if (pd && (!l.description || !l.description.trim())) patch.description = pd;
+                                        setLine(i, patch);
+                                    }} placeholder={t('cmpx.invoice.item_desc_ph')} className={`${INPUT_SM_CLASSES} flex-1`} />
                                     <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('cmpx.invoice.item_qty_ph')} className={`${INPUT_SM_CLASSES} w-20`} />
                                     <input type="number" value={l.unitPrice} onChange={e => setLine(i, { unitPrice: e.target.value })} placeholder={t('cmpx.invoice.item_price_ph')} className={`${INPUT_SM_CLASSES} w-28`} />
                                     <span className="w-24 text-right text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
