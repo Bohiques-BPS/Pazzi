@@ -585,6 +585,7 @@ export const APP_MODULES_CONFIG = [
         { type: 'group', name: 'Ventas', icon: ListBulletIcon, children: [
             { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon, permission: 'pos.viewHistory' },
             { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon, permission: 'pos.viewHistory' },
+            { type: 'link', name: 'Config. Factura', path: '/pos/receipt-settings', icon: ClipboardDocumentListIcon, permission: 'settings.viewCompany' },
             { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon, permission: 'estimates.manage' },
             { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon, permission: 'layaways.manage' },
         ] },
@@ -600,7 +601,6 @@ export const APP_MODULES_CONFIG = [
         { type: 'group', name: 'Cajas', icon: CubeIcon, children: [
             { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
             { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: CubeIcon, permission: 'caja.open' },
-            { type: 'link', name: 'Config. Factura', path: '/pos/receipt-settings', icon: ClipboardDocumentListIcon, permission: 'settings.viewCompany' },
             { type: 'link', name: 'Métodos de Pago', path: '/pos/payment-methods', icon: BanknotesIcon, permission: 'settings.viewCompany' },
         ] },
         { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon, permission: 'pos.access' },
