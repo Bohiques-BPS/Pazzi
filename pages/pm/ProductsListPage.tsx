@@ -115,14 +115,47 @@ export const ProductsListPage: React.FC = () => {
     const [totalCount, setTotalCount] = useState(0);
     const PAGE_SIZE = 24;
 
+    // Selección múltiple (checkbox en las tarjetas) + eliminación en bloque.
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const toggleSelect = (id: string) => setSelectedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+    });
+    const clearSelection = () => setSelectedIds(new Set());
+
     // Debounce de la búsqueda para no pegarle al backend en cada tecla.
     useEffect(() => {
         const id = setTimeout(() => setDebouncedSearch(searchTerm), 350);
         return () => clearTimeout(id);
     }, [searchTerm]);
 
-    // Al cambiar cualquier filtro, volver a la página 1.
-    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter]);
+    // Al cambiar cualquier filtro, volver a la página 1 y limpiar la selección.
+    useEffect(() => { setCurrentPage(1); setSelectedIds(new Set()); }, [debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter]);
+    // Al cambiar de página también se limpia la selección (las tarjetas cambian).
+    useEffect(() => { setSelectedIds(new Set()); }, [currentPage]);
+
+    const handleBulkDelete = async () => {
+        const ids = Array.from(selectedIds);
+        if (ids.length === 0) return;
+        setBulkDeleting(true);
+        try {
+            const res = await productsService.bulkDelete(ids);
+            const skippedIds = new Set((res.skipped || []).map(s => s.id));
+            setPageProducts(prev => prev.filter(p => skippedIds.has(p.id) || !ids.includes(p.id)));
+            setTotalCount(c => Math.max(0, c - (res.deleted || 0)));
+            clearSelection();
+            setShowBulkDeleteConfirm(false);
+            if (res.deleted > 0) toast.success(t('pmx.product.bulk_deleted', { n: res.deleted }));
+            if (res.skippedCount > 0) toast.error(t('pmx.product.bulk_skipped', { n: res.skippedCount }));
+        } catch (err: any) {
+            toast.error(err?.message || t('pmx.product.delete_error'));
+        } finally {
+            setBulkDeleting(false);
+        }
+    };
 
     // Productos de la página actual (estado local, ver arriba).
     const globalProducts = products;
@@ -464,38 +497,49 @@ export const ProductsListPage: React.FC = () => {
             )}
 
             {!loadingData && viewMode === 'card' ? (
-                <div className="bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 sm:p-5">
+                <>
+                    {/* Barra superior: conteo, o acciones cuando hay productos seleccionados. */}
+                    <div className="flex items-center justify-between gap-2 mb-3 min-h-[2.25rem]">
+                        {selectedIds.size > 0 ? (
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('pmx.product.selected_count', { n: selectedIds.size })}</span>
+                                <button onClick={() => setShowBulkDeleteConfirm(true)} className="inline-flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700">
+                                    <DeleteIcon className="w-4 h-4" /> {t('pmx.product.delete_selected')}
+                                </button>
+                                <button onClick={clearSelection} className="text-sm text-neutral-500 dark:text-neutral-400 hover:underline">{t('pmx.product.clear_selection')}</button>
+                            </div>
+                        ) : (
+                            paginatedCardProducts.length > 0 && (
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('pmx.product.showing_count', { shown: paginatedCardProducts.length, total: totalCount })}</p>
+                            )
+                        )}
+                    </div>
                     {paginatedCardProducts.length > 0 ? (
-                        <>
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                                    {t('pmx.product.showing_count', { shown: paginatedCardProducts.length, total: totalCount })}
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-                                {paginatedCardProducts.map(product => (
-                                    <ProductCard
-                                        key={product.id}
-                                        product={product}
-                                        onEdit={openModalForEdit}
-                                        onRequestDelete={requestDelete}
-                                        onAdjustStock={openAdjustmentModal}
-                                        onViewHistory={openHistoryModal}
-                                    />
-                                ))}
-                            </div>
-                        </>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                            {paginatedCardProducts.map(product => (
+                                <ProductCard
+                                    key={product.id}
+                                    product={product}
+                                    onEdit={openModalForEdit}
+                                    onRequestDelete={requestDelete}
+                                    onAdjustStock={openAdjustmentModal}
+                                    onViewHistory={openHistoryModal}
+                                    selected={selectedIds.has(product.id)}
+                                    onToggleSelect={toggleSelect}
+                                />
+                            ))}
+                        </div>
                     ) : (
                         <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">{t('pmx.product.none_found')}</p>
                     )}
                     {totalCardPages > 1 && (
-                        <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-700 flex justify-center items-center space-x-2">
+                        <div className="mt-6 flex justify-center items-center space-x-2">
                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.previous')}</button>
                             <span className="text-sm text-neutral-600 dark:text-neutral-300">{t('common.page_of', { current: currentPage, total: totalCardPages })}</span>
                             <button onClick={() => setCurrentPage(p => Math.min(totalCardPages, p + 1))} disabled={currentPage === totalCardPages} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.next')}</button>
                         </div>
                     )}
-                </div>
+                </>
             ) : !loadingData && (
                 <>
                  <DataTable<Product> searchable={false} onRowClick={openModalForEdit}
@@ -550,6 +594,14 @@ export const ProductsListPage: React.FC = () => {
                         : t('confirm.delete.named', { item: t('confirm.delete.n.product') });
                 })()}
                 confirmButtonText={t('pmx.common.yes_delete')}
+            />
+            <ConfirmationModal
+                isOpen={showBulkDeleteConfirm}
+                onClose={() => !bulkDeleting && setShowBulkDeleteConfirm(false)}
+                onConfirm={handleBulkDelete}
+                title={t('pmx.product.bulk_delete_title')}
+                message={t('pmx.product.bulk_delete_message', { n: selectedIds.size })}
+                confirmButtonText={bulkDeleting ? t('pmx.common.deleting') : t('pmx.common.yes_delete')}
             />
             <InventoryHistoryModal
                 isOpen={showHistoryModal}

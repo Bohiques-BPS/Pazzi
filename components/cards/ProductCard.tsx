@@ -12,9 +12,19 @@ interface ProductCardProps {
     onRequestDelete: (productId: string) => void;
     onAdjustStock: (product: Product, branchId: string) => void;
     onViewHistory?: (product: Product) => void;
+    /** Selección múltiple (checkbox). Si no se pasan, no se muestra el checkbox. */
+    selected?: boolean;
+    onToggleSelect?: (productId: string) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onRequestDelete, onAdjustStock, onViewHistory }) => {
+const PinIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+        <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10z" />
+        <circle cx="12" cy="11" r="2.2" />
+    </svg>
+);
+
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onRequestDelete, onAdjustStock, onViewHistory, selected, onToggleSelect }) => {
     const [actionsOpen, setActionsOpen] = useState(false);
     const { t } = useTranslation();
     const { branches } = useData();
@@ -30,16 +40,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
             : `${API_URL.replace('/api', '')}${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}`)
         : logo;
 
-    // Stock total en sucursales activas (para el badge resumen y el color).
     const totalStock = activeBranches.reduce((sum, b) => {
         const entry = (product.stockByBranch || []).find(sb => sb.branchId === b.id);
         return sum + (entry ? entry.quantity : 0);
     }, 0);
 
-    const skuText = (product.skus || [])
+    const firstSku = (product.skus || [])
         .map(s => (typeof s === 'object' ? (s as any).sku : s))
-        .filter(Boolean)
-        .join(', ');
+        .filter(Boolean)[0] || '';
+
+    // Ubicación mostrada: una sola sucursal → su nombre; varias → "N sucursales".
+    const locationLabel = activeBranches.length === 0
+        ? '—'
+        : activeBranches.length === 1
+            ? activeBranches[0].name
+            : t('cmp.productcard.n_branches', { n: activeBranches.length });
+
+    // Píldora de stock: verde (en stock), ámbar (pocas), rojo (sin stock) o morado (variaciones).
+    const stockPill = product.hasVariations
+        ? { text: `${product.variations?.length || 0} ${t('cmp.productcard.variations_short') || 'var.'}`, dot: 'bg-indigo-500', cls: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300' }
+        : totalStock <= 0
+            ? { text: t('cmp.productcard.out_of_stock') || 'Sin stock', dot: 'bg-red-500', cls: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300' }
+            : totalStock <= 5
+                ? { text: t('cmp.productcard.available_count', { n: totalStock }), dot: 'bg-amber-500', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' }
+                : { text: t('cmp.productcard.in_stock_count', { n: totalStock }), dot: 'bg-emerald-500', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' };
 
     return (
         <div
@@ -48,49 +72,49 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter') onEdit(product); }}
             title={t('cmp.productcard.edit_product')}
-            className="group bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm flex flex-col overflow-hidden hover:shadow-lg hover:border-primary/40 dark:hover:shadow-primary/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+            className={`group bg-white dark:bg-neutral-800 rounded-xl border overflow-hidden transition-all duration-200 cursor-pointer flex flex-col hover:shadow-lg hover:-translate-y-0.5 ${selected ? 'border-primary ring-2 ring-primary/60' : 'border-neutral-200 dark:border-neutral-700 hover:border-primary/40'}`}
         >
             {/* Imagen */}
-            <div className="relative w-full h-40 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-700/60 flex items-center justify-center overflow-hidden">
+            <div className="relative w-full h-44 bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center overflow-hidden">
                 <img
                     src={imgSrc}
                     alt={product.name}
                     className={product.imageUrl
-                        ? 'w-full h-full object-contain p-3 transition-transform duration-200 group-hover:scale-[1.03]'
+                        ? 'w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]'
                         : 'h-16 object-contain opacity-40'}
                     onError={(e) => { const t = e.target as HTMLImageElement; if (!t.dataset.fallback) { t.dataset.fallback = '1'; t.src = logo; t.className = 'h-16 object-contain opacity-40'; } }}
                 />
 
-                {/* Chip de categoría */}
-                {categoryName && (
-                    <span className="absolute top-2 left-2 max-w-[60%] truncate px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/90 dark:bg-neutral-900/80 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-600 backdrop-blur-sm">
-                        {categoryName}
-                    </span>
-                )}
-
-                {/* Badge de stock (o variaciones) */}
-                {product.hasVariations ? (
-                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                        {product.variations?.length || 0} {t('cmp.productcard.variations_short') || 'var.'}
-                    </span>
-                ) : (
-                    <span className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-semibold ${totalStock > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'}`}>
-                        {totalStock > 0 ? `${totalStock} ${t('cmp.productcard.units_short') || 'u.'}` : (t('cmp.productcard.out_of_stock') || 'Sin stock')}
-                    </span>
+                {/* Checkbox de selección */}
+                {onToggleSelect && (
+                    <label className="absolute top-3 left-3 flex items-center justify-center bg-white dark:bg-neutral-900 rounded-md p-1 shadow-sm border border-neutral-200 dark:border-neutral-600 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                        <input
+                            type="checkbox"
+                            checked={!!selected}
+                            onChange={() => onToggleSelect(product.id)}
+                            className="w-4 h-4 rounded border-neutral-300 text-primary focus:ring-primary cursor-pointer"
+                            aria-label={t('cmp.productcard.select') || 'Seleccionar'}
+                        />
+                    </label>
                 )}
 
                 {/* Menú de acciones */}
-                <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={(e) => { e.stopPropagation(); setActionsOpen(!actionsOpen); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-100 hover:bg-primary hover:text-white dark:hover:bg-primary border border-neutral-300 dark:border-neutral-600 shadow-md ring-1 ring-black/5 focus:outline-none focus:ring-2 focus:ring-primary transition-colors" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`} aria-label={t('cmp.productcard.options') || 'Opciones'} title={t('cmp.productcard.options') || 'Opciones'}>
+                <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={(e) => { e.stopPropagation(); setActionsOpen(!actionsOpen); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/95 dark:bg-neutral-900/90 text-neutral-600 dark:text-neutral-200 hover:bg-primary hover:text-white dark:hover:bg-primary border border-neutral-200 dark:border-neutral-600 shadow-sm backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`} aria-label={t('cmp.productcard.options') || 'Opciones'} title={t('cmp.productcard.options') || 'Opciones'}>
                         <EllipsisVerticalIcon className="w-5 h-5" />
                     </button>
                     {actionsOpen && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
-                            <div id={`product-actions-${product.id}`} className="absolute right-0 mt-1 w-48 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600">
+                            <div id={`product-actions-${product.id}`} className="absolute right-0 mt-1 w-52 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600">
                                 <button onClick={() => { onEdit(product); setActionsOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">
                                     <EditIcon className="w-4 h-4 mr-2" /> {t('common.edit')}
                                 </button>
+                                {!product.hasVariations && activeBranches.map(branch => (
+                                    <button key={branch.id} onClick={() => { onAdjustStock(product, branch.id); setActionsOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">
+                                        <AdjustIcon className="w-4 h-4 mr-2" /> {t('cmp.productcard.adjust_in', { branch: branch.name }) || `Ajustar: ${branch.name}`}
+                                    </button>
+                                ))}
                                 {onViewHistory && (
                                     <button onClick={() => { onViewHistory(product); setActionsOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">
                                         <HistoryIcon className="w-4 h-4 mr-2" /> {t('cmp.productcard.view_movements')}
@@ -107,51 +131,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
 
             {/* Cuerpo */}
             <div className="p-4 flex flex-col flex-grow">
-                <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 line-clamp-2 leading-snug min-h-[2.5rem]">{product.name}</h3>
+                {/* Categoría con punto */}
+                {categoryName && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 mb-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" aria-hidden="true" />
+                        <span className="truncate">{categoryName}</span>
+                    </span>
+                )}
 
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 mb-3 line-clamp-2 min-h-[2rem]" dangerouslySetInnerHTML={{ __html: product.description || t('cmp.productcard.no_description') }}></div>
+                <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 line-clamp-2 leading-snug">{product.name}</h3>
 
-                {/* Precio + IVU */}
-                <div className="flex items-end justify-between gap-2 mb-3">
+                <div className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 min-h-[2.4rem]" dangerouslySetInnerHTML={{ __html: product.description || t('cmp.productcard.no_description') }}></div>
+
+                {/* Precio + píldora de stock */}
+                <div className="flex items-end justify-between gap-2 mt-3">
                     <div>
-                        <p className="text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500 leading-none mb-0.5">{t('cmp.productcard.base_price_label') || 'Precio base'}</p>
-                        <p className="text-xl font-bold text-primary leading-none">${product.unitPrice.toFixed(2)}</p>
+                        <p className="text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500 leading-none mb-1">{t('cmp.productcard.base_price_label') || 'Precio base'}</p>
+                        <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-50 leading-none">${product.unitPrice.toFixed(2)}</p>
                     </div>
-                    <span className="text-[11px] text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
-                        {t('cmp.productcard.ivu')} {product.ivuRate ? `${(product.ivuRate * 100).toFixed(0)}%` : 'N/A'}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${stockPill.cls}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${stockPill.dot}`} aria-hidden="true" />
+                        {stockPill.text}
                     </span>
                 </div>
 
-                {/* Stock por sucursal (compacto) */}
-                {!product.hasVariations && (
-                    <div className="mt-auto pt-3 border-t border-neutral-100 dark:border-neutral-700">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 mb-1">{t('cmp.productcard.stock_by_branch')}</p>
-                        <div className="max-h-[4.5rem] overflow-y-auto pr-1 space-y-0.5">
-                            {activeBranches.map(branch => {
-                                const stockEntry = (product.stockByBranch || []).find(sb => sb.branchId === branch.id);
-                                const stockQty = stockEntry ? stockEntry.quantity : 0;
-                                return (
-                                    <div key={branch.id} className="flex justify-between items-center text-sm text-neutral-600 dark:text-neutral-300">
-                                        <span className="truncate mr-2">{branch.name}</span>
-                                        <span className="flex items-center gap-1.5 flex-shrink-0">
-                                            <span className={`font-semibold tabular-nums ${stockQty > 0 ? 'text-neutral-700 dark:text-neutral-200' : 'text-red-500'}`}>{stockQty}</span>
-                                            <button onClick={(e) => { e.stopPropagation(); onAdjustStock(product, branch.id); }} className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-0.5" title={t('cmp.productcard.adjust_stock_in', { branch: branch.name })}>
-                                                <AdjustIcon className="w-3.5 h-3.5"/>
-                                            </button>
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* SKU */}
-                {skuText && (
-                    <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500 truncate" title={skuText}>
-                        <span className="font-medium">{t('cmp.productcard.skus')}</span> {skuText}
-                    </p>
-                )}
+                {/* Pie: ubicación + SKU */}
+                <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700 text-xs text-neutral-400 dark:text-neutral-500">
+                    <span className="inline-flex items-center gap-1 min-w-0">
+                        <PinIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{locationLabel}</span>
+                    </span>
+                    {firstSku && <span className="truncate max-w-[45%] text-right" title={firstSku}>{firstSku}</span>}
+                </div>
             </div>
         </div>
     );
