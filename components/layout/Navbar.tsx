@@ -49,6 +49,18 @@ const formatRelativeTime = (isoTimestamp: string) => {
 };
 
 
+/** Ícono del botón que oculta/muestra el sidebar: un panel con chevron que apunta
+ *  a la derecha cuando está oculto (mostrar) y a la izquierda cuando está visible (ocultar). */
+const SidebarToggleIcon: React.FC<{ collapsed?: boolean; className?: string }> = ({ collapsed, className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <line x1="9" y1="4" x2="9" y2="20" />
+    {collapsed
+      ? <polyline points="13,9 16,12 13,15" />
+      : <polyline points="16,9 13,12 16,15" />}
+  </svg>
+);
+
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, sidebarCollapsed, currentModule, setCurrentModule }) => {
   const { currentUser, logout, accounts, activeAccountId, switchAccount } = useAuth();
   const { canAny } = usePermissions();
@@ -220,15 +232,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
               <MenuIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             </button>
           }
-          {/* Desktop: ocultar/mostrar el sidebar (se recuerda). */}
+          {/* Desktop: ocultar/mostrar el sidebar (se recuerda). Ícono distinto según el estado + animación. */}
           { currentUser && onToggleCollapse && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
             <button
               onClick={onToggleCollapse}
-              className="mr-1 sm:mr-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 hidden lg:inline-flex"
+              className="mr-1 sm:mr-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 hidden lg:inline-flex transition-transform duration-150 active:scale-90 hover:text-primary"
               aria-label={sidebarCollapsed ? (t('cmp.navbar.show_menu') || 'Mostrar menú') : (t('cmp.navbar.hide_menu') || 'Ocultar menú')}
               title={sidebarCollapsed ? (t('cmp.navbar.show_menu') || 'Mostrar menú') : (t('cmp.navbar.hide_menu') || 'Ocultar menú')}
             >
-              <MenuIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
+              <SidebarToggleIcon collapsed={sidebarCollapsed} className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300 transition-colors" />
             </button>
           }
           
@@ -397,8 +409,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
           {/* User Menu */}
           <div className="relative" ref={userRef}>
             <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-1 sm:space-x-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
-                {showBusinessLogo
-                    ? <img src={businessLogoSrc} alt={businessName || 'Logo'} title={businessName || undefined} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-neutral-200 dark:border-neutral-600" />
+                {/* Foto propia si la tiene; si no (p. ej. el gerente, que no puede subir una), el logo del negocio. */}
+                {((currentUser as any)?.profilePictureUrl || (showBusinessLogo ? businessLogoSrc : ''))
+                    ? <img src={(currentUser as any)?.profilePictureUrl || businessLogoSrc} alt={businessName || 'Logo'} title={businessName || undefined} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-neutral-200 dark:border-neutral-600" />
                     : <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />}
                 <span className="hidden md:inline text-sm sm:text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
                 <ChevronDownIcon className="w-4 h-4 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
@@ -419,8 +432,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                                     role="menuitem"
                                     title={active ? 'Cuenta activa' : 'Cambiar a esta cuenta'}
                                 >
-                                    {acc.profilePictureUrl
-                                        ? <img src={acc.profilePictureUrl} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" />
+                                    {(acc.profilePictureUrl || (active && showBusinessLogo ? businessLogoSrc : ''))
+                                        ? <img src={acc.profilePictureUrl || businessLogoSrc} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" />
                                         : <span className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">{(acc.name || acc.email || '?').charAt(0).toUpperCase()}</span>}
                                     <span className="min-w-0 flex-1">
                                         <span className="block text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{`${acc.name || ''} ${acc.lastName || ''}`.trim() || acc.email}</span>

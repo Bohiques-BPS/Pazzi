@@ -123,7 +123,7 @@ export const MainLayout: React.FC = () => {
       {!isPOSCashierPage && <Navbar onToggleSidebar={toggleSidebar} onToggleCollapse={toggleCollapse} sidebarCollapsed={sidebarCollapsed} currentModule={currentModule} setCurrentModule={setCurrentModule} />}
       <div className={`flex flex-1 ${!isPOSCashierPage ? 'pt-[65px]' : ''}`}>
         {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} collapsed={sidebarCollapsed} currentModule={currentModule} setSidebarOpen={setSidebarOpen} />}
-        <main className={`flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 overflow-y-auto ${!isPOSCashierPage ? `h-[calc(100vh-65px)] ${sidebarCollapsed ? '' : 'lg:ml-72'}` : ''} ${isPOSCashierPage ? '' : 'p-6'}`}>
+        <main className={`flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 overflow-y-auto transition-[margin] duration-200 ease-in-out ${!isPOSCashierPage ? `h-[calc(100vh-65px)] ${sidebarCollapsed ? '' : 'lg:ml-72'}` : ''} ${isPOSCashierPage ? '' : 'p-6'}`}>
           <Outlet />
         </main>
       </div>
