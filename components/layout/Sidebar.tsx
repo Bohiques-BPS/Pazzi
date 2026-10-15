@@ -120,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   
   if (subModulesToDisplay.length === 0 && currentUser?.role !== UserRole.CLIENT_PROJECT) {
       return (
-        <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 space-y-1 py-7 px-2 fixed inset-y-0 left-0 top-[65px] transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
+        <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 space-y-1 py-7 px-2 fixed left-0 top-[65px] bottom-0 h-[calc(100vh-65px)] overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
             <p className="px-2 py-2 text-lg text-neutral-500 dark:text-neutral-400">{t('cmp.sidebar.no_options')}</p>
         </aside>
       );
@@ -193,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   };
 
   return (
-    <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 py-5 px-3 fixed inset-y-0 left-0 top-[65px] overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
+    <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 py-5 px-3 fixed left-0 top-[65px] bottom-0 h-[calc(100vh-65px)] overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-10 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
       {/* Módulo actual como encabezado del sidebar → enlaza a la vista principal del módulo. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
         <Link to={hubPath(currentModule)} className="block px-3 pb-3 mb-2 border-b border-neutral-200 dark:border-neutral-700 group" title={t('hub.go') || 'Ver todas las secciones'}>
