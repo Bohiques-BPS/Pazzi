@@ -122,6 +122,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const [tplSending, setTplSending] = useState(false);
 
   const canEdit = can('leads.edit');
+  const canSendWhatsapp = can('leads.sendWhatsapp');
   const canAssign = can('leads.assign');
   const canStage = can('leads.changeStage') || can('leads.edit');
   const canConvert = can('leads.convert');
@@ -515,6 +516,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                 leadId={lead.id}
                 phone={lead.whatsapp || lead.phone}
                 canEdit={canEdit}
+                canSendWhatsapp={canSendWhatsapp}
                 active={tab === 'conversation'}
                 reloadKey={convReloadKey}
                 onOpenTemplates={openTemplates}

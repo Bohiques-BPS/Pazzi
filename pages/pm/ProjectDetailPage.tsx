@@ -735,6 +735,7 @@ const CHAT_POLLING_MS = 20000;
 const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
+    const { can } = usePermissions();
 
     const [newMessage, setNewMessage] = useState('');
     const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
@@ -813,7 +814,7 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                 projectId: project.id,
                 text,
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
-                sendWhatsapp: sendToWa,
+                sendWhatsapp: sendToWa && can('projects.sendWhatsapp'),
             });
             appendMessage(saved);
             notifyWaResult(saved);
@@ -849,7 +850,7 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
                 attachmentUrl: url,
                 attachmentType: isImage ? 'image' : isVideo ? 'video' : 'file',
                 attachmentName: file.name,
-                sendWhatsapp: sendToWa,
+                sendWhatsapp: sendToWa && can('projects.sendWhatsapp'),
             });
             appendMessage(saved);
             notifyWaResult(saved);
@@ -873,7 +874,7 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
             </div>
             <div className="p-3 border-t bg-white dark:bg-neutral-800">
                 <input ref={chatFileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleAttachFile} />
-                {waEnabled && (
+                {waEnabled && can('projects.sendWhatsapp') && (
                     <label className="flex items-center gap-2 mb-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
                         <input type="checkbox" checked={sendToWa} onChange={e => setSendToWa(e.target.checked)} className="h-4 w-4 rounded accent-green-600" />
                         <span>📲 Enviar también por WhatsApp al cliente</span>

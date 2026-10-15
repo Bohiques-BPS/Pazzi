@@ -151,7 +151,7 @@ export const ProjectChatPage: React.FC = () => {
                 projectId: selectedProjectId,
                 text,
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
-                sendWhatsapp: sendToWa,
+                sendWhatsapp: sendToWa && can('projects.sendWhatsapp'),
             });
             appendMessage(message);
             notifyWaResult(message);
@@ -191,7 +191,7 @@ export const ProjectChatPage: React.FC = () => {
                 attachmentUrl: url,
                 attachmentType: isImage ? 'image' : isVideo ? 'video' : 'file',
                 attachmentName: file.name,
-                sendWhatsapp: sendToWa,
+                sendWhatsapp: sendToWa && can('projects.sendWhatsapp'),
             });
             appendMessage(message);
             notifyWaResult(message);
@@ -346,7 +346,7 @@ export const ProjectChatPage: React.FC = () => {
 
                         {/* Message Input */}
                         <div className="p-3 sm:p-4 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
-                            {waEnabled && (
+                            {waEnabled && can('projects.sendWhatsapp') && (
                                 <label className="flex items-center gap-2 mb-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
                                     <input type="checkbox" checked={sendToWa} onChange={e => setSendToWa(e.target.checked)} className="h-4 w-4 rounded accent-green-600" />
                                     <span>📲 Enviar también por WhatsApp al cliente</span>

@@ -14,6 +14,8 @@ interface Props {
   /** lead.whatsapp || lead.phone (para wa.me y para recargar si cambia el número). */
   phone?: string | null;
   canEdit: boolean;
+  /** Permiso para ENVIAR WhatsApp al lead (leads.sendWhatsapp). Sin él, la conversación es solo lectura. */
+  canSendWhatsapp?: boolean;
   /** ¿La pestaña está visible? (para marcar como visto y ajustar el scroll). */
   active: boolean;
   /** Cambia para forzar una actualización (p. ej. tras enviar una plantilla). */
@@ -57,7 +59,7 @@ const StatusTicks: React.FC<{ status: string }> = ({ status }) => {
   return null;
 };
 
-export const LeadConversationTab: React.FC<Props> = ({ leadId, phone, canEdit, active, reloadKey, onOpenTemplates, onUnreadChange, onZoomImage }) => {
+export const LeadConversationTab: React.FC<Props> = ({ leadId, phone, canEdit, canSendWhatsapp = false, active, reloadKey, onOpenTemplates, onUnreadChange, onZoomImage }) => {
   const { t } = useTranslation();
   const [messages, setMessages] = useState<LeadMessage[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -203,7 +205,8 @@ export const LeadConversationTab: React.FC<Props> = ({ leadId, phone, canEdit, a
   };
 
   const windowOpen = !!windowInfo?.expiresAt && new Date(windowInfo.expiresAt).getTime() > now;
-  const canSend = canEdit && configured === true && !!phoneDigits && windowOpen;
+  // Enviar WhatsApp requiere el permiso específico; sin él la conversación es solo lectura.
+  const canSend = canSendWhatsapp && configured === true && !!phoneDigits && windowOpen;
 
   const send = async () => {
     const body = text.trim();
