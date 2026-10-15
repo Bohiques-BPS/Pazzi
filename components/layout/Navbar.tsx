@@ -18,6 +18,8 @@ import { QuickSettingsPanel } from '../ui/QuickSettingsButton';
 import { NavCommand } from './NavCommand';
 import { JoinRequestDecisionModal, parseJoinRequestLink, type JoinRequestTarget } from '../pm/JoinRequestDecisionModal';
 import { hubPath } from '../../utils/moduleNav';
+import logo from '../../assets/logo.png';
+import logoWhite from '../../assets/logo_white.png';
 import { toast } from '../../hooks/useToast';
 
 interface NavbarProps {
@@ -68,6 +70,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
   const { t } = useTranslation(); // Use hook
   const { settings } = useGlobalSettings();
   const navigate = useNavigate();
+
+  // Selector de módulo que aparece EN EL NAVBAR solo cuando el sidebar está colapsado
+  // (el logo y el selector normalmente viven arriba del sidebar).
+  const [moduleMenuOpen, setModuleMenuOpen] = useState(false);
+  const availableModules = APP_MODULES_CONFIG.filter(m => canAccessModule(m.name as AppModule));
+  const pickModule = (m: AppModule) => { setCurrentModule(m); setModuleMenuOpen(false); navigate(hubPath(m)); };
 
   // Logo del negocio (arriba a la derecha). Fuente: GlobalSettings.receiptConfig.
   const rc = settings.receiptConfig || ({} as any);
@@ -216,7 +224,47 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
               <SidebarToggleIcon collapsed={sidebarCollapsed} className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300 transition-colors" />
             </button>
           }
-          
+
+          {/* Con el sidebar COLAPSADO: el logo y el selector de módulos aparecen aquí, en el navbar. */}
+          { sidebarCollapsed && currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && (
+            <div className="flex items-center gap-2 ml-1">
+              <Link to="/" className="flex items-center flex-shrink-0">
+                <img src={logo}      alt="Pazzi" className="h-7 sm:h-8 dark:hidden" />
+                <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-8 hidden dark:block" />
+              </Link>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setModuleMenuOpen(o => !o)}
+                  className="flex items-center justify-center p-2 rounded-md border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                  aria-haspopup="true"
+                  aria-expanded={moduleMenuOpen}
+                  aria-label={t('cmp.navbar.select_module') || 'Seleccionar módulo'}
+                  title={t('cmp.navbar.select_module') || 'Seleccionar módulo'}
+                >
+                  <Squares2X2Icon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                </button>
+                {moduleMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setModuleMenuOpen(false)} />
+                    <div className="absolute left-0 mt-2 z-20 w-56 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
+                      {availableModules.map(mod => (
+                        <button
+                          key={mod.name}
+                          type="button"
+                          onClick={() => pickModule(mod.name as AppModule)}
+                          className={`block w-full text-left px-3 py-2 text-sm transition-colors ${mod.name === currentModule ? 'bg-primary/10 text-primary dark:text-teal-300 font-medium' : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                        >
+                          {t(`module.${mod.name}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Client Project Nav Links */}
           {currentUser?.role === UserRole.CLIENT_PROJECT && (
               <div className="hidden md:flex items-center space-x-1">
