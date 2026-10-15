@@ -495,10 +495,11 @@ const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<voi
   );
 };
 
-/** Editar un campo ya creado: nombre, obligatorio y (en listas) las opciones. El tipo no se cambia. */
+/** Editar un campo ya creado: nombre, tipo, obligatorio y (en listas) las opciones. */
 const FieldEditModal: React.FC<{ field: LeadCustomField; onClose: () => void; onSaved: () => Promise<void> }> = ({ field, onClose, onSaved }) => {
   const { t } = useTranslation();
-  const isSelect = field.type === 'select';
+  const [type, setType] = useState<LeadCustomFieldType>(field.type);
+  const isSelect = type === 'select';
   const original = field.options || [];
   const [label, setLabel] = useState(field.label);
   const [required, setRequired] = useState(!!field.required);
@@ -506,9 +507,10 @@ const FieldEditModal: React.FC<{ field: LeadCustomField; onClose: () => void; on
   const [newOpt, setNewOpt] = useState('');
   const [saving, setSaving] = useState(false);
   const clean = options.map(o => o.trim()).filter(Boolean);
+  const typeChanged = type !== field.type;
   // Opciones originales que ya no están (quitadas o renombradas): los leads que las tengan conservan ese valor.
   const dropped = isSelect ? original.filter(o => !clean.includes(o)) : [];
-  const dirty = label !== field.label || required !== !!field.required || (isSelect && (clean.length !== original.length || clean.some((o, i) => o !== original[i])));
+  const dirty = label !== field.label || required !== !!field.required || typeChanged || (isSelect && (clean.length !== original.length || clean.some((o, i) => o !== original[i])));
 
   const addOpt = () => {
     const v = newOpt.trim();
@@ -522,7 +524,7 @@ const FieldEditModal: React.FC<{ field: LeadCustomField; onClose: () => void; on
     if (isSelect && new Set(clean.map(o => o.toLowerCase())).size !== clean.length) { toast.error(t('leads.settings.fields.option_duplicate')); return; }
     setSaving(true);
     try {
-      await leadsService.updateCustomField(field.id, { label: label.trim(), required, ...(isSelect ? { options: clean } : {}) });
+      await leadsService.updateCustomField(field.id, { label: label.trim(), type, required, ...(isSelect ? { options: clean } : { options: null }) } as any);
       await onSaved();
       toast.success(t('leads.settings.saved'));
       onClose();
@@ -538,8 +540,16 @@ const FieldEditModal: React.FC<{ field: LeadCustomField; onClose: () => void; on
         </div>
         <div>
           <label className={LABEL_CLASSES}>{t('leads.settings.col.type')}</label>
-          <span className={`${BADGE} ${BADGE_NEUTRAL}`}>{FIELD_TYPES.includes(field.type) ? t(fieldTypeKey(field.type)) : field.type}</span>
-          <Hint>{t('leads.settings.fields.type_locked')}</Hint>
+          <select value={type} onChange={e => setType(e.target.value as LeadCustomFieldType)} className={inputFormStyle + ' !w-auto'} aria-label={t('leads.settings.fields.type_title')}>
+            {FIELD_TYPES.map(ft => <option key={ft} value={ft}>{t(fieldTypeKey(ft))}</option>)}
+          </select>
+          {typeChanged ? (
+            <p className="mt-2 text-sm px-3 py-2 rounded-md border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200" role="status">
+              {t('leads.settings.fields.type_change_warning')}
+            </p>
+          ) : (
+            <Hint>{t('leads.settings.fields.type_change_hint')}</Hint>
+          )}
         </div>
         <div>
           <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer" title={t('leads.settings.fields.required_title')}>
