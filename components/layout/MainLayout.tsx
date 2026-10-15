@@ -119,14 +119,13 @@ export const MainLayout: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
+      {/* Sidebar de ALTO COMPLETO (incluye el logo arriba). El navbar y el contenido van a su derecha. */}
+      {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} collapsed={sidebarCollapsed} currentModule={currentModule} setSidebarOpen={setSidebarOpen} />}
       {!isPOSCashierPage && <Navbar onToggleSidebar={toggleSidebar} onToggleCollapse={toggleCollapse} sidebarCollapsed={sidebarCollapsed} currentModule={currentModule} setCurrentModule={setCurrentModule} />}
-      <div className={`flex flex-1 ${!isPOSCashierPage ? 'pt-[65px]' : ''}`}>
-        {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} collapsed={sidebarCollapsed} currentModule={currentModule} setSidebarOpen={setSidebarOpen} />}
-        <main className={`flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 overflow-y-auto transition-[margin] duration-200 ease-in-out ${!isPOSCashierPage ? `h-[calc(100vh-65px)] ${sidebarCollapsed ? '' : 'lg:ml-72'}` : ''} ${isPOSCashierPage ? '' : 'p-6'}`}>
-          <Outlet />
-        </main>
-      </div>
+      <main className={`min-w-0 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 transition-[margin] duration-200 ease-in-out ${!isPOSCashierPage ? `mt-[65px] h-[calc(100vh-65px)] overflow-y-auto p-6 ${sidebarCollapsed ? '' : 'lg:ml-72'}` : ''}`}>
+        <Outlet />
+      </main>
     </div>
   );
 };

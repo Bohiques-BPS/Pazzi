@@ -19,8 +19,6 @@ import { NavCommand } from './NavCommand';
 import { JoinRequestDecisionModal, parseJoinRequestLink, type JoinRequestTarget } from '../pm/JoinRequestDecisionModal';
 import { hubPath } from '../../utils/moduleNav';
 import { toast } from '../../hooks/useToast';
-import logo from '../../assets/logo.png';
-import logoWhite from '../../assets/logo_white.png';
 
 interface NavbarProps {
     onToggleSidebar: () => void;
@@ -193,15 +191,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
     return mod.path;
   };
 
-  const getLogoLink = () => {
-    if (!currentUser) return "/";
-    switch (currentUser.role) {
-        case UserRole.CLIENT_ECOMMERCE: return "/store";
-        case UserRole.CLIENT_PROJECT: return "/project-client/dashboard";
-        default: return "/"; 
-    }
-  }
-
   const renderClientProjectNavLinks = () => (
     <>
         <Link to="/project-client/dashboard" className="text-slate-600 dark:text-slate-300 hover:text-primary px-3 py-2 rounded-md text-lg font-medium flex items-center"><BuildingStorefrontIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-1.5" /> {t('cmp.navbar.dashboard')}</Link>
@@ -231,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
   };
   
   return (
-    <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]">
+    <nav className={`bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed right-0 top-0 z-20 border-b border-neutral-200 dark:border-neutral-700 h-[65px] transition-[left] duration-200 ease-in-out left-0 ${sidebarCollapsed ? '' : 'lg:left-72'}`}>
       <div className="mx-auto flex items-center justify-between h-full px-2 sm:px-4"> 
         <div className="flex items-center">
           {/* Mobile Sidebar Toggle (drawer) */}
@@ -305,13 +294,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
             </div>
           )}
 
-          {/* Logo */}
-          <Link to={getLogoLink()} className="mr-1 sm:mr-3 flex-shrink-0">
-            <img src={logo}      alt="Pazzi Logo" className="h-6 sm:h-9 dark:hidden" />
-            <img src={logoWhite} alt="Pazzi Logo" className="h-6 sm:h-9 hidden dark:block" />
-          </Link>
-
-          {/* Breadcrumb: Módulo › Sección actual */}
+          {/* Breadcrumb: Módulo › Sección actual (el logo ahora vive arriba del sidebar) */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
             <nav className="hidden md:flex items-center gap-1.5 text-sm min-w-0 ml-1" aria-label="breadcrumb">
                 <Link to={hubPath(currentModule)} className="font-medium text-neutral-700 dark:text-neutral-200 hover:text-primary truncate">{t(`module.${currentModule}`)}</Link>
