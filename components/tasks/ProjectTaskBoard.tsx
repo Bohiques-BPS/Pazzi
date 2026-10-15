@@ -598,6 +598,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 <TaskDetailModal
                     key={selectedTask.id}
                     task={selectedTask}
+                    sections={sections}
                     onClose={() => setSelectedTask(null)}
                     onSave={(taskId, updates) => { updateTask(taskId, updates); setArchivedTasks(prev => prev.map(x => x.id === taskId ? { ...x, ...updates } as Task : x)); setSelectedTask(null); }}
                     onArchive={(taskId) => { updateTask(taskId, { archived: true }); setSelectedTask(null); }}

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal } from '../Modal';
 import { MicButton } from '../ui/MicButton';
 import { RichTextEditor } from '../ui/RichTextEditor';
+import { TextAutocomplete } from '../ui/TextAutocomplete';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -211,8 +212,15 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
 
                 <div>
                     <label className={label}>{t('cmpx.task.section_label')}</label>
-                    <input value={section} onChange={e => setSection(e.target.value)} list="task-create-sections" placeholder={t('cmpx.task.section_none')} className={inputFormStyle} />
-                    <datalist id="task-create-sections">{sections.map(s => <option key={s} value={s} />)}</datalist>
+                    <TextAutocomplete
+                        value={section}
+                        onChange={setSection}
+                        options={sections}
+                        placeholder={t('cmpx.task.section_none')}
+                        className={inputFormStyle}
+                        listLabel={t('cmpx.task.section_existing') || 'Secciones existentes'}
+                        createLabel={t('cmpx.task.section_create') || 'Crear «{q}»'}
+                    />
                 </div>
 
                 <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-3">

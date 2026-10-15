@@ -7,6 +7,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ArchiveBoxIcon, PaperAirplaneIcon, ExclamationTriangleIcon, DeleteIcon } from '../icons';
 import { RichTextEditor } from '../ui/RichTextEditor';
+import { TextAutocomplete } from '../ui/TextAutocomplete';
 import { MicButton } from '../ui/MicButton';
 import { tasksService, type TaskCommentRecord, type ChecklistItem, type TaskSolution, type TaskAttachment } from '../../services/tasks';
 import { uploadImage } from '../../services/upload';
@@ -22,6 +23,8 @@ interface TaskDetailModalProps {
     onDelete?: (taskId: string) => void;
     /** Abrir otra tarea (subtarea) en el mismo modal. */
     onOpenTask?: (task: Task) => void;
+    /** Secciones existentes del proyecto para autocompletar el campo Sección. */
+    sections?: string[];
 }
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string }[] = [
@@ -32,7 +35,7 @@ const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string
     { value: 'urgent', labelKey: 'cmpx.task.prio.urgent', cls: 'text-red-600' },
 ];
 
-export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onOpenTask }) => {
+export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onOpenTask, sections = [] }) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
     const { can } = usePermissions();
@@ -543,12 +546,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 {/* Sección / área del proyecto (ej. Diseño, Programación) */}
                 <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('cmpx.task.section_label')}</label>
-                    <input
-                        type="text"
+                    <TextAutocomplete
                         value={section}
-                        onChange={e => setSection(e.target.value)}
+                        onChange={setSection}
+                        options={sections}
                         placeholder={t('cmpx.task.section_none')}
                         className={inputFormStyle}
+                        listLabel={t('cmpx.task.section_existing') || 'Secciones existentes'}
+                        createLabel={t('cmpx.task.section_create') || 'Crear «{q}»'}
                     />
                 </div>
 
