@@ -101,7 +101,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 onInput={handleInput}
                 onFocus={() => { isFocused.current = true; }}
                 onBlur={() => { isFocused.current = false; setTimeout(() => { setEmojiOpen(false); setColorOpen(false); }, 150); }}
-                className="w-full px-3 py-2 text-base min-h-[120px] focus:outline-none leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-400 empty:before:pointer-events-none [&_h3]:text-lg [&_h3]:font-bold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                className="w-full px-3 py-2 text-base min-h-[120px] max-h-[70vh] resize-y overflow-auto focus:outline-none leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-neutral-400 empty:before:pointer-events-none [&_h3]:text-lg [&_h3]:font-bold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
                 data-placeholder={placeholder}
                 suppressContentEditableWarning
             />
