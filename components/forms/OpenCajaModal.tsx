@@ -7,15 +7,26 @@ import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
+/** Caja elegible en el selector del modal (incluye el amarre de terminal para avisar, sin bloquear). */
+export interface SelectableCaja {
+    id: string;
+    name: string;
+    assignedDeviceName?: string | null;
+}
+
 interface OpenCajaModalProps {
     isOpen: boolean;
     onClose: () => void;
     caja: CajaWithSession | { id: string; name: string } | null;
     /** Callback con la sesión recién abierta. El padre puede refrescar listas. */
     onOpened?: (session: CajaSession) => void;
+    /** Lista de cajas entre las que el usuario puede elegir (misma sucursal). Si hay >1 se muestra el selector. */
+    cajas?: SelectableCaja[];
+    /** Cambiar la caja seleccionada (el padre actualiza y re-pasa `caja`). */
+    onSelectCaja?: (id: string) => void;
 }
 
-export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, caja, onOpened }) => {
+export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, caja, onOpened, cajas, onSelectCaja }) => {
     const { t } = useTranslation();
     const [openingFloat, setOpeningFloat] = useState<string>('');
     const [notes, setNotes] = useState('');
@@ -30,7 +41,14 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
         }
     }, [isOpen]);
 
+    // Al cambiar de caja (desde el selector), limpia el error de la caja anterior.
+    useEffect(() => { setError(null); }, [caja?.id]);
+
     if (!caja) return null;
+
+    // Aviso (no bloqueante) si la caja elegida está amarrada a otra terminal.
+    const selectedInfo = cajas?.find(c => c.id === caja.id);
+    const assignedTerminal = selectedInfo?.assignedDeviceName || null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,6 +93,34 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                     <div className="p-3 rounded-md bg-red-50 border border-red-200 flex items-center text-red-700 text-sm">
                         <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" />
                         {error}
+                    </div>
+                )}
+
+                {/* Selector de caja: permite elegir otra caja sin salir del POS (p. ej. si ésta
+                    está amarrada a otra terminal). Solo se muestra cuando hay más de una opción. */}
+                {cajas && cajas.length > 1 && onSelectCaja && (
+                    <div>
+                        <label className="block text-sm font-medium">{t('cmpx.opencaja.choose_caja')}</label>
+                        <select
+                            value={caja.id}
+                            onChange={(e) => onSelectCaja(e.target.value)}
+                            className={`${inputFormStyle} mt-1`}
+                        >
+                            {cajas.map(c => (
+                                <option key={c.id} value={c.id}>
+                                    {c.name}{c.assignedDeviceName ? ` — ${c.assignedDeviceName}` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {/* Aviso NO bloqueante: la caja elegida está amarrada a otra terminal. El backend
+                    rechazará abrirla aquí, pero el usuario puede elegir otra caja arriba. */}
+                {assignedTerminal && (
+                    <div className="p-3 rounded-md bg-amber-50 border border-amber-200 flex items-start text-amber-700 text-sm">
+                        <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" />
+                        <span>{t('cmpx.opencaja.terminal_warn', { name: assignedTerminal })}</span>
                     </div>
                 )}
 

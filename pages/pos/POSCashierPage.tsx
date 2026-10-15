@@ -1380,6 +1380,8 @@ export const POSCashierPage: React.FC = () => {
                 onClose={() => navigate('/pos/cajas')}
                 caja={{ id: currentCajaForOpen.id, name: currentCajaForOpen.name }}
                 onOpened={handleShiftOpened}
+                cajas={cajasInSelectedBranch.map(c => ({ id: c.id, name: c.name, assignedDeviceName: (c as any).assignedDeviceName ?? null }))}
+                onSelectCaja={chooseCaja}
             />
         );
     }
