@@ -81,8 +81,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
 
                 {/* Menú de acciones */}
                 <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={(e) => { e.stopPropagation(); setActionsOpen(!actionsOpen); }} className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 dark:bg-neutral-900/80 text-neutral-500 dark:text-neutral-300 hover:text-neutral-800 dark:hover:text-white border border-neutral-200 dark:border-neutral-600 shadow-sm backdrop-blur-sm focus:outline-none" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`}>
-                        <EllipsisVerticalIcon className="w-4 h-4" />
+                    <button onClick={(e) => { e.stopPropagation(); setActionsOpen(!actionsOpen); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-100 hover:bg-primary hover:text-white dark:hover:bg-primary border border-neutral-300 dark:border-neutral-600 shadow-md ring-1 ring-black/5 focus:outline-none focus:ring-2 focus:ring-primary transition-colors" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`} aria-label={t('cmp.productcard.options') || 'Opciones'} title={t('cmp.productcard.options') || 'Opciones'}>
+                        <EllipsisVerticalIcon className="w-5 h-5" />
                     </button>
                     {actionsOpen && (
                         <>
