@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useData } from '../../contexts/DataContext';
@@ -11,7 +11,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { AppModule, UserRole, Notification } from '../../types';
 import { APP_MODULES_CONFIG } from '../../constants';
 import { API_URL } from '../../services/api';
-import { MenuIcon, UserCircleIcon, ChevronDownIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon, PlusIcon } from '../icons';
+import { MenuIcon, UserCircleIcon, ChevronDownIcon, ChevronRightIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon, PlusIcon } from '../icons';
 import { AddAccountModal } from '../AddAccountModal';
 import { timeclockService } from '../../services/timeclock';
 import { QuickSettingsButton } from '../ui/QuickSettingsButton';
@@ -70,6 +70,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
   const { t } = useTranslation(); // Use hook
   const { settings } = useGlobalSettings();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Nombre de la sección/página actual, para el breadcrump del navbar (match más específico por ruta).
+  const currentPageName = useMemo(() => {
+    const mod = APP_MODULES_CONFIG.find(m => m.name === currentModule) as any;
+    if (!mod) return '';
+    const lists: any[] = [
+      ...(mod.subModulesTienda || []), ...(mod.subModulesProject || []),
+      ...(mod.subModulesPOS || []), ...(mod.subModulesEcommerce || []),
+      ...(mod.subModulesLeads || []), ...(mod.subModulesAdmin || []),
+      ...(mod.subModulesProjectClient || []),
+    ];
+    let best = '', bestLen = 0;
+    const walk = (items: any[]) => items.forEach(it => {
+      if (it.type === 'group') walk(it.children || []);
+      else if (it.path && location.pathname.startsWith(it.path) && it.path.length > bestLen) { best = it.name; bestLen = it.path.length; }
+    });
+    walk(lists);
+    return best ? t(best) : '';
+  }, [currentModule, location.pathname, t]);
 
   // Logo del negocio (arriba a la derecha). Fuente: GlobalSettings.receiptConfig.
   const rc = settings.receiptConfig || ({} as any);
@@ -210,18 +230,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
     }
   };
   
-  const moduleLabelColors: Record<AppModule, string> = {
-    [AppModule.TIENDA]: 'bg-purple-500',
-    [AppModule.PROJECT_MANAGEMENT]: 'bg-blue-500',
-    [AppModule.POS]: 'bg-teal-500',
-    [AppModule.ECOMMERCE]: 'bg-amber-500',
-    [AppModule.LEADS]: 'bg-rose-500',
-    [AppModule.ADMINISTRACION]: 'bg-slate-600',
-    [AppModule.PROJECT_CLIENT_DASHBOARD]: 'bg-gray-500', 
-  };
-  const moduleLabelColorClass = moduleLabelColors[currentModule] || 'bg-gray-500'; 
-
-
   return (
     <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]">
       <div className="mx-auto flex items-center justify-between h-full px-2 sm:px-4"> 
@@ -303,11 +311,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
             <img src={logoWhite} alt="Pazzi Logo" className="h-6 sm:h-9 hidden dark:block" />
           </Link>
 
-          {/* Module Label */}
+          {/* Breadcrumb: Módulo › Sección actual */}
           { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
-            <div className={`hidden md:flex items-center px-2.5 py-1 rounded-md text-base font-semibold text-white ${moduleLabelColorClass}`}>
-                {t(`module.${currentModule}`)}
-            </div>
+            <nav className="hidden md:flex items-center gap-1.5 text-sm min-w-0 ml-1" aria-label="breadcrumb">
+                <Link to={hubPath(currentModule)} className="font-medium text-neutral-700 dark:text-neutral-200 hover:text-primary truncate">{t(`module.${currentModule}`)}</Link>
+                {currentPageName && (
+                    <>
+                        <ChevronRightIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                        <span className="text-neutral-500 dark:text-neutral-400 truncate">{currentPageName}</span>
+                    </>
+                )}
+            </nav>
           }
           
           {/* Client Project Nav Links */}
