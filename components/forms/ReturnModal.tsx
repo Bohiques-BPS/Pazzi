@@ -21,7 +21,7 @@ interface ReturnItemDetails {
 interface ReturnModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onProcessReturn: (originalSaleId: string, itemsToReturn: (CartItem & { customRefundAmount?: number; returnToStock: boolean })[], reason: string, adminPassword: string) => void;
+    onProcessReturn: (originalSaleId: string, itemsToReturn: (CartItem & { customRefundAmount?: number; returnToStock: boolean })[], reason: string, adminPassword: string, refundMethod: string) => void;
 }
 
 export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onProcessReturn }) => {
@@ -33,6 +33,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
     const [itemsToReturnDetails, setItemsToReturnDetails] = useState<Map<string, ReturnItemDetails>>(new Map());
     const [reason, setReason] = useState('');
     const [adminPassword, setAdminPassword] = useState('');
+    const [refundMethod, setRefundMethod] = useState('Efectivo'); // Caja 4: reembolso según pago original
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -43,9 +44,22 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
             setItemsToReturnDetails(new Map());
             setReason('');
             setAdminPassword('');
+            setRefundMethod('Efectivo');
             setError('');
         }
     }, [isOpen]);
+
+    // Caja 4: al encontrar la venta, sugiere el método de reembolso según cómo se PAGÓ la factura
+    // (si se pagó con tarjeta, se reembolsa a tarjeta; si fue efectivo, a efectivo).
+    useEffect(() => {
+        if (foundSale?.paymentMethod) setRefundMethod(foundSale.paymentMethod);
+    }, [foundSale]);
+
+    // Opciones de reembolso: el método original + Efectivo/Tarjeta (sin duplicar).
+    const refundOptions = useMemo(() => {
+        const opts = [foundSale?.paymentMethod, 'Efectivo', 'Tarjeta'].filter(Boolean) as string[];
+        return Array.from(new Set(opts));
+    }, [foundSale]);
 
     const handleFindSale = () => {
         setError('');
@@ -259,7 +273,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
 
         setAuthorizing(false);
         // Pasamos el PIN ya verificado al callback (que llamará al endpoint /sales/:id/return)
-        onProcessReturn(foundSale.id, itemsForProcessing, reason, adminPassword);
+        onProcessReturn(foundSale.id, itemsForProcessing, reason, adminPassword, refundMethod);
     };
 
     const client = foundSale ? getClientById(foundSale.clientId || '') : null;
@@ -359,8 +373,17 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                             </div>
                         </div>
 
-                        <div className="text-right text-xl font-bold text-red-600 dark:text-red-400">
-                            {t('cmpx.return.total_refund', { amount: totalRefundAmount.toFixed(2) })}
+                        <div className="flex flex-wrap items-end justify-between gap-3">
+                            <div>
+                                <label className="block text-sm font-medium">{t('cmpx.return.refund_method')}</label>
+                                <select value={refundMethod} onChange={e => setRefundMethod(e.target.value)} className={`${inputFormStyle} !text-sm`}>
+                                    {refundOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <p className="text-xs text-neutral-500 mt-1">{t('cmpx.return.refund_method_hint')}</p>
+                            </div>
+                            <div className="text-right text-xl font-bold text-red-600 dark:text-red-400">
+                                {t('cmpx.return.total_refund', { amount: totalRefundAmount.toFixed(2) })}
+                            </div>
                         </div>
 
                         <div>

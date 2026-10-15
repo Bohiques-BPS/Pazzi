@@ -1184,7 +1184,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                                             <div className="flex gap-2">
                                                 <div className="flex-grow">
                                                     <label className="block text-xs font-medium">{t('product.field.variation_price')}</label>
-                                                    <input type="number" value={newVariation.unitPrice} onChange={e => setNewVariation(prev => ({...prev, unitPrice: parseFloat(e.target.value)}))} className={inputFormStyle} step="0.01" min="0" />
+                                                    {/* Gral 3: MoneyInput en vez de <input type=number> con parseFloat inmediato,
+                                                        que descartaba el "." al escribir (p. ej. "100." → 100). */}
+                                                    <MoneyInput
+                                                        value={newVariation.unitPrice ?? ''}
+                                                        onChange={v => setNewVariation(prev => ({ ...prev, unitPrice: v === '' ? 0 : Number(v) }))}
+                                                        className={inputFormStyle}
+                                                    />
                                                 </div>
                                                 <button type="button" onClick={handleAddVariation} className={`${BUTTON_PRIMARY_SM_CLASSES} h-12 mt-auto`}>{t('common.add')}</button>
                                             </div>

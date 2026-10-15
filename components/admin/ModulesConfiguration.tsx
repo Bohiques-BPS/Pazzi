@@ -60,6 +60,7 @@ export const ModulesConfiguration: React.FC = () => {
     };
 
     return (
+      <div className="space-y-6">
         <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-semibold text-primary mb-1 flex items-center">
                 <Squares2X2Icon className="w-5 h-5 mr-2" />
@@ -104,5 +105,36 @@ export const ModulesConfiguration: React.FC = () => {
                 })}
             </div>
         </div>
+
+        {/* Ajustes de Facturación del negocio */}
+        <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold text-primary mb-1 flex items-center">
+                <CashBillIcon className="w-5 h-5 mr-2" />
+                Facturación
+            </h2>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+                Controles de edición de facturas del módulo Facturas.
+            </p>
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <h4 className="font-medium text-neutral-800 dark:text-neutral-100">Permitir editar facturas ya pagadas</h4>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                        Si está activo, se podrán editar facturas en estado <strong>Pagada</strong>. Por defecto están
+                        bloqueadas para proteger el historial. (Las facturas canceladas nunca se editan.)
+                    </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input
+                        type="checkbox"
+                        checked={!!settings.allowEditPaidInvoices}
+                        onChange={(e) => updateSettings({ allowEditPaidInvoices: e.target.checked })}
+                        className="sr-only peer"
+                        aria-label="Permitir editar facturas ya pagadas"
+                    />
+                    <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 dark:peer-focus:ring-primary/80 rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-neutral-600 peer-checked:bg-primary"></div>
+                </label>
+            </div>
+        </div>
+      </div>
     );
 };

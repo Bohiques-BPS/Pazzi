@@ -251,7 +251,6 @@ export const POSCashierPage: React.FC = () => {
     // Intento de venta guardado para reintentar como sobreventa (cuando falla por stock).
     const [pendingSaleRetry, setPendingSaleRetry] = useState<{ payments: { method: string; amount: number; reference?: string }[]; changeDue?: number } | null>(null);
     // Menú "Opciones" del cliente activo (pagar cuenta, ver estado de cuenta).
-    const [clientMenuOpen, setClientMenuOpen] = useState(false);
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
     // Producto de precio manual esperando que el cajero ingrese el precio.
@@ -307,8 +306,13 @@ export const POSCashierPage: React.FC = () => {
         const isCashUp = (m: any) =>
             m.id === 'cuadre' || m.type === 'cash_up' || m.type === 'daily_close' ||
             (m.name || '').trim().toLowerCase() === 'cuadre';
+        // Caja 7: "Factura" no es un método de cobro útil en el cajero (cerraba la venta igual que
+        // efectivo). Se excluye de la barra inferior por pedido del usuario, liberando el slot F6.
+        const isInvoice = (m: any) =>
+            m.id === 'invoice' || m.type === 'invoice' ||
+            (m.name || '').trim().toLowerCase() === 'factura';
         return (settings.paymentMethods || []).filter(m =>
-            m.enabled && !isCashUp(m) && !bDisabled.includes(m.id) && !cDisabled.includes(m.id)
+            m.enabled && !isCashUp(m) && !isInvoice(m) && !bDisabled.includes(m.id) && !cDisabled.includes(m.id)
         );
     }, [settings.paymentMethods, settings.paymentMethodScopes, selectedBranchId, selectedCajaId]);
     // True once useEffect([branches, cajas]) has run with loaded data.
@@ -969,12 +973,35 @@ export const POSCashierPage: React.FC = () => {
         // El cliente "Público General" no puede comprar a crédito (hay que poder cobrarle después).
         const isGeneral = !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID;
         const methodObj = enabledMethods.find(mm => mm.name === method);
-        if (isGeneral && (methodObj?.type === 'credit' || /crédito|credito/i.test(method))) {
+        const isCreditMethod = methodObj?.type === 'credit' || /crédito|credito/i.test(method);
+        if (isGeneral && isCreditMethod) {
             setPosError(t('posx.cashier.credit_requires_client') || 'El cliente "Público General" no puede realizar transacciones a crédito. Selecciona o crea un cliente identificado.');
             return;
         }
+        // Gral 4: bloquear ANTES de procesar si esta venta a crédito excede el límite del cliente
+        // (antes solo lo rechazaba el BE al final). total = total del carrito; saldo y límite vienen
+        // del cliente cargado (outstandingBalance/creditLimit); el BE revalida como respaldo.
+        if (isCreditMethod) {
+            const over = creditLimitExceeded(total);
+            if (over) { setPosError(over); return; }
+        }
         setInitialPaymentMethod(method);
         setActiveModal('payment');
+    };
+
+    // Devuelve un mensaje si cargar `creditCharge` a crédito dejaría al cliente sobre su límite; si no, ''.
+    const creditLimitExceeded = (creditCharge: number): string => {
+        const cli: any = selectedClient;
+        const limit = Number(cli?.creditLimit) || 0;
+        if (!cli || limit <= 0 || creditCharge <= 0) return '';
+        const balance = Number(cli?.outstandingBalance) || 0;
+        if (balance + creditCharge > limit + 0.01) {
+            const available = Math.max(0, limit - balance);
+            return t('posx.cashier.credit_limit_exceeded', {
+                limit: limit.toFixed(2), balance: balance.toFixed(2), available: available.toFixed(2), charge: creditCharge.toFixed(2),
+            }) || `Esta venta a crédito excede el límite del cliente. Límite: $${limit.toFixed(2)}, saldo: $${balance.toFixed(2)}, disponible: $${available.toFixed(2)}.`;
+        }
+        return '';
     };
 
     const handleFinalizeSale = async (payments: { method: string; amount: number; reference?: string }[], changeDue?: number, allowOversell = false) => {
@@ -988,6 +1015,10 @@ export const POSCashierPage: React.FC = () => {
             toast.error(t('posx.cashier.credit_requires_client') || 'El cliente "Público General" no puede realizar transacciones a crédito.');
             return;
         }
+        // Gral 4 (respaldo): bloquear si la porción a crédito excede el límite del cliente.
+        const creditCharge = payments.filter(p => /crédito|credito/i.test(p.method)).reduce((s, p) => s + p.amount, 0);
+        const creditOver = creditLimitExceeded(creditCharge);
+        if (creditOver) { toast.error(creditOver); return; }
 
         const paymentMethodString = payments.length > 1
             ? 'Múltiple'
@@ -1220,18 +1251,25 @@ export const POSCashierPage: React.FC = () => {
     };
 
     const shiftReportData = useMemo(() => {
-        if (!shiftState) return { totalSales: 0, cashSales: 0, cardSales: 0, otherSales: 0, startingCash: 0, payouts: 0, expectedCash: 0 };
+        if (!shiftState) return { totalSales: 0, cashSales: 0, cardSales: 0, otherSales: 0, startingCash: 0, payouts: 0, cashRefunds: 0, expectedCash: 0 };
 
         const shiftSales = sales.filter(s => new Date(s.date) >= new Date(shiftState.startTime!));
-        
-        const totalSales = shiftSales.reduce((sum, s) => sum + s.totalAmount, 0);
-        const cashSales = shiftSales.filter(s => s.paymentMethod === 'Efectivo').reduce((sum, s) => sum + s.totalAmount, 0);
-        const cardSales = shiftSales.filter(s => s.paymentMethod === 'Tarjeta').reduce((sum, s) => sum + s.totalAmount, 0);
-        const otherSales = totalSales - cashSales - cardSales;
-        const payouts = shiftState.payouts.reduce((sum, p) => sum + p.amount, 0);
-        const expectedCash = shiftState.openingAmount + cashSales - payouts;
+        // Caja 3: separar DEVOLUCIONES de las ventas. Las devoluciones se guardan como Sale con
+        // isReturn=true, método 'Efectivo' y monto POSITIVO; si se contaran como ventas, inflarían
+        // el efectivo (se SUMABA la devolución en vez de restarla). Las ventas reales no incluyen
+        // devoluciones, y el efectivo esperado resta los reembolsos en efectivo.
+        const realSales = shiftSales.filter(s => !(s as any).isReturn);
+        const returns = shiftSales.filter(s => (s as any).isReturn);
 
-        return { totalSales, cashSales, cardSales, otherSales, startingCash: shiftState.openingAmount, payouts, expectedCash };
+        const totalSales = realSales.reduce((sum, s) => sum + s.totalAmount, 0);
+        const cashSales = realSales.filter(s => s.paymentMethod === 'Efectivo').reduce((sum, s) => sum + s.totalAmount, 0);
+        const cardSales = realSales.filter(s => s.paymentMethod === 'Tarjeta').reduce((sum, s) => sum + s.totalAmount, 0);
+        const otherSales = totalSales - cashSales - cardSales;
+        const cashRefunds = returns.filter(s => s.paymentMethod === 'Efectivo').reduce((sum, s) => sum + Math.abs(s.totalAmount), 0);
+        const payouts = shiftState.payouts.reduce((sum, p) => sum + p.amount, 0);
+        const expectedCash = shiftState.openingAmount + cashSales - payouts - cashRefunds;
+
+        return { totalSales, cashSales, cardSales, otherSales, startingCash: shiftState.openingAmount, payouts, cashRefunds, expectedCash };
     }, [shiftState, sales]);
 
     const handleEndShift = () => {
@@ -1256,6 +1294,7 @@ export const POSCashierPage: React.FC = () => {
         itemsToReturn: ReturnItemPayload[],
         reason: string,
         _supervisorPin: string,
+        refundMethod: string,
     ) => {
         // La autorización del supervisor se hace ahora dentro del propio ReturnModal
         // (o un POSActionAuthModal previo). Aquí sólo procesamos la devolución contra el BE.
@@ -1268,7 +1307,8 @@ export const POSCashierPage: React.FC = () => {
                     returnToStock: it.returnToStock,
                 })),
                 reason,
-                refundMethod: 'Efectivo',
+                // Caja 4: método de reembolso elegido según el pago original (ya no fijo a 'Efectivo').
+                refundMethod: refundMethod || 'Efectivo',
             });
             toast.success(result.message || t('posx.cashier.return_processed', { amount: result.refundAmount.toFixed(2) }));
             // Resultado del reembolso automático por AgilPay, si aplicó.
@@ -1518,37 +1558,9 @@ export const POSCashierPage: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="flex space-x-2 flex-shrink-0">
-                                        {/* Opciones del cliente: pagar cuenta a crédito / ver estado de cuenta.
-                                            Solo para clientes reales (no "Público General"). */}
-                                        {!(selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID) && (
-                                            <div className="relative">
-                                                <button
-                                                    onClick={() => setClientMenuOpen(o => !o)}
-                                                    className="inline-flex items-center gap-1.5 text-sm font-medium py-2 px-3 rounded-md bg-primary/15 text-primary hover:bg-primary/25 dark:bg-primary/25 border border-primary/30"
-                                                >
-                                                    {t('posx.cashier.client_options')} <span className="text-[10px]">▼</span>
-                                                </button>
-                                                {clientMenuOpen && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-10" onClick={() => setClientMenuOpen(false)} />
-                                                        <div className="absolute right-0 mt-1 z-20 w-52 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-md shadow-lg py-1 text-sm">
-                                                            <button
-                                                                onClick={() => { setClientMenuOpen(false); setActiveModal('clientCredit'); }}
-                                                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
-                                                            >
-                                                                💵 {t('posx.cashier.pay_account')}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => { setClientMenuOpen(false); setActiveModal('clientAccount'); }}
-                                                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
-                                                            >
-                                                                📄 {t('posx.cashier.view_account')}
-                                                            </button>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
+                                        {/* Caja 6: el menú "Opciones de cliente" (Pagar cuenta / Ver estado de cuenta)
+                                            se quitó del cajero por pedido del usuario. Esas acciones siguen disponibles
+                                            desde la cuenta del cliente en el módulo de Clientes. */}
                                         <button onClick={() => setActiveModal('clientSearch')} title={t('posx.cashier.shortcut', { key: 'U' })} className="inline-flex items-center gap-2 text-base font-semibold py-2.5 px-5 rounded-lg shadow-sm bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900 border border-blue-300/60 dark:border-blue-700">{t('posx.cashier.change')} <span className="border border-blue-400/60 rounded px-1.5 text-xs font-bold leading-none">U</span></button>
                                         <button onClick={() => { setSelectedClient(null); setSelectedProjectId(null); setPosError(null); }} className="text-base font-semibold py-2.5 px-5 rounded-lg shadow-sm bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900 border border-red-300/60 dark:border-red-700">{t('posx.cashier.remove')}</button>
                                     </div>
@@ -1995,7 +2007,7 @@ export const POSCashierPage: React.FC = () => {
                     isOpen={activeModal === 'payout'}
                     onClose={() => setActiveModal(null)}
                     cajaId={selectedCajaId}
-                    currentCashInDrawer={(shiftState?.openingAmount || 0) + shiftReportData.cashSales - shiftReportData.payouts}
+                    currentCashInDrawer={shiftReportData.expectedCash}
                     onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
                 />
             )}

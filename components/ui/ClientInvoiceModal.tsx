@@ -9,6 +9,7 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { useData } from '../../contexts/DataContext';
 import { clientDocName } from '../../utils/clientName';
 import { buildInvoiceTaxContext, normalizeTaxRate } from '../../utils/invoiceTax';
+import { splitTax } from '../../utils/taxBreakdown';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
@@ -79,7 +80,7 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
     }, [created]);
 
     // IVU por línea con la misma lógica que Facturas (desglose, productos exentos, cliente exento).
-    const { lineTaxRate } = useMemo(() => buildInvoiceTaxContext(settings, client, products), [settings, client, products]);
+    const { lineTaxRate, bd, stateR, municipalR } = useMemo(() => buildInvoiceTaxContext(settings, client, products), [settings, client, products]);
 
     const setLine = (i: number, patch: Partial<DraftItem>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
     const addLine = () => setLines(ls => [...ls, emptyItem()]);
@@ -195,10 +196,31 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
                             <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.subtotal')}</span>
                             <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTotal)}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.tax_ivu')}</span>
-                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTax)}</span>
-                        </div>
+                        {(() => {
+                            // Gral 1: desglosar IVU Estatal / Municipal cuando el desglose está activo
+                            // (igual que Facturas/factura pública/PDF). Si no, una sola línea de IVU.
+                            const sp = bd ? splitTax(draftTax, stateR, municipalR) : null;
+                            if (sp && sp.municipal > 0) {
+                                return (
+                                    <>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_state')}</span>
+                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.state)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_municipal')}</span>
+                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.municipal)}</span>
+                                        </div>
+                                    </>
+                                );
+                            }
+                            return (
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.tax_ivu')}</span>
+                                    <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTax)}</span>
+                                </div>
+                            );
+                        })()}
                         <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-700">
                             <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.total')}</span>
                             <span className="font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(draftTotal + draftTax)}</span>

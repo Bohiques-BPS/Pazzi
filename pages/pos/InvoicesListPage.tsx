@@ -512,9 +512,15 @@ export const InvoicesListPage: React.FC = () => {
         { header: t('common.date'), sortValue: inv => inv.createdAt, accessor: (inv) => <span className="text-sm text-neutral-600 dark:text-neutral-300 whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</span> },
     ] as TableColumn<Invoice>[], [t, items, navigate]);
 
+    // Una factura es editable si está pendiente/parcial; las PAGADAS solo si el negocio activó el
+    // permiso en Administración (allowEditPaidInvoices). Las canceladas nunca.
+    const canEdit = (inv: Invoice) =>
+        inv.status === 'pending' || inv.status === 'partial' ||
+        (inv.status === 'paid' && !!settings.allowEditPaidInvoices);
+
     const onRowClick = (inv: Invoice) => {
-        if (inv.status === 'pending' || inv.status === 'partial') openEdit(inv);
-        else setShare(inv); // pagadas/canceladas: mostrar link/QR (no editables)
+        if (canEdit(inv)) openEdit(inv);
+        else setShare(inv); // canceladas (o pagadas sin permiso): mostrar link/QR (no editables)
     };
 
     return (
@@ -965,7 +971,7 @@ export const InvoicesListPage: React.FC = () => {
                                 { label: t('posx.invoices.view_link_qr'), onClick: () => setShare(inv), className: 'text-primary' },
                                 { label: t('posx.invoices.copy_link'), onClick: () => copyLink(inv) },
                                 { label: t('posx.invoices.send_email'), onClick: () => sendByEmail(inv), className: 'text-blue-600 dark:text-blue-400' },
-                                { label: t('common.edit'), onClick: () => openEdit(inv), className: 'text-amber-600 dark:text-amber-400', hidden: !(inv.status === 'pending' || inv.status === 'partial') },
+                                { label: t('common.edit'), onClick: () => openEdit(inv), className: 'text-amber-600 dark:text-amber-400', hidden: !canEdit(inv) },
                                 { label: t('posx.invoices.register_payment'), onClick: () => markPaid(inv), className: 'text-green-600 dark:text-green-400', hidden: !(inv.status === 'pending' || inv.status === 'partial') },
                                 { label: t('common.delete'), onClick: () => setToDelete(inv), className: 'text-red-600 dark:text-red-400' },
                             ]} />

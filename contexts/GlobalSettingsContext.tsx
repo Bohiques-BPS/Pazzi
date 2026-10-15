@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     taxStateRate: 0.105,
     taxMunicipalRate: 0.01,
     taxReducedRate: 0.06,
+    allowEditPaidInvoices: false,
 };
 
 // --- Translations Dictionary ---
@@ -87,6 +88,7 @@ export const TRANSLATIONS = {
         'posx.cashier.pin': 'PIN',
         'posx.cashier.wrong_pin': 'PIN incorrecto',
         'posx.cashier.credit_requires_client': 'El cliente "Público General" no puede realizar transacciones a crédito. Selecciona o crea un cliente identificado.',
+        'posx.cashier.credit_limit_exceeded': 'Esta venta a crédito excede el límite del cliente. Límite: ${limit}, saldo actual: ${balance}, disponible: ${available}, nuevo cargo: ${charge}.',
         'posx.receipt.format': 'Formato',
         'posx.receipt.format_receipt': '🧾 Recibo (80mm)',
         'posx.receipt.format_invoice': '📄 Factura (Carta)',
@@ -3346,6 +3348,8 @@ export const TRANSLATIONS = {
         'cmpx.return.reason_label': 'Motivo de la devolución',
         'cmpx.return.reason_ph': 'Escribe el motivo de la devolución…',
         'cmpx.return.refund_amount': 'Monto a reembolsar',
+        'cmpx.return.refund_method': 'Reembolsar en',
+        'cmpx.return.refund_method_hint': 'Sugerido según cómo se pagó la factura.',
         'cmpx.return.return_to_stock': 'Devolver al inventario',
         'cmpx.return.sale_found': 'Venta encontrada:',
         'cmpx.return.sale_num_prefix': 'Venta #',
@@ -3700,6 +3704,7 @@ export const TRANSLATIONS = {
         'posx.cashier.pin': 'PIN',
         'posx.cashier.wrong_pin': 'Incorrect PIN',
         'posx.cashier.credit_requires_client': 'The "General Public" customer cannot make credit transactions. Select or create an identified customer.',
+        'posx.cashier.credit_limit_exceeded': 'This credit sale exceeds the customer\'s limit. Limit: ${limit}, current balance: ${balance}, available: ${available}, new charge: ${charge}.',
         'posx.receipt.format': 'Format',
         'posx.receipt.format_receipt': '🧾 Receipt (80mm)',
         'posx.receipt.format_invoice': '📄 Invoice (Letter)',
@@ -6905,6 +6910,8 @@ export const TRANSLATIONS = {
         'cmpx.return.reason_label': 'Reason for return',
         'cmpx.return.reason_ph': 'Type the reason for the return…',
         'cmpx.return.refund_amount': 'Refund amount',
+        'cmpx.return.refund_method': 'Refund to',
+        'cmpx.return.refund_method_hint': 'Suggested based on how the invoice was paid.',
         'cmpx.return.return_to_stock': 'Return to stock',
         'cmpx.return.sale_found': 'Sale found:',
         'cmpx.return.sale_num_prefix': 'Sale #',
