@@ -112,6 +112,9 @@ export const tasksService = {
   addComment: (id: string, text: string, imageUrl?: string | null) =>
     api.post<TaskCommentRecord>(`/tasks/${id}/comments`, { text, ...(imageUrl ? { imageUrl } : {}) }),
 
+  getComments: (id: string) =>
+    api.get<TaskCommentRecord[]>(`/tasks/${id}/comments`),
+
   delete: (id: string) =>
     api.delete<{ message: string }>(`/tasks/${id}`),
 

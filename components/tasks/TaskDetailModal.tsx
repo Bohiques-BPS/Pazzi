@@ -125,7 +125,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const assigneeName = (uid?: string | null) => uid ? (assigneeOptions.find(o => o.uid === uid)?.name || 'Responsable') : '';
 
     useEffect(() => {
+        // Primero lo que venga en el objeto (muestra algo al instante)…
         setComments(((task as any).comments as TaskCommentRecord[]) || []);
+        // …y luego recarga los comentarios REALES del servidor. Para subtareas (y tras reabrir),
+        // el objeto en memoria puede no traer los comentarios, aunque sí están guardados en la DB.
+        let alive = true;
+        tasksService.getComments(task.id)
+            .then(list => { if (alive && Array.isArray(list)) setComments(list); })
+            .catch(() => { /* sin conexión: se conserva lo que ya había */ });
+        return () => { alive = false; };
     }, [task]);
 
     // Mantener el checklist sincronizado en el estado global (DataContext) para que el badge
