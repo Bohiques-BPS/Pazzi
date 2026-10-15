@@ -337,6 +337,14 @@ export const ReceiptSettingsPage: React.FC = () => {
                                     {boolField('showPaymentMethod', 'Método de pago')}
                                     {boolField('showNotes', 'Notas / términos de línea')}
                                 </div>
+                                {/* Descripción por línea: opt-in (apagado por defecto). */}
+                                <label className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-200 pt-1">
+                                    <input type="checkbox" checked={!!dz.showLineDescription} onChange={e => setDz({ showLineDescription: e.target.checked })} className="h-4 w-4 mt-0.5" />
+                                    <span>
+                                        Mostrar descripción por línea
+                                        <span className="block text-xs text-neutral-500 dark:text-neutral-400">La descripción de cada producto aparece debajo de su nombre en cada fila de la factura.</span>
+                                    </span>
+                                </label>
 
                                 {/* Textos editables de la factura */}
                                 {(() => {

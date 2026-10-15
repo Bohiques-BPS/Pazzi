@@ -14,7 +14,7 @@ import { splitTax } from '../../utils/taxBreakdown';
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const publicLink = (token: string) => `${window.location.origin}/pay/${token}`;
 
-type DraftItem = { name: string; quantity: string; unitPrice: string; taxRate?: number | null };
+type DraftItem = { name: string; quantity: string; unitPrice: string; description?: string; taxRate?: number | null };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
 
 interface ClientInvoiceModalProps {
@@ -58,7 +58,7 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
             setDescription(initialDescription || '');
             setDueDate('');
             setLines(initialItems && initialItems.length
-                ? initialItems.map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), taxRate: it.taxRate ?? undefined }))
+                ? initialItems.map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), description: (it as any).description ?? undefined, taxRate: it.taxRate ?? undefined }))
                 : [emptyItem()]);
             setCreated(null);
             setQr('');
@@ -97,7 +97,7 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
             if (!(p >= 0)) return toast.error(t('cmpx.invoice.price_not_negative'));
             // La tasa se envía como FRACCIÓN por línea para que el total del servidor coincida con el mostrado.
             const raw = lineTaxRate(l);
-            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(raw != null ? { taxRate: normalizeTaxRate(raw) } : {}) });
+            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(l.description?.trim() ? { description: l.description.trim() } : {}), ...(raw != null ? { taxRate: normalizeTaxRate(raw) } : {}) });
         }
         if (parsed.length === 0) return toast.error(t('cmpx.invoice.add_one_item'));
         setSaving(true);
@@ -179,13 +179,17 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
                     <div className="space-y-2">
                         <label className="block text-xs text-neutral-500 dark:text-neutral-400">{t('cmpx.invoice.items')}</label>
                         {lines.map((l, i) => (
-                            <div key={i} className="flex gap-2 items-center">
-                                {/* Al cambiar el nombre se descarta la tasa precargada: se resuelve por el producto del catálogo. */}
-                                <input type="text" value={l.name} onChange={e => setLine(i, { name: e.target.value, taxRate: undefined })} placeholder={t('cmpx.invoice.item_desc_ph')} className={`${INPUT_SM_CLASSES} flex-1`} />
-                                <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('cmpx.invoice.item_qty_ph')} className={`${INPUT_SM_CLASSES} w-20`} />
-                                <input type="number" value={l.unitPrice} onChange={e => setLine(i, { unitPrice: e.target.value })} placeholder={t('cmpx.invoice.item_price_ph')} className={`${INPUT_SM_CLASSES} w-28`} />
-                                <span className="w-24 text-right text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
-                                <button type="button" onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('cmpx.invoice.remove')}>✕</button>
+                            <div key={i} className="flex flex-col gap-1 border-b border-neutral-100 dark:border-neutral-700/60 pb-2">
+                                <div className="flex gap-2 items-center">
+                                    {/* Al cambiar el nombre se descarta la tasa precargada: se resuelve por el producto del catálogo. */}
+                                    <input type="text" value={l.name} onChange={e => setLine(i, { name: e.target.value, taxRate: undefined })} placeholder={t('cmpx.invoice.item_desc_ph')} className={`${INPUT_SM_CLASSES} flex-1`} />
+                                    <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('cmpx.invoice.item_qty_ph')} className={`${INPUT_SM_CLASSES} w-20`} />
+                                    <input type="number" value={l.unitPrice} onChange={e => setLine(i, { unitPrice: e.target.value })} placeholder={t('cmpx.invoice.item_price_ph')} className={`${INPUT_SM_CLASSES} w-28`} />
+                                    <span className="w-24 text-right text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
+                                    <button type="button" onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('cmpx.invoice.remove')}>✕</button>
+                                </div>
+                                {/* Descripción opcional por línea (se muestra debajo del nombre si está activado en Config. Factura). */}
+                                <input type="text" value={l.description || ''} onChange={e => setLine(i, { description: e.target.value })} placeholder={t('cmpx.invoice.item_line_description_ph')} className={`${INPUT_SM_CLASSES} w-full !text-xs`} />
                             </div>
                         ))}
                         <button type="button" onClick={addLine} className="text-sm text-primary hover:underline">{t('cmpx.invoice.add_item')}</button>

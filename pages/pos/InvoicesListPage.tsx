@@ -26,7 +26,7 @@ import { splitTax } from '../../utils/taxBreakdown';
 import { invoicePdfBlobUrl, downloadInvoicePdf, openInvoicePdf, type InvoicePdfBusiness } from '../../utils/invoiceClientPdf';
 import { clientDocName } from '../../utils/clientName';
 
-type DraftItem = { name: string; quantity: string; unitPrice: string; taxRate?: number };
+type DraftItem = { name: string; quantity: string; unitPrice: string; description?: string; taxRate?: number };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
 
 export const InvoicesListPage: React.FC = () => {
@@ -169,7 +169,7 @@ export const InvoicesListPage: React.FC = () => {
         setInvDate(isoAFecha(inv.createdAt));
         setDueDate(inv.dueDate ? isoAFecha(inv.dueDate) : '');
         setProjectId(inv.projectId || '');
-        setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), taxRate: (it as any).taxRate ?? undefined })));
+        setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), description: (it as any).description ?? undefined, taxRate: (it as any).taxRate ?? undefined })));
         setSendOnCreate(false);
         setShowForm(true);
     };
@@ -197,7 +197,7 @@ export const InvoicesListPage: React.FC = () => {
     const previewMergedDesign = { ...gDesign, ...design, labels: { ...(gDesign.labels || {}), ...(design.labels || {}) } };
     const previewRC: any = (settings as any).receiptConfig || {};
     const previewBusiness = { name: previewRC.businessName, logoUrl: previewRC.logoUrl, rnc: previewRC.rnc, address: previewRC.address, phone: previewRC.phone };
-    const previewItems = lines.map(l => ({ name: l.name, quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0 }));
+    const previewItems = lines.map(l => ({ name: l.name, quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0, description: l.description || '' }));
     const previewTax = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
     const previewClientName = invClient ? clientDocName(invClient) : (clientQuery.trim() || undefined); // alias del cliente si lo tiene
 
@@ -228,7 +228,7 @@ export const InvoicesListPage: React.FC = () => {
             // La tasa se envía como FRACCIÓN (0.115). Si viene como % (ej. 11.5), se normaliza.
             const rawRate = lineTaxRate(l);
             const rate = rawRate == null ? null : (rawRate > 1 ? rawRate / 100 : rawRate);
-            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(rate != null ? { taxRate: rate } : {}) });
+            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(l.description?.trim() ? { description: l.description.trim() } : {}), ...(rate != null ? { taxRate: rate } : {}) });
         }
         if (parsed.length === 0) return toast.error(t('posx.invoices.err_no_items'));
 
@@ -716,7 +716,8 @@ export const InvoicesListPage: React.FC = () => {
                     <div className="space-y-2">
                         <label className="block text-xs text-neutral-500">{t('posx.invoices.items')}</label>
                         {lines.map((l, i) => (
-                            <div key={i} className="flex gap-2 items-center">
+                            <div key={i} className="flex flex-col gap-1 border-b border-neutral-100 dark:border-neutral-700/60 pb-2">
+                              <div className="flex gap-2 items-center">
                                 <div className="relative flex-1">
                                     <input
                                         type="text"
@@ -754,6 +755,9 @@ export const InvoicesListPage: React.FC = () => {
                                 <div className="w-32"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={INPUT_SM_CLASSES} /></div>
                                 <span className="w-24 text-right text-sm text-neutral-500">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
                                 <button onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
+                              </div>
+                              {/* Descripción opcional por línea (sale debajo del nombre si está activado en Config. Factura). */}
+                              <input type="text" value={l.description || ''} onChange={e => setLine(i, { description: e.target.value })} placeholder={t('cmpx.invoice.item_line_description_ph')} className={`${INPUT_SM_CLASSES} w-full !text-xs`} />
                             </div>
                         ))}
                         <div className="flex items-center gap-4">

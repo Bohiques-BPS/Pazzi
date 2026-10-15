@@ -23,7 +23,7 @@ interface Props {
     business: { name?: string; logoUrl?: string; rnc?: string; address?: string; phone?: string };
     clientName?: string;
     notes?: string;
-    items: { name: string; quantity: number; unitPrice: number }[];
+    items: { name: string; quantity: number; unitPrice: number; description?: string }[];
     subtotal: number;
     tax: number;
     total: number;
@@ -104,7 +104,12 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
                         <div className="text-center text-neutral-300 py-3 text-[11px]">Agrega artículos para verlos aquí…</div>
                     ) : rows.map((it, i) => (
                         <div key={i} className="grid grid-cols-12 gap-1 py-1 border-b border-neutral-100">
-                            <div className="col-span-6 px-2 truncate">{it.name}</div>
+                            <div className="col-span-6 px-2">
+                                <div className="truncate">{it.name}</div>
+                                {(d as any).showLineDescription && (it as any).description && (
+                                    <div className="text-[10px] text-neutral-500 whitespace-pre-wrap">{(it as any).description}</div>
+                                )}
+                            </div>
                             <div className="col-span-2 text-center">{it.quantity}</div>
                             <div className="col-span-2 text-right">{money(it.unitPrice)}</div>
                             <div className="col-span-2 text-right px-2">{money(it.quantity * it.unitPrice)}</div>

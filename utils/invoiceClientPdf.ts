@@ -24,6 +24,8 @@ export interface InvoicePdfBusiness {
         showEmail?: boolean;
         showRnc?: boolean;
         showClient?: boolean;
+        /** Mostrar la descripción de cada línea debajo del nombre del producto. */
+        showLineDescription?: boolean;
     };
 }
 
@@ -108,12 +110,15 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
 
     // Tabla de artículos.
     const items = Array.isArray(inv.items) ? inv.items : [];
+    const showLineDesc = !!biz.design?.showLineDescription;
     autoTable(doc, {
         startY: y,
         head: [['Producto', 'Cant', 'Precio Unit.', 'Total']],
         body: items.map((it: any) => {
             const q = Number(it.quantity) || 0, u = Number(it.unitPrice) || 0;
-            return [String(it.name || ''), String(q), money(u), money(q * u)];
+            // Descripción por línea (opcional): en su propia línea debajo del nombre.
+            const desc = showLineDesc && it.description ? `\n${String(it.description).trim()}` : '';
+            return [String(it.name || '') + desc, String(q), money(u), money(q * u)];
         }),
         styles: { fontSize: 9, cellPadding: 5 },
         headStyles: { fillColor: header, textColor: 255, fontStyle: 'bold' },

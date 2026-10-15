@@ -5,6 +5,8 @@ export interface InvoiceItemInput {
     name: string;
     quantity: number;
     unitPrice: number;
+    /** Descripción opcional de la línea (se muestra debajo del nombre si está activado en Config. Factura). */
+    description?: string | null;
     /** Tasa de IVU por línea (fracción). 0 = producto exento. Omitido = tasa por defecto del negocio. */
     taxRate?: number | null;
 }

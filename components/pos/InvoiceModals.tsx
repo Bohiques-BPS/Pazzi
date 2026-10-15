@@ -268,6 +268,7 @@ export function invoicePdfBusinessFromSettings(settings: any): InvoicePdfBusines
         // Granulares: usa el toggle del diseño de factura; si no está definido, cae al del recibo.
         showAddress: id.showAddress ?? rc.showAddress, showPhone: id.showPhone ?? rc.showPhone,
         showEmail: id.showEmail ?? rc.showEmail, showRnc: id.showRnc ?? rc.showRnc,
+        showLineDescription: id.showLineDescription,
     };
     // Tasas IVU para desglosar Estatal/Municipal en el PDF (solo si el breakdown está activo).
     const taxStateRate = settings?.taxBreakdownEnabled ? (Number(settings.taxStateRate) || 0) : 0;
