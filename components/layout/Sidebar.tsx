@@ -214,45 +214,50 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
 
   return (
     <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
-      {/* Logo (arriba del sidebar, alto completo). Mismo alto que el navbar para que alineen. */}
-      <Link to="/" className="flex items-center h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
-        <img src={logo}      alt="Pazzi" className="h-7 sm:h-9 dark:hidden" />
-        <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
-      </Link>
-      {/* Selector de MÓDULO (antes estaba en el navbar). Muestra el módulo actual y permite cambiar. */}
+      {/* Encabezado: selector de módulo (ícono de cuadritos) a la IZQUIERDA del logo. */}
+      <div className="flex items-center gap-2 h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+        {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
+          <div className="relative flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setModuleMenuOpen(o => !o)}
+              className="flex items-center justify-center p-2 rounded-md border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+              aria-haspopup="true"
+              aria-expanded={moduleMenuOpen}
+              aria-label={t('cmp.navbar.select_module') || 'Seleccionar módulo'}
+              title={t('cmp.navbar.select_module') || 'Seleccionar módulo'}
+            >
+              <Squares2X2Icon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+            </button>
+            {moduleMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setModuleMenuOpen(false)} />
+                <div className="absolute left-0 mt-2 z-20 w-56 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
+                  {availableModules.map(mod => (
+                    <button
+                      key={mod.name}
+                      type="button"
+                      onClick={() => pickModule(mod.name as AppModule)}
+                      className={`block w-full text-left px-3 py-2 text-sm transition-colors ${mod.name === currentModule ? 'bg-primary/10 text-primary dark:text-teal-300 font-medium' : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+                    >
+                      {t(`module.${mod.name}`)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        <Link to="/" className="flex items-center min-w-0">
+          <img src={logo}      alt="Pazzi" className="h-7 sm:h-9 dark:hidden" />
+          <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
+        </Link>
+      </div>
+      {/* Título del módulo (como estaba) → enlaza a la vista principal del módulo. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
-        <div className="relative px-1 mb-2">
-          <button
-            type="button"
-            onClick={() => setModuleMenuOpen(o => !o)}
-            className="w-full flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/40 hover:border-primary/40 transition-colors"
-            aria-haspopup="true"
-            aria-expanded={moduleMenuOpen}
-          >
-            <span className="flex items-center gap-2 min-w-0">
-              <Squares2X2Icon className="w-[18px] h-[18px] flex-shrink-0 text-primary/80 dark:text-teal-300/90" />
-              <span className="text-base font-bold text-neutral-800 dark:text-neutral-100 truncate">{t(`module.${currentModule}`)}</span>
-            </span>
-            <ChevronDownIcon className={`w-4 h-4 flex-shrink-0 text-neutral-400 transition-transform ${moduleMenuOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {moduleMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setModuleMenuOpen(false)} />
-              <div className="absolute left-1 right-1 mt-1 z-20 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
-                {availableModules.map(mod => (
-                  <button
-                    key={mod.name}
-                    type="button"
-                    onClick={() => pickModule(mod.name as AppModule)}
-                    className={`block w-full text-left px-3 py-2 text-sm transition-colors ${mod.name === currentModule ? 'bg-primary/10 text-primary dark:text-teal-300 font-medium' : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
-                  >
-                    {t(`module.${mod.name}`)}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <Link to={hubPath(currentModule)} className="block px-3 pt-1 pb-2 mb-1 group" title={t('hub.go') || 'Ver todas las secciones'}>
+          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
+        </Link>
       )}
       <nav className="space-y-0.5">
         {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
