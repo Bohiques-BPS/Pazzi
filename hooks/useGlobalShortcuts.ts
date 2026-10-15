@@ -53,8 +53,11 @@ export function useGlobalShortcuts({ onShowHelp, onSearch, enabled = true }: Use
         return;
       }
 
-      // Alt + 1..5 → módulos
-      if (e.altKey && !ctrlOrMeta && !e.shiftKey) {
+      // Alt + 1..5 → módulos. SOLO fuera de campos de texto y SOLO con los dígitos de la fila
+      // superior (code Digit1..Digit5), nunca el teclado numérico. Así no choca con los códigos
+      // Alt+numpad que se usan para escribir la ñ y los acentos (p. ej. Alt+164 = ñ, Alt+130 = é),
+      // que antes disparaban la navegación y "sacaban" al usuario de donde estaba escribiendo.
+      if (e.altKey && !ctrlOrMeta && !e.shiftKey && !typing && /^Digit[1-5]$/.test(e.code)) {
         const moduleByKey: Record<string, string> = {
           '1': '/',
           '2': '/pm/products',
