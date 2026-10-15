@@ -1,6 +1,5 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Project, ProjectStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -81,19 +80,19 @@ export const ProjectsListPage: React.FC = () => {
         setShowDeleteConfirmModal(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (!itemToDeleteId) { setShowDeleteConfirmModal(false); return; }
         const id = itemToDeleteId;
-        const item = projects.find(p => p.id === id);
         setItemToDeleteId(null);
         setShowDeleteConfirmModal(false);
-        deleteWithUndo({
-            label: t('entity.project'),
-            optimisticRemove: () => setProjects(prev => prev.filter(p => p.id !== id)),
-            restore: () => setProjects(prev => (item && !prev.some(p => p.id === id)) ? [item, ...prev] : prev),
-            apiDelete: () => projectsService.delete(id),
-            errorMessage: t('pm2x.project.delete_error'),
-        });
+        // Borrado IRREVERSIBLE (sin undo): ya se confirmó escribiendo el nombre/"eliminar".
+        try {
+            await projectsService.delete(id);
+            setProjects(prev => prev.filter(p => p.id !== id));
+            toast.success(t('pm2x.project.deleted'));
+        } catch (e: any) {
+            toast.error(e?.message || t('pm2x.project.delete_error'));
+        }
     };
 
     const handleGenerateInvoice = async (project: Project) => {
@@ -328,10 +327,9 @@ export const ProjectsListPage: React.FC = () => {
                 title={t('pm2x.project.confirm_delete_title')}
                 message={(() => {
                     const name = projects.find(p => p.id === itemToDeleteId)?.name || '';
-                    return name
-                        ? t('confirm.delete.named_item', { item: t('confirm.delete.def.project'), name })
-                        : t('confirm.delete.named', { item: t('confirm.delete.n.project') });
+                    return t('pm2x.project.confirm_delete_irreversible', { name });
                 })()}
+                confirmPhrase={projects.find(p => p.id === itemToDeleteId)?.name || undefined}
                 confirmButtonText={t('pm2x.common.yes_delete')}
             />
 

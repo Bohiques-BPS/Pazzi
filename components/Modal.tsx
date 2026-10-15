@@ -137,6 +137,9 @@ export interface ConfirmationModalProps {
     message: React.ReactNode;
     confirmButtonText?: string;
     cancelButtonText?: string;
+    /** Si se indica, obliga a ESCRIBIR esta frase (o la palabra "eliminar") para habilitar el botón.
+     *  Para borrados irreversibles (p. ej. un proyecto): confirmación extra anti-accidente. */
+    confirmPhrase?: string;
 }
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     isOpen,
@@ -145,15 +148,26 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     title,
     message,
     confirmButtonText,
-    cancelButtonText
+    cancelButtonText,
+    confirmPhrase,
 }) => {
     const { t } = useTranslation();
+    const [typed, setTyped] = useState('');
+    useEffect(() => { if (!isOpen) setTyped(''); }, [isOpen]);
+    const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+    // Con confirmPhrase, el botón se habilita al escribir la frase o la palabra "eliminar"/"delete".
+    const canConfirm = !confirmPhrase
+        || norm(typed) === norm(confirmPhrase)
+        || norm(typed) === 'eliminar'
+        || norm(typed) === 'delete';
     // Enter → botón principal (confirmar). Escape → cancelar (lo maneja el Modal base).
     const confirmingRef = useRef(false);
     useEffect(() => {
         if (!isOpen) { confirmingRef.current = false; return; }
         const handler = (e: KeyboardEvent) => {
             if (e.key !== 'Enter') return;
+            // Con confirmación escrita, el Enter NO confirma solo (hay que escribir y pulsar el botón).
+            if (confirmPhrase) return;
             // No interceptar Enter cuando el foco está en un campo editable.
             const el = document.activeElement as HTMLElement | null;
             if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return;
@@ -165,7 +179,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         };
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
-    }, [isOpen, onConfirm, onClose]);
+    }, [isOpen, onConfirm, onClose, confirmPhrase]);
 
     if (!isOpen) return null;
 
@@ -175,7 +189,22 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 dark:bg-yellow-500/30 mb-4">
                     <ExclamationTriangleIcon />
                 </div>
-                <div className="text-neutral-600 dark:text-neutral-300 mb-6 text-center text-base">{message}</div>
+                <div className="text-neutral-600 dark:text-neutral-300 mb-4 text-center text-base">{message}</div>
+                {confirmPhrase && (
+                    <div className="mb-5">
+                        <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1 text-center">
+                            {t('cmp.modal.type_to_confirm', { phrase: confirmPhrase })}
+                        </label>
+                        <input
+                            type="text"
+                            value={typed}
+                            onChange={e => setTyped(e.target.value)}
+                            placeholder={confirmPhrase}
+                            autoFocus
+                            className="w-full px-3 py-2 rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-center"
+                        />
+                    </div>
+                )}
                 <div className="flex justify-center space-x-4">
                     <button
                         onClick={onClose}
@@ -184,8 +213,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                         {cancelButtonText ?? t('common.cancel')}
                     </button>
                     <button
-                        onClick={() => { onConfirm(); onClose(); }}
-                        className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-md text-base shadow-sm transition-colors duration-150"
+                        onClick={() => { if (!canConfirm) return; onConfirm(); onClose(); }}
+                        disabled={!canConfirm}
+                        className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-1.5 px-3 rounded-md text-base shadow-sm transition-colors duration-150"
                     >
                         {confirmButtonText ?? t('common.confirm')}
                     </button>
