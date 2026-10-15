@@ -256,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
       {/* Título del módulo → enlaza a la vista principal del módulo. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
         <Link to={hubPath(currentModule)} className="block px-2 pt-1 pb-3 mb-2 border-b border-neutral-200 dark:border-neutral-700 group" title={t('hub.go') || 'Ver todas las secciones'}>
-          <span className="text-xl font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary tracking-tight">{t(`module.${currentModule}`)}</span>
+          <span className="text-base font-bold text-primary group-hover:opacity-80 tracking-tight">{t(`module.${currentModule}`)}</span>
         </Link>
       )}
       <nav className="space-y-0.5">

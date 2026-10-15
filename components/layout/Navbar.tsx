@@ -14,7 +14,7 @@ import { API_URL } from '../../services/api';
 import { MenuIcon, UserCircleIcon, ChevronDownIcon, ChevronRightIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon, PlusIcon } from '../icons';
 import { AddAccountModal } from '../AddAccountModal';
 import { timeclockService } from '../../services/timeclock';
-import { QuickSettingsButton } from '../ui/QuickSettingsButton';
+import { QuickSettingsPanel } from '../ui/QuickSettingsButton';
 import { NavCommand } from './NavCommand';
 import { JoinRequestDecisionModal, parseJoinRequestLink, type JoinRequestTarget } from '../pm/JoinRequestDecisionModal';
 import { hubPath } from '../../utils/moduleNav';
@@ -242,10 +242,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('cmp.navbar.punch_label') || 'Ponche'}</span>
              </button>
            )}
-           {/* Configuración rápida: tema e idioma */}
-           {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
-             <QuickSettingsButton buttonClassName="p-1.5 sm:p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-600 dark:text-slate-300" />
-           )}
+           {/* El engranaje de configuración rápida se movió al menú de la cuenta (dropdown). */}
            {/* Notification Bell */}
            {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
             <div className="relative" ref={notifRef}>
@@ -393,6 +390,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                 >
                     <UserCircleIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.profile') || 'Mi perfil'}
                 </Link>
+                {/* Configuración rápida (tema e idioma) — antes estaba en el engranaje del navbar. */}
+                {currentUser && currentUser.role !== UserRole.CLIENT_ECOMMERCE && (
+                    <div className="border-t border-neutral-200 dark:border-neutral-600 mt-1 pt-2 px-4 pb-1" onClick={(e) => e.stopPropagation()}>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-400 mb-2">{t('nav.configuration') || 'Configuración'}</p>
+                        <QuickSettingsPanel />
+                    </div>
+                )}
                 <button
                     onClick={() => {handleLogout(); setUserDropdownOpen(false);}}
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
