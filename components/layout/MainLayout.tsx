@@ -12,8 +12,17 @@ import { useModules } from '../../hooks/useModules';
 import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { recordPageVisit } from '../../utils/pageTracker';
 
+const SIDEBAR_COLLAPSED_KEY = 'pazzi_sidebar_collapsed';
+
 export const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Colapso del sidebar en ESCRITORIO (persistido por dispositivo). true = oculto.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0'); } catch { /* almacenamiento no disponible */ }
+  }, [sidebarCollapsed]);
   const appContextValue = useAppContext();
   const { currentUser } = useAuth();
   const { isModuleEnabled } = useModules();
@@ -105,16 +114,17 @@ export const MainLayout: React.FC = () => {
 
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const toggleCollapse = () => setSidebarCollapsed(c => !c);
   const isPOSCashierPage = location.pathname === '/pos/cashier';
 
 
   return (
     <div className="flex flex-col min-h-screen">
-      {!isPOSCashierPage && <Navbar onToggleSidebar={toggleSidebar} currentModule={currentModule} setCurrentModule={setCurrentModule} />}
+      {!isPOSCashierPage && <Navbar onToggleSidebar={toggleSidebar} onToggleCollapse={toggleCollapse} sidebarCollapsed={sidebarCollapsed} currentModule={currentModule} setCurrentModule={setCurrentModule} />}
       <div className={`flex flex-1 ${!isPOSCashierPage ? 'pt-[65px]' : ''}`}>
-        {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} currentModule={currentModule} setSidebarOpen={setSidebarOpen} />}
-        <main className={`flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 overflow-y-auto ${!isPOSCashierPage ? 'lg:ml-72 h-[calc(100vh-65px)]' : ''} ${isPOSCashierPage ? '' : 'p-6'}`}>
-          <Outlet /> 
+        {!isPOSCashierPage && <Sidebar isOpen={sidebarOpen} collapsed={sidebarCollapsed} currentModule={currentModule} setSidebarOpen={setSidebarOpen} />}
+        <main className={`flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 overflow-y-auto ${!isPOSCashierPage ? `h-[calc(100vh-65px)] ${sidebarCollapsed ? '' : 'lg:ml-72'}` : ''} ${isPOSCashierPage ? '' : 'p-6'}`}>
+          <Outlet />
         </main>
       </div>
     </div>

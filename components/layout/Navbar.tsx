@@ -24,9 +24,12 @@ import logoWhite from '../../assets/logo_white.png';
 
 interface NavbarProps {
     onToggleSidebar: () => void;
+    /** Colapsar/mostrar el sidebar en escritorio (persistido). */
+    onToggleCollapse?: () => void;
+    sidebarCollapsed?: boolean;
     currentModule: AppModule;
     setCurrentModule: (module: AppModule) => void;
-} 
+}
 
 // Helper to format time relatively (simplified)
 const formatRelativeTime = (isoTimestamp: string) => {
@@ -46,7 +49,7 @@ const formatRelativeTime = (isoTimestamp: string) => {
 };
 
 
-export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, setCurrentModule }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, sidebarCollapsed, currentModule, setCurrentModule }) => {
   const { currentUser, logout, accounts, activeAccountId, switchAccount } = useAuth();
   const { canAny } = usePermissions();
   const { notifications, markNotificationAsRead, getUnreadNotificationsCount, markAllNotificationsAsRead } = useData();
@@ -211,9 +214,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, currentModule, 
     <nav className="bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 p-0 shadow-md fixed w-full z-20 top-0 border-b border-neutral-200 dark:border-neutral-700 h-[65px]">
       <div className="mx-auto flex items-center justify-between h-full px-2 sm:px-4"> 
         <div className="flex items-center">
-          {/* Mobile Sidebar Toggle */}
-          { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && 
-            <button onClick={onToggleSidebar} className="mr-1 sm:mr-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden">
+          {/* Mobile Sidebar Toggle (drawer) */}
+          { currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
+            <button onClick={onToggleSidebar} className="mr-1 sm:mr-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 lg:hidden" aria-label={t('cmp.navbar.toggle_menu') || 'Menú'}>
+              <MenuIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
+            </button>
+          }
+          {/* Desktop: ocultar/mostrar el sidebar (se recuerda). */}
+          { currentUser && onToggleCollapse && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) &&
+            <button
+              onClick={onToggleCollapse}
+              className="mr-1 sm:mr-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 hidden lg:inline-flex"
+              aria-label={sidebarCollapsed ? (t('cmp.navbar.show_menu') || 'Mostrar menú') : (t('cmp.navbar.hide_menu') || 'Ocultar menú')}
+              title={sidebarCollapsed ? (t('cmp.navbar.show_menu') || 'Mostrar menú') : (t('cmp.navbar.hide_menu') || 'Ocultar menú')}
+            >
               <MenuIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             </button>
           }
