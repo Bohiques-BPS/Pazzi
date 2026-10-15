@@ -253,10 +253,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
           <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
         </Link>
       </div>
-      {/* Título del módulo (como estaba) → enlaza a la vista principal del módulo. */}
+      {/* Título del módulo → enlaza a la vista principal del módulo. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
-        <Link to={hubPath(currentModule)} className="block px-3 pt-1 pb-2 mb-1 group" title={t('hub.go') || 'Ver todas las secciones'}>
-          <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary">{t(`module.${currentModule}`)}</span>
+        <Link to={hubPath(currentModule)} className="block px-2 pt-1 pb-3 mb-2 border-b border-neutral-200 dark:border-neutral-700 group" title={t('hub.go') || 'Ver todas las secciones'}>
+          <span className="text-xl font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-primary tracking-tight">{t(`module.${currentModule}`)}</span>
         </Link>
       )}
       <nav className="space-y-0.5">
