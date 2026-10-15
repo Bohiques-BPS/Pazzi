@@ -127,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   }
 
 
-  const renderSidebarItem = (item: SidebarItemConfig, index: number) => {
+  const renderSidebarItem = (item: SidebarItemConfig, index: number, nested = false) => {
     const Icon = item.icon;
     // Translate item name
     const translatedName = t(item.name);
@@ -154,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
             className={`overflow-hidden transition-all duration-300 ease-in-out ${isGroupOpen ? 'max-h-screen' : 'max-h-0'}`}
           >
             <div className="mt-0.5 ml-[18px] pl-3 border-l border-neutral-200 dark:border-neutral-700 space-y-0.5">
-              {item.children.map((child, childIndex) => renderSidebarItem(child, childIndex))}
+              {item.children.map((child, childIndex) => renderSidebarItem(child, childIndex, true))}
             </div>
           </div>
         </div>
@@ -175,9 +175,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         key={item.path}
         to={item.path}
         onClick={handleLinkClick}
-        className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${isActive ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-500 dark:text-neutral-400 font-normal hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
+        className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${isActive
+            ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium'
+            : nested
+              ? 'text-neutral-500 dark:text-neutral-400 font-normal hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'
+              : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
       >
-        {Icon && <Icon className="w-[18px] h-[18px] flex-shrink-0" />}
+        {Icon && <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive || nested ? '' : 'text-primary/80 dark:text-teal-300/90'}`} />}
         <span className="truncate">{translatedName}</span>
         {item.path === '/pm/chat' && unreadChats > 0 && (
           <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center" aria-label={`${unreadChats} sin leer`}>
@@ -202,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
             to={hubPath(currentModule)}
             className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${location.pathname.startsWith('/inicio') ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
           >
-            <HomeIcon className="w-5 h-5 flex-shrink-0" />
+            <HomeIcon className={`w-[18px] h-[18px] flex-shrink-0 ${location.pathname.startsWith('/inicio') ? '' : 'text-primary/80 dark:text-teal-300/90'}`} />
             <span>{t('hub.home') || 'Inicio'}</span>
           </Link>
         )}
