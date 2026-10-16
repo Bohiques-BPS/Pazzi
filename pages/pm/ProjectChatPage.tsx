@@ -32,7 +32,10 @@ export const ProjectChatPage: React.FC = () => {
     const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
     const { can } = usePermissions();
-    const { unreadByProject } = useChatUnread(true);
+    const { unreadByProject, lastMessageAtByProject } = useChatUnread(true);
+    // Actividad local (mensajes enviados/recibidos en esta sesión) para subir el chat al instante,
+    // sin esperar al siguiente refresco del overview.
+    const [localLastAt, setLocalLastAt] = useState<Record<string, number>>({});
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
     const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
@@ -68,8 +71,15 @@ export const ProjectChatPage: React.FC = () => {
     const [chatSearch, setChatSearch] = useState('');
     const displayProjects = useMemo(() => {
         const q = chatSearch.trim().toLowerCase();
-        if (!q) return activeProjects;
-        return activeProjects.filter(p => {
+        // Orden tipo WhatsApp: el chat con el mensaje más reciente arriba; los que no tienen
+        // mensajes van al final en orden alfabético.
+        const lastAt = (id: string) => Math.max(lastMessageAtByProject[id] || 0, localLastAt[id] || 0);
+        const sorted = [...activeProjects].sort((a, b) => {
+            const diff = lastAt(b.id) - lastAt(a.id);
+            return diff !== 0 ? diff : (a.name || '').localeCompare(b.name || '');
+        });
+        if (!q) return sorted;
+        return sorted.filter(p => {
             const c: any = getClientById(p.clientId);
             const hay = [
                 p.name,
@@ -80,7 +90,7 @@ export const ProjectChatPage: React.FC = () => {
             ].filter(Boolean).join(' ').toLowerCase();
             return hay.includes(q);
         });
-    }, [activeProjects, chatSearch, getClientById]);
+    }, [activeProjects, chatSearch, getClientById, lastMessageAtByProject, localLastAt]);
 
     const selectedProject = selectedProjectId ? allProjectsContext.find(p => p.id === selectedProjectId) : null;
 
@@ -104,6 +114,9 @@ export const ProjectChatPage: React.FC = () => {
         // Dedupe por id y re-ordena por fecha: los mensajes que llegan por socket/polling
         // pueden arribar fuera de orden, así que siempre mantenemos la lista cronológica.
         setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : sortMessages([...prev, msg]));
+        // Sube ese chat al tope de la lista.
+        const ts = new Date(msg.timestamp).getTime() || Date.now();
+        setLocalLastAt(prev => (prev[msg.projectId] || 0) >= ts ? prev : { ...prev, [msg.projectId]: ts });
     }, []);
 
     useEffect(() => {
@@ -269,7 +282,7 @@ export const ProjectChatPage: React.FC = () => {
 
     return (
         <>
-        <div className="flex h-full bg-white dark:bg-neutral-800 shadow-lg rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+        <div className="flex h-full bg-white dark:bg-neutral-800 overflow-hidden">
             {/* Sidebar: Project List */}
             <div className="w-full sm:w-1/3 md:w-1/4 border-r border-neutral-200 dark:border-neutral-700 flex flex-col">
                 <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 space-y-3">

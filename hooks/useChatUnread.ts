@@ -32,6 +32,8 @@ export const markProjectChatRead = (projectId: string) => {
 
 interface UnreadState {
     unreadByProject: Record<string, boolean>;
+    /** Fecha (ms) del último mensaje por proyecto, para ordenar la lista de chats. */
+    lastMessageAtByProject: Record<string, number>;
     totalUnread: number;
     refresh: () => void;
 }
@@ -43,18 +45,22 @@ interface UnreadState {
  */
 export function useChatUnread(enabled: boolean, pollMs = 45000): UnreadState {
     const [unreadByProject, setUnreadByProject] = useState<Record<string, boolean>>({});
+    const [lastMessageAtByProject, setLastMessageAtByProject] = useState<Record<string, number>>({});
 
     const refresh = useCallback(async () => {
-        if (!enabled) { setUnreadByProject({}); return; }
+        if (!enabled) { setUnreadByProject({}); setLastMessageAtByProject({}); return; }
         try {
             const rows = await chatService.getOverview();
             const map: Record<string, boolean> = {};
+            const lastMap: Record<string, number> = {};
             for (const r of rows) {
                 if (!r.lastMessageAt) continue;
                 const last = new Date(r.lastMessageAt).getTime();
                 map[r.projectId] = last > readTs(r.projectId);
+                lastMap[r.projectId] = last;
             }
             setUnreadByProject(map);
+            setLastMessageAtByProject(lastMap);
         } catch { /* sin conexión: no cambia el estado */ }
     }, [enabled]);
 
@@ -69,5 +75,5 @@ export function useChatUnread(enabled: boolean, pollMs = 45000): UnreadState {
     }, [enabled, pollMs, refresh]);
 
     const totalUnread = Object.values(unreadByProject).filter(Boolean).length;
-    return { unreadByProject, totalUnread, refresh };
+    return { unreadByProject, lastMessageAtByProject, totalUnread, refresh };
 }
