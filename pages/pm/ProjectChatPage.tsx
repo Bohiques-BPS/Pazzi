@@ -18,6 +18,15 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 // Con socket en tiempo real, el polling es solo respaldo lento (por si el socket se cae).
 const POLLING_INTERVAL_MS = 20000;
 
+/** Ordena los mensajes cronológicamente (por fecha; desempate por id) para que nunca se vean desordenados. */
+const sortMessages = (msgs: ChatMessageRecord[]): ChatMessageRecord[] =>
+    [...msgs].sort((a, b) => {
+        const ta = new Date(a.timestamp).getTime();
+        const tb = new Date(b.timestamp).getTime();
+        if (ta !== tb) return ta - tb;
+        return String(a.id).localeCompare(String(b.id));
+    });
+
 export const ProjectChatPage: React.FC = () => {
     const { t } = useTranslation();
     const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
@@ -85,14 +94,16 @@ export const ProjectChatPage: React.FC = () => {
     const fetchMessages = useCallback(async (projectId: string) => {
         try {
             const msgs = await chatService.getMessages(projectId);
-            setProjectMessages(msgs);
+            setProjectMessages(sortMessages(msgs));
         } catch (err) {
             if (err instanceof ApiError) console.error('chat fetch:', err.message);
         }
     }, []);
 
     const appendMessage = useCallback((msg: ChatMessageRecord) => {
-        setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+        // Dedupe por id y re-ordena por fecha: los mensajes que llegan por socket/polling
+        // pueden arribar fuera de orden, así que siempre mantenemos la lista cronológica.
+        setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : sortMessages([...prev, msg]));
     }, []);
 
     useEffect(() => {
@@ -331,7 +342,7 @@ export const ProjectChatPage: React.FC = () => {
                         </div>
 
                         {/* Messages Area */}
-                        <div className="flex-1 p-3 sm:p-4 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
+                        <div className="flex-1 px-2 sm:px-3 py-4 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
                             {projectMessages.length > 0 ? projectMessages.map(msg => (
                                 <ChatMessageItem 
                                     key={msg.id} 
@@ -345,7 +356,7 @@ export const ProjectChatPage: React.FC = () => {
                         </div>
 
                         {/* Message Input */}
-                        <div className="p-3 sm:p-4 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+                        <div className="px-2 sm:px-3 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                             {waEnabled && can('projects.sendWhatsapp') && (
                                 <label className="flex items-center gap-2 mb-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer select-none">
                                     <input type="checkbox" checked={sendToWa} onChange={e => setSendToWa(e.target.checked)} className="h-4 w-4 rounded accent-green-600" />
