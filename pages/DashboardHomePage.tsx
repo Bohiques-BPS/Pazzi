@@ -77,7 +77,7 @@ const QuickLink: React.FC<{
         className="relative w-full min-w-0 overflow-hidden flex flex-col items-center justify-center p-4 bg-white dark:bg-neutral-800 rounded-lg shadow-md hover:shadow-lg dark:hover:shadow-primary/20 transition-all duration-200 hover:-translate-y-1 group"
     >
         {visitCount !== undefined && visitCount > 0 && (
-            <span className="absolute top-2 right-2 text-xs text-neutral-400 dark:text-neutral-500 group-hover:text-primary transition-colors">
+            <span className="absolute top-2 right-2 text-[11.5px] text-neutral-400 dark:text-neutral-500 group-hover:text-primary transition-colors">
                 {visitCount}×
             </span>
         )}
@@ -86,7 +86,7 @@ const QuickLink: React.FC<{
                 ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-8 h-8' })
                 : icon}
         </div>
-        <span className="w-full text-sm sm:text-base font-semibold text-neutral-700 dark:text-neutral-200 text-center leading-tight break-words">{text}</span>
+        <span className="w-full text-[13.75px] sm:text-[16px] font-semibold text-neutral-700 dark:text-neutral-200 text-center leading-tight break-words">{text}</span>
     </Link>
 );
 
@@ -254,11 +254,11 @@ export const DashboardHomePage: React.FC = () => {
         <div className="p-6">
             <h1
                 id="dashboard-home-title"
-                className="text-4xl font-semibold text-neutral-700 dark:text-neutral-200"
+                className="text-[38.5px] font-semibold text-neutral-700 dark:text-neutral-200"
             >
                 Bienvenido a Pazzi
             </h1>
-            <p className="mt-2 text-neutral-600 dark:text-neutral-300">
+            <p className="mt-2 text-[17px] text-neutral-600 dark:text-neutral-300">
                 Selecciona un módulo para comenzar a trabajar.
             </p>
 
@@ -278,18 +278,18 @@ export const DashboardHomePage: React.FC = () => {
                             key={module.path}
                             id={`module-card-${module.name}`}
                             onClick={() => handleModuleClick(module.name)}
-                            className="w-full min-w-0 overflow-hidden bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-lg hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-300 text-left"
+                            className="w-full h-full min-w-0 overflow-hidden bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-lg hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-300 text-left flex flex-col items-start justify-start"
                         >
-                            <div className="flex items-center mb-2 min-w-0">
-                                <span className="flex-shrink-0">
-                                    {React.isValidElement(module.icon) &&
-                                        React.cloneElement(module.icon as React.ReactElement<{ className?: string }>, {
-                                            className: 'w-7 h-7 text-primary dark:text-accent',
-                                        })}
-                                </span>
-                                <h2 className="text-xl sm:text-2xl font-semibold text-primary ml-3 min-w-0 break-words hyphens-auto">{module.name}</h2>
+                            {/* Ícono + título alineados arriba a la izquierda (el ícono es un componente, no un elemento). */}
+                            <div className="flex items-center gap-3 mb-2 min-w-0">
+                                {(() => {
+                                    const Icon = module.icon as any;
+                                    if (React.isValidElement(Icon)) return React.cloneElement(Icon as React.ReactElement<{ className?: string }>, { className: 'w-7 h-7 flex-shrink-0 text-primary' });
+                                    return Icon ? <Icon className="w-7 h-7 flex-shrink-0 text-primary" /> : null;
+                                })()}
+                                <h2 className="text-[19px] sm:text-[25px] leading-tight font-semibold text-primary min-w-0 break-words hyphens-auto">{module.name}</h2>
                             </div>
-                            <p className="text-neutral-600 dark:text-neutral-300 text-sm sm:text-base break-words">
+                            <p className="text-neutral-600 dark:text-neutral-300 text-[13.75px] sm:text-[16px] break-words">
                                 Accede a las herramientas de {descriptionText}
                             </p>
                         </button>
@@ -300,11 +300,11 @@ export const DashboardHomePage: React.FC = () => {
             {/* Quick access */}
             <div className="mt-12">
                 <div className="flex items-center gap-2 mb-4">
-                    <h2 className="text-3xl font-semibold text-neutral-700 dark:text-neutral-200">
+                    <h2 className="text-[31.75px] font-semibold text-neutral-700 dark:text-neutral-200">
                         Accesos Rápidos
                     </h2>
                     {visibleDynamicLinks && visibleDynamicLinks.length > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700">
+                        <span className="flex items-center gap-1 text-[11.5px] text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700">
                             <FireIcon className="w-3 h-3 text-orange-400" />
                             Basado en tu actividad
                         </span>
