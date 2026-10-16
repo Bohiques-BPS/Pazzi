@@ -228,10 +228,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
           {/* Con el sidebar COLAPSADO: el logo y el selector de módulos aparecen aquí, en el navbar. */}
           { sidebarCollapsed && currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && (
             <div className="flex items-center gap-2 ml-1">
-              <Link to="/" className="flex items-center flex-shrink-0">
-                <img src={logo}      alt="Pazzi" className="h-7 sm:h-8 dark:hidden" />
-                <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-8 hidden dark:block" />
-              </Link>
               <div className="relative">
                 <button
                   type="button"
@@ -262,6 +258,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                   </>
                 )}
               </div>
+              <Link to="/" className="flex items-center flex-shrink-0">
+                <img src={logo}      alt="Pazzi" className="h-7 sm:h-8 dark:hidden" />
+                <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-8 hidden dark:block" />
+              </Link>
             </div>
           )}
 
