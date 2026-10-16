@@ -18,6 +18,26 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 // Con socket en tiempo real, el polling es solo respaldo lento (por si el socket se cae).
 const POLLING_INTERVAL_MS = 20000;
 
+/** Clave del día local (YYYY-MM-DD) de un mensaje, para agrupar por fecha. */
+const dayKey = (iso: string): string => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+};
+
+/** Etiqueta del separador de día estilo WhatsApp: Hoy, Ayer, día de la semana (última semana) o fecha. */
+const dayLabel = (iso: string): string => {
+    const d = new Date(iso);
+    const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diffDays = Math.round((startOf(new Date()) - startOf(d)) / 86400000);
+    if (diffDays === 0) return 'Hoy';
+    if (diffDays === 1) return 'Ayer';
+    if (diffDays > 1 && diffDays < 7) {
+        const w = d.toLocaleDateString(undefined, { weekday: 'long' });
+        return w.charAt(0).toUpperCase() + w.slice(1);
+    }
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+};
+
 /** Ordena los mensajes cronológicamente (por fecha; desempate por id) para que nunca se vean desordenados. */
 const sortMessages = (msgs: ChatMessageRecord[]): ChatMessageRecord[] =>
     [...msgs].sort((a, b) => {
@@ -381,13 +401,26 @@ export const ProjectChatPage: React.FC = () => {
 
                         {/* Messages Area */}
                         <div className="flex-1 px-2 sm:px-3 py-4 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
-                            {projectMessages.length > 0 ? projectMessages.map(msg => (
-                                <ChatMessageItem 
-                                    key={msg.id} 
-                                    message={msg} 
-                                    isCurrentUser={currentUser.id === msg.senderId} 
-                                />
-                            )) : (
+                            {projectMessages.length > 0 ? projectMessages.map((msg, i) => {
+                                // Separador de día estilo WhatsApp cuando cambia la fecha local.
+                                const day = dayKey(msg.timestamp);
+                                const showDay = i === 0 || dayKey(projectMessages[i - 1].timestamp) !== day;
+                                return (
+                                    <React.Fragment key={msg.id}>
+                                        {showDay && (
+                                            <div className="flex justify-center my-2">
+                                                <span className="px-3 py-1 rounded-lg bg-white dark:bg-neutral-700 text-xs font-medium text-neutral-600 dark:text-neutral-200 shadow-sm border border-neutral-200 dark:border-neutral-600">
+                                                    {dayLabel(msg.timestamp)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <ChatMessageItem
+                                            message={msg}
+                                            isCurrentUser={currentUser.id === msg.senderId}
+                                        />
+                                    </React.Fragment>
+                                );
+                            }) : (
                                 <p className="text-center text-sm text-neutral-400 dark:text-neutral-500 pt-10">{t('pm2x.chat.no_messages_yet')}</p>
                             )}
                             <div ref={messagesEndRef} />

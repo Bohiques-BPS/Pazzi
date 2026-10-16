@@ -37,7 +37,10 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, isCur
                 {message.text && (
                     <div className="text-sm prose dark:prose-invert max-w-none prose-p:my-0 prose-ul:my-1 prose-ol:my-1" dangerouslySetInnerHTML={{ __html: message.text }}></div>
                 )}
-                <p className={`text-xs mt-1 opacity-70 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
+                <p
+                    className={`text-xs mt-1 opacity-70 ${isCurrentUser ? 'text-right' : 'text-left'}`}
+                    title={new Date(message.timestamp).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' })}
+                >
                     {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
             </div>
