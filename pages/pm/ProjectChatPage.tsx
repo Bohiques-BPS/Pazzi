@@ -339,12 +339,14 @@ export const ProjectChatPage: React.FC = () => {
                                 ? <img src={project.imageUrl} alt="" className="w-10 h-7 rounded-md object-contain bg-white dark:bg-neutral-900 flex-shrink-0" />
                                 : <span className="w-7 h-7 rounded-md bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center text-sm flex-shrink-0">🗂️</span>}
                             <span className="truncate">{project.name}</span>
+                            {/* "Activo" es el estado normal: no se muestra. Solo se marcan los demás (p. ej. Pendiente). */}
+                            {project.status !== ProjectStatus.ACTIVE && (
                              <span className={`ml-auto text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                project.status === ProjectStatus.ACTIVE ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-200' :
-                                project.status === ProjectStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200' : ''
+                                project.status === ProjectStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300'
                              }`}>
                                 {project.status}
                              </span>
+                            )}
                         </button>
                     )) : (
                         <p className="p-3 text-xs text-center text-neutral-500 dark:text-neutral-400">{chatSearch.trim() ? (t('pm2x.chat.no_results') || 'Sin resultados para la búsqueda.') : t('pm2x.chat.no_projects')}</p>
