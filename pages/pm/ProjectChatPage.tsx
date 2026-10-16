@@ -174,11 +174,10 @@ export const ProjectChatPage: React.FC = () => {
         }
     };
 
-    // Adjuntar imagen/video: sube a Cloudinary (vía /upload) y envía el mensaje con el adjunto.
-    const handleAttachFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        e.target.value = '';
-        if (!file || !selectedProjectId || !currentUser) return;
+    // Sube un archivo a Cloudinary (vía /upload) y envía el mensaje con el adjunto.
+    // Lo usan tanto el botón de adjuntar como el pegado (Ctrl+V) de imágenes.
+    const uploadAndSendFile = async (file: File) => {
+        if (!file || !selectedProjectId || !currentUser || uploading) return;
         const isImage = file.type.startsWith('image/');
         const isVideo = file.type.startsWith('video/');
         // Límite razonable (Render/Cloudinary): 10 MB imágenes, 50 MB video.
@@ -211,6 +210,32 @@ export const ProjectChatPage: React.FC = () => {
             toast.error(err instanceof ApiError ? err.message : (err instanceof Error ? err.message : 'No se pudo enviar el adjunto.'));
         } finally {
             setUploading(false);
+        }
+    };
+
+    // Adjuntar imagen/video desde el selector de archivos.
+    const handleAttachFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (file) await uploadAndSendFile(file);
+    };
+
+    // Pegar (Ctrl+V) una imagen desde el portapapeles directo en el chat.
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of Array.from(items)) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) {
+                    e.preventDefault();
+                    // Nombre legible para capturas de pantalla (suelen venir sin nombre).
+                    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+                    const named = file.name ? file : new File([file], `imagen-pegada-${Date.now()}.${ext}`, { type: file.type });
+                    void uploadAndSendFile(named);
+                    return;
+                }
+            }
         }
     };
 
@@ -385,6 +410,7 @@ export const ProjectChatPage: React.FC = () => {
                                 <textarea
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
+                                    onPaste={handlePaste}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();
