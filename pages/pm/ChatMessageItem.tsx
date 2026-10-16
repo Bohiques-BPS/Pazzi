@@ -33,10 +33,10 @@ const initialsOf = (name: string) =>
 const SenderAvatar: React.FC<{ name: string; url?: string | null; colorKey: string }> = ({ name, url, colorKey }) => {
     const [failed, setFailed] = useState(false);
     if (url && !failed) {
-        return <img src={url} alt={name} title={name} onError={() => setFailed(true)} className="w-8 h-8 rounded-full object-cover bg-white border border-neutral-200 dark:border-neutral-600 flex-shrink-0" />;
+        return <img src={url} alt={name} title={name} onError={() => setFailed(true)} className="w-10 h-10 rounded-full object-contain p-0.5 bg-white border border-neutral-200 dark:border-neutral-600 flex-shrink-0" />;
     }
     return (
-        <span title={name} className={`w-8 h-8 rounded-full ${colorFor(colorKey).bg} text-white text-xs font-semibold flex items-center justify-center flex-shrink-0`}>
+        <span title={name} className={`w-10 h-10 rounded-full ${colorFor(colorKey).bg} text-white text-sm font-semibold flex items-center justify-center flex-shrink-0`}>
             {initialsOf(name)}
         </span>
     );
@@ -53,7 +53,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, isCur
             {/* Avatar solo en mensajes de otros; si no toca mostrarlo, se deja el hueco para alinear la racha. */}
             {!isCurrentUser && (showAvatar
                 ? <SenderAvatar name={message.senderName} url={message.senderAvatarUrl} colorKey={colorKey} />
-                : <span className="w-8 flex-shrink-0" />)}
+                : <span className="w-10 flex-shrink-0" />)}
             <div className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg shadow ${bubbleClass}`}>
                 {!isCurrentUser && showName && <p className={`text-xs font-semibold mb-0.5 ${colorFor(colorKey).text}`}>{message.senderName}</p>}
 
