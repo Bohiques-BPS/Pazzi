@@ -18,6 +18,7 @@ import { TagChip } from '../../components/leads/TagChip';
 import { useLeadAssignees } from '../../components/leads/useLeadAssignees';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { inputFormStyle, INPUT_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { MoneyInput } from '../../components/ui/MoneyInput';
 import {
   PlusIcon, Squares2X2Icon, ListBulletIcon, MagnifyingGlassIcon, Cog6ToothIcon, DocumentArrowUpIcon, DocumentArrowDownIcon,
   DeleteIcon, ArrowUturnLeftIcon, ChevronLeftIcon, ChartBarIcon, UserIcon, TagIcon, ArrowPathIcon, ClockIcon,
@@ -38,7 +39,8 @@ const STATUS_BADGE_CLS: Record<Lead['status'], string> = {
 const CARD_CHIP_CLS = 'flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded gap-0.5';
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 
-const money = (n?: number | null) => n != null ? `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '';
+// Formato fijo $12,560.00 (coma de miles, 2 decimales) sin depender del idioma del navegador.
+const money = (n?: number | null) => n != null ? `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
 const DAY = 86400000;
 /** Días que un lead permanece en la papelera antes de purgarse automáticamente. */
 const TRASH_DAYS = 30;
@@ -1120,7 +1122,7 @@ const CreateLeadModal: React.FC<{
           <div>{lbl(t('leads.board.create.name_required_label'))}<input autoFocus value={f.name} onChange={e => set('name', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.last_name'))}<input value={f.lastName} onChange={e => set('lastName', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.company'))}<input value={f.companyName} onChange={e => set('companyName', e.target.value)} className={inputFormStyle} /></div>
-          <div>{lbl(t('leads.board.create.estimated_value'))}<input type="number" step="0.01" value={f.value} onChange={e => set('value', e.target.value)} className={inputFormStyle} placeholder="0.00" /></div>
+          <div>{lbl(t('leads.board.create.estimated_value'))}<MoneyInput value={f.value} onChange={v => set('value', v)} placeholder="0.00" /></div>
           <div>{lbl(t('leads.common.email'))}<input type="email" value={f.email} onChange={e => set('email', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.email2'))}<input type="email" value={f.email2} onChange={e => set('email2', e.target.value)} className={inputFormStyle} /></div>
           <div>{lbl(t('leads.common.phone'))}<input type="tel" value={f.phone} onChange={e => set('phone', e.target.value)} className={inputFormStyle} /></div>

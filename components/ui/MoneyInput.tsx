@@ -33,7 +33,8 @@ function sanitize(raw: string): string {
 const asDisplay = (value: number | string | null | undefined): string => {
     if (value === null || value === undefined || value === '') return '';
     const n = Number(value);
-    return Number.isFinite(n) ? n.toFixed(2) : String(value);
+    // Fuera de foco: 12,560.00 (coma de miles + 2 decimales). Al enfocar se edita el número crudo.
+    return Number.isFinite(n) ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(value);
 };
 
 /**

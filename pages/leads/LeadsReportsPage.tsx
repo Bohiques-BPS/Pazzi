@@ -15,7 +15,7 @@ import { INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { useNavigate } from 'react-router-dom';
 
-const money = (n: number) => `$${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const money = (n: number) => `$${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 type Preset = 'all' | '30' | '90' | 'month' | 'year' | 'custom';

@@ -15,6 +15,7 @@ import {
   ClipboardDocumentListIcon, PhotoIcon, XMarkIcon, UserPlusIcon, ArrowPathIcon, ClockIcon,
 } from '../icons';
 import { TagChip } from './TagChip';
+import { MoneyInput } from '../ui/MoneyInput';
 import { LeadItemsTab } from './LeadItemsTab';
 import { LeadMergePanel } from './LeadMergePanel';
 import { LeadConversationTab } from './LeadConversationTab';
@@ -455,7 +456,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                 {assigneeOptions.map(o => <option key={o.uid} value={o.uid}>{o.name}</option>)}
               </select>
             </div>
-            <div>{label(t('leads.detail.estimated_value'))}{inp('value', 'number', { step: '0.01', placeholder: '0.00' })}</div>
+            <div>{label(t('leads.detail.estimated_value'))}<MoneyInput value={form.value} disabled={!canEdit} onChange={v => setForm(f => ({ ...f, value: v }))} placeholder="0.00" /></div>
             <div>{label(t('leads.detail.probability_pct'))}{inp('probability', 'number', { min: 0, max: 100, placeholder: t('leads.detail.auto') })}</div>
           </div>
 
