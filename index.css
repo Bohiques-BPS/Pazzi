@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Paleta de colores (canales RGB, ver tailwind.config.js) ──
+   Modo claro: exactamente los colores originales de Tailwind.
+   Modo oscuro: fondos casi negros, tarjetas carbón, bordes sutiles y acento verde menta. */
+:root {
+  --c-primary: 13 148 136;   /* #0D9488 */
+  --c-secondary: 15 118 110; /* #0F766E */
+  --n-600: 82 82 82;         /* #525252 */
+  --n-700: 64 64 64;         /* #404040 */
+  --n-800: 38 38 38;         /* #262626 */
+  --n-900: 23 23 23;         /* #171717 */
+  --n-950: 10 10 10;         /* #0A0A0A */
+}
+html.dark {
+  --c-primary: 61 207 163;   /* #3DCFA3 menta */
+  --c-secondary: 45 180 140; /* #2DB48C menta hover */
+  --n-600: 70 71 78;         /* #46474E bordes de inputs */
+  --n-700: 45 46 51;         /* #2D2E33 bordes/hover */
+  --n-800: 30 31 34;         /* #1E1F22 tarjetas, navbar, sidebar */
+  --n-900: 22 23 25;         /* #161719 fondo de la app / campos */
+  --n-950: 15 16 17;         /* #0F1011 */
+}
+/* Sobre el menta claro, el texto blanco no contrasta: en modo oscuro los botones/insignias
+   primarios usan texto oscuro (como en la referencia). */
+html.dark .bg-primary.text-white { color: #062a1f; }
+
 /* ── Accesibilidad en modo oscuro (auditoría de contraste) ── */
 
 /* Controles nativos oscuros: dropdowns de <select>, date pickers y scrollbars.

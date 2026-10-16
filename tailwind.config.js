@@ -1,3 +1,10 @@
+import defaultColors from 'tailwindcss/colors';
+
+// Colores como variables CSS (canales RGB) para que el modo oscuro tenga su propia paleta
+// sin tocar componentes. Valores en index.css: :root = modo claro (idéntico al original),
+// html.dark = paleta oscura.
+const v = (name) => `rgb(var(${name}) / <alpha-value>)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
@@ -19,9 +26,18 @@ export default {
         sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
-        primary: '#0D9488', // teal-600
-        secondary: '#0F766E', // teal-700
+        primary: v('--c-primary'),     // claro: teal-600 #0D9488
+        secondary: v('--c-secondary'), // claro: teal-700 #0F766E
         accent: '#F59E0B', // amber-500
+        // Solo los tonos oscuros (fondos/bordes del modo oscuro) son variables; el resto, Tailwind.
+        neutral: {
+          ...defaultColors.neutral,
+          600: v('--n-600'),
+          700: v('--n-700'),
+          800: v('--n-800'),
+          900: v('--n-900'),
+          950: v('--n-950'),
+        },
       },
     },
   },
