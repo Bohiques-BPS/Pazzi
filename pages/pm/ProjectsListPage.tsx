@@ -42,6 +42,8 @@ export const ProjectsListPage: React.FC = () => {
         : 'Todos';
     const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Todos'>(estadoInitial);
     const [searchQuery, setSearchQuery] = useState('');
+    // Filtro por colaborador: '' = todos, '__none__' = sin colaborador, si no el userId/id del empleado.
+    const [collabFilter, setCollabFilter] = useState('');
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     // Densidad de la cuadrícula en pantallas grandes (4 por defecto; el usuario puede elegir 5). Por dispositivo.
     const [gridCols, setGridCols] = useState<4 | 5>(() => { try { return localStorage.getItem('pazzi_pm_cols') === '5' ? 5 : 4; } catch { return 4; } });
@@ -109,10 +111,28 @@ export const ProjectsListPage: React.FC = () => {
         toast(t('pm2x.project.invoice_toast', { num: project.invoiceNumber ?? '', date: project.invoiceDate ?? '', amount: project.invoiceAmount?.toFixed(2) ?? '' }), { icon: '🧾', duration: 5000 });
     };
 
+    // assignedEmployeeIds guarda User.id; un empleado se identifica por su userId (o id si no tiene cuenta).
+    const empKey = (e: any): string => e.userId || e.id;
+    const isAssigned = (project: Project, e: any) =>
+        project.assignedEmployeeIds.includes(e.userId) || project.assignedEmployeeIds.includes(e.id);
+
+    // Opciones del filtro: solo colaboradores que tienen al menos un proyecto, por nombre.
+    const collabOptions = useMemo(() => allEmployees
+        .filter(e => projects.some(p => isAssigned(p, e)))
+        .map(e => ({ key: empKey(e), label: `${e.name} ${e.lastName || ''}`.trim(), emp: e }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [allEmployees, projects]);
+
     const filteredProjects = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
+        const collab = collabOptions.find(o => o.key === collabFilter)?.emp;
         return projects
             .filter(project => (statusFilter === 'Todos' || project.status === statusFilter))
+            .filter(project => {
+                if (!collabFilter) return true;
+                if (collabFilter === '__none__') return (project.assignedEmployeeIds ?? []).length === 0;
+                return collab ? isAssigned(project, collab) : true;
+            })
             .filter(project => {
                 if (!q) return true;
                 const client = getClientById(project.clientId);
@@ -124,7 +144,7 @@ export const ProjectsListPage: React.FC = () => {
                 const dateB = b.visitDate || b.workStartDate || '0';
                 return new Date(dateB).getTime() - new Date(dateA).getTime();
             });
-    }, [projects, statusFilter, searchQuery, getClientById]);
+    }, [projects, statusFilter, searchQuery, getClientById, collabFilter, collabOptions]);
     
     const tableColumns: TableColumn<Project>[] = useMemo(() => [
         {
@@ -167,7 +187,7 @@ export const ProjectsListPage: React.FC = () => {
             header: t('project.field.team'), 
             accessor: (project) => {
                 const assigned = project.assignedEmployeeIds
-                    .map(empId => allEmployees.find(e => e.id === empId))
+                    .map(empId => allEmployees.find(e => (e as any).userId === empId || e.id === empId))
                     .filter(emp => emp !== undefined);
                 if (assigned.length === 0) return 'N/A';
                 return (
@@ -224,9 +244,9 @@ export const ProjectsListPage: React.FC = () => {
                 })}
             </div>
 
-            {/* Buscador por nombre de proyecto (o cliente) */}
-            <div className="mb-4">
-                <div className="relative max-w-md">
+            {/* Buscador por nombre de proyecto (o cliente) + filtro por colaborador */}
+            <div className="mb-4 flex flex-col sm:flex-row gap-3">
+                <div className="relative w-full max-w-md">
                     <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
                     <input
                         type="text"
@@ -245,6 +265,19 @@ export const ProjectsListPage: React.FC = () => {
                             ✕
                         </button>
                     )}
+                </div>
+                <div className="relative w-full sm:w-64">
+                    <UserGroupIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                    <select
+                        value={collabFilter}
+                        onChange={(e) => setCollabFilter(e.target.value)}
+                        aria-label="Filtrar por colaborador"
+                        className={`w-full pl-10 pr-8 py-2 rounded-lg border bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary ${collabFilter ? 'border-primary' : 'border-neutral-300 dark:border-neutral-600'}`}
+                    >
+                        <option value="">Todos los colaboradores</option>
+                        <option value="__none__">Sin colaborador asignado</option>
+                        {collabOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                    </select>
                 </div>
             </div>
 
