@@ -1,39 +1,69 @@
 import { useCallback, useEffect, useState } from 'react';
-import { chatService } from '../services/chat';
+import { chatService, type ChatLastMessage } from '../services/chat';
 
-// Evita disparar el POST de "marcar leído" repetidamente para el mismo proyecto en poco tiempo.
-const recentlyMarked: Record<string, number> = {};
-
-// Indicador de mensajes de chat sin leer, por proyecto. "Leído" se guarda por navegador
-// (localStorage): al abrir/enviar en un chat se marca la marca de tiempo actual, y un proyecto
-// cuenta como no leído si su último mensaje es posterior a esa marca.
+// Indicador de mensajes de chat sin leer, por proyecto. La marca de "leído" vive en el SERVIDOR
+// (ChatRead, por usuario), así el conteo es el mismo en todos los dispositivos. localStorage solo
+// se usa para migrar, una vez, lo que antes se guardaba en el navegador.
 
 const LAST_READ_PREFIX = 'chat_lastread_';
 
-const readTs = (projectId: string): number => {
-    try { return Number(localStorage.getItem(LAST_READ_PREFIX + projectId)) || 0; }
-    catch { return 0; }
+// Throttle del POST de "marcar leído" con llamada final garantizada: si llegan varios mensajes
+// con el chat abierto, se manda como mucho uno cada 5s pero el último siempre se envía.
+const lastSent: Record<string, number> = {};
+const pending: Record<string, ReturnType<typeof setTimeout> | undefined> = {};
+const THROTTLE_MS = 5000;
+
+const sendMarkRead = (projectId: string) => {
+    lastSent[projectId] = Date.now();
+    pending[projectId] = undefined;
+    chatService.markRead(projectId)
+        .catch(() => { /* fire-and-forget */ })
+        .finally(() => {
+            // Recalcular badges cuando el servidor ya guardó la marca.
+            try { window.dispatchEvent(new CustomEvent('chat-read', { detail: { projectId } })); } catch { /* noop */ }
+        });
 };
 
-/** Marca un proyecto como leído (al abrir su chat o al enviar un mensaje). */
+/** Marca un proyecto como leído (al abrir su chat, enviar o recibir con el chat abierto). */
 export const markProjectChatRead = (projectId: string) => {
     if (!projectId) return;
     try { localStorage.setItem(LAST_READ_PREFIX + projectId, String(Date.now())); }
     catch { /* almacenamiento no disponible */ }
-    try { window.dispatchEvent(new CustomEvent('chat-read', { detail: { projectId } })); } catch { /* noop */ }
-    // Limpia la notificación (campanita) de chat de ese proyecto en el backend. Throttle 5s para
-    // no spamear el endpoint cuando llegan varios mensajes con el chat abierto.
-    const now = Date.now();
-    if (now - (recentlyMarked[projectId] || 0) > 5000) {
-        recentlyMarked[projectId] = now;
-        chatService.markRead(projectId).catch(() => { /* fire-and-forget */ });
-    }
+    const wait = THROTTLE_MS - (Date.now() - (lastSent[projectId] || 0));
+    if (wait <= 0) { sendMarkRead(projectId); return; }
+    if (!pending[projectId]) pending[projectId] = setTimeout(() => sendMarkRead(projectId), wait);
+};
+
+/** Migración única (por carga de la app) de lo leído en el navegador hacia el servidor. */
+let syncPromise: Promise<void> | null = null;
+const syncLocalReadsOnce = (): Promise<void> => {
+    if (syncPromise) return syncPromise;
+    const reads: Record<string, number> = {};
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(LAST_READ_PREFIX)) {
+                const ts = Number(localStorage.getItem(k));
+                if (ts > 0) reads[k.slice(LAST_READ_PREFIX.length)] = ts;
+            }
+        }
+    } catch { /* sin localStorage */ }
+    syncPromise = Object.keys(reads).length
+        ? chatService.syncReads(reads).then(() => undefined).catch(() => undefined)
+        : Promise.resolve();
+    return syncPromise;
 };
 
 interface UnreadState {
+    /** true si el proyecto tiene mensajes sin leer. */
     unreadByProject: Record<string, boolean>;
-    /** Fecha (ms) del último mensaje por proyecto, para ordenar la lista de chats. */
+    /** Cantidad de mensajes sin leer por proyecto. */
+    unreadCountByProject: Record<string, number>;
+    /** Fecha (ms) del último mensaje (de cualquiera) por proyecto, para ordenar la lista. */
     lastMessageAtByProject: Record<string, number>;
+    /** Último mensaje por proyecto (vista previa de la lista). */
+    lastMessageByProject: Record<string, ChatLastMessage>;
+    /** Proyectos con mensajes sin leer (badge del sidebar). */
     totalUnread: number;
     refresh: () => void;
 }
@@ -41,26 +71,29 @@ interface UnreadState {
 /**
  * @param enabled  Si false, no consulta (p.ej. usuarios sin acceso a proyectos).
  * @param pollMs   Intervalo de refresco (default 45s). El socket ya empuja en vivo dentro del chat;
- *                 esto es para el badge global.
+ *                 esto es para el badge global y la lista.
  */
 export function useChatUnread(enabled: boolean, pollMs = 45000): UnreadState {
-    const [unreadByProject, setUnreadByProject] = useState<Record<string, boolean>>({});
+    const [unreadCountByProject, setUnreadCountByProject] = useState<Record<string, number>>({});
     const [lastMessageAtByProject, setLastMessageAtByProject] = useState<Record<string, number>>({});
+    const [lastMessageByProject, setLastMessageByProject] = useState<Record<string, ChatLastMessage>>({});
 
     const refresh = useCallback(async () => {
-        if (!enabled) { setUnreadByProject({}); setLastMessageAtByProject({}); return; }
+        if (!enabled) { setUnreadCountByProject({}); setLastMessageAtByProject({}); setLastMessageByProject({}); return; }
         try {
+            await syncLocalReadsOnce();
             const rows = await chatService.getOverview();
-            const map: Record<string, boolean> = {};
-            const lastMap: Record<string, number> = {};
+            const counts: Record<string, number> = {};
+            const lastAt: Record<string, number> = {};
+            const lastMsg: Record<string, ChatLastMessage> = {};
             for (const r of rows) {
-                if (!r.lastMessageAt) continue;
-                const last = new Date(r.lastMessageAt).getTime();
-                map[r.projectId] = last > readTs(r.projectId);
-                lastMap[r.projectId] = last;
+                counts[r.projectId] = r.unreadCount || 0;
+                if (r.lastMessageAt) lastAt[r.projectId] = new Date(r.lastMessageAt).getTime();
+                if (r.lastMessage) lastMsg[r.projectId] = r.lastMessage;
             }
-            setUnreadByProject(map);
-            setLastMessageAtByProject(lastMap);
+            setUnreadCountByProject(counts);
+            setLastMessageAtByProject(lastAt);
+            setLastMessageByProject(lastMsg);
         } catch { /* sin conexión: no cambia el estado */ }
     }, [enabled]);
 
@@ -74,6 +107,8 @@ export function useChatUnread(enabled: boolean, pollMs = 45000): UnreadState {
         return () => { clearInterval(interval); window.removeEventListener('chat-read', onRead); };
     }, [enabled, pollMs, refresh]);
 
-    const totalUnread = Object.values(unreadByProject).filter(Boolean).length;
-    return { unreadByProject, lastMessageAtByProject, totalUnread, refresh };
+    const unreadByProject: Record<string, boolean> = {};
+    for (const [id, n] of Object.entries(unreadCountByProject)) unreadByProject[id] = n > 0;
+    const totalUnread = Object.values(unreadCountByProject).filter(n => n > 0).length;
+    return { unreadByProject, unreadCountByProject, lastMessageAtByProject, lastMessageByProject, totalUnread, refresh };
 }

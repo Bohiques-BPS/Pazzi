@@ -6,7 +6,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { UserGroupIcon, PaperAirplaneIcon, VideoCameraIcon, PhoneIcon, DocumentArrowUpIcon, MagnifyingGlassIcon } from '../../components/icons';
 import { inputFormStyle, BUTTON_PRIMARY_CLASSES } from '../../constants';
 import { CallModal } from '../../components/CallModal';
-import { chatService, type ChatMessageRecord } from '../../services/chat';
+import { chatService, type ChatMessageRecord, type ChatLastMessage } from '../../services/chat';
 import { whatsappService } from '../../services/whatsapp';
 import { getSocket, joinProjectRoom } from '../../services/socket';
 import { useChatUnread, markProjectChatRead } from '../../hooks/useChatUnread';
@@ -17,6 +17,30 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 // Con socket en tiempo real, el polling es solo respaldo lento (por si el socket se cae).
 const POLLING_INTERVAL_MS = 20000;
+
+/** Hora del último mensaje en la lista (estilo Telegram): hoy → hora, ayer → "Ayer", semana → día, si no fecha corta. */
+const listTime = (iso: string): string => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((startOf(new Date()) - startOf(d)) / 86400000);
+    if (diff <= 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diff === 1) return 'Ayer';
+    if (diff < 7) { const w = d.toLocaleDateString(undefined, { weekday: 'short' }); return w.charAt(0).toUpperCase() + w.slice(1); }
+    return d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: '2-digit' });
+};
+
+/** Iniciales para el avatar de un proyecto sin logo. */
+const initials = (name: string): string =>
+    (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase() || '?';
+
+/** Color estable (por nombre) para el avatar de iniciales. */
+const AVATAR_COLORS = ['bg-emerald-500', 'bg-sky-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500', 'bg-teal-500', 'bg-indigo-500', 'bg-orange-500'];
+const avatarColor = (name: string): string => {
+    let h = 0;
+    for (const ch of name || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
+};
 
 /** Clave del día local (YYYY-MM-DD) de un mensaje, para agrupar por fecha. */
 const dayKey = (iso: string): string => {
@@ -38,6 +62,15 @@ const dayLabel = (iso: string): string => {
     return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
+/** Convierte un mensaje completo en la vista previa de la lista. */
+const toPreview = (m: ChatMessageRecord): ChatLastMessage => ({
+    senderId: m.senderId,
+    senderName: m.senderName,
+    text: String(m.text || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120),
+    attachmentType: m.attachmentType ?? null,
+    timestamp: m.timestamp,
+});
+
 /** Ordena los mensajes cronológicamente (por fecha; desempate por id) para que nunca se vean desordenados. */
 const sortMessages = (msgs: ChatMessageRecord[]): ChatMessageRecord[] =>
     [...msgs].sort((a, b) => {
@@ -52,10 +85,12 @@ export const ProjectChatPage: React.FC = () => {
     const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
     const { currentUser } = useAuth();
     const { can } = usePermissions();
-    const { unreadByProject, lastMessageAtByProject } = useChatUnread(true);
-    // Actividad local (mensajes enviados/recibidos en esta sesión) para subir el chat al instante,
-    // sin esperar al siguiente refresco del overview.
-    const [localLastAt, setLocalLastAt] = useState<Record<string, number>>({});
+    const { unreadCountByProject, lastMessageByProject } = useChatUnread(true);
+    // Último mensaje visto en esta sesión (enviado/recibido): sube el chat y actualiza la vista
+    // previa al instante, sin esperar al siguiente refresco del overview.
+    const [localLast, setLocalLast] = useState<Record<string, ChatLastMessage>>({});
+    // Último mensaje del chat abierto ya marcado como leído (para no repetir el POST en cada poll).
+    const lastMarkedRef = useRef<string | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
     const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
@@ -87,13 +122,25 @@ export const ProjectChatPage: React.FC = () => {
         return baseProjects;
     }, [allProjectsContext, currentUser, isEmployeeView, can]);
 
+    /** Último mensaje del proyecto: el más nuevo entre el overview del servidor y lo visto en la sesión. */
+    const lastPreview = (id: string): ChatLastMessage | null => {
+        const a = lastMessageByProject[id];
+        const b = localLast[id];
+        if (!a) return b || null;
+        if (!b) return a;
+        return new Date(b.timestamp).getTime() >= new Date(a.timestamp).getTime() ? b : a;
+    };
+
     // Buscador de chats: por nombre de proyecto, nombre/empresa/alias del cliente.
     const [chatSearch, setChatSearch] = useState('');
     const displayProjects = useMemo(() => {
         const q = chatSearch.trim().toLowerCase();
         // Orden tipo WhatsApp: el chat con el mensaje más reciente arriba; los que no tienen
         // mensajes van al final en orden alfabético.
-        const lastAt = (id: string) => Math.max(lastMessageAtByProject[id] || 0, localLastAt[id] || 0);
+        const lastAt = (id: string) => {
+            const m = lastPreview(id);
+            return m ? new Date(m.timestamp).getTime() || 0 : 0;
+        };
         const sorted = [...activeProjects].sort((a, b) => {
             const diff = lastAt(b.id) - lastAt(a.id);
             return diff !== 0 ? diff : (a.name || '').localeCompare(b.name || '');
@@ -110,7 +157,7 @@ export const ProjectChatPage: React.FC = () => {
             ].filter(Boolean).join(' ').toLowerCase();
             return hay.includes(q);
         });
-    }, [activeProjects, chatSearch, getClientById, lastMessageAtByProject, localLastAt]);
+    }, [activeProjects, chatSearch, getClientById, lastMessageByProject, localLast]);
 
     const selectedProject = selectedProjectId ? allProjectsContext.find(p => p.id === selectedProjectId) : null;
 
@@ -123,8 +170,14 @@ export const ProjectChatPage: React.FC = () => {
     // Carga y polling de mensajes para el proyecto seleccionado
     const fetchMessages = useCallback(async (projectId: string) => {
         try {
-            const msgs = await chatService.getMessages(projectId);
-            setProjectMessages(sortMessages(msgs));
+            const msgs = sortMessages(await chatService.getMessages(projectId));
+            setProjectMessages(msgs);
+            const last = msgs[msgs.length - 1];
+            if (last) {
+                setLocalLast(prev => ({ ...prev, [projectId]: toPreview(last) }));
+                // Si llegó algo nuevo por polling (socket caído), el chat abierto queda leído.
+                if (lastMarkedRef.current !== last.id) { lastMarkedRef.current = last.id; markProjectChatRead(projectId); }
+            }
         } catch (err) {
             if (err instanceof ApiError) console.error('chat fetch:', err.message);
         }
@@ -134,9 +187,12 @@ export const ProjectChatPage: React.FC = () => {
         // Dedupe por id y re-ordena por fecha: los mensajes que llegan por socket/polling
         // pueden arribar fuera de orden, así que siempre mantenemos la lista cronológica.
         setProjectMessages(prev => prev.some(m => m.id === msg.id) ? prev : sortMessages([...prev, msg]));
-        // Sube ese chat al tope de la lista.
-        const ts = new Date(msg.timestamp).getTime() || Date.now();
-        setLocalLastAt(prev => (prev[msg.projectId] || 0) >= ts ? prev : { ...prev, [msg.projectId]: ts });
+        // Sube ese chat al tope de la lista y actualiza su vista previa.
+        setLocalLast(prev => {
+            const cur = prev[msg.projectId];
+            if (cur && new Date(cur.timestamp).getTime() > new Date(msg.timestamp).getTime()) return prev;
+            return { ...prev, [msg.projectId]: toPreview(msg) };
+        });
     }, []);
 
     useEffect(() => {
@@ -323,32 +379,51 @@ export const ProjectChatPage: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex-grow overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
-                    {displayProjects.length > 0 ? displayProjects.map(project => (
+                    {displayProjects.length > 0 ? displayProjects.map(project => {
+                        const selected = selectedProjectId === project.id;
+                        const last = lastPreview(project.id);
+                        const unread = selected ? 0 : (unreadCountByProject[project.id] || 0);
+                        const mine = !!last && last.senderId === currentUser?.id;
+                        const who = last ? (mine ? 'Tú' : (last.senderName || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim().split(/\s+/)[0]) : '';
+                        const body = last
+                            ? (last.text || (last.attachmentType === 'image' ? '📷 Foto' : last.attachmentType === 'video' ? '🎥 Video' : last.attachmentType ? '📎 Archivo' : ''))
+                            : '';
+                        return (
                         <button
                             key={project.id}
                             onClick={() => { setSelectedProjectId(project.id); markProjectChatRead(project.id); }}
-                            className={`w-full text-left p-2.5 rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center gap-2
-                                ${selectedProjectId === project.id
-                                    ? 'bg-primary text-white font-medium shadow-sm'
+                            className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center gap-3
+                                ${selected
+                                    ? 'bg-primary text-white shadow-sm'
                                     : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
                         >
-                            {unreadByProject[project.id] && selectedProjectId !== project.id && (
-                                <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500" aria-label="sin leer" />
-                            )}
+                            {/* Avatar uniforme: círculo fijo; el logo se ajusta sin deformarse. Sin logo → iniciales. */}
                             {project.imageUrl
-                                ? <img src={project.imageUrl} alt="" className="w-10 h-7 rounded-md object-contain bg-white dark:bg-neutral-900 flex-shrink-0" />
-                                : <span className="w-7 h-7 rounded-md bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center text-sm flex-shrink-0">🗂️</span>}
-                            <span className="truncate">{project.name}</span>
-                            {/* "Activo" es el estado normal: no se muestra. Solo se marcan los demás (p. ej. Pendiente). */}
-                            {project.status !== ProjectStatus.ACTIVE && (
-                             <span className={`ml-auto text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                project.status === ProjectStatus.PENDING ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-200' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300'
-                             }`}>
-                                {project.status}
-                             </span>
-                            )}
+                                ? <span className="w-11 h-11 rounded-full bg-white border border-neutral-200 dark:border-neutral-600 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                    <img src={project.imageUrl} alt="" className="w-full h-full object-contain p-1" />
+                                  </span>
+                                : <span className={`w-11 h-11 rounded-full ${avatarColor(project.name)} text-white flex items-center justify-center text-sm font-semibold flex-shrink-0`}>{initials(project.name)}</span>}
+                            <span className="flex-1 min-w-0">
+                                <span className="flex items-center gap-2">
+                                    <span className="truncate font-semibold text-[14.75px]">{project.name}</span>
+                                    {last && <span className={`ml-auto flex-shrink-0 text-[11.5px] ${selected ? 'text-white/80' : unread ? 'text-primary font-semibold' : 'text-neutral-400 dark:text-neutral-500'}`}>{listTime(last.timestamp)}</span>}
+                                </span>
+                                <span className="flex items-center gap-2 mt-0.5">
+                                    <span className={`truncate text-[13px] ${selected ? 'text-white/85' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                                        {last
+                                            ? <>{who && <span className={selected ? 'text-white' : 'text-neutral-700 dark:text-neutral-200'}>{who}: </span>}{body}</>
+                                            : <span className="italic">Sin mensajes</span>}
+                                    </span>
+                                    {unread > 0 && (
+                                        <span className="ml-auto flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center" aria-label={`${unread} sin leer`}>
+                                            {unread > 99 ? '99+' : unread}
+                                        </span>
+                                    )}
+                                </span>
+                            </span>
                         </button>
-                    )) : (
+                        );
+                    }) : (
                         <p className="p-3 text-xs text-center text-neutral-500 dark:text-neutral-400">{chatSearch.trim() ? (t('pm2x.chat.no_results') || 'Sin resultados para la búsqueda.') : t('pm2x.chat.no_projects')}</p>
                     )}
                 </div>

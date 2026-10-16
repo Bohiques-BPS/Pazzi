@@ -14,10 +14,20 @@ export interface ChatMessageRecord {
   whatsapp?: { requested: boolean; sent: boolean; reason?: string };
 }
 
+export interface ChatLastMessage {
+  senderId: string;
+  senderName: string;
+  text: string; // texto plano corto
+  attachmentType?: 'image' | 'video' | 'file' | null;
+  timestamp: string;
+}
+
 export interface ChatOverviewRow {
   projectId: string;
   lastMessageAt: string | null;
-  count: number;
+  /** Mensajes de otros posteriores a lo último leído por el usuario (marca en el servidor). */
+  unreadCount: number;
+  lastMessage: ChatLastMessage | null;
 }
 
 export const chatService = {
@@ -32,4 +42,7 @@ export const chatService = {
 
   /** Marca leídas las notificaciones (campanita) de chat de un proyecto para el usuario actual. */
   markRead: (projectId: string) => api.post<{ ok: boolean }>(`/chat/${encodeURIComponent(projectId)}/read`, {}),
+
+  /** Migra (una vez) lo leído guardado en el navegador a la marca del servidor. */
+  syncReads: (reads: Record<string, number>) => api.post<{ ok: boolean; created: number }>('/chat/reads/sync', { reads }),
 };
