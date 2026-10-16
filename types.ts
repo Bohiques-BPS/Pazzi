@@ -641,6 +641,8 @@ export interface ChatMessage {
     attachmentUrl?: string | null;
     attachmentType?: 'image' | 'video' | 'file' | null;
     attachmentName?: string | null;
+    /** Foto del remitente (o logo del negocio si es el gerente); null = iniciales. */
+    senderAvatarUrl?: string | null;
 }
 
 export type ECommerceTemplate = 'Moderno' | 'Catalogo' | 'Clasico' | 'Minimalista' | 'Marketplace' | 'Boutique' | 'Ofertas' | 'Mayorista' | 'Autopartes';

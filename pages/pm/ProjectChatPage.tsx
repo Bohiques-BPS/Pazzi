@@ -477,11 +477,17 @@ export const ProjectChatPage: React.FC = () => {
                         </div>
 
                         {/* Messages Area */}
-                        <div className="flex-1 px-2 sm:px-3 py-4 space-y-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
+                        <div className="flex-1 px-2 sm:px-3 py-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
                             {projectMessages.length > 0 ? projectMessages.map((msg, i) => {
                                 // Separador de día estilo WhatsApp cuando cambia la fecha local.
                                 const day = dayKey(msg.timestamp);
-                                const showDay = i === 0 || dayKey(projectMessages[i - 1].timestamp) !== day;
+                                const prev = projectMessages[i - 1];
+                                const next = projectMessages[i + 1];
+                                const showDay = i === 0 || dayKey(prev.timestamp) !== day;
+                                // Rachas estilo Telegram: mismo remitente seguido el mismo día. Nombre en el
+                                // primero de la racha, avatar en el último.
+                                const firstOfRun = showDay || prev.senderId !== msg.senderId;
+                                const lastOfRun = !next || next.senderId !== msg.senderId || dayKey(next.timestamp) !== day;
                                 return (
                                     <React.Fragment key={msg.id}>
                                         {showDay && (
@@ -491,10 +497,14 @@ export const ProjectChatPage: React.FC = () => {
                                                 </span>
                                             </div>
                                         )}
-                                        <ChatMessageItem
-                                            message={msg}
-                                            isCurrentUser={currentUser.id === msg.senderId}
-                                        />
+                                        <div className={firstOfRun && !showDay ? 'mt-3' : ''}>
+                                            <ChatMessageItem
+                                                message={msg}
+                                                isCurrentUser={currentUser.id === msg.senderId}
+                                                showName={firstOfRun}
+                                                showAvatar={lastOfRun}
+                                            />
+                                        </div>
                                     </React.Fragment>
                                 );
                             }) : (
