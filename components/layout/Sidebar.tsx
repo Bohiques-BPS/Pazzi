@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   
   if (subModulesToDisplay.length === 0 && currentUser?.role !== UserRole.CLIENT_PROJECT) {
       return (
-        <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
+        <aside className={`pz-sidebar bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
             <Link to="/" className="flex items-center h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700">
                 <img src={logo} alt="Pazzi" className="h-7 sm:h-9 dark:hidden" />
                 <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
@@ -213,7 +213,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   };
 
   return (
-    <aside className={`bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
+    <aside className={`pz-sidebar bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
       {/* Encabezado: selector de módulo (ícono de cuadritos) a la IZQUIERDA del logo. */}
       <div className="flex items-center gap-2 h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
         {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (

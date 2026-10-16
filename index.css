@@ -14,3 +14,24 @@ html.dark .text-neutral-500 { color: #a3a3a3; }
 /* La vista previa de factura/recibo es papel blanco a propósito: ahí se mantiene el gris original. */
 html.dark .pazzi-paper .text-neutral-500,
 html.dark .pazzi-paper.text-neutral-500 { color: #737373; }
+
+/* ── Texto 1px más pequeño en TODA la app excepto el sidebar ──
+   Reducimos solo el font-size de la escala de texto de Tailwind (no los
+   espaciados). El sidebar (.pz-sidebar) se restaura a los tamaños originales
+   para que se vea exactamente igual. Base root = 18px. */
+.text-xs   { font-size: 12.5px; }   /* 13.5 → 12.5 */
+.text-sm   { font-size: 14.75px; }  /* 15.75 → 14.75 */
+.text-base { font-size: 17px; }     /* 18 → 17 */
+.text-lg   { font-size: 19.25px; }  /* 20.25 → 19.25 */
+.text-xl   { font-size: 21.5px; }   /* 22.5 → 21.5 */
+.text-2xl  { font-size: 26px; }     /* 27 → 26 */
+.text-3xl  { font-size: 32.75px; }  /* 33.75 → 32.75 */
+.text-4xl  { font-size: 39.5px; }   /* 40.5 → 39.5 */
+.text-5xl  { font-size: 53px; }     /* 54 → 53 */
+
+/* El sidebar conserva sus tamaños originales (no se le baja 1px). */
+.pz-sidebar .text-xs   { font-size: 0.75rem; }
+.pz-sidebar .text-sm   { font-size: 0.875rem; }
+.pz-sidebar .text-base { font-size: 1rem; }
+.pz-sidebar .text-lg   { font-size: 1.125rem; }
+.pz-sidebar .text-xl   { font-size: 1.25rem; }
