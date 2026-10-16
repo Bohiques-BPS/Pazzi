@@ -88,6 +88,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
   const showBusinessLogo = !!businessLogoSrc
     && currentUser
     && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role);
+  // Avatar del botón de cuenta: foto propia si la tiene; si no (p. ej. el gerente), el logo del negocio.
+  const avatarSrc: string = (currentUser as any)?.profilePictureUrl || (showBusinessLogo ? businessLogoSrc : '');
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  useEffect(() => { setAvatarFailed(false); }, [avatarSrc]);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
@@ -346,10 +350,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
           <div className="relative" ref={userRef}>
             <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} className="flex items-center space-x-1 sm:space-x-2 p-1.5 sm:p-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-haspopup="true" aria-expanded={userDropdownOpen} aria-controls="user-menu">
                 {/* Foto propia si la tiene; si no (p. ej. el gerente, que no puede subir una), el logo del negocio. */}
-                {((currentUser as any)?.profilePictureUrl || (showBusinessLogo ? businessLogoSrc : ''))
-                    ? <img src={(currentUser as any)?.profilePictureUrl || businessLogoSrc} alt={businessName || 'Logo'} title={businessName || undefined} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-neutral-200 dark:border-neutral-600" />
+                {avatarSrc && !avatarFailed
+                    ? <img src={avatarSrc} alt={businessName || 'Logo'} title={businessName || undefined} onError={() => setAvatarFailed(true)} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-contain bg-white border border-neutral-200 dark:border-neutral-600" />
                     : <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />}
-                <span className="hidden md:inline text-sm sm:text-lg text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
+                <span className="hidden md:inline text-sm sm:text-base text-neutral-700 dark:text-neutral-200">{currentUser?.name || currentUser?.email}</span>
                 <ChevronDownIcon className="w-4 h-4 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             </button>
             {userDropdownOpen && (
