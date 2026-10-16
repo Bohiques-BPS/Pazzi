@@ -161,6 +161,46 @@ export const WhatsappConfiguration: React.FC = () => {
                         </div>
                     )}
 
+                    {/* ── Guías paso a paso (token permanente y plantillas) ── */}
+                    <div className="space-y-3 pt-2">
+                        <details className="group rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                            <summary className="flex items-center justify-between gap-2 cursor-pointer select-none px-4 py-3 bg-neutral-50 dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                                <span className="flex items-center gap-2"><span>🔑</span> Cómo crear el token permanente (que no expira)</span>
+                                <svg className="w-4 h-4 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </summary>
+                            <div className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300 space-y-2 border-t border-neutral-200 dark:border-neutral-700">
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">El token de prueba de Meta dura solo 24h. Para que WhatsApp quede conectado permanentemente necesitas un token de <strong>Usuario del sistema (System User)</strong>, que no expira.</p>
+                                <ol className="list-decimal list-outside ml-5 space-y-1.5">
+                                    <li>Entra a <a href="https://business.facebook.com/settings" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">business.facebook.com/settings</a> (Configuración del negocio) con la cuenta dueña de la app de WhatsApp.</li>
+                                    <li>En el menú izquierdo: <strong>Usuarios → Usuarios del sistema</strong>. Pulsa <strong>Agregar</strong>, ponle un nombre (ej. “Pazzi API”) y rol <strong>Administrador</strong>.</li>
+                                    <li>Con ese usuario seleccionado, pulsa <strong>Agregar activos</strong> → pestaña <strong>Apps</strong> → elige tu app de WhatsApp → activa <strong>Control total</strong>. Repite en <strong>Cuentas de WhatsApp</strong> y añade tu WABA.</li>
+                                    <li>Pulsa <strong>Generar nuevo token</strong>. Elige tu <strong>app</strong> y en caducidad selecciona <strong>Nunca (Never)</strong>.</li>
+                                    <li>En permisos marca <code className="px-1 rounded bg-neutral-100 dark:bg-neutral-700 text-xs">whatsapp_business_messaging</code> y <code className="px-1 rounded bg-neutral-100 dark:bg-neutral-700 text-xs">whatsapp_business_management</code>. Pulsa <strong>Generar</strong>.</li>
+                                    <li>Copia el token (<strong>solo se muestra una vez</strong>) y pégalo arriba en <strong>“Token de acceso”</strong>. Guarda.</li>
+                                </ol>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">El <strong>Phone Number ID</strong> y el <strong>WABA ID</strong> los ves en Meta → <strong>WhatsApp → Configuración de la API</strong>.</p>
+                            </div>
+                        </details>
+
+                        <details className="group rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                            <summary className="flex items-center justify-between gap-2 cursor-pointer select-none px-4 py-3 bg-neutral-50 dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                                <span className="flex items-center gap-2"><span>📝</span> Cómo crear y enlazar las plantillas (templates)</span>
+                                <svg className="w-4 h-4 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </summary>
+                            <div className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300 space-y-2 border-t border-neutral-200 dark:border-neutral-700">
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">Las plantillas son mensajes aprobados por Meta. Solo se necesitan para escribirle al cliente <strong>fuera de la ventana de 24h</strong> desde su último mensaje. Dentro de esas 24h puedes enviar texto libre sin plantilla.</p>
+                                <ol className="list-decimal list-outside ml-5 space-y-1.5">
+                                    <li>Entra a <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">WhatsApp Manager → Plantillas de mensajes</a>.</li>
+                                    <li>Pulsa <strong>Crear plantilla</strong>. Elige <strong>categoría</strong> (Utilidad para avisos/seguimiento, Marketing para promociones), <strong>nombre</strong> (ej. <code className="px-1 rounded bg-neutral-100 dark:bg-neutral-700 text-xs">seguimiento_proyecto</code>) e <strong>idioma</strong>.</li>
+                                    <li>Escribe el cuerpo. Usa variables con <code className="px-1 rounded bg-neutral-100 dark:bg-neutral-700 text-xs">{'{{1}}'}</code>, <code className="px-1 rounded bg-neutral-100 dark:bg-neutral-700 text-xs">{'{{2}}'}</code> para datos dinámicos (ej. “Hola {'{{1}}'}, tu proyecto {'{{2}}'} tiene una actualización.”).</li>
+                                    <li>Envía a revisión. Meta la aprueba normalmente en minutos u horas; el estado pasa a <strong>Aprobada</strong>.</li>
+                                    <li>Para que Pazzi pueda usarlas, asegúrate de tener el <strong>WABA ID</strong> lleno arriba (es la cuenta donde viven tus plantillas).</li>
+                                </ol>
+                                <p className="text-xs text-amber-600 dark:text-amber-400">Nota: hoy el chat reenvía a WhatsApp solo dentro de la ventana de 24h. El envío con plantilla fuera de ese plazo está en preparación; mientras tanto, crea y aprueba tus plantillas para tenerlas listas.</p>
+                            </div>
+                        </details>
+                    </div>
+
                     <div className="flex justify-end gap-2 pt-1">
                         <button type="button" onClick={load} disabled={saving} className={BUTTON_SECONDARY_SM_CLASSES}>Restablecer</button>
                         <button type="button" onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : 'Guardar'}</button>
