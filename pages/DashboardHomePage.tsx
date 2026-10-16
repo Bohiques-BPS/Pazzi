@@ -280,15 +280,8 @@ export const DashboardHomePage: React.FC = () => {
                             onClick={() => handleModuleClick(module.name)}
                             className="w-full h-full min-w-0 overflow-hidden bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-lg hover:shadow-xl dark:hover:shadow-primary/20 transition-shadow duration-300 text-left flex flex-col items-start justify-start"
                         >
-                            {/* Ícono + título alineados arriba a la izquierda (el ícono es un componente, no un elemento). */}
-                            <div className="flex items-center gap-3 mb-2 min-w-0">
-                                {(() => {
-                                    const Icon = module.icon as any;
-                                    if (React.isValidElement(Icon)) return React.cloneElement(Icon as React.ReactElement<{ className?: string }>, { className: 'w-7 h-7 flex-shrink-0 text-primary' });
-                                    return Icon ? <Icon className="w-7 h-7 flex-shrink-0 text-primary" /> : null;
-                                })()}
-                                <h2 className="text-[19px] sm:text-[25px] leading-tight font-semibold text-primary min-w-0 break-words hyphens-auto">{module.name}</h2>
-                            </div>
+                            {/* Solo título (sin ícono), alineado arriba a la izquierda. */}
+                            <h2 className="mb-2 text-[19px] sm:text-[25px] leading-tight font-semibold text-primary min-w-0 break-words hyphens-auto">{module.name}</h2>
                             <p className="text-neutral-600 dark:text-neutral-300 text-[13.75px] sm:text-[16px] break-words">
                                 Accede a las herramientas de {descriptionText}
                             </p>
