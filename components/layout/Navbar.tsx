@@ -13,7 +13,7 @@ import { APP_MODULES_CONFIG } from '../../constants';
 import { API_URL } from '../../services/api';
 import { MenuIcon, UserCircleIcon, ChevronDownIcon, ChevronRightIcon, Cog6ToothIcon, ArrowLeftOnRectangleIcon, ListBulletIcon, BuildingStorefrontIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, Squares2X2Icon, BellIcon, ShoppingCartIcon as OrderIcon, WrenchScrewdriverIcon, ClockIcon, PlusIcon } from '../icons';
 import { AddAccountModal } from '../AddAccountModal';
-import { timeclockService } from '../../services/timeclock';
+import { TimeClockModal } from '../TimeClockModal';
 import { QuickSettingsPanel } from '../ui/QuickSettingsButton';
 import { NavCommand } from './NavCommand';
 import { JoinRequestDecisionModal, parseJoinRequestLink, type JoinRequestTarget } from '../pm/JoinRequestDecisionModal';
@@ -93,23 +93,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [joinRequestTarget, setJoinRequestTarget] = useState<JoinRequestTarget | null>(null);
-  const [punching, setPunching] = useState(false);
+  // Modal de ponche de asistencia (4 fases del día).
+  const [punchModalOpen, setPunchModalOpen] = useState(false);
 
-  // Ponche rápido del usuario conectado (alterna Entrada/Salida en el backend).
-  const handlePunch = async () => {
-    if (punching) return;
-    setPunching(true);
-    try {
-      const res = await timeclockService.punchSelf();
-      const when = new Date(res.punchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      if (res.type === 'IN') toast.success(t('cmp.navbar.punch_in_ok', { time: when }));
-      else toast.success(t('cmp.navbar.punch_out_ok', { time: when }));
-    } catch (err: any) {
-      toast.error(err?.message || t('cmp.navbar.punch_err'));
-    } finally {
-      setPunching(false);
-    }
-  };
   // Cerrar los dropdowns al hacer clic fuera de su contenedor.
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
@@ -280,9 +266,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
            {/* Ponche rápido (Entrada/Salida) — solo staff */}
            {currentUser && currentUser.role === UserRole.EMPLOYEE && (
              <button
-                onClick={handlePunch}
-                disabled={punching}
-                className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                onClick={() => setPunchModalOpen(true)}
+                className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                 aria-label={t('cmp.navbar.punch')}
                 title={t('cmp.navbar.punch')}
              >
@@ -458,6 +443,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
         </div>
       </div>
       <AddAccountModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} />
+      <TimeClockModal isOpen={punchModalOpen} onClose={() => setPunchModalOpen(false)} />
       <JoinRequestDecisionModal target={joinRequestTarget} onClose={() => setJoinRequestTarget(null)} />
     </nav>
   );

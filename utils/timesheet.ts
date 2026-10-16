@@ -1,14 +1,21 @@
 /**
- * Cálculo de horas trabajadas a partir de los ponches (entrada/salida) del sistema.
- * Empareja cada IN con el siguiente OUT del mismo empleado y suma la duración.
+ * Cálculo de horas trabajadas a partir de los ponches del sistema (4 fases por día:
+ * Entrada → Salida a almuerzo → Regreso de almuerzo → Salida).
+ * Los eventos de ENTRADA (IN, LUNCH_IN) abren una sesión y los de SALIDA (LUNCH_OUT, OUT)
+ * la cierran, de modo que el almuerzo queda excluido automáticamente de las horas.
  */
+
+export type PunchKind = 'IN' | 'LUNCH_OUT' | 'LUNCH_IN' | 'OUT';
 
 export interface PunchLike {
     employeeId?: string;
     employeeName: string;
-    type: 'IN' | 'OUT';
+    type: PunchKind;
     punchedAt: string; // ISO
 }
+
+/** ¿El ponche abre una sesión de trabajo? (entrada de jornada o regreso de almuerzo). */
+const isClockIn = (t: PunchKind): boolean => t === 'IN' || t === 'LUNCH_IN';
 
 export interface WorkSession {
     date: string;        // YYYY-MM-DD (local) del inicio
@@ -49,16 +56,16 @@ export function buildTimesheet(punches: PunchLike[]): { employees: EmployeeTimes
         let openIn: string | null = null;
 
         for (const p of sorted) {
-            if (p.type === 'IN') {
-                if (openIn) sessions.push({ date: localDay(openIn), inAt: openIn, outAt: null, hours: 0, open: true }); // IN previo sin OUT
+            if (isClockIn(p.type)) {
+                if (openIn) sessions.push({ date: localDay(openIn), inAt: openIn, outAt: null, hours: 0, open: true }); // entrada previa sin salida
                 openIn = p.punchedAt;
-            } else { // OUT
+            } else { // salida (LUNCH_OUT | OUT)
                 if (openIn) {
                     const hours = Math.max(0, (new Date(p.punchedAt).getTime() - new Date(openIn).getTime()) / 3600000);
                     sessions.push({ date: localDay(openIn), inAt: openIn, outAt: p.punchedAt, hours, open: false });
                     openIn = null;
                 }
-                // OUT sin IN → se ignora
+                // salida sin entrada → se ignora
             }
         }
         if (openIn) sessions.push({ date: localDay(openIn), inAt: openIn, outAt: null, hours: 0, open: true });

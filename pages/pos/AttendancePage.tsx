@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
-import { timeclockService, type TimeClockPunch } from '../../services/timeclock';
+import { timeclockService, PUNCH_LABELS, type TimeClockPunch } from '../../services/timeclock';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
@@ -170,11 +170,14 @@ export const AttendancePage: React.FC = () => {
                     data={rows}
                     columns={[
                         { header: t('posx.attendance.employee'), accessor: (r) => <EmployeeNameLink employeeId={r.employeeId} name={r.employeeName} />, sortValue: r => r.employeeName, filterValue: r => r.employeeName },
-                        { header: t('posx.attendance.type'), accessor: (r) => (
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.type === 'IN' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
-                                {r.type === 'IN' ? t('posx.attendance.punch_in') : t('posx.attendance.punch_out')}
-                            </span>
-                        ), sortValue: r => r.type, filterValue: r => r.type === 'IN' ? t('posx.attendance.punch_in') : t('posx.attendance.punch_out') },
+                        { header: t('posx.attendance.type'), accessor: (r) => {
+                            const isIn = r.type === 'IN' || r.type === 'LUNCH_IN';
+                            return (
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isIn ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+                                    {PUNCH_LABELS[r.type] ?? r.type}
+                                </span>
+                            );
+                        }, sortValue: r => r.type, filterValue: r => PUNCH_LABELS[r.type] ?? r.type },
                         { header: t('posx.attendance.datetime'), accessor: (r) => <span className="text-neutral-600 dark:text-neutral-300">{new Date(r.punchedAt).toLocaleString()}</span>, sortValue: r => r.punchedAt },
                     ] as TableColumn<TimeClockPunch>[]}
                 />

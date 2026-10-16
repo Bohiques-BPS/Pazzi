@@ -161,10 +161,12 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                 forceWithDifference: isHighDiff,
             });
             toast.success(cashDiff === 0 ? 'Turno cerrado sin diferencia ✓' : `Turno cerrado con diferencia de ${money(Math.abs(cashDiff))}`);
-            // Ponche de salida al cerrar turno: registra la salida del cajero (best-effort).
+            // Ponche de salida al cerrar turno: registra la SALIDA del cajero (best-effort).
+            // Si la secuencia del día no permite salir aún (p. ej. está en almuerzo), el servidor
+            // lo rechaza y no bloquea el cierre.
             if (punchOnClose) {
                 try {
-                    const r = await timeclockService.punchSelf();
+                    const r = await timeclockService.punchSelf('OUT');
                     toast.success(r.type === 'OUT' ? 'Salida registrada (ponche) ✓' : 'Ponche registrado ✓');
                 } catch { /* no bloquea el cierre */ }
             }

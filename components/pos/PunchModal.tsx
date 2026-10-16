@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../Modal';
-import { timeclockService } from '../../services/timeclock';
+import { timeclockService, PUNCH_LABELS, type PunchType } from '../../services/timeclock';
 import { ApiError } from '../../services/api';
 import { useData } from '../../contexts/DataContext';
 import { BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
@@ -12,7 +12,7 @@ interface PunchModalProps {
     onClose: () => void;
 }
 
-type PunchDone = { type: 'IN' | 'OUT'; employeeName: string; punchedAt: string };
+type PunchDone = { type: PunchType; employeeName: string; punchedAt: string };
 
 /** Ponche (F9): selecciona el empleado en una cuadrícula y SIEMPRE confirma con su PIN. */
 export const PunchModal: React.FC<PunchModalProps> = ({ isOpen, onClose }) => {
@@ -56,8 +56,8 @@ export const PunchModal: React.FC<PunchModalProps> = ({ isOpen, onClose }) => {
         <Modal isOpen={isOpen} onClose={onClose} title="Ponche de Empleado (F9)" size={selected ? 'md' : '3xl'}>
             {result ? (
                 <div className="text-center py-6 space-y-2">
-                    <div className={`text-5xl ${result.type === 'IN' ? 'text-green-500' : 'text-amber-500'}`}>{result.type === 'IN' ? '🟢' : '🔴'}</div>
-                    <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{result.type === 'IN' ? 'Entrada registrada' : 'Salida registrada'}</p>
+                    <div className={`text-5xl ${result.type === 'IN' || result.type === 'LUNCH_IN' ? 'text-green-500' : 'text-amber-500'}`}>{result.type === 'IN' || result.type === 'LUNCH_IN' ? '🟢' : '🔴'}</div>
+                    <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{PUNCH_LABELS[result.type] ?? result.type} registrada</p>
                     <p className="text-lg text-neutral-600 dark:text-neutral-300">{result.employeeName}</p>
                     <p className="text-sm text-neutral-500">{new Date(result.punchedAt).toLocaleString()}</p>
                 </div>
