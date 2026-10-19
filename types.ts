@@ -196,11 +196,21 @@ export interface Caja {
     applyIVU: boolean;
     applyIVA?: boolean;
     isExternal?: boolean;
+    /** Terminales (PC) autorizadas para abrir turno; vacío = abre en cualquier PC. */
+    devices?: CajaDevice[];
     currentSession?: {
         id: string;
         openedByUser?: { id: string; name: string; lastName: string };
         openedAt: string;
     } | null;
+}
+
+/** Terminal (PC) autorizada para una caja. */
+export interface CajaDevice {
+    deviceId: string;
+    deviceName: string;
+    /** true = amarrada con llave de firma (no copiable). */
+    secured: boolean;
 }
 
 export interface ProductVariation {

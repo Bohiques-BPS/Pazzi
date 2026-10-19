@@ -11,7 +11,10 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 export interface SelectableCaja {
     id: string;
     name: string;
-    assignedDeviceName?: string | null;
+    /** Terminales autorizadas (nombres); vacío = abre en cualquier PC. */
+    terminalNames?: string[];
+    /** true si ESTA PC está entre las terminales autorizadas de la caja. */
+    allowedHere?: boolean;
 }
 
 interface OpenCajaModalProps {
@@ -46,9 +49,11 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
 
     if (!caja) return null;
 
-    // Aviso (no bloqueante) si la caja elegida está amarrada a otra terminal.
+    // Aviso (no bloqueante) si la caja elegida tiene terminales y ESTA PC no es una de ellas.
     const selectedInfo = cajas?.find(c => c.id === caja.id);
-    const assignedTerminal = selectedInfo?.assignedDeviceName || null;
+    const assignedTerminal = selectedInfo && (selectedInfo.terminalNames?.length || 0) > 0 && !selectedInfo.allowedHere
+        ? (selectedInfo.terminalNames || []).join(', ')
+        : null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -108,7 +113,7 @@ export const OpenCajaModal: React.FC<OpenCajaModalProps> = ({ isOpen, onClose, c
                         >
                             {cajas.map(c => (
                                 <option key={c.id} value={c.id}>
-                                    {c.name}{c.assignedDeviceName ? ` — ${c.assignedDeviceName}` : ''}
+                                    {c.name}{c.terminalNames && c.terminalNames.length > 0 ? ` — ${c.allowedHere ? 'esta PC' : c.terminalNames.join(', ')}` : ''}
                                 </option>
                             ))}
                         </select>

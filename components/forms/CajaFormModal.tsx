@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Caja, CajaFormData } from '../../types';
+import { Caja, CajaFormData, CajaDevice } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
@@ -38,14 +38,14 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
     const [error, setError] = useState<string | null>(null);
     // Modal anidado para crear una sucursal sin salir del formulario de caja.
     const [showCreateBranch, setShowCreateBranch] = useState(false);
-    // Amarre de terminal (PC).
-    const [assignedId, setAssignedId] = useState<string | null>(null);
-    const [assignedName, setAssignedName] = useState<string | null>(null);
+    // Terminales (PC) autorizadas: una caja puede tener varias.
+    const [devices, setDevices] = useState<CajaDevice[]>([]);
     const [deviceName, setDeviceName] = useState('');
     const [devicePin, setDevicePin] = useState('');
     const [deviceBusy, setDeviceBusy] = useState(false);
     const thisDeviceId = getDeviceId();
-    const isThisDevice = !!assignedId && assignedId === thisDeviceId;
+    const thisDevice = devices.find(d => d.deviceId === thisDeviceId) || null;
+    const isThisDevice = !!thisDevice;
 
     useEffect(() => {
         if (!isOpen) return;
@@ -61,11 +61,10 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
         } else {
             setFormData({ ...initialFormData, branchId: activeBranches[0]?.id || '' });
         }
-        const aId = (cajaToEdit as any)?.assignedDeviceId ?? null;
-        const aName = (cajaToEdit as any)?.assignedDeviceName ?? null;
-        setAssignedId(aId);
-        setAssignedName(aName);
-        setDeviceName(aId && aId === getDeviceId() ? (aName || suggestDeviceName()) : suggestDeviceName());
+        const list: CajaDevice[] = (cajaToEdit as any)?.devices ?? [];
+        setDevices(list);
+        const mine = list.find(d => d.deviceId === getDeviceId());
+        setDeviceName(mine ? mine.deviceName : suggestDeviceName());
         setDevicePin('');
         setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,24 +100,28 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
             let publicJwk: JsonWebKey | null = null;
             try { publicJwk = await generateDeviceKey(cajaToEdit.id); } catch { publicJwk = null; }
             const r = await cajasService.assignDevice(cajaToEdit.id, deviceName.trim() || suggestDeviceName(), devicePin.trim(), publicJwk);
-            setAssignedId(r.assignedDeviceId); setAssignedName(r.assignedDeviceName); setDevicePin('');
-            setCajas(prev => prev.map(c => c.id === cajaToEdit.id ? ({ ...c, assignedDeviceId: r.assignedDeviceId, assignedDeviceName: r.assignedDeviceName } as any) : c));
-            toast.success(r.secured ? 'Terminal asignada con firma segura a esta caja.' : 'Terminal asignada a esta caja.');
+            setDevices(r.devices); setDevicePin('');
+            // Esta terminal sale de cualquier otra caja (una terminal = una caja).
+            setCajas(prev => prev.map(c => c.id === cajaToEdit.id
+                ? ({ ...c, devices: r.devices } as any)
+                : ({ ...c, devices: ((c as any).devices || []).filter((d: CajaDevice) => d.deviceId !== thisDeviceId) } as any)));
+            toast.success(r.secured ? 'Esta terminal quedó autorizada (firma segura).' : 'Esta terminal quedó autorizada.');
         } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo asignar la terminal.'); }
         finally { setDeviceBusy(false); }
     };
 
-    const handleUnassignDevice = async () => {
+    const handleUnassignDevice = async (device: CajaDevice) => {
         if (!cajaToEdit) return;
-        if (!devicePin.trim()) { toast.error('Ingresa el PIN del gerente.'); return; }
+        if (!devicePin.trim()) { toast.error('Ingresa el PIN del gerente para quitar la terminal.'); return; }
         setDeviceBusy(true);
         try {
-            await cajasService.unassignDevice(cajaToEdit.id, devicePin.trim());
-            try { await clearDeviceKey(cajaToEdit.id); } catch { /* noop */ }
-            setAssignedId(null); setAssignedName(null); setDevicePin('');
-            setCajas(prev => prev.map(c => c.id === cajaToEdit.id ? ({ ...c, assignedDeviceId: null, assignedDeviceName: null } as any) : c));
-            toast.success('Se quitó el amarre de terminal.');
-        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo quitar el amarre.'); }
+            const r = await cajasService.unassignDevice(cajaToEdit.id, devicePin.trim(), { deviceId: device.deviceId });
+            // Si es esta PC, también borra su llave de firma local.
+            if (device.deviceId === thisDeviceId) { try { await clearDeviceKey(cajaToEdit.id); } catch { /* noop */ } }
+            setDevices(r.devices); setDevicePin('');
+            setCajas(prev => prev.map(c => c.id === cajaToEdit.id ? ({ ...c, devices: r.devices } as any) : c));
+            toast.success(`Se quitó la terminal "${device.deviceName}".`);
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo quitar la terminal.'); }
         finally { setDeviceBusy(false); }
     };
 
@@ -163,8 +166,9 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
             // Normalizar applyIVA → applyIVU para el state local
             const normalized: Caja = { ...(saved as any), applyIVU: (saved as any).applyIVA ?? true };
 
+            // Al editar se conservan las terminales y el turno actual (el PUT no los devuelve).
             setCajas(prev => cajaToEdit
-                ? prev.map(c => c.id === cajaToEdit.id ? normalized : c)
+                ? prev.map(c => c.id === cajaToEdit.id ? ({ ...c, ...normalized, devices: (c as any).devices, currentSession: c.currentSession } as any) : c)
                 : [...prev, normalized]);
 
             toast.success(cajaToEdit ? t('cmpx.cajaform.updated') : t('cmpx.cajaform.created'));
@@ -256,34 +260,43 @@ export const CajaFormModal: React.FC<CajaFormModalProps> = ({ isOpen, onClose, c
                     </label>
                 </div>
 
-                {/* Terminal (PC): la caja abre SOLO en la computadora asignada. */}
+                {/* Terminales (PC): la caja abre turno SOLO en las computadoras autorizadas (puede tener varias). */}
                 <div className="pt-2 border-t dark:border-neutral-700">
-                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">🖥️ Terminal (computadora)</p>
+                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">🖥️ Terminales (computadoras)</p>
                     {!cajaToEdit ? (
-                        <p className="text-xs text-neutral-500 mt-1">Guarda la caja primero; luego podrás asignarla a una terminal específica.</p>
+                        <p className="text-xs text-neutral-500 mt-1">Guarda la caja primero; luego podrás autorizar las terminales donde abre.</p>
                     ) : (
                         <div className="mt-2 space-y-2">
-                            <p className="text-xs">
-                                {assignedId
-                                    ? (isThisDevice
-                                        ? <span className="text-green-600 dark:text-green-400 font-semibold">✅ Asignada a ESTA terminal{assignedName ? ` (${assignedName})` : ''}</span>
-                                        : <span className="text-amber-600 dark:text-amber-400 font-semibold">🔒 Asignada a otra terminal{assignedName ? `: ${assignedName}` : ''}</span>)
-                                    : <span className="text-neutral-500">Sin terminal asignada (abre en cualquier PC).</span>}
-                            </p>
+                            {devices.length === 0 ? (
+                                <p className="text-xs text-neutral-500">Sin terminales asignadas: la caja abre en cualquier PC.</p>
+                            ) : (
+                                <ul className="space-y-1.5">
+                                    {devices.map(d => {
+                                        const mine = d.deviceId === thisDeviceId;
+                                        return (
+                                            <li key={d.deviceId} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-md border text-sm ${mine ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900'}`}>
+                                                <span className="min-w-0 truncate">
+                                                    <span className="font-medium text-neutral-800 dark:text-neutral-100">{d.deviceName}</span>
+                                                    {mine && <span className="ml-2 text-xs font-semibold text-green-600 dark:text-green-400">(esta PC)</span>}
+                                                    {!d.secured && <span className="ml-2 text-[11px] text-amber-600 dark:text-amber-400">amarre básico</span>}
+                                                </span>
+                                                <button type="button" onClick={() => handleUnassignDevice(d)} disabled={deviceBusy} className="flex-shrink-0 text-xs font-semibold text-red-600 hover:underline disabled:opacity-50">Quitar</button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input type="text" value={deviceName} onChange={e => setDeviceName(e.target.value)} placeholder="Nombre de la terminal (ej. PC Mostrador)" className={inputFormStyle + ' !text-sm'} />
+                                <input type="text" value={deviceName} onChange={e => setDeviceName(e.target.value)} placeholder="Nombre de esta terminal (ej. PC Mostrador)" className={inputFormStyle + ' !text-sm'} />
                                 <input type="password" value={devicePin} onChange={e => setDevicePin(e.target.value)} placeholder="PIN del gerente" className={inputFormStyle + ' !text-sm tracking-widest'} />
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 <button type="button" onClick={handleAssignDevice} disabled={deviceBusy} className={BUTTON_SECONDARY_SM_CLASSES}>
-                                    {isThisDevice ? 'Reasignar a esta terminal' : (assignedId ? 'Mover a ESTA terminal' : 'Asignar a esta terminal')}
+                                    {isThisDevice ? 'Actualizar esta terminal' : 'Agregar ESTA terminal'}
                                 </button>
-                                {assignedId && (
-                                    <button type="button" onClick={handleUnassignDevice} disabled={deviceBusy} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-red-600`}>Quitar amarre</button>
-                                )}
                             </div>
                             <p className="text-[11px] text-neutral-400">
-                                La caja solo abrirá turno en la terminal asignada. Reasignar/quitar requiere PIN del gerente.
+                                La caja solo abrirá turno en las terminales de la lista. Para agregar otra PC, abre esta pantalla desde esa computadora y pulsa "Agregar ESTA terminal". Una terminal pertenece a una sola caja: si ya estaba en otra, se mueve aquí. Agregar o quitar requiere PIN del gerente.
                                 {isDeviceKeySupported()
                                     ? ' Se usa una llave de firma (Web Crypto) que no se puede copiar a otra PC.'
                                     : ' ⚠️ Este navegador no soporta la llave de firma; el amarre es básico (solo identificador).'}

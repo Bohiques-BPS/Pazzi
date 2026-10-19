@@ -77,6 +77,7 @@ import { openCashDrawer, isCashDrawerEnabled } from '../../services/cashDrawer';
 import { toast } from '../../hooks/useToast';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 import { QuickSettingsButton } from '../../components/ui/QuickSettingsButton';
+import { getDeviceId } from '../../utils/device';
 import { clientDocName } from '../../utils/clientName';
 
 
@@ -1420,7 +1421,10 @@ export const POSCashierPage: React.FC = () => {
                 onClose={() => navigate('/pos/cajas')}
                 caja={{ id: currentCajaForOpen.id, name: currentCajaForOpen.name }}
                 onOpened={handleShiftOpened}
-                cajas={cajasInSelectedBranch.map(c => ({ id: c.id, name: c.name, assignedDeviceName: (c as any).assignedDeviceName ?? null }))}
+                cajas={cajasInSelectedBranch.map(c => {
+                    const devs: { deviceId: string; deviceName: string }[] = (c as any).devices || [];
+                    return { id: c.id, name: c.name, terminalNames: devs.map(d => d.deviceName), allowedHere: devs.some(d => d.deviceId === getDeviceId()) };
+                })}
                 onSelectCaja={chooseCaja}
             />
         );

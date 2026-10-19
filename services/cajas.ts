@@ -1,6 +1,7 @@
 import { api } from './api';
 import { getDeviceId } from '../utils/device';
 import { signChallenge } from '../utils/deviceKey';
+import type { CajaDevice } from '../types';
 
 export type CajaSessionStatus = 'OPEN' | 'CLOSED';
 export type CashMovementType = 'PAYOUT' | 'CASH_DROP' | 'CASH_IN' | 'REFUND' | 'DRAWER_OPEN';
@@ -25,6 +26,8 @@ export interface CajaWithSession {
   branch?: { id: string; name: string };
   assignedDeviceId?: string | null;
   assignedDeviceName?: string | null;
+  /** Terminales (PC) autorizadas para abrir turno; vacío = cualquier PC. */
+  devices?: CajaDevice[];
   currentSession: CajaSession | null;
   createdAt: string;
   updatedAt: string;
@@ -118,13 +121,13 @@ export const cajasService = {
   getDeviceChallenge: (cajaId: string) =>
     api.get<{ challenge: string }>(`/cajas/${cajaId}/device-challenge`),
 
-  /** Amarra esta caja a la terminal (PC) actual. Requiere PIN de gerente. `devicePublicKey` = JWK de la llave de firma. */
+  /** Agrega la terminal (PC) actual a la caja (una caja puede tener varias). Requiere PIN de gerente. `devicePublicKey` = JWK de la llave de firma. */
   assignDevice: (cajaId: string, deviceName: string, pin: string, devicePublicKey?: JsonWebKey | null) =>
-    api.post<{ ok: boolean; assignedDeviceId: string; assignedDeviceName: string; secured?: boolean }>(`/cajas/${cajaId}/assign-device`, { deviceId: getDeviceId(), deviceName, pin, devicePublicKey: devicePublicKey ?? undefined }),
+    api.post<{ ok: boolean; deviceId: string; deviceName: string; secured?: boolean; devices: CajaDevice[] }>(`/cajas/${cajaId}/assign-device`, { deviceId: getDeviceId(), deviceName, pin, devicePublicKey: devicePublicKey ?? undefined }),
 
-  /** Quita el amarre de terminal de la caja. Requiere PIN de gerente. */
-  unassignDevice: (cajaId: string, pin: string) =>
-    api.post<{ ok: boolean }>(`/cajas/${cajaId}/unassign-device`, { pin }),
+  /** Quita UNA terminal de la caja (o todas con `all`). Requiere PIN de gerente. */
+  unassignDevice: (cajaId: string, pin: string, target: { deviceId: string } | { all: true }) =>
+    api.post<{ ok: boolean; devices: CajaDevice[] }>(`/cajas/${cajaId}/unassign-device`, { pin, ...target }),
 
   closeSession: (
     cajaId: string,
