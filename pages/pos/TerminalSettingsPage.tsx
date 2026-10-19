@@ -231,8 +231,12 @@ export const TerminalSettingsPage: React.FC = () => {
                     {printMode === 'qz' && (
                         <div className="space-y-3">
                             {/* Ayuda: cómo instalar QZ Tray para poder imprimir */}
-                            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-neutral-700 dark:text-neutral-200">
-                                <p className="font-semibold text-primary mb-1">¿Primera vez? Instala QZ Tray en esta PC</p>
+                            <details className="group rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-neutral-700 dark:text-neutral-200">
+                                <summary className="flex items-center justify-between gap-2 cursor-pointer select-none list-none font-semibold text-primary">
+                                    <span>¿Primera vez? Instala QZ Tray en esta PC</span>
+                                    <svg className="w-4 h-4 flex-shrink-0 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </summary>
+                                <div className="mt-2">
                                 <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-300">
                                     <li>
                                         Descarga QZ Tray (gratis):{' '}
@@ -249,15 +253,20 @@ export const TerminalSettingsPage: React.FC = () => {
                                 <p className="mt-2 text-neutral-500 dark:text-neutral-400">
                                     💡 QZ Tray es <strong>gratis</strong> (open source). La primera vez te pedirá permiso: pulsa <strong>«Permitir» + «Recordar»</strong> y no vuelve a preguntar. (La licencia de pago solo quita ese aviso inicial — no es necesaria.) ¿Prefieres no instalar nada? Mira el modo <strong>Navegador</strong>.
                                 </p>
-                            </div>
+                                </div>
+                            </details>
 
                             {/* Firma de QZ: quita el aviso "Permitir" de cada impresión (sin firma, QZ bloquea "Recordar"). */}
-                            <div className={`rounded-md border p-3 text-xs ${qzSigned ? 'border-green-400/50 bg-green-50 dark:bg-green-900/20' : 'border-amber-400/50 bg-amber-50 dark:bg-amber-900/20'} text-neutral-700 dark:text-neutral-200`}>
-                                <p className="font-semibold mb-1 flex items-center gap-2">
-                                    {qzSigned
-                                        ? <><span className="text-green-600 dark:text-green-400">✓</span> Firma activa — impresión sin avisos</>
-                                        : <><span className="text-amber-600 dark:text-amber-400">!</span> QZ pregunta en cada impresión</>}
-                                </p>
+                            <details key={qzSigned ? 'signed' : 'unsigned'} open={!qzSigned} className={`group rounded-md border p-3 text-xs ${qzSigned ? 'border-green-400/50 bg-green-50 dark:bg-green-900/20' : 'border-amber-400/50 bg-amber-50 dark:bg-amber-900/20'} text-neutral-700 dark:text-neutral-200`}>
+                                <summary className="flex items-center justify-between gap-2 cursor-pointer select-none list-none font-semibold">
+                                    <span className="flex items-center gap-2">
+                                        {qzSigned
+                                            ? <><span className="text-green-600 dark:text-green-400">✓</span> Firma activa — impresión sin avisos</>
+                                            : <><span className="text-amber-600 dark:text-amber-400">!</span> QZ pregunta en cada impresión</>}
+                                    </span>
+                                    <svg className="w-4 h-4 flex-shrink-0 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </summary>
+                                <div className="mt-2">
                                 <p className="text-neutral-600 dark:text-neutral-300 mb-2">
                                     Sin firma, QZ Tray deshabilita la casilla <strong>«Recordar»</strong> y pide permiso cada vez. Genera un certificado en esta PC, confíalo en QZ Tray (pasos abajo) y el aviso desaparece.
                                 </p>
@@ -286,7 +295,8 @@ export const TerminalSettingsPage: React.FC = () => {
                                         <p className="mt-2 text-neutral-500 dark:text-neutral-400">La llave privada se guarda <strong>solo en esta PC</strong> (no se sube a ningún lado). Repite «Generar» en cada caja, o copia el mismo certificado y llave si quieres compartirlos.</p>
                                     </div>
                                 )}
-                            </div>
+                                </div>
+                            </details>
 
                             <div className="flex justify-end">
                                 <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detectPrinters')}</button>
