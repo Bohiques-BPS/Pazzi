@@ -90,6 +90,7 @@ const MyTasksPage = lazyNamed(() => import('./pages/pm/MyTasksPage'), 'MyTasksPa
 const POSCashierPage = lazyNamed(() => import('./pages/pos/POSCashierPage'), 'POSCashierPage');
 const POSReportsPage = lazyNamed(() => import('./pages/pos/POSReportsPage'), 'POSReportsPage');
 const ReceiptSettingsPage = lazyNamed(() => import('./pages/pos/ReceiptSettingsPage'), 'ReceiptSettingsPage');
+const TerminalSettingsPage = lazyNamed(() => import('./pages/pos/TerminalSettingsPage'), 'TerminalSettingsPage');
 const PaymentMethodsPage = lazyNamed(() => import('./pages/pos/PaymentMethodsPage'), 'PaymentMethodsPage');
 const RecurringPaymentsPage = lazyNamed(() => import('./pages/pos/RecurringPaymentsPage'), 'RecurringPaymentsPage');
 const InvoicesListPage = lazyNamed(() => import('./pages/pos/InvoicesListPage'), 'InvoicesListPage');
@@ -486,6 +487,7 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/accounts-receivable" element={<AccountsReceivablePage />} />
                 <Route path="/pos/cajas" element={<POSCajasPage />} />
                 <Route path="/pos/receipt-settings" element={<ReceiptSettingsPage />} />
+                <Route path="/pos/terminal-settings" element={<TerminalSettingsPage />} />
                 <Route path="/pos/payment-methods" element={<PaymentMethodsPage />} />
                 <Route path="/pos/recurring" element={<RecurringPaymentsPage />} />
                 <Route path="/pos/invoices" element={<InvoicesListPage />} />

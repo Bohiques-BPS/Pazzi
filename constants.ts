@@ -586,6 +586,7 @@ export const APP_MODULES_CONFIG = [
             { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon, permission: 'pos.viewHistory' },
             { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon, permission: 'pos.viewHistory' },
             { type: 'link', name: 'Config. Factura', path: '/pos/receipt-settings', icon: ClipboardDocumentListIcon, permission: 'settings.viewCompany' },
+            { type: 'link', name: 'Config. Terminal', path: '/pos/terminal-settings', icon: PrintIcon, permission: 'pos.access' },
             { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon, permission: 'estimates.manage' },
             { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon, permission: 'layaways.manage' },
         ] },
