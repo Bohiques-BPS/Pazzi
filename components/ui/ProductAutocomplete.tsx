@@ -5,6 +5,20 @@ import { MagnifyingGlassIcon } from '../icons';
 import logo from '../../assets/logo.png';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
+/** Producto cuyo CÓDIGO coincide exacto con lo escaneado/escrito (barras, SKU, proveedor, cadena). */
+const exactCodeMatch = (list: Product[], raw: string): Product | null => {
+    const code = raw.trim();
+    if (!code) return null;
+    const lc = code.toLowerCase();
+    return list.find((p: any) =>
+        p.barcode13Digits === code ||
+        p.barcode2 === code ||
+        p.supplierProductCode === code ||
+        p.chainCode === code ||
+        (Array.isArray(p.skus) && p.skus.some((sku: string) => String(sku).toLowerCase() === lc))
+    ) || null;
+};
+
 interface ProductAutocompleteProps {
     products?: Product[];
     onProductSelect: (product: Product) => void;
@@ -42,6 +56,14 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     const localInputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLUListElement>(null);
     const searchIdRef = useRef(0); // evita condiciones de carrera entre respuestas remotas
+    // Último término efectivamente buscado (para saber si los resultados están al día al dar Enter).
+    const lastSearchedRef = useRef('');
+    // Detección de lector de código: un lector "teclea" varios caracteres en ráfaga (<40 ms c/u).
+    const lastKeyAtRef = useRef(0);
+    const fastKeysRef = useRef(0);
+    const scannedRef = useRef(false);
+    // Término que se está buscando "ya" por un Enter (la búsqueda con debounce no debe pisarla).
+    const pendingNowTermRef = useRef<string | null>(null);
 
     const effectiveInputRef = inputRef || localInputRef;
 
@@ -55,12 +77,19 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         }
 
         if (onRemoteSearch) {
+            if (pendingNowTermRef.current === term) return; // ya lo está resolviendo el Enter
             const requestId = ++searchIdRef.current;
             setLoading(true);
             setIsDropdownOpen(true);
             try {
                 const results = await onRemoteSearch(term);
                 if (requestId !== searchIdRef.current) return; // llegó una respuesta más nueva
+                lastSearchedRef.current = term;
+                // Lector sin Enter: si fue un escaneo y hay código exacto, se agrega solo.
+                if (scannedRef.current) {
+                    const hit = exactCodeMatch(results, term);
+                    if (hit) { handleSelectProductRef.current(hit); return; }
+                }
                 const MAX = 100;
                 setSuggestions(results.slice(0, MAX));
                 setCapped(results.length >= MAX); // pudo haber más coincidencias
@@ -128,15 +157,57 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     }, [effectiveInputRef]);
 
     const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(event.target.value);
+        const value = event.target.value;
+        const now = Date.now();
+        if (value.length <= 1) { fastKeysRef.current = 0; scannedRef.current = false; }
+        else if (now - lastKeyAtRef.current < 40) fastKeysRef.current += 1;
+        else { fastKeysRef.current = 0; scannedRef.current = false; }
+        lastKeyAtRef.current = now;
+        if (fastKeysRef.current >= 3) scannedRef.current = true;
+        setSearchTerm(value);
     };
 
     const handleSelectProduct = (product: Product) => {
+        searchIdRef.current++; // descarta respuestas pendientes del término anterior
+        scannedRef.current = false;
+        fastKeysRef.current = 0;
+        lastSearchedRef.current = '';
         onProductSelect(product);
         setSearchTerm('');
         setSuggestions([]);
         setIsDropdownOpen(false);
+        setLoading(false);
         effectiveInputRef.current?.focus();
+    };
+    const handleSelectProductRef = useRef(handleSelectProduct);
+    handleSelectProductRef.current = handleSelectProduct;
+
+    /**
+     * Enter con resultados desactualizados (típico del lector: escribe el código + Enter antes de
+     * que termine la búsqueda): busca YA en el servidor y agrega la coincidencia exacta de código,
+     * o el único resultado. Si hay varios, solo muestra la lista.
+     */
+    const searchNowAndPick = async (term: string) => {
+        if (!onRemoteSearch) return;
+        const requestId = ++searchIdRef.current;
+        pendingNowTermRef.current = term;
+        setLoading(true);
+        setIsDropdownOpen(true);
+        try {
+            const results = await onRemoteSearch(term);
+            if (requestId !== searchIdRef.current) return;
+            lastSearchedRef.current = term;
+            const pick = exactCodeMatch(results, term) || (results.length === 1 ? results[0] : null);
+            if (pick) { handleSelectProduct(pick); return; }
+            setSuggestions(results.slice(0, 100));
+            setCapped(results.length >= 100);
+            setActiveIndex(-1);
+        } catch {
+            if (requestId === searchIdRef.current) setSuggestions([]);
+        } finally {
+            if (pendingNowTermRef.current === term) pendingNowTermRef.current = null;
+            if (requestId === searchIdRef.current) setLoading(false);
+        }
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -146,6 +217,13 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         if (event.key === 'ArrowLeft' && searchTerm === '' && onEmptyArrowLeft) {
             event.preventDefault();
             onEmptyArrowLeft();
+            return;
+        }
+
+        const term = searchTerm.trim();
+        if (event.key === 'Enter' && term && onRemoteSearch && (loading || lastSearchedRef.current !== term)) {
+            event.preventDefault();
+            void searchNowAndPick(term);
             return;
         }
 
@@ -160,8 +238,9 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 event.preventDefault();
                 if (activeIndex >= 0 && suggestions[activeIndex]) {
                     handleSelectProduct(suggestions[activeIndex]);
-                } else if (suggestions.length > 0) { // If user presses enter without navigating, select first
-                    handleSelectProduct(suggestions[0]);
+                } else if (suggestions.length > 0) {
+                    // Sin navegar: primero la coincidencia exacta de código; si no, la primera.
+                    handleSelectProduct(exactCodeMatch(suggestions, term) || suggestions[0]);
                 }
             } else if (event.key === 'Escape') {
                 setIsDropdownOpen(false);
