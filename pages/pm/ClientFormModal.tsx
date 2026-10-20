@@ -66,7 +66,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
         phone: '',
         isActive: true,
         address: '', city: '', country: '', zip: '',
-        phone2: '', fax: '',
+        phone2: '', whatsapp: '', fax: '',
         contactPersonName: '',
         socialSecurity: '', dateOfBirth: '',
         clientNotes: '',
@@ -346,6 +346,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             <div className="grid grid-cols-2 gap-2">
                  <div><label className="block text-sm font-medium">{t('common.phone')}</label><PhoneInput name="phone" value={formData.phone || ''} onChange={(val) => handleChange({ target: { name: 'phone', value: val, type: 'tel' } } as any)} className="w-full" /></div>
                  <div><label className="block text-sm font-medium">{t('common.phone')} 2</label><PhoneInput name="phone2" value={formData.phone2 || ''} onChange={(val) => handleChange({ target: { name: 'phone2', value: val, type: 'tel' } } as any)} className="w-full" /></div>
+            </div>
+            <div>
+                <label className="block text-sm font-medium">{t('client.field.whatsapp')}</label>
+                <PhoneInput name="whatsapp" value={(formData as any).whatsapp || ''} onChange={(val) => handleChange({ target: { name: 'whatsapp', value: val, type: 'tel' } } as any)} className="w-full" />
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('client.field.whatsapp_hint')}</p>
             </div>
             <div><label className="block text-sm font-medium">{t('client.field.fax')}</label><input type="tel" name="fax" value={formData.fax} onChange={handleChange} className={inputFormStyle} /></div>
             <div><label className="block text-sm font-medium">{t('common.email')}</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} /></div>

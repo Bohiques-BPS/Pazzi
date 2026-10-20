@@ -360,6 +360,8 @@ export interface Client {
     country?: string;
     zip?: string;
     phone2?: string;
+    /** Número de WhatsApp si es distinto al teléfono de llamadas. */
+    whatsapp?: string;
     fax?: string;
     socialSecurity?: string;
     dateOfBirth?: string;

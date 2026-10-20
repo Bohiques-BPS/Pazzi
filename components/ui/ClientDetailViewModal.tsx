@@ -11,7 +11,7 @@ interface ClientDetailViewModalProps {
     client: Client | null;
 }
 
-const DetailItem: React.FC<{ label: string; value?: string | number | null; highlight?: boolean }> = ({ label, value, highlight }) => {
+const DetailItem: React.FC<{ label: string; value?: React.ReactNode; highlight?: boolean }> = ({ label, value, highlight }) => {
     if (!value && value !== 0) return null;
     return (
         <div>
@@ -39,6 +39,9 @@ export const ClientDetailViewModal: React.FC<ClientDetailViewModalProps> = ({ is
                         <DetailItem label={t('common.email')} value={client.email} />
                         <DetailItem label={t('cmpx.client_detail.main_phone')} value={client.phone} />
                         {client.phone2 && <DetailItem label={t('cmpx.client_detail.secondary_phone')} value={client.phone2} />}
+                        {(client as any).whatsapp && <DetailItem label={t('client.field.whatsapp')} value={
+                            <a href={`https://wa.me/${(() => { const d = String((client as any).whatsapp).replace(/\D/g, ''); return d.length === 10 ? `1${d}` : d; })()}`} target="_blank" rel="noopener noreferrer" className="text-green-600 dark:text-green-400 hover:underline">{(client as any).whatsapp}</a>
+                        } />}
                         {client.fax && <DetailItem label={t('client.field.fax')} value={client.fax} />}
                         <DetailItem label={t('client.field.contact_person')} value={client.contactPersonName} />
                         <DetailItem label={t('cmpx.client_detail.preferred_comm')} value={client.preferredCommunication} />
