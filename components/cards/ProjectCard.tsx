@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { ProjectKeyChip } from '../ui/ProjectKeyChip';
 import { Project, ProjectStatus, ProjectPriority, Employee } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -102,6 +103,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
                 {/* Estado + prioridad */}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <ProjectKeyChip value={project.projectKey} />
                     <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${meta.pill}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />{project.status}
                     </span>

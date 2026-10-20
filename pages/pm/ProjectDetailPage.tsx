@@ -586,7 +586,11 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                         </div>
                         <div>
                             <label htmlFor="projectKey" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('pm2x.project.project_key')}</label>
-                            <input type="text" name="projectKey" id="projectKey" value={formData.projectKey || ''} onChange={handleChange} className={inputFormStyle} />
+                            <input type="text" name="projectKey" id="projectKey" list="project-key-options" maxLength={12} value={formData.projectKey || ''} onChange={(e) => handleChange({ ...e, target: { ...e.target, name: 'projectKey', value: e.target.value.toUpperCase() } } as any)} placeholder="Ej. PW, PUB, PROG" className={inputFormStyle} />
+                            <datalist id="project-key-options">
+                                {Array.from(new Set(projects.map(p => (p.projectKey || '').trim().toUpperCase()).filter(Boolean))).sort().map(k => <option key={k} value={k} />)}
+                            </datalist>
+                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">Se muestra como etiqueta del proyecto (no hace falta escribirlo en el nombre) y sirve para filtrar y agrupar.</p>
                         </div>
                     </div>
                     <div>

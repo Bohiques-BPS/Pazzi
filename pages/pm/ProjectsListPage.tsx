@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { ProjectKeyChip, normalizeProjectKey } from '../../components/ui/ProjectKeyChip';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Project, ProjectStatus } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -44,6 +45,8 @@ export const ProjectsListPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     // Filtro por colaborador: '' = todos, '__none__' = sin colaborador, si no el userId/id del empleado.
     const [collabFilter, setCollabFilter] = useState('');
+    // Filtro por prefijo/clave del proyecto ('' = todos, '__none__' = sin prefijo).
+    const [keyFilter, setKeyFilter] = useState('');
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     // Densidad de la cuadrícula en pantallas grandes (4 por defecto; el usuario puede elegir 5). Por dispositivo.
     const [gridCols, setGridCols] = useState<4 | 5>(() => { try { return localStorage.getItem('pazzi_pm_cols') === '5' ? 5 : 4; } catch { return 4; } });
@@ -129,6 +132,11 @@ export const ProjectsListPage: React.FC = () => {
         return projects
             .filter(project => (statusFilter === 'Todos' || project.status === statusFilter))
             .filter(project => {
+                if (!keyFilter) return true;
+                const k = normalizeProjectKey(project.projectKey);
+                return keyFilter === '__none__' ? !k : k === keyFilter;
+            })
+            .filter(project => {
                 if (!collabFilter) return true;
                 if (collabFilter === '__none__') return (project.assignedEmployeeIds ?? []).length === 0;
                 return collab ? isAssigned(project, collab) : true;
@@ -137,14 +145,21 @@ export const ProjectsListPage: React.FC = () => {
                 if (!q) return true;
                 const client = getClientById(project.clientId);
                 const clientName = client ? `${client.name || ''} ${client.lastName || ''} ${client.companyName || ''}`.toLowerCase() : '';
-                return (project.name || '').toLowerCase().includes(q) || clientName.includes(q);
+                return (project.name || '').toLowerCase().includes(q) || clientName.includes(q) || normalizeProjectKey(project.projectKey).toLowerCase() === q;
             })
             .sort((a, b) => {
                 const dateA = a.visitDate || a.workStartDate || '0';
                 const dateB = b.visitDate || b.workStartDate || '0';
                 return new Date(dateB).getTime() - new Date(dateA).getTime();
             });
-    }, [projects, statusFilter, searchQuery, getClientById, collabFilter, collabOptions]);
+    }, [projects, statusFilter, searchQuery, getClientById, collabFilter, collabOptions, keyFilter]);
+
+    // Prefijos en uso (para el filtro), con cuántos proyectos tiene cada uno.
+    const keyOptions = useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const p of projects) { const k = normalizeProjectKey(p.projectKey); if (k) counts.set(k, (counts.get(k) || 0) + 1); }
+        return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [projects]);
     
     const tableColumns: TableColumn<Project>[] = useMemo(() => [
         {
@@ -153,7 +168,9 @@ export const ProjectsListPage: React.FC = () => {
                 ? <img src={project.imageUrl} alt="" className="w-12 h-8 rounded object-contain bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 flex-shrink-0" />
                 : <span className="w-9 h-8 rounded bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-sm flex-shrink-0">🗂️</span>,
         },
-        { header: t('project.field.name'), accessor: 'name' },
+        { header: t('project.field.name'), sortValue: (project) => project.name, accessor: (project) => (
+            <span className="inline-flex items-center gap-2 min-w-0"><ProjectKeyChip value={project.projectKey} /><span className="truncate">{project.name}</span></span>
+        ) },
         {
             header: t('project.field.client'),
             sortValue: (project) => { const c = getClientById(project.clientId); return c ? `${c.name} ${c.lastName}` : ''; },
@@ -279,6 +296,20 @@ export const ProjectsListPage: React.FC = () => {
                         {collabOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                     </select>
                 </div>
+                {keyOptions.length > 0 && (
+                    <div className="relative w-full sm:w-48">
+                        <select
+                            value={keyFilter}
+                            onChange={(e) => setKeyFilter(e.target.value)}
+                            aria-label="Filtrar por prefijo"
+                            className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary ${keyFilter ? 'border-primary' : 'border-neutral-300 dark:border-neutral-600'}`}
+                        >
+                            <option value="">Todos los prefijos</option>
+                            {keyOptions.map(([k, n]) => <option key={k} value={k}>{k} ({n})</option>)}
+                            <option value="__none__">Sin prefijo</option>
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* Filtros (pestañas) + vista */}
