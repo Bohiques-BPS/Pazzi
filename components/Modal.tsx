@@ -35,6 +35,8 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     if (!isOpen || disableEscClose) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Un control interno (p. ej. la lista de @ de comentarios) ya atendió el Escape.
+        if (e.defaultPrevented) return;
         e.stopPropagation();
         if (confirmLeave) setConfirmLeave(false); // Esc en la confirmación = seguir editando
         else requestClose();

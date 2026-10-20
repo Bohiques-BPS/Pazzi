@@ -45,16 +45,20 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     // Deep-link: abrir una tarea concreta cuando la URL trae ?task=<id> (p.ej. desde una notificación).
     const [searchParams, setSearchParams] = useSearchParams();
     const openedFromUrlRef = useRef<string | null>(null);
+    // Comentario a resaltar al abrir la tarea (notificación de mención: ?comment=<id>).
+    const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
     useEffect(() => {
         const taskParam = searchParams.get('task');
         if (!taskParam || openedFromUrlRef.current === taskParam) return;
         const found = tasks.find(t => t.id === taskParam);
         if (found) {
             openedFromUrlRef.current = taskParam;
+            setHighlightCommentId(searchParams.get('comment'));
             setSelectedTask(found);
-            // Limpia el parámetro para no reabrir al navegar/cerrar.
+            // Limpia los parámetros para no reabrir al navegar/cerrar.
             const next = new URLSearchParams(searchParams);
             next.delete('task');
+            next.delete('comment');
             setSearchParams(next, { replace: true });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -599,7 +603,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                     key={selectedTask.id}
                     task={selectedTask}
                     sections={sections}
-                    onClose={() => setSelectedTask(null)}
+                    highlightCommentId={highlightCommentId}
+                    onClose={() => { setSelectedTask(null); setHighlightCommentId(null); openedFromUrlRef.current = null; }}
                     onSave={(taskId, updates) => { updateTask(taskId, updates); setArchivedTasks(prev => prev.map(x => x.id === taskId ? { ...x, ...updates } as Task : x)); setSelectedTask(null); }}
                     onArchive={(taskId) => { updateTask(taskId, { archived: true }); setSelectedTask(null); }}
                     onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setArchivedTasks(prev => prev.filter(x => x.id !== taskId)); setSelectedTask(null); }}

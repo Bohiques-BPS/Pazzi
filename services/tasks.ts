@@ -109,8 +109,13 @@ export const tasksService = {
   update: (id: string, data: Partial<TaskPayload>) =>
     api.put<any>(`/tasks/${id}`, data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
-  addComment: (id: string, text: string, imageUrl?: string | null) =>
-    api.post<TaskCommentRecord>(`/tasks/${id}/comments`, { text, ...(imageUrl ? { imageUrl } : {}) }),
+  /** `mentions` = userIds etiquetados con @ (el servidor los valida y les envía notificación). */
+  addComment: (id: string, text: string, imageUrl?: string | null, mentions?: string[]) =>
+    api.post<TaskCommentRecord>(`/tasks/${id}/comments`, { text, ...(imageUrl ? { imageUrl } : {}), ...(mentions && mentions.length ? { mentions } : {}) }),
+
+  /** Personas que se pueden etiquetar en los comentarios: colaboradores del proyecto + gerente. */
+  mentionable: (id: string) =>
+    api.get<{ userId: string; name: string; role: string }[]>(`/tasks/${id}/mentionable`),
 
   getComments: (id: string) =>
     api.get<TaskCommentRecord[]>(`/tasks/${id}/comments`),

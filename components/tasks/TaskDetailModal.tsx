@@ -25,7 +25,12 @@ interface TaskDetailModalProps {
     onOpenTask?: (task: Task) => void;
     /** Secciones existentes del proyecto para autocompletar el campo Sección. */
     sections?: string[];
+    /** Comentario a resaltar y mostrar al abrir (p. ej. desde una notificación de mención). */
+    highlightCommentId?: string | null;
 }
+
+type MentionPerson = { userId: string; name: string; role: string };
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string }[] = [
     { value: null,     labelKey: 'cmpx.task.prio.none',   cls: '' },
@@ -35,7 +40,7 @@ const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string
     { value: 'urgent', labelKey: 'cmpx.task.prio.urgent', cls: 'text-red-600' },
 ];
 
-export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onOpenTask, sections = [] }) => {
+export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onOpenTask, sections = [], highlightCommentId}) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
     const { can } = usePermissions();
@@ -135,6 +140,79 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             .catch(() => { /* sin conexión: se conserva lo que ya había */ });
         return () => { alive = false; };
     }, [task]);
+
+    // ── Menciones (@) en comentarios ──
+    const [mentionable, setMentionable] = useState<MentionPerson[]>([]);
+    useEffect(() => {
+        let alive = true;
+        tasksService.mentionable(task.id)
+            .then(list => { if (alive && Array.isArray(list)) setMentionable(list); })
+            .catch(() => { /* sin menciones: el comentario funciona igual */ });
+        return () => { alive = false; };
+    }, [task.id]);
+    const commentInputRef = useRef<HTMLInputElement>(null);
+    // Consulta activa tras "@": posición del @ y texto escrito después (hasta el cursor).
+    const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+    const [mentionIndex, setMentionIndex] = useState(0);
+    // Personas elegidas en este comentario (userId → nombre) para enviarlas al servidor.
+    const [pickedMentions, setPickedMentions] = useState<Record<string, string>>({});
+    const mentionMatches = useMemo(() => {
+        if (!mention) return [] as MentionPerson[];
+        const q = mention.query.trim().toLowerCase();
+        return mentionable.filter(p => !q || p.name.toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || p.name.toLowerCase().startsWith(q)).slice(0, 8);
+    }, [mention, mentionable]);
+
+    const updateMentionQuery = (value: string, caret: number) => {
+        const before = value.slice(0, caret);
+        const at = before.lastIndexOf('@');
+        if (at < 0 || (at > 0 && !/\s/.test(before[at - 1]))) { setMention(null); return; }
+        const query = before.slice(at + 1);
+        // Hasta dos palabras (nombre y apellido); sin saltos de línea.
+        if (query.length > 40 || /\n/.test(query) || query.split(' ').length > 3) { setMention(null); return; }
+        setMention({ start: at, query });
+        setMentionIndex(0);
+    };
+
+    const pickMention = (p: MentionPerson) => {
+        if (!mention) return;
+        const input = commentInputRef.current;
+        const caret = input?.selectionStart ?? newComment.length;
+        const insert = `@${p.name} `;
+        const next = newComment.slice(0, mention.start) + insert + newComment.slice(caret);
+        setNewComment(next);
+        setPickedMentions(prev => ({ ...prev, [p.userId]: p.name }));
+        setMention(null);
+        const pos = mention.start + insert.length;
+        requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(pos, pos); });
+    };
+
+    // Nombres a resaltar en los comentarios (etiquetables + el usuario actual, que también puede ser mencionado).
+    const mentionNames = useMemo(() => {
+        const names = new Set(mentionable.map(p => p.name));
+        if (currentUser) names.add(`${currentUser.name || ''} ${(currentUser as any).lastName || ''}`.trim());
+        return Array.from(names).filter(Boolean).sort((a, b) => b.length - a.length);
+    }, [mentionable, currentUser]);
+    const renderCommentText = (text: string) => {
+        if (!mentionNames.length) return text;
+        const re = new RegExp(`(@(?:${mentionNames.map(escapeRegExp).join('|')}))`, 'g');
+        return text.split(re).map((part, i) => (part.startsWith('@') && mentionNames.includes(part.slice(1)))
+            ? <span key={i} className="font-semibold text-primary bg-primary/10 rounded px-0.5">{part}</span>
+            : <React.Fragment key={i}>{part}</React.Fragment>);
+    };
+
+    // Ir al comentario indicado (desde una notificación) y resaltarlo un momento.
+    const [flashCommentId, setFlashCommentId] = useState<string | null>(null);
+    const scrolledToRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!highlightCommentId || scrolledToRef.current === highlightCommentId) return;
+        if (!comments.some(c => c.id === highlightCommentId)) return;
+        scrolledToRef.current = highlightCommentId;
+        requestAnimationFrame(() => {
+            document.getElementById(`task-comment-${highlightCommentId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setFlashCommentId(highlightCommentId);
+            setTimeout(() => setFlashCommentId(null), 3000);
+        });
+    }, [highlightCommentId, comments]);
 
     // Mantener el checklist sincronizado en el estado global (DataContext) para que el badge
     // de la tarjeta y el tablero reflejen altas/bajas/toggles sin tener que recargar la página.
@@ -308,10 +386,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         if ((!text && !commentImage) || !currentUser) return;
         setSendingComment(true);
         try {
-            const comment = await tasksService.addComment(task.id, text, commentImage);
+            // Solo las menciones que siguen escritas en el texto (pudieron borrarse después de elegirlas).
+            const mentions = Object.entries(pickedMentions).filter(([, name]) => text.includes(`@${name}`)).map(([id]) => id);
+            const comment = await tasksService.addComment(task.id, text, commentImage, mentions);
             setComments(prev => [...prev, comment]);
             setNewComment('');
             setCommentImage(null);
+            setPickedMentions({});
+            setMention(null);
+            if (mentions.length) toast.success(mentions.length === 1 ? 'Se notificó a la persona mencionada.' : `Se notificó a ${mentions.length} personas mencionadas.`);
         } catch (err) {
             // Los 4xx comunes y 5xx ya los muestra el handler global (useApiErrorToasts).
             // Aquí solo cubrimos validación (400/422) para no duplicar el toast.
@@ -864,12 +947,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                     <h4 className="text-base font-semibold mb-2">{t('cmpx.task.comments', { count: sortedComments.length })}</h4>
                     <div className="space-y-3 max-h-48 overflow-y-auto pr-2 bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded-md">
                         {sortedComments.length > 0 ? sortedComments.map(comment => (
-                            <div key={comment.id} className="text-base">
+                            <div key={comment.id} id={`task-comment-${comment.id}`} className={`text-base rounded-md transition-shadow ${flashCommentId === comment.id ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-neutral-800' : ''}`}>
                                 <div className="flex justify-between items-baseline">
                                     <span className="font-semibold text-primary/80 dark:text-accent/80">{comment.senderName || t('cmpx.common.user')}</span>
                                     <span className="text-xs text-neutral-400">{new Date(comment.timestamp).toLocaleString()}</span>
                                 </div>
-                                {comment.text && <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{comment.text}</p>}
+                                {comment.text && <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{renderCommentText(comment.text)}</p>}
                                 {comment.imageUrl && (
                                     <button type="button" onClick={() => setZoomImage(comment.imageUrl!)} className="inline-block mt-1">
                                         <img src={comment.imageUrl} alt="imagen" className="max-h-40 rounded border border-neutral-200 dark:border-neutral-600 cursor-zoom-in" />
@@ -891,14 +974,42 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                             >✕</button>
                         </div>
                     )}
-                    <div className="flex items-stretch gap-2 mt-3">
+                    <div className="relative flex items-stretch gap-2 mt-3">
+                        {/* Lista de personas para etiquetar al escribir "@" */}
+                        {mention && mentionMatches.length > 0 && (
+                            <ul className="absolute bottom-full left-0 mb-1 z-30 w-72 max-h-56 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg py-1">
+                                {mentionMatches.map((p, i) => (
+                                    <li key={p.userId}>
+                                        <button
+                                            type="button"
+                                            onMouseDown={(e) => { e.preventDefault(); pickMention(p); }}
+                                            onMouseEnter={() => setMentionIndex(i)}
+                                            className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 text-sm ${i === mentionIndex ? 'bg-primary/10 text-primary' : 'text-neutral-700 dark:text-neutral-200'}`}
+                                        >
+                                            <span className="truncate">@{p.name}</span>
+                                            <span className="flex-shrink-0 text-[11px] text-neutral-400">{p.role}</span>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                         <input
+                            ref={commentInputRef}
                             type="text"
                             value={newComment}
-                            onChange={e => setNewComment(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddComment(); } }}
+                            onChange={e => { setNewComment(e.target.value); updateMentionQuery(e.target.value, e.target.selectionStart ?? e.target.value.length); }}
+                            onKeyDown={(e) => {
+                                if (mention && mentionMatches.length > 0) {
+                                    if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => (i + 1) % mentionMatches.length); return; }
+                                    if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex(i => (i - 1 + mentionMatches.length) % mentionMatches.length); return; }
+                                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(mentionMatches[mentionIndex] || mentionMatches[0]); return; }
+                                    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setMention(null); return; }
+                                }
+                                if (e.key === 'Enter') { e.preventDefault(); handleAddComment(); }
+                            }}
+                            onBlur={() => setTimeout(() => setMention(null), 150)}
                             onPaste={handleCommentPaste}
-                            placeholder={t('cmpx.task.comment_ph')}
+                            placeholder={mentionable.length ? 'Escribe un comentario… usa @ para etiquetar' : t('cmpx.task.comment_ph')}
                             className={inputFormStyle + " flex-grow"}
                             disabled={sendingComment}
                         />
