@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProjectStatus, Employee, UserRole } from '../../types';
@@ -82,8 +83,9 @@ const sortMessages = (msgs: ChatMessageRecord[]): ChatMessageRecord[] =>
 
 export const ProjectChatPage: React.FC = () => {
     const { t } = useTranslation();
-    const { projects: allProjectsContext, getClientById, getEmployeeById } = useData();
+    const { projects: allProjectsContext, getClientById, employees: allEmployees } = useData();
     const { currentUser } = useAuth();
+    const navigate = useNavigate();
     const { can } = usePermissions();
     const { unreadCountByProject, lastMessageByProject } = useChatUnread(true);
     // Último mensaje visto en esta sesión (enviado/recibido): sube el chat y actualiza la vista
@@ -333,7 +335,30 @@ export const ProjectChatPage: React.FC = () => {
     }
 
     const projectClient = selectedProject ? getClientById(selectedProject.clientId) : null;
-    const projectAssignedEmployees = selectedProject ? selectedProject.assignedEmployeeIds.map(id => getEmployeeById(id)).filter(Boolean) as Employee[] : [];
+    // assignedEmployeeIds guarda User.id: el empleado se empareja por su userId (o id si no tiene cuenta).
+    // Antes se buscaba solo por Employee.id y el encabezado nunca mostraba a los colaboradores.
+    const projectAssignedEmployees = selectedProject
+        ? (selectedProject.assignedEmployeeIds ?? [])
+            .map(id => allEmployees.find(e => (e as any).userId === id || e.id === id))
+            .filter(Boolean) as Employee[]
+        : [];
+    // Miembros del chat (estilo "Info del grupo" de Telegram): el cliente + los colaboradores asignados.
+    const chatMembers: { key: string; name: string; subtitle: string; badge?: string }[] = [
+        ...(projectClient ? [{
+            key: `c-${projectClient.id}`,
+            name: `${projectClient.name || ''} ${projectClient.lastName || ''}`.trim() || (projectClient as any).companyName || 'Cliente',
+            subtitle: [(projectClient as any).companyName, projectClient.email].filter(Boolean).join(' · ') || 'Cliente',
+            badge: 'Cliente',
+        }] : []),
+        ...projectAssignedEmployees.map(e => ({
+            key: `e-${e.id}`,
+            name: `${e.name || ''} ${e.lastName || ''}`.trim(),
+            subtitle: [e.role, e.email].filter(Boolean).join(' · '),
+        })),
+    ];
+    const [showMembers, setShowMembers] = useState(false);
+    // Al cambiar de chat se cierra el panel de miembros.
+    useEffect(() => { setShowMembers(false); }, [selectedProjectId]);
 
     const getProjectParticipantsForCall = (): string[] => {
         if (!selectedProject) return [];
@@ -430,32 +455,35 @@ export const ProjectChatPage: React.FC = () => {
             </div>
 
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col">
+            <div className="relative flex-1 flex flex-col min-w-0">
                 {!selectedProject ? (
                     <div className="flex-1 flex items-center justify-center p-4">
                         <p className="text-neutral-500 dark:text-neutral-400 text-center">{t('pm2x.chat.select_project')}</p>
                     </div>
                 ) : (
                     <>
-                        {/* Chat Header */}
-                        <div className="p-3 sm:p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-                            <div className="flex items-center gap-3 min-w-0">
+                        {/* Chat Header (estilo Telegram): clic → info del chat con sus miembros. */}
+                        <div className="px-3 sm:px-4 py-2.5 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between bg-white dark:bg-neutral-800">
+                            <button
+                                type="button"
+                                onClick={() => setShowMembers(true)}
+                                className="flex items-center gap-3 min-w-0 -ml-1 pl-1 pr-3 py-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors text-left"
+                                title="Ver miembros del chat"
+                            >
                                 {selectedProject.imageUrl
-                                    ? <img src={selectedProject.imageUrl} alt="" className="w-14 h-10 rounded-lg object-contain bg-white dark:bg-neutral-900 flex-shrink-0 border border-neutral-200 dark:border-neutral-700" />
-                                    : <span className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center text-lg flex-shrink-0">🗂️</span>}
-                                <div className="min-w-0">
-                                <h3 className="text-base sm:text-lg font-semibold text-neutral-800 dark:text-neutral-100 truncate max-w-xs sm:max-w-md md:max-w-lg">{selectedProject.name}</h3>
-                                <div className="flex items-center text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                                    <UserGroupIcon />
-                                    <span className="ml-1.5 truncate">
-                                        {projectClient?.name}{projectClient ? ", " : ""} 
-                                        {projectAssignedEmployees.slice(0,2).map(e => e?.name).join(', ')}
-                                        {projectAssignedEmployees.length > 2 ? ` ${t('pm2x.common.and_more', { n: projectAssignedEmployees.length - 2 })}` : ''}
-                                        {(!projectClient && projectAssignedEmployees.length === 0) && t('pm2x.chat.no_participants')}
+                                    ? <span className="w-11 h-11 rounded-full bg-white border border-neutral-200 dark:border-neutral-600 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                        <img src={selectedProject.imageUrl} alt="" className="w-full h-full object-contain p-1" />
+                                      </span>
+                                    : <span className={`w-11 h-11 rounded-full ${avatarColor(selectedProject.name)} text-white flex items-center justify-center text-sm font-semibold flex-shrink-0`}>{initials(selectedProject.name)}</span>}
+                                <span className="min-w-0">
+                                    <span className="block text-base sm:text-[17px] font-semibold text-neutral-800 dark:text-neutral-100 truncate max-w-xs sm:max-w-md md:max-w-lg">{selectedProject.name}</span>
+                                    <span className="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                                        {chatMembers.length === 0
+                                            ? t('pm2x.chat.no_participants')
+                                            : `${chatMembers.length} ${chatMembers.length === 1 ? 'miembro' : 'miembros'}`}
                                     </span>
-                                </div>
-                                </div>
-                            </div>
+                                </span>
+                            </button>
                             <div className="flex items-center space-x-2">
                                 <button
                                     onClick={() => handleInitiateCall('audio')}
@@ -475,6 +503,50 @@ export const ProjectChatPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Panel "Info del chat" (miembros), sobre el área del chat. */}
+                        {showMembers && (
+                            <div className="absolute inset-0 z-20 flex justify-end">
+                                <div className="absolute inset-0 bg-black/30" onClick={() => setShowMembers(false)} />
+                                <aside className="relative w-full max-w-sm h-full bg-white dark:bg-neutral-800 shadow-2xl border-l border-neutral-200 dark:border-neutral-700 flex flex-col">
+                                    <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
+                                        <h4 className="font-semibold text-neutral-800 dark:text-neutral-100">Info del chat</h4>
+                                        <button type="button" onClick={() => setShowMembers(false)} className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700" aria-label="Cerrar">✕</button>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto">
+                                        <div className="flex flex-col items-center text-center px-4 pt-6 pb-5">
+                                            {selectedProject.imageUrl
+                                                ? <span className="w-24 h-24 rounded-full bg-white border border-neutral-200 dark:border-neutral-600 overflow-hidden flex items-center justify-center">
+                                                    <img src={selectedProject.imageUrl} alt="" className="w-full h-full object-contain p-2" />
+                                                  </span>
+                                                : <span className={`w-24 h-24 rounded-full ${avatarColor(selectedProject.name)} text-white flex items-center justify-center text-3xl font-semibold`}>{initials(selectedProject.name)}</span>}
+                                            <p className="mt-3 text-lg font-semibold text-neutral-800 dark:text-neutral-100">{selectedProject.name}</p>
+                                            <p className="text-sm text-neutral-500 dark:text-neutral-400">{chatMembers.length} {chatMembers.length === 1 ? 'miembro' : 'miembros'}</p>
+                                            <button type="button" onClick={() => navigate(`/pm/projects/${selectedProject.id}`)} className="mt-3 text-sm font-medium text-primary hover:underline">Ver proyecto</button>
+                                        </div>
+                                        <div className="px-3 pb-4">
+                                            <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">Miembros</p>
+                                            {chatMembers.length === 0 ? (
+                                                <p className="px-2 text-sm text-neutral-500 dark:text-neutral-400">{t('pm2x.chat.no_participants')}</p>
+                                            ) : (
+                                                <ul className="space-y-0.5">
+                                                    {chatMembers.map(m => (
+                                                        <li key={m.key} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700/50">
+                                                            <span className={`w-10 h-10 rounded-full ${avatarColor(m.name)} text-white flex items-center justify-center text-sm font-semibold flex-shrink-0`}>{initials(m.name)}</span>
+                                                            <span className="min-w-0 flex-1">
+                                                                <span className="block text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{m.name}</span>
+                                                                {m.subtitle && <span className="block text-xs text-neutral-500 dark:text-neutral-400 truncate">{m.subtitle}</span>}
+                                                            </span>
+                                                            {m.badge && <span className="flex-shrink-0 text-[11px] font-medium text-primary">{m.badge}</span>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </div>
+                                </aside>
+                            </div>
+                        )}
 
                         {/* Messages Area */}
                         <div className="flex-1 px-2 sm:px-3 py-4 overflow-y-auto bg-neutral-50 dark:bg-neutral-800/30 scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-600">
