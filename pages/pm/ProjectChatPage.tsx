@@ -467,7 +467,7 @@ export const ProjectChatPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => setShowMembers(true)}
-                                className="flex items-center gap-3 min-w-0 -ml-1 pl-1 pr-3 py-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors text-left"
+                                className="flex flex-1 items-center gap-3 min-w-0 -ml-1 mr-2 pl-1 pr-3 py-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700/60 transition-colors text-left"
                                 title="Ver miembros del chat"
                             >
                                 {selectedProject.imageUrl
