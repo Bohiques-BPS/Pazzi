@@ -146,7 +146,7 @@ export const es: Record<string, string> = {
   'leads.settings.tags.new_aria': 'Nombre de la nueva etiqueta',
   'leads.settings.tags.color_title': 'Color de la nueva etiqueta',
   // Campos personalizados
-  'leads.settings.fields.options_required': 'Escribe las opciones separadas por coma.',
+  'leads.settings.fields.options_required': 'Agrega al menos una opción a la lista.',
   'leads.settings.fields.help': 'Datos extra que quieras guardar en cada lead, además de nombre, teléfono y correo (ej. "Presupuesto", "Pueblo", "Tipo de proyecto"). Aparecen en la ficha, al crear un lead y en la exportación.',
   'leads.settings.fields.help_required': 'Obligatorio: quien crea un lead a mano, o guarda sus datos en la ficha, no podrá hacerlo sin llenar este campo (lo comprueba también el servidor). No aplica a los leads que llegan solos (formulario web, tienda online, WhatsApp, importación) ni a los creados por la API: esos se guardan igual para no perder ninguno, y el campo se pedirá la próxima vez que alguien guarde los datos de ese lead en la ficha.',
   'leads.settings.fields.help_edit': 'Con el ícono de editar puedes cambiar el nombre, si es obligatorio y, en las listas, sus opciones (añadir, quitar o renombrar). El tipo no se puede cambiar porque los valores ya guardados dejarían de ser compatibles; si necesitas otro tipo, crea un campo nuevo.',
@@ -181,7 +181,7 @@ export const es: Record<string, string> = {
   'leads.settings.fields.type_hint.text': 'Texto: una respuesta libre (ej. "Referido por Juan").',
   'leads.settings.fields.type_hint.number': 'Número: cantidades (ej. presupuesto o metros cuadrados).',
   'leads.settings.fields.type_hint.date': 'Fecha: un día del calendario (ej. fecha del evento).',
-  'leads.settings.fields.type_hint.select': 'Lista de opciones: se elige una de las opciones que escribas, separadas por coma.',
+  'leads.settings.fields.type_hint.select': 'Lista de opciones: abajo escribe cada opción y pulsa Enter (o «Añadir opción»). En el lead se elegirá una de ellas.',
   'leads.settings.fields.type_hint.checkbox': 'Sí / No: una casilla para marcar (ej. "¿Tiene financiamiento?").',
   'leads.settings.fields.type_hint.url': 'Enlace (URL): una dirección web (ej. su perfil de Instagram o una carpeta de fotos).',
   // Motivos de pérdida
@@ -407,7 +407,7 @@ export const en: Record<string, string> = {
   'leads.settings.tags.new_aria': 'New tag name',
   'leads.settings.tags.color_title': 'Color of the new tag',
   // Custom fields
-  'leads.settings.fields.options_required': 'Enter the options separated by commas.',
+  'leads.settings.fields.options_required': 'Add at least one option to the list.',
   'leads.settings.fields.help': 'Extra data you want to store on each lead, besides name, phone and email (e.g. "Budget", "Town", "Project type"). They appear on the lead record, when creating a lead, and in exports.',
   'leads.settings.fields.help_required': 'Required: whoever creates a lead manually, or saves its data in the record, cannot do so without filling in this field (the server checks it too). It does not apply to leads that come in automatically (web form, online store, WhatsApp, import) or are created through the API: those are saved anyway so none is lost, and the field will be asked for the next time someone saves that lead\'s data in the record.',
   'leads.settings.fields.help_edit': 'With the edit icon you can change the name, whether it is required and, for lists, its options (add, remove or rename). The type cannot be changed because values already saved would no longer be compatible; if you need another type, create a new field.',
@@ -442,7 +442,7 @@ export const en: Record<string, string> = {
   'leads.settings.fields.type_hint.text': 'Text: a free-form answer (e.g. "Referred by John").',
   'leads.settings.fields.type_hint.number': 'Number: quantities (e.g. budget or square feet).',
   'leads.settings.fields.type_hint.date': 'Date: a calendar day (e.g. event date).',
-  'leads.settings.fields.type_hint.select': 'Option list: one of the options you type, separated by commas, is chosen.',
+  'leads.settings.fields.type_hint.select': 'Option list: type each option below and press Enter (or "Add option"). The lead will pick one of them.',
   'leads.settings.fields.type_hint.checkbox': 'Yes / No: a box to check (e.g. "Has financing?").',
   'leads.settings.fields.type_hint.url': 'Link (URL): a web address (e.g. their Instagram profile or a photo folder).',
   // Lost reasons

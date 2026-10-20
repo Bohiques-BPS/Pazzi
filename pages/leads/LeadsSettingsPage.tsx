@@ -436,13 +436,29 @@ const TagsTab: React.FC<{ tags: LeadTag[]; reload: () => Promise<void>; askConfi
 // ── Campos personalizados ──
 const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<void>; askConfirm: AskConfirm }> = ({ fields, reload, askConfirm }) => {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<{ label: string; type: LeadCustomFieldType; options: string; required: boolean }>({ label: '', type: 'text', options: '', required: false });
+  const [draft, setDraft] = useState<{ label: string; type: LeadCustomFieldType; options: string[]; required: boolean }>({ label: '', type: 'text', options: [], required: false });
+  // Opción que se está escribiendo (lista de opciones): Enter/coma/"Añadir opción" la agrega como etiqueta.
+  const [optInput, setOptInput] = useState('');
   const [editing, setEditing] = useState<LeadCustomField | null>(null);
+  /** Agrega una o varias opciones (si se pegó "Casa, Apartamento" se separan), sin duplicados. */
+  const addOptions = (raw: string) => {
+    const parts = raw.split(',').map(o => o.trim()).filter(Boolean);
+    if (!parts.length) return;
+    setDraft(d => {
+      const next = [...d.options];
+      for (const p of parts) if (!next.some(x => x.toLowerCase() === p.toLowerCase())) next.push(p.slice(0, 200));
+      return { ...d, options: next };
+    });
+    setOptInput('');
+  };
+  const removeOption = (i: number) => setDraft(d => ({ ...d, options: d.options.filter((_, j) => j !== i) }));
   const add = async () => {
     if (!draft.label.trim()) return;
-    const options = draft.type === 'select' ? draft.options.split(',').map(o => o.trim()).filter(Boolean) : null;
+    // Incluye lo que quedó escrito sin pulsar Enter.
+    const pending = optInput.split(',').map(o => o.trim()).filter(Boolean).filter(p => !draft.options.some(x => x.toLowerCase() === p.toLowerCase()));
+    const options = draft.type === 'select' ? [...draft.options, ...pending] : null;
     if (draft.type === 'select' && !options?.length) { toast.error(t('leads.settings.fields.options_required')); return; }
-    try { await leadsService.createCustomField({ label: draft.label.trim(), type: draft.type, options, required: draft.required }); setDraft({ label: '', type: 'text', options: '', required: false }); await reload(); }
+    try { await leadsService.createCustomField({ label: draft.label.trim(), type: draft.type, options, required: draft.required }); setDraft({ label: '', type: 'text', options: [], required: false }); setOptInput(''); await reload(); }
     catch (e) { err(e, t('leads.settings.err.create')); }
   };
   const columns: TableColumn<LeadCustomField>[] = [
@@ -484,11 +500,44 @@ const FieldsTab: React.FC<{ fields: LeadCustomField[]; reload: () => Promise<voi
         <select value={draft.type} onChange={e => setDraft(d => ({ ...d, type: e.target.value as LeadCustomFieldType }))} className={inputFormStyle + ' !w-auto'} aria-label={t('leads.settings.fields.type_title')} title={t('leads.settings.fields.type_title')}>
           {FIELD_TYPES.map(ft => <option key={ft} value={ft}>{t(fieldTypeKey(ft))}</option>)}
         </select>
-        {draft.type === 'select' && <input value={draft.options} onChange={e => setDraft(d => ({ ...d, options: e.target.value }))} placeholder={t('leads.settings.fields.options_placeholder')} className={inputFormStyle + ' !w-60 max-w-full'} aria-label={t('leads.settings.col.options')} />}
         <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 cursor-pointer" title={t('leads.settings.fields.required_title')}><input type="checkbox" checked={draft.required} onChange={e => setDraft(d => ({ ...d, required: e.target.checked }))} className={CHECKBOX} /> {t('leads.settings.required')}</label>
         <button onClick={add} className={`${BUTTON_PRIMARY_SM_CLASSES} ${BTN_ICON}`}><PlusIcon className="w-4 h-4" />{t('leads.settings.fields.add_btn')}</button>
         {/* key: se remonta al cambiar de tipo (evita el choque del traductor de Chrome con texto que cambia). */}
         <Hint key={draft.type} className="w-full">{t(`leads.settings.fields.type_hint.${draft.type}`)}</Hint>
+        {/* Opciones de la lista: una por una, como etiquetas (antes: todo en un campo separado por comas). */}
+        {draft.type === 'select' && (
+          <div className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3">
+            <label className={LABEL_CLASSES}>{t('leads.settings.fields.options_label')}</label>
+            {draft.options.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {draft.options.map((o, i) => (
+                  <span key={`${o}-${i}`} className="inline-flex items-center gap-1 pl-3 pr-1 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                    <span translate="no">{o}</span>
+                    <button type="button" onClick={() => removeOption(i)} className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-primary/20" aria-label={t('leads.settings.fields.remove_option_aria', { name: o })} title={t('leads.settings.fields.remove_option')}>✕</button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">Aún no hay opciones. Escribe la primera y pulsa Enter.</p>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                value={optInput}
+                onChange={e => { const v = e.target.value; if (v.includes(',')) addOptions(v); else setOptInput(v); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); addOptions(optInput); }
+                  else if (e.key === 'Backspace' && !optInput && draft.options.length) removeOption(draft.options.length - 1);
+                }}
+                onPaste={e => { const text = e.clipboardData.getData('text'); if (text.includes(',') || text.includes('\n')) { e.preventDefault(); addOptions(text.replace(/\n/g, ',')); } }}
+                maxLength={200}
+                placeholder={t('leads.settings.fields.new_option_placeholder')}
+                className={INPUT_SM_CLASSES + ' flex-1'}
+                aria-label={t('leads.settings.fields.new_option_placeholder')}
+              />
+              <button type="button" onClick={() => addOptions(optInput)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${BTN_ICON} flex-shrink-0`}><PlusIcon className="w-4 h-4" />{t('leads.settings.fields.add_option')}</button>
+            </div>
+          </div>
+        )}
       </div>
       {editing && <FieldEditModal field={editing} onClose={() => setEditing(null)} onSaved={reload} />}
     </SettingsCard>
