@@ -17,6 +17,7 @@ import {
 import { TagChip } from './TagChip';
 import { MoneyInput } from '../ui/MoneyInput';
 import { LeadItemsTab } from './LeadItemsTab';
+import { CrmFilesPanel } from '../ui/CrmFilesPanel';
 import { LeadMergePanel } from './LeadMergePanel';
 import { LeadConversationTab } from './LeadConversationTab';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
@@ -88,7 +89,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const [leadNotes, setLeadNotes] = useState<LeadNote[]>(initialLead.leadNotes || []);
   const [loadingDetail, setLoadingDetail] = useState(true);
   // Con teléfono/WhatsApp, la conversación es la pestaña principal (estilo Kommo).
-  const [tab, setTab] = useState<'conversation' | 'activity' | 'notes' | 'history' | 'products'>(() => (initialLead.whatsapp || initialLead.phone) ? 'conversation' : 'activity');
+  const [fileCount, setFileCount] = useState(0);
+  const [tab, setTab] = useState<'conversation' | 'activity' | 'notes' | 'files' | 'history' | 'products'>(() => (initialLead.whatsapp || initialLead.phone) ? 'conversation' : 'activity');
   const [convUnread, setConvUnread] = useState(0);
   const [convReloadKey, setConvReloadKey] = useState(0);
   const [itemCount, setItemCount] = useState(0);
@@ -398,6 +400,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     ...(hasPhone ? [conversationTab] : []),
     ['activity', t('leads.detail.tab.activities', { count: activities.length })],
     ['notes', t('leads.detail.tab.notes', { count: leadNotes.length })],
+    ['files', `Archivos (${fileCount})`],
     ['history', t('leads.detail.tab.history')],
     ['products', t('leads.detail.tab.products', { count: itemCount })],
     ...(hasPhone ? [] : [conversationTab]),
@@ -610,6 +613,17 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                 ))}
               </ul>
             )}
+
+            {/* Archivos: siempre montado (oculto) para tener el conteo de la pestaña. */}
+            <div className={tab === 'files' ? '' : 'hidden'}>
+              <CrmFilesPanel
+                load={() => leadsService.listFiles(lead.id)}
+                add={(d) => leadsService.addFile(lead.id, d)}
+                remove={(fid) => leadsService.deleteFile(lead.id, fid)}
+                canEdit={canEdit}
+                onCountChange={setFileCount}
+              />
+            </div>
 
             {/* Productos: siempre montado (oculto) para cargar el conteo y no perder cambios sin guardar al cambiar de pestaña. */}
             <div className={tab === 'products' ? '' : 'hidden'}>

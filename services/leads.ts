@@ -1,3 +1,4 @@
+import type { CrmFile, CrmFileInput } from '../components/ui/CrmFilesPanel';
 import { api, API_URL } from './api';
 import type { Lead, Pipeline, PipelineStage, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField, LeadSettings, LeadRule, LeadRuleRun, LeadTemplate, SalesTeam, LeadWebhook, LeadApiKey, SalesGoal, GoalProgressRow, GoalMetric, LeadItem, LeadDuplicate, LeadAgenda } from '../types';
 
@@ -144,6 +145,11 @@ export const leadsService = {
   deleteActivity: (actId: string) => api.delete<any>(`/leads/activities/${actId}`),
   addNote: (id: string, text: string, imageUrl?: string | null) =>
     api.post<LeadNote>(`/leads/${id}/notes`, { text, ...(imageUrl ? { imageUrl } : {}) }),
+
+  // Archivos y enlaces (propuestas, PDF, Docs, Drive…)
+  listFiles: (id: string) => api.get<CrmFile[]>(`/leads/${id}/files`),
+  addFile: (id: string, data: CrmFileInput) => api.post<CrmFile>(`/leads/${id}/files`, data),
+  deleteFile: (id: string, fileId: string) => api.delete<{ ok: boolean }>(`/leads/${id}/files/${fileId}`),
 
   // Reportes
   funnel: (r?: ReportRange) => api.get<FunnelReport>('/leads/reports/funnel', clean(r as any)),

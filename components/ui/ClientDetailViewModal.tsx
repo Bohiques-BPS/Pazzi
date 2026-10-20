@@ -4,6 +4,9 @@ import { Modal } from '../Modal';
 import { Client } from '../../types';
 import { BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { CrmFilesPanel } from './CrmFilesPanel';
+import { clientsService } from '../../services/clients';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface ClientDetailViewModalProps {
     isOpen: boolean;
@@ -23,6 +26,7 @@ const DetailItem: React.FC<{ label: string; value?: React.ReactNode; highlight?:
 
 export const ClientDetailViewModal: React.FC<ClientDetailViewModalProps> = ({ isOpen, onClose, client }) => {
     const { t } = useTranslation();
+    const { can } = usePermissions();
     if (!isOpen || !client) return null;
 
     return (
@@ -84,6 +88,18 @@ export const ClientDetailViewModal: React.FC<ClientDetailViewModalProps> = ({ is
                          <DetailItem label={t('cmpx.client_detail.current_balance')} value={client.balance ? `$${client.balance.toFixed(2)}` : '$0.00'} />
                          {client.isLoss && <DetailItem label={t('cmpx.client_detail.account_status')} value={t('cmpx.client_detail.in_loss')} highlight />}
                     </div>
+                </section>
+
+                {/* Archivos y enlaces (propuestas, contratos, PDF, Drive…) */}
+                <section>
+                    <h3 className="text-lg font-semibold text-primary border-b dark:border-neutral-600 mb-2 mt-4">Archivos</h3>
+                    <CrmFilesPanel
+                        key={client.id}
+                        load={() => clientsService.listFiles(client.id)}
+                        add={(d) => clientsService.addFile(client.id, d)}
+                        remove={(fid) => clientsService.deleteFile(client.id, fid)}
+                        canEdit={can('clients.edit')}
+                    />
                 </section>
 
                 <div className="flex justify-end pt-4">

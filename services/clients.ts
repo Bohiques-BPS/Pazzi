@@ -1,3 +1,4 @@
+import type { CrmFile, CrmFileInput } from '../components/ui/CrmFilesPanel';
 import { api } from './api';
 
 export interface ClientRecord {
@@ -160,6 +161,11 @@ export const clientsService = {
 
   bulkImport: (items: any[]) =>
     api.post<{ created: number; updated?: number; failedCount: number; failed: { row: number; error: string }[] }>('/clients/import', { items }),
+
+  // Archivos y enlaces (propuestas, contratos, PDF, Drive…)
+  listFiles: (id: string) => api.get<CrmFile[]>(`/clients/${id}/files`),
+  addFile: (id: string, data: CrmFileInput) => api.post<CrmFile>(`/clients/${id}/files`, data),
+  deleteFile: (id: string, fileId: string) => api.delete<{ ok: boolean }>(`/clients/${id}/files/${fileId}`),
 
   update: (id: string, data: Partial<ClientRecord>) =>
     api.put<ClientRecord>(`/clients/${id}`, data),
