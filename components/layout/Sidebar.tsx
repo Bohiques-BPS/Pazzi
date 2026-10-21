@@ -9,7 +9,7 @@ import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
 import { useChatUnread } from '../../hooks/useChatUnread';
 import { hubPath } from '../../utils/moduleNav';
-import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon, HomeIcon } from '../icons';
+import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon, HomeIcon, XMarkIcon } from '../icons';
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
 
@@ -213,6 +213,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   };
 
   return (
+    <>
+    {/* Móvil: fondo oscuro detrás del menú; tocarlo lo cierra. */}
+    {isOpen && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
     <aside className={`pz-sidebar bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
       {/* Encabezado: selector de módulo (ícono de cuadritos) a la IZQUIERDA del logo. */}
       <div className="flex items-center gap-2 h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
@@ -252,6 +255,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
           <img src={logo}      alt="Pazzi" className="h-7 sm:h-9 dark:hidden" />
           <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
         </Link>
+        {/* Móvil: cerrar el menú sin tener que elegir una opción. */}
+        <button type="button" onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto p-2 rounded-md text-neutral-500 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700" aria-label="Cerrar menú" title="Cerrar menú">
+          <XMarkIcon className="w-5 h-5" />
+        </button>
       </div>
       {/* Título del módulo → enlaza a la vista principal del módulo. */}
       {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
@@ -272,5 +279,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         {subModulesToDisplay.map((item, index) => renderSidebarItem(item, index))}
       </nav>
     </aside>
+    </>
   );
 };
