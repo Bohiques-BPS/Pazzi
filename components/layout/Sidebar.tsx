@@ -215,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
   return (
     <>
     {/* Móvil: fondo oscuro detrás del menú; tocarlo lo cierra. */}
-    {isOpen && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
+    {isOpen && <div className="fixed inset-0 z-[25] bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
     <aside className={`pz-sidebar bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
       {/* Encabezado: selector de módulo (ícono de cuadritos) a la IZQUIERDA del logo. */}
       <div className="flex items-center gap-2 h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
