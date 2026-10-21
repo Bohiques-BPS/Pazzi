@@ -233,7 +233,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     const getInitialFormData = (): ProjectFormData => ({
         name: '', clientId: '', status: ProjectStatus.PENDING, description: '', assignedProducts: [], customProducts: [], assignedEmployeeIds: [],
         visitDate: '', visitTime: '', workMode: 'daysOnly' as ProjectWorkMode, workDays: [], workDayTimeRanges: [], workStartDate: '', workEndDate: '',
-        purchaseOrder: '', projectKey: '', priority: ProjectPriority.LOW, managerUserIds: [],
+        purchaseOrder: '', projectKey: '', driveUrl: '', priority: ProjectPriority.LOW, managerUserIds: [],
     });
     
     const [formData, setFormData] = useState<ProjectFormData>(getInitialFormData());
@@ -267,7 +267,7 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                 name: project.name, clientId: project.clientId, status: project.status, description: project.description || '', assignedProducts: project.assignedProducts || [], customProducts: project.customProducts || [], assignedEmployeeIds: project.assignedEmployeeIds || [],
                 visitDate: project.visitDate || '', visitTime: project.visitTime || '', workMode: project.workMode || 'daysOnly', workDays: project.workDays || [], workDayTimeRanges: project.workDayTimeRanges || [],
                 workStartDate: project.workStartDate || '', workEndDate: project.workEndDate || '',
-                purchaseOrder: project.purchaseOrder || '', projectKey: project.projectKey || '', priority: project.priority || ProjectPriority.LOW,
+                purchaseOrder: project.purchaseOrder || '', projectKey: project.projectKey || '', driveUrl: (project as any).driveUrl || '', priority: project.priority || ProjectPriority.LOW,
                 imageUrl: project.imageUrl ?? null, sections: project.sections || [], managerUserIds: project.managerUserIds || [],
             });
         } else {
@@ -592,6 +592,20 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                             </datalist>
                             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">Se muestra como etiqueta del proyecto (no hace falta escribirlo en el nombre) y sirve para filtrar y agrupar.</p>
                         </div>
+                    </div>
+                    {/* Carpeta de Drive del proyecto */}
+                    <div>
+                        <label htmlFor="driveUrl" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">Carpeta de Drive</label>
+                        <div className="flex gap-2">
+                            <input type="url" name="driveUrl" id="driveUrl" value={(formData as any).driveUrl || ''} onChange={handleChange} placeholder="https://drive.google.com/drive/folders/…" className={`${inputFormStyle} flex-1`} />
+                            {(() => {
+                                const v = String((formData as any).driveUrl || '').trim();
+                                if (!v) return null;
+                                const href = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+                                return <a href={href} target="_blank" rel="noopener noreferrer" className={`${BUTTON_SECONDARY_SM_CLASSES} flex-shrink-0 flex items-center`}>Abrir</a>;
+                            })()}
+                        </div>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">Enlace a la carpeta compartida del proyecto (archivos, propuestas, contratos).</p>
                     </div>
                     <div>
                         <label htmlFor="projectDescription" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">{t('project.field.description')}</label>

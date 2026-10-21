@@ -108,6 +108,9 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />{project.status}
                     </span>
                     {priority && <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${priority.cls}`}>⚑ {priority.label}</span>}
+                    {(project as any).driveUrl && (
+                        <a href={(project as any).driveUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="Abrir carpeta de Drive" className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hover:underline">Drive</a>
+                    )}
                 </div>
 
                 {/* Progreso */}

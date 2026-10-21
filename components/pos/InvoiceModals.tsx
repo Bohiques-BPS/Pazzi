@@ -90,11 +90,11 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
-                            <p className="text-[11px] uppercase tracking-wide text-neutral-400">Cliente</p>
-                            <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+                            <p className="text-xs uppercase tracking-wide text-neutral-400">Cliente</p>
+                            <p className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 truncate">
                                 {invoice.clientName || (client ? `${client.name || ''} ${client.lastName || ''}`.trim() : '') || <span className="text-neutral-400 font-normal">Sin cliente</span>}
                             </p>
-                            {client?.companyName && <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{client.companyName}</p>}
+                            {client?.companyName && <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">{client.companyName}</p>}
                         </div>
                         {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>}
                     </div>
@@ -110,10 +110,10 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                         if (addr) rows.push(['Dirección', addr]);
                         if (!rows.length) return null;
                         return (
-                            <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                            <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-base">
                                 {rows.map(([k, v]) => (
                                     <div key={k} className="min-w-0">
-                                        <dt className="text-[11px] text-neutral-400">{k}</dt>
+                                        <dt className="text-xs text-neutral-400">{k}</dt>
                                         <dd className="text-neutral-700 dark:text-neutral-200 truncate">{v}</dd>
                                     </div>
                                 ))}
@@ -147,7 +147,8 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                             <thead className="bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
                                 <tr>
                                     <th className="text-left font-medium px-3 py-2">#</th>
-                                    <th className="text-left font-medium px-3 py-2">Fecha</th>
+                                    <th className="text-left font-medium px-3 py-2">Factura</th>
+                                    <th className="text-left font-medium px-3 py-2">Fecha pago</th>
                                     <th className="text-left font-medium px-3 py-2">Método</th>
                                     <th className="text-left font-medium px-3 py-2">Pagó / registró</th>
                                     <th className="text-left font-medium px-3 py-2">Referencia</th>
@@ -159,6 +160,14 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                                 {payments.map((p, i) => (
                                     <tr key={p.id} className="border-t border-neutral-100 dark:border-neutral-700/60">
                                         <td className="px-3 py-2 text-neutral-400 tabular-nums">{i + 1}</td>
+                                        <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300 whitespace-nowrap">
+                                            {/* Fecha en que se envió la factura (o, si nunca se envió, en que se creó). */}
+                                            {(invoice as any).sentAt ? (
+                                                <><span className="block">{new Date((invoice as any).sentAt).toLocaleDateString()}</span><span className="block text-[11px] text-neutral-400">Enviada</span></>
+                                            ) : (
+                                                <><span className="block">{invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : '—'}</span><span className="block text-[11px] text-neutral-400">Creada</span></>
+                                            )}
+                                        </td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}</td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.method || '—'}</td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300 max-w-[220px]">
@@ -193,7 +202,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                             </tbody>
                             <tfoot className="bg-neutral-50 dark:bg-neutral-900/40">
                                 <tr className="border-t border-neutral-200 dark:border-neutral-700">
-                                    <td colSpan={5} className="px-3 py-2 text-right font-medium text-neutral-500 dark:text-neutral-400">Total pagado</td>
+                                    <td colSpan={6} className="px-3 py-2 text-right font-medium text-neutral-500 dark:text-neutral-400">Total pagado</td>
                                     <td className="px-3 py-2 text-right font-bold text-green-600 dark:text-green-400 tabular-nums">{money(paid)}</td>
                                     <td></td>
                                 </tr>

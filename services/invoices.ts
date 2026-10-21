@@ -40,6 +40,8 @@ export interface Invoice {
     deletedAt?: string | null;
     allowPartial?: boolean;
     createdAt: string;
+    /** Última vez que se envió por correo (a pagar). */
+    sentAt?: string | null;
     /** Abonos individuales registrados en la factura. */
     payments?: InvoicePaymentRecord[];
 }
