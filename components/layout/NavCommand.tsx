@@ -367,7 +367,7 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
             <span className="hidden sm:inline">{t('cmp.navcmd.new') || 'Nuevo'}</span>
           </button>
           {createOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg py-1 z-40">
+            <div className="fixed left-3 right-3 top-[60px] max-h-[calc(100vh-80px)] overflow-y-auto sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-64 sm:max-h-none sm:overflow-visible bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg py-1 z-40">
               {orderedCreate.top.length > 0 && (
                 <>
                   <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-neutral-400">{t('cmp.navcmd.frequent') || 'Frecuentes'}</div>
