@@ -40,6 +40,8 @@ export interface DataContextType {
   setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
   projects: Project[];
   projectsLoading: boolean;
+  /** true cuando terminó la carga de cajas (aunque la tienda no tenga ninguna). */
+  cajasLoaded: boolean;
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   addProject: (projectData: ProjectFormData) => Project;
   generateInvoiceForProject: (projectId: string, invoiceDetails?: { amount?: number; dueDate?: string }) => Promise<boolean>;
@@ -150,6 +152,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [projects, setProjects] = useState<Project[]>([]);
     // Flag de carga inicial de proyectos (para mostrar skeleton en vez del estado "vacío").
     const [projectsLoading, setProjectsLoading] = useState(true);
+    const [cajasLoaded, setCajasLoaded] = useState(false);
     const [sales, setSalesInternal] = useState<Sale[]>([]);
     const [salePayments, setSalePayments] = useState<SalePayment[]>([]);
     const [estimates, setEstimates] = useState<Estimate[]>([]);
@@ -246,9 +249,11 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 }
             } catch (e) {
                 console.error("Error al cargar cajas del servidor:", e);
+            } finally {
+                setCajasLoaded(true);
             }
         };
-        if (currentUser) fetchCajas();
+        if (currentUser) { setCajasLoaded(false); fetchCajas(); }
     }, [currentUser]);
 
     // Carga de clientes desde el backend
@@ -1056,7 +1061,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     return (
         <DataContext.Provider value={{ 
             products, setProducts, getProductsByStoreOwner, getProductStockForBranch, getProductsWithStockForBranch,
-            clients, setClients, employees, setEmployees, projects, projectsLoading, setProjects, addProject, generateInvoiceForProject,
+            clients, setClients, employees, setEmployees, projects, projectsLoading, cajasLoaded, setProjects, addProject, generateInvoiceForProject,
             sales, setSales, addSale, recordSalePayment, lastCompletedSale,
             salePayments, addSalePayment,
             estimates, setEstimates, addEstimate,

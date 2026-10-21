@@ -228,7 +228,7 @@ export const POSCashierPage: React.FC = () => {
     const { settings } = useGlobalSettings();
     const {
         products, getProductsWithStockForBranch, branches, cajas, clients, addSale,
-        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, setEstimates, addEstimate, sales, setSales, employees, getBranchById
+        heldCarts, holdCurrentCart, recallCart, deleteHeldCart, estimates, addLayaway, setEstimates, addEstimate, sales, setSales, employees, getBranchById, cajasLoaded
     } = useData();
     const { currentUser, login, logout, toggleUserEmergencyOrderMode } = useAuth();
     const productSearchRef = useRef<HTMLInputElement>(null);
@@ -479,8 +479,13 @@ export const POSCashierPage: React.FC = () => {
     const clearOperator = () => setOperator(null);
 
     useEffect(() => {
-        // Skip while DataContext hasn't loaded yet (both arrays still empty on mount)
-        if (!branches.length && !cajas.length) return;
+        // Skip while DataContext hasn't loaded yet (both arrays still empty on mount).
+        // Si ya cargó y la tienda no tiene cajas (cuenta recién creada), se marca como
+        // inicializado para mostrar "Crear caja" en vez de quedarse cargando para siempre.
+        if (!branches.length && !cajas.length) {
+            if (cajasLoaded) setCajaInitialized(true);
+            return;
+        }
 
         // Respeta la selección manual del usuario: si ya eligió caja, no la sobreescribimos.
         if (selectedCajaId && cajas.some(c => c.id === selectedCajaId)) { setCajaInitialized(true); return; }
@@ -511,7 +516,7 @@ export const POSCashierPage: React.FC = () => {
         // Mark as initialized: data was loaded; if selectedCajaId is still '' after this,
         // it means there is genuinely no active caja configured for this store.
         setCajaInitialized(true);
-    }, [branches, cajas, selectedCajaId, currentUser]);
+    }, [branches, cajas, selectedCajaId, currentUser, cajasLoaded]);
 
     // Selectores de sucursal/caja (solo se muestran cuando hay más de una opción).
     const selectableBranches = useMemo(
