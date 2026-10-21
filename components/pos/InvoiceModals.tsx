@@ -147,7 +147,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                             <thead className="bg-neutral-100 dark:bg-neutral-800 whitespace-nowrap text-neutral-500 dark:text-neutral-400">
                                 <tr>
                                     <th className="text-left font-medium px-3 py-2">#</th>
-                                    <th className="text-left font-medium px-3 py-2">Factura</th>
+                                    <th className="text-left font-medium px-3 py-2">{(invoice as any).sentAt ? 'Factura enviada' : 'Factura creada'}</th>
                                     <th className="text-left font-medium px-3 py-2">Fecha pago</th>
                                     <th className="text-left font-medium px-3 py-2">Método</th>
                                     <th className="text-left font-medium px-3 py-2">Pagó / registró</th>
@@ -162,11 +162,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                                         <td className="px-3 py-2 text-neutral-400 tabular-nums">{i + 1}</td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300 whitespace-nowrap">
                                             {/* Fecha en que se envió la factura (o, si nunca se envió, en que se creó). */}
-                                            {(invoice as any).sentAt ? (
-                                                <><span className="block">{new Date((invoice as any).sentAt).toLocaleDateString()}</span><span className="block text-[11px] text-neutral-400">Enviada</span></>
-                                            ) : (
-                                                <><span className="block">{invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : '—'}</span><span className="block text-[11px] text-neutral-400">Creada</span></>
-                                            )}
+                                            {(() => { const d = (invoice as any).sentAt || invoice.createdAt; return d ? new Date(d).toLocaleDateString() : '—'; })()}
                                         </td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}</td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.method || '—'}</td>
