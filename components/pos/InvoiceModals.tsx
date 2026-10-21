@@ -84,7 +84,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
         printInvoicePaymentReceipt({ invoiceNumber: invoice.number, clientName: invoice.clientName, payment: p, total: invoice.total || 0, paidTotal, index: i + 1 }, store);
     };
     return (
-        <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="lg">
+        <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="2xl">
             <div className="space-y-4">
                 {/* Cliente de la factura */}
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
@@ -144,7 +144,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                 ) : (
                     <div className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
                         <table className="w-full text-sm">
-                            <thead className="bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
+                            <thead className="bg-neutral-100 dark:bg-neutral-800 whitespace-nowrap text-neutral-500 dark:text-neutral-400">
                                 <tr>
                                     <th className="text-left font-medium px-3 py-2">#</th>
                                     <th className="text-left font-medium px-3 py-2">Factura</th>
