@@ -5,11 +5,29 @@ import { Toaster, ToastBar, toast as hotToast } from 'react-hot-toast';
 import appLogo from './assets/logo.png';
 
 /** Pantalla de carga con marca (logo + spinner) en vez de un texto "Cargando..." en blanco. */
+// Logo que "respira" con un halo suave + barra de progreso indeterminada en el color de marca.
+// Aparece con un pequeño retraso para no parpadear cuando la carga es instantánea.
 const BrandedLoader: React.FC = () => (
-  <div className="flex h-screen flex-col items-center justify-center gap-4 bg-neutral-50 dark:bg-neutral-900">
-    <img src={appLogo} alt="Pazzi" className="h-12 w-auto opacity-90" />
-    <div className="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-primary animate-spin" />
-    <p className="text-sm text-neutral-400">Cargando…</p>
+  <div className="pz-loader flex h-screen flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900">
+    <style>{`
+      .pz-loader { animation: pz-fade .35s ease-out .15s both; }
+      .pz-loader .pz-halo { animation: pz-breathe 2.4s ease-in-out infinite; }
+      .pz-loader .pz-logo { animation: pz-float 2.4s ease-in-out infinite; }
+      .pz-loader .pz-bar { animation: pz-slide 1.3s cubic-bezier(.65,0,.35,1) infinite; }
+      @keyframes pz-fade { from { opacity: 0 } to { opacity: 1 } }
+      @keyframes pz-breathe { 0%,100% { transform: scale(.85); opacity: .35 } 50% { transform: scale(1.15); opacity: .7 } }
+      @keyframes pz-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
+      @keyframes pz-slide { 0% { transform: translateX(-100%) } 100% { transform: translateX(250%) } }
+      @media (prefers-reduced-motion: reduce) { .pz-loader * { animation-duration: 0s !important; animation-iteration-count: 1 !important; } }
+    `}</style>
+    <div className="relative flex items-center justify-center">
+      <div className="pz-halo absolute h-28 w-44 rounded-full bg-primary/20 blur-2xl" />
+      <img src={appLogo} alt="Pazzi" className="pz-logo relative h-14 w-auto" />
+    </div>
+    <div className="mt-8 h-1 w-40 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800" role="progressbar" aria-label="Cargando">
+      <div className="pz-bar h-full w-2/5 rounded-full bg-primary" />
+    </div>
+    <p className="mt-3 text-xs font-medium tracking-wide text-neutral-400 dark:text-neutral-500">Preparando tu espacio…</p>
   </div>
 );
 
