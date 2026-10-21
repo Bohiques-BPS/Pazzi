@@ -846,6 +846,8 @@ export interface Lead {
     phone?: string | null;
     phone2?: string | null; // segundo teléfono (opcional)
     whatsapp?: string | null;
+    /** Redes sociales y enlaces de referencia (como en Clientes). */
+    socialLinks?: { label: string; url: string }[] | null;
     pipelineId: string;
     stageId: string;
     status: 'open' | 'won' | 'lost';

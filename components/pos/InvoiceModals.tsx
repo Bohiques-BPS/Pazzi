@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useData } from '../../contexts/DataContext';
 import { invoicesService, type Invoice } from '../../services/invoices';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -66,7 +67,9 @@ export const ShareModal: React.FC<{ invoice: Invoice | null; onClose: () => void
 export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => void; onAddPayment?: () => void }> = ({ invoice, onClose, onAddPayment }) => {
     const { t } = useTranslation();
     const { settings } = useGlobalSettings();
+    const { getClientById } = useData();
     if (!invoice) return null;
+    const client: any = (invoice as any).clientId ? getClientById((invoice as any).clientId) : null;
     const payments = [...(invoice.payments || [])].sort((a, b) => new Date(a.paidAt || 0).getTime() - new Date(b.paidAt || 0).getTime());
     const paid = invoice.amountPaid ?? payments.reduce((s, p) => s + (p.amount || 0), 0);
     const balance = Math.max(0, (invoice.total || 0) - paid);
@@ -83,11 +86,40 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
     return (
         <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="lg">
             <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm text-neutral-600 dark:text-neutral-300">
-                        {invoice.clientName ? <span className="font-medium">{invoice.clientName}</span> : <span className="text-neutral-400">Sin cliente</span>}
+                {/* Cliente de la factura */}
+                <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                            <p className="text-[11px] uppercase tracking-wide text-neutral-400">Cliente</p>
+                            <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+                                {invoice.clientName || (client ? `${client.name || ''} ${client.lastName || ''}`.trim() : '') || <span className="text-neutral-400 font-normal">Sin cliente</span>}
+                            </p>
+                            {client?.companyName && <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{client.companyName}</p>}
+                        </div>
+                        {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>}
                     </div>
-                    {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>}
+                    {(() => {
+                        const email = (invoice as any).clientEmail || client?.email;
+                        const phone = client?.phone;
+                        const wa = client?.whatsapp;
+                        const addr = client ? [client.address, client.city, client.state || client.municipality, client.zip].filter(Boolean).join(', ') : '';
+                        const rows: [string, React.ReactNode][] = [];
+                        if (email) rows.push(['Correo', <a href={`mailto:${email}`} className="text-primary hover:underline break-all">{email}</a>]);
+                        if (phone) rows.push(['Teléfono', <a href={`tel:${phone}`} className="hover:underline">{phone}</a>]);
+                        if (wa && wa !== phone) rows.push(['WhatsApp', wa]);
+                        if (addr) rows.push(['Dirección', addr]);
+                        if (!rows.length) return null;
+                        return (
+                            <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                {rows.map(([k, v]) => (
+                                    <div key={k} className="min-w-0">
+                                        <dt className="text-[11px] text-neutral-400">{k}</dt>
+                                        <dd className="text-neutral-700 dark:text-neutral-200 truncate">{v}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        );
+                    })()}
                 </div>
 
                 {/* Resumen */}
@@ -117,6 +149,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                                     <th className="text-left font-medium px-3 py-2">#</th>
                                     <th className="text-left font-medium px-3 py-2">Fecha</th>
                                     <th className="text-left font-medium px-3 py-2">Método</th>
+                                    <th className="text-left font-medium px-3 py-2">Pagó / registró</th>
                                     <th className="text-left font-medium px-3 py-2">Referencia</th>
                                     <th className="text-right font-medium px-3 py-2">Monto</th>
                                     <th className="text-right font-medium px-3 py-2"></th>
@@ -128,7 +161,22 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                                         <td className="px-3 py-2 text-neutral-400 tabular-nums">{i + 1}</td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}</td>
                                         <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{p.method || '—'}</td>
-                                        <td className="px-3 py-2 text-neutral-400 dark:text-neutral-500 truncate max-w-[220px]">{p.reference || ''}</td>
+                                        <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300 max-w-[220px]">
+                                            {(() => {
+                                                const x: any = p;
+                                                const who = x.payerName || (x.cardLast4 ? `Tarjeta •••• ${x.cardLast4}` : '') || (x.channel === 'online' ? 'Cliente (pago en línea)' : '');
+                                                const sub = [x.payerPhone, x.payerEmail].filter(Boolean).join(' · ');
+                                                return (
+                                                    <>
+                                                        {who ? <span className="block truncate">{who}</span> : <span className="block text-neutral-400">—</span>}
+                                                        {sub && <span className="block text-[11px] text-neutral-400 truncate">{sub}</span>}
+                                                        {x.recordedByName && <span className="block text-[11px] text-neutral-400 truncate">Registró: {x.recordedByName}</span>}
+                                                        {x.channel === 'online' && <span className="inline-block mt-0.5 text-[10px] font-semibold px-1.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">En línea</span>}
+                                                    </>
+                                                );
+                                            })()}
+                                        </td>
+                                        <td className="px-3 py-2 text-neutral-400 dark:text-neutral-500 truncate max-w-[180px]">{p.reference || ''}</td>
                                         <td className="px-3 py-2 text-right font-semibold text-green-600 dark:text-green-400 tabular-nums">{money(p.amount)}</td>
                                         <td className="px-3 py-2 text-right whitespace-nowrap">
                                             <button
@@ -145,7 +193,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                             </tbody>
                             <tfoot className="bg-neutral-50 dark:bg-neutral-900/40">
                                 <tr className="border-t border-neutral-200 dark:border-neutral-700">
-                                    <td colSpan={4} className="px-3 py-2 text-right font-medium text-neutral-500 dark:text-neutral-400">Total pagado</td>
+                                    <td colSpan={5} className="px-3 py-2 text-right font-medium text-neutral-500 dark:text-neutral-400">Total pagado</td>
                                     <td className="px-3 py-2 text-right font-bold text-green-600 dark:text-green-400 tabular-nums">{money(paid)}</td>
                                     <td></td>
                                 </tr>

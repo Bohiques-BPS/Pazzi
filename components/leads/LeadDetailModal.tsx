@@ -97,6 +97,8 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
   const [itemsReloadKey, setItemsReloadKey] = useState(0);
 
   const [form, setForm] = useState(() => formFromLead(initialLead));
+  // Redes sociales y enlaces de referencia (campo fijo, igual que en Clientes).
+  const [links, setLinks] = useState<{ label: string; url: string }[]>(() => Array.isArray(initialLead.socialLinks) ? initialLead.socialLinks : []);
   const [cf, setCf] = useState<Record<string, any>>(initialLead.customFields || {});
   const [tagIds, setTagIds] = useState<string[]>(initialLead.tagIds || []);
   const [newTag, setNewTag] = useState('');
@@ -176,6 +178,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       const updated = await leadsService.update(lead.id, {
         name: form.name.trim(), lastName: form.lastName || null, companyName: form.companyName || null,
         email: form.email || null, email2: form.email2 || null, phone: form.phone || null, phone2: form.phone2 || null, whatsapp: form.whatsapp || null,
+        socialLinks: links.filter(l => l.url.trim()),
         value: form.value ? Number(form.value) : null,
         probability: form.probability !== '' ? Math.max(0, Math.min(100, Math.round(Number(form.probability)))) : null,
         sourceId: form.sourceId || null, notes: form.notes || null,
@@ -344,6 +347,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
     onChanged(merged);
     onDeleted(sourceId);
     setForm(formFromLead(merged));
+    setLinks(Array.isArray(merged.socialLinks) ? merged.socialLinks : []);
     setTagIds(merged.tagIds || []);
     setCf(merged.customFields || {});
     setItemsReloadKey(k => k + 1);
@@ -354,6 +358,7 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
       setTagIds(full.tagIds || []);
       setCf(full.customFields || {});
       setForm(formFromLead(full));
+      setLinks(Array.isArray(full.socialLinks) ? full.socialLinks : []);
     }).catch(() => {});
   };
 
@@ -482,6 +487,33 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
             </div>
             <div>{label(t('leads.common.expected_close'))}{inp('expectedCloseAt', 'date')}</div>
             <div className="sm:col-span-2">{label(t('leads.common.next_action'))}{inp('nextActionAt', 'datetime-local')}</div>
+          </div>
+
+          {/* Redes sociales y enlaces de referencia (campo fijo; antes se usaban campos personalizados) */}
+          <div className={SECTION}>
+            <div className="flex items-center justify-between mb-2">
+              {label('Redes sociales y enlaces')}
+              {canEdit && (
+                <button type="button" onClick={() => setLinks(prev => [...prev, { label: '', url: '' }])} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-xs`}>+ Añadir enlace</button>
+              )}
+            </div>
+            {links.length === 0 ? (
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">Sin enlaces. Agrega Instagram, Facebook, sitio web, LinkedIn, etc.</p>
+            ) : (
+              <div className="space-y-2">
+                {links.map((l, i) => {
+                  const href = l.url.trim() ? (/^https?:\/\//i.test(l.url.trim()) ? l.url.trim() : `https://${l.url.trim()}`) : '';
+                  return (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input value={l.label} disabled={!canEdit} onChange={e => setLinks(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="Etiqueta (ej. Instagram)" maxLength={80} className={`${inputFormStyle} !py-1.5 w-40 flex-shrink-0`} />
+                      <input value={l.url} disabled={!canEdit} onChange={e => setLinks(prev => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} placeholder="https://…" maxLength={500} className={`${inputFormStyle} !py-1.5 flex-1`} />
+                      {href && <a href={href} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-xs font-medium text-primary hover:underline">Abrir</a>}
+                      {canEdit && <button type="button" onClick={() => setLinks(prev => prev.filter((_, j) => j !== i))} className="flex-shrink-0 text-xs font-medium text-red-600 hover:underline">Quitar</button>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Campos personalizados */}

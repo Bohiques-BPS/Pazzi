@@ -51,6 +51,13 @@ export interface InvoicePaymentRecord {
     method?: string | null;
     reference?: string | null;
     paidAt?: string | null;
+    /** manual = registrado en la app; online = pagado por el cliente desde el enlace. */
+    channel?: 'manual' | 'online' | null;
+    payerName?: string | null;
+    payerPhone?: string | null;
+    payerEmail?: string | null;
+    cardLast4?: string | null;
+    recordedByName?: string | null;
 }
 
 export interface CreateInvoiceInput {

@@ -102,6 +102,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
     const [formData, setFormData] = useState<ClientFormData>(initialFormState);
     const [newImageUrl, setNewImageUrl] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // WhatsApp: por defecto es el Teléfono 1; solo si se marca "usa otro número" se guarda uno aparte.
+    const [waOther, setWaOther] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -128,6 +130,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                 setFormData(initialFormState);
             }
             setActiveTab('General');
+            setWaOther(!!(client as any)?.whatsapp);
             setNewImageUrl('');
             setSavedClient(null);
         }
@@ -206,6 +209,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
             chargeValue: formData.chargeValue || 0,
             balance: formData.balance || 0,
             loyaltyPoints: formData.loyaltyPoints || 0,
+            // Sin la casilla marcada, el WhatsApp es el Teléfono 1 (no se guarda otro número).
+            whatsapp: waOther ? ((formData as any).whatsapp || '') : '',
         };
         try {
             const res = await fetch(target ? `${API_URL}/clients/${target.id}` : `${API_URL}/clients`, {
@@ -348,9 +353,17 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({isOpen, onClose
                  <div><label className="block text-sm font-medium">{t('common.phone')} 2</label><PhoneInput name="phone2" value={formData.phone2 || ''} onChange={(val) => handleChange({ target: { name: 'phone2', value: val, type: 'tel' } } as any)} className="w-full" /></div>
             </div>
             <div>
-                <label className="block text-sm font-medium">{t('client.field.whatsapp')}</label>
-                <PhoneInput name="whatsapp" value={(formData as any).whatsapp || ''} onChange={(val) => handleChange({ target: { name: 'whatsapp', value: val, type: 'tel' } } as any)} className="w-full" />
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('client.field.whatsapp_hint')}</p>
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+                    <input type="checkbox" checked={waOther} onChange={e => setWaOther(e.target.checked)} className="form-checkbox rounded h-4 w-4" />
+                    {t('client.field.whatsapp_other')}
+                </label>
+                {!waOther && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('client.field.whatsapp_hint')}</p>}
+                {waOther && (
+                    <div className="mt-2">
+                        <label className="block text-sm font-medium">{t('client.field.whatsapp')}</label>
+                        <PhoneInput name="whatsapp" value={(formData as any).whatsapp || ''} onChange={(val) => handleChange({ target: { name: 'whatsapp', value: val, type: 'tel' } } as any)} className="w-full" />
+                    </div>
+                )}
             </div>
             <div><label className="block text-sm font-medium">{t('client.field.fax')}</label><input type="tel" name="fax" value={formData.fax} onChange={handleChange} className={inputFormStyle} /></div>
             <div><label className="block text-sm font-medium">{t('common.email')}</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputFormStyle} /></div>
