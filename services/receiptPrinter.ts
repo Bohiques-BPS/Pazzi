@@ -185,7 +185,9 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     } else if (cfg.showTaxBreakdown) {
         o += two('IVU', money(sale.tax), w);
     }
-    o += BOLD_ON + TALL_ON + two('TOTAL', money(sale.total), w) + DBL_OFF + BOLD_OFF;
+    // TOTAL en doble alto Y doble ancho: proporcional (solo doble alto se veía estirado). En doble
+    // ancho caben w/2 caracteres, de sobra para "TOTAL" y el monto.
+    o += BOLD_ON + DBL_ON + two('TOTAL', money(sale.total), Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
     o += rule(w);
     for (const p of sale.payments) {
         o += two(p.method, money(p.amount), w);
