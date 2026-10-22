@@ -100,7 +100,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             <XMarkIcon className="w-7 h-7" />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto min-h-0 text-neutral-700 dark:text-neutral-200 text-base">
+        <div className="p-6 flex-1 overflow-y-auto min-h-0 text-neutral-700 dark:text-neutral-200 text-base">
           {children}
         </div>
         {footer && (

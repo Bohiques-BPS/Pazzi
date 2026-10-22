@@ -297,8 +297,41 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         toast.success(t('cmpx.payment.ath_received_toast'));
     };
 
+    // Pie fijo del modal: qué imprimir + Cancelar / Finalizar siempre abajo (header · body · footer).
+    const footerContent = (
+            <div className="flex justify-between items-center gap-3 flex-wrap">
+                {/* Qué imprimir al finalizar (como el POS clásico) */}
+                <div className="flex items-center gap-4 text-base">
+                    <span className="font-medium text-neutral-600 dark:text-neutral-300">{t('cmpx.payment.print_label')}</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="printFormat" checked={printFormat === 'recibo'} onChange={() => changeFormat('recibo')} className="h-4 w-4" />
+                        {t('cmpx.payment.receipt')}
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="printFormat" checked={printFormat === 'factura'} onChange={() => changeFormat('factura')} className="h-4 w-4" />
+                        {t('cmpx.payment.invoice')}
+                    </label>
+                </div>
+                <div className="flex items-stretch space-x-3">
+                    <button type="button" onClick={onClose} className={`${BUTTON_SECONDARY_CLASSES} !text-lg !px-8`}>
+                        {t('common.cancel')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { if (!tryQuickFinalize()) handleFinalize(); }}
+                        className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
+                        // Habilitado cuando ya está pagado, O cuando el monto escrito (método directo) cubre
+                        // el saldo: así no hay que pulsar "Agregar Pago" primero (USO-13).
+                        disabled={balance > 0.001 && !(isDirectMethod && coversBalance(amountInput, balance))}
+                    >
+                        {t('cmpx.payment.finalize')} <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
+                    </button>
+                </div>
+            </div>
+    );
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.payment.title')} size="screen">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.payment.title')} size="screen" footer={footerContent}>
             <div className="space-y-5">
                 {/* 1) Selección de método — arriba, 100% ancho */}
                 <div>
@@ -503,35 +536,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                 </div>
             </div>
 
-            <div className="flex justify-between items-center gap-3 flex-wrap mt-6 pt-4 border-t dark:border-neutral-600">
-                {/* Qué imprimir al finalizar (como el POS clásico) */}
-                <div className="flex items-center gap-4 text-base">
-                    <span className="font-medium text-neutral-600 dark:text-neutral-300">{t('cmpx.payment.print_label')}</span>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="radio" name="printFormat" checked={printFormat === 'recibo'} onChange={() => changeFormat('recibo')} className="h-4 w-4" />
-                        {t('cmpx.payment.receipt')}
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="radio" name="printFormat" checked={printFormat === 'factura'} onChange={() => changeFormat('factura')} className="h-4 w-4" />
-                        {t('cmpx.payment.invoice')}
-                    </label>
-                </div>
-                <div className="flex items-stretch space-x-3">
-                    <button type="button" onClick={onClose} className={`${BUTTON_SECONDARY_CLASSES} !text-lg !px-8`}>
-                        {t('common.cancel')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { if (!tryQuickFinalize()) handleFinalize(); }}
-                        className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
-                        // Habilitado cuando ya está pagado, O cuando el monto escrito (método directo) cubre
-                        // el saldo: así no hay que pulsar "Agregar Pago" primero (USO-13).
-                        disabled={balance > 0.001 && !(isDirectMethod && coversBalance(amountInput, balance))}
-                    >
-                        {t('cmpx.payment.finalize')} <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
-                    </button>
-                </div>
-            </div>
         </Modal>
     );
 };
