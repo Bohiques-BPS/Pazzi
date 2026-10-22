@@ -55,7 +55,6 @@ const INIT = ESC + '@';
 const ALIGN_C = ESC + 'a' + '\x01', ALIGN_L = ESC + 'a' + '\x00';
 const BOLD_ON = ESC + 'E' + '\x01', BOLD_OFF = ESC + 'E' + '\x00';
 const DBL_ON = GS + '!' + '\x11', DBL_OFF = GS + '!' + '\x00';
-const DBL_H_ON = GS + '!' + '\x01'; // solo doble alto (mismo ancho)
 // Avanza y corta (parcial). Los \n dan margen para no cortar sobre el texto.
 const CUT = '\n\n\n' + GS + 'V' + '\x42' + '\x00';
 
@@ -88,13 +87,11 @@ function center(t: string, w: number): string {
     return wrapWords(t, w).map(ln => ' '.repeat(Math.max(0, Math.floor((w - ln.length) / 2))) + ln + '\n').join('');
 }
 /**
- * Nombre del negocio en grande: doble alto y ancho si cabe; si no, solo doble alto (ancho normal,
- * caben el doble de letras); si aun así no cabe, center() lo parte por palabras.
+ * Nombre del negocio en grande (doble alto y doble ancho). En doble ancho caben w/2 letras por línea:
+ * si no cabe, center() lo parte por palabras en varias líneas grandes (nunca a mitad de palabra).
  */
 function bigTitle(name: string, w: number): string {
-    const t = deburr(name).trim();
-    if (t.length <= Math.floor(w / 2)) return BOLD_ON + DBL_ON + center(t, Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
-    return BOLD_ON + DBL_H_ON + center(t, w) + DBL_OFF + BOLD_OFF;
+    return BOLD_ON + DBL_ON + center(deburr(name).trim(), Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
 }
 const leftLine = (t: string) => deburr(t) + '\n';
 const rule = (w: number) => '-'.repeat(w) + '\n';
