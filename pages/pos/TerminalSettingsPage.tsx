@@ -221,8 +221,10 @@ export const TerminalSettingsPage: React.FC = () => {
                                 <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.thermalWidth')}</label>
                                 <select value={webusb.width} onChange={e => updateWebusb({ width: Number(e.target.value) })} className={`${INPUT_SM_CLASSES} w-full`}>
                                     <option value={48}>{t('posx.receipt.width.80mm')}</option>
+                                    <option value={42}>{t('posx.receipt.width.80mm42')}</option>
                                     <option value={32}>{t('posx.receipt.width.58mm')}</option>
                                 </select>
+                                <p className="mt-1 text-xs text-neutral-400">{t('posx.receipt.width.hint')}</p>
                             </div>
                             <button type="button" onClick={testUsb} disabled={webusb.vendorId == null} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{t('posx.receipt.usb.testReceipt')}</button>
                             <p className="text-xs text-neutral-400">{t('posx.receipt.usb.note')}</p>
@@ -321,8 +323,10 @@ export const TerminalSettingsPage: React.FC = () => {
                                 <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.thermalWidth')}</label>
                                 <select value={receiptPrinter.width} onChange={e => updateReceiptPrinter({ width: Number(e.target.value) })} className={`${INPUT_SM_CLASSES} w-full`}>
                                     <option value={48}>{t('posx.receipt.width.80mm')}</option>
+                                    <option value={42}>{t('posx.receipt.width.80mm42')}</option>
                                     <option value={32}>{t('posx.receipt.width.58mm')}</option>
                                 </select>
+                                <p className="mt-1 text-xs text-neutral-400">{t('posx.receipt.width.hint')}</p>
                             </div>
                             <div className="flex gap-2">
                                 <button type="button" onClick={testRecibo} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.receipt.qz.testReceipt')}</button>
