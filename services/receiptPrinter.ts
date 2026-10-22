@@ -89,11 +89,12 @@ function center(t: string, w: number): string {
     return wrapWords(t, w).map(ln => ' '.repeat(Math.max(0, Math.floor((w - ln.length) / 2))) + ln + '\n').join('');
 }
 /**
- * Nombre del negocio en grande (doble alto y doble ancho). En doble ancho caben w/2 letras por línea:
- * si no cabe, center() lo parte por palabras en varias líneas grandes (nunca a mitad de palabra).
+ * Nombre del negocio como en la vista previa: una sola línea, en negrita y más grande que el resto.
+ * Doble alto con ancho normal (en doble ancho no cabría en una línea); si aun así no cabe, center()
+ * lo parte por palabras.
  */
 function bigTitle(name: string, w: number): string {
-    return BOLD_ON + DBL_ON + center(deburr(name).trim(), Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
+    return BOLD_ON + TALL_ON + center(deburr(name).trim(), w) + DBL_OFF + BOLD_OFF;
 }
 const leftLine = (t: string) => deburr(t) + '\n';
 const rule = (w: number) => '-'.repeat(w) + '\n';
