@@ -83,10 +83,13 @@ function wrapWords(t: string, w: number): string[] {
     if (cur) lines.push(cur);
     return lines.length ? lines : [''];
 }
+/**
+ * Línea centrada. Se usa siempre con ALIGN_C activo: la impresora centra sola, así que NO se agregan
+ * espacios (con espacios se centraba dos veces y el texto quedaba corrido a la derecha). Si no cabe,
+ * se parte por palabras (la impresora lo cortaría a mitad de palabra).
+ */
 function center(t: string, w: number): string {
-    t = deburr(t);
-    // Si no cabe, se parte por palabras y cada línea se centra (la impresora lo cortaría a mitad de palabra).
-    return wrapWords(t, w).map(ln => ' '.repeat(Math.max(0, Math.floor((w - ln.length) / 2))) + ln + '\n').join('');
+    return wrapWords(deburr(t), w).map(ln => ln + '\n').join('');
 }
 /**
  * Nombre del negocio como en la vista previa: una sola línea, en negrita y más grande que el resto.
