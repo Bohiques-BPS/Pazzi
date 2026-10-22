@@ -90,5 +90,5 @@ export async function openCashDrawer(): Promise<void> {
     const printer = cfg.printerName || (await qz.printers.getDefault());
     if (!printer) throw new Error('No hay impresora/dispositivo configurado para la gaveta.');
     const config = qz.configs.create(printer, { encoding: 'UTF-8' });
-    await qz.print(config, [{ type: 'raw', format: 'hex', data: cfg.kickHex || DEFAULT_KICK_HEX }]);
+    await qz.print(config, [{ type: 'raw', format: 'command', flavor: 'hex', data: cfg.kickHex || DEFAULT_KICK_HEX }]);
 }

@@ -215,7 +215,7 @@ export async function printReceiptViaQz(
         const printer = rc.facturaPrinter || rc.reciboPrinter || (await qz.printers.getDefault());
         if (!printer) throw new Error('No hay impresora de factura configurada.');
         const config = qz.configs.create(printer, {});
-        await qz.print(config, [{ type: 'html', format: 'plain', data: letterHtml || '' }]);
+        await qz.print(config, [{ type: 'pixel', format: 'html', flavor: 'plain', data: letterHtml || '' }]);
         return;
     }
 
@@ -225,13 +225,13 @@ export async function printReceiptViaQz(
     const logo = await receiptLogo(cfg, rc.width);
     const text = buildReceiptEscPos(sale, cfg, rc.width);
     if (!logo) {
-        await qz.print(config, [{ type: 'raw', format: 'plain', data: text }]);
+        await qz.print(config, [{ type: 'raw', format: 'command', flavor: 'plain', data: text }]);
         return;
     }
     const head = new Uint8Array([0x1b, 0x40, 0x1b, 0x61, 0x01, ...logo, 0x0a]); // INIT + centrar + logo
     await qz.print(config, [
         { type: 'raw', format: 'command', flavor: 'base64', data: bytesToBase64(head) },
-        { type: 'raw', format: 'plain', data: text.slice(INIT.length) }, // sin el INIT (borraría el buffer)
+        { type: 'raw', format: 'command', flavor: 'plain', data: text.slice(INIT.length) }, // sin el INIT (borraría el buffer)
     ]);
 }
 

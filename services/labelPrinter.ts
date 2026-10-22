@@ -128,7 +128,7 @@ export async function printBarcodeLabel(product: any, copiesOverride?: number): 
         const config = qz.configs.create(printer, {
             size: { width: cfg.widthMm, height: cfg.heightMm }, units: 'mm', margins: 0, copies,
         });
-        await qz.print(config, [{ type: 'html', format: 'plain', data: html }]);
+        await qz.print(config, [{ type: 'pixel', format: 'html', flavor: 'plain', data: html }]);
         return;
     }
 
