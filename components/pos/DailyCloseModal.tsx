@@ -144,6 +144,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         if (!session || !totals) return;
         if (!cashEntered || cashCounted < 0) { setError('Ingresa el efectivo contado en la gaveta.'); return; }
         if (isHighDiff && !confirmHighDiff) {
+            if (denomMode) { setDenomOpen(true); return; }
             setError(`Hay una diferencia de efectivo de ${money(Math.abs(cashDiff))}. Marca la confirmación para cerrar de todos modos.`);
             return;
         }
@@ -340,16 +341,45 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
 
                     <Modal isOpen={denomOpen} onClose={() => setDenomOpen(false)} title="Contar efectivo por denominación" size="3xl"
                         footer={
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-baseline gap-3">
-                                    <span className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Total contado</span>
-                                    <span className="text-3xl font-bold text-primary dark:text-accent tabular-nums">{money(denomTotal)}</span>
+                            <div className="space-y-3">
+                            {/* Contado vs. esperado (en vivo) */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="rounded-lg bg-neutral-100 dark:bg-neutral-900 px-4 py-2">
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Esperado</p>
+                                    <p className="text-2xl font-bold tabular-nums text-neutral-800 dark:text-neutral-100">{money(cashExpected)}</p>
                                 </div>
+                                <div className="rounded-lg bg-primary/10 px-4 py-2">
+                                    <p className="text-sm text-primary">Total contado</p>
+                                    <p className="text-2xl font-bold tabular-nums text-primary dark:text-accent">{money(denomTotal)}</p>
+                                </div>
+                                {(() => {
+                                    const diff = Math.round((denomTotal - cashExpected) * 100) / 100;
+                                    const high = Math.abs(diff) >= differenceThreshold;
+                                    const cls = !anyDenomEntered ? 'bg-neutral-100 dark:bg-neutral-900 text-neutral-500'
+                                        : diff === 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                                        : high ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                                        : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300';
+                                    return (
+                                        <div className={`rounded-lg px-4 py-2 ${cls}`}>
+                                            <p className="text-sm">Diferencia en gaveta</p>
+                                            <p className="text-2xl font-bold tabular-nums">{anyDenomEntered ? `${diff >= 0 ? '+' : '-'}${money(Math.abs(diff))}` : '—'}</p>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            {anyDenomEntered && Math.abs(Math.round((denomTotal - cashExpected) * 100) / 100) >= differenceThreshold && (
+                                <label className="flex items-start gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-base cursor-pointer">
+                                    <input type="checkbox" checked={confirmHighDiff} onChange={e => setConfirmHighDiff(e.target.checked)} className="mt-1 h-5 w-5" />
+                                    <span className="text-red-700 dark:text-red-300">Confirmo que verifiqué el conteo y autorizo el cierre con una diferencia de <strong>{money(Math.abs(Math.round((denomTotal - cashExpected) * 100) / 100))}</strong>.</span>
+                                </label>
+                            )}
+                            <div className="flex flex-wrap items-center justify-end gap-3">
                                 <div className="flex flex-wrap gap-2">
                                     <button type="button" onClick={() => setDenomCounts({})} className="rounded-md border border-neutral-300 dark:border-neutral-600 px-4 py-2 text-base font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700">Limpiar</button>
                                     <button type="button" onClick={() => { setDenomMode(false); setDenomOpen(false); }} className="rounded-md border border-neutral-300 dark:border-neutral-600 px-4 py-2 text-base font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700">Escribir el total a mano</button>
                                     <button type="button" onClick={() => { setDenomMode(true); setDenomOpen(false); }} className="rounded-md bg-green-600 px-6 py-2 text-base font-semibold text-white hover:bg-green-700">Usar este total</button>
                                 </div>
+                            </div>
                             </div>
                         }
                     >
@@ -405,7 +435,15 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                         />
                     </div>
 
-                    {isHighDiff && cashEntered && (
+                    {isHighDiff && cashEntered && denomMode && (
+                        <div className="flex flex-wrap items-center gap-2 mt-2 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+                            {confirmHighDiff
+                                ? <span>✓ Diferencia de <strong>{money(Math.abs(cashDiff))}</strong> confirmada en el conteo.</span>
+                                : <span>Hay una diferencia de <strong>{money(Math.abs(cashDiff))}</strong> que debes confirmar en el conteo.</span>}
+                            <button type="button" onClick={() => setDenomOpen(true)} className="ml-auto rounded-md bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700">Abrir conteo</button>
+                        </div>
+                    )}
+                    {isHighDiff && cashEntered && !denomMode && (
                         <label className="flex items-start gap-2 mt-2 p-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 text-sm">
                             <input type="checkbox" checked={confirmHighDiff} onChange={e => setConfirmHighDiff(e.target.checked)} className="mt-0.5" />
                             <span className="text-red-700 dark:text-red-300">Confirmo que verifiqué el conteo y autorizo el cierre con una diferencia de <strong>{money(Math.abs(cashDiff))}</strong>.</span>
