@@ -10,7 +10,7 @@
  *
  * Config POR DISPOSITIVO (localStorage): guarda vendorId/productId para reconectar sin volver a pedir.
  */
-import { buildReceiptEscPos } from './receiptPrinter';
+import { buildReceiptEscPos, receiptLogo } from './receiptPrinter';
 import type { ReceiptConfig } from '../types';
 import type { ReceiptSale } from '../components/pos/ReceiptModal';
 
@@ -114,7 +114,7 @@ async function sendRaw(data: string): Promise<void> {
 /** Imprime un recibo (ESC/POS) por WebUSB. Lanza si falla. */
 export async function printReceiptViaWebUsb(sale: ReceiptSale, cfg: ReceiptConfig): Promise<void> {
     const wc = getWebUsbConfig();
-    const data = buildReceiptEscPos(sale, cfg, wc.width || 48);
+    const data = buildReceiptEscPos(sale, cfg, wc.width || 48, await receiptLogo(cfg, wc.width || 48));
     await sendRaw(data);
 }
 

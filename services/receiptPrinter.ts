@@ -8,6 +8,7 @@
 import { ensureConnected, listPrinters } from './cashDrawer';
 import type { ReceiptConfig } from '../types';
 import type { ReceiptSale } from '../components/pos/ReceiptModal';
+import { logoRaster, bytesToBinary, bytesToBase64 } from './escposImage';
 
 export { listPrinters };
 
@@ -55,6 +56,7 @@ const INIT = ESC + '@';
 const ALIGN_C = ESC + 'a' + '\x01', ALIGN_L = ESC + 'a' + '\x00';
 const BOLD_ON = ESC + 'E' + '\x01', BOLD_OFF = ESC + 'E' + '\x00';
 const DBL_ON = GS + '!' + '\x11', DBL_OFF = GS + '!' + '\x00';
+const TALL_ON = GS + '!' + '\x01'; // doble alto (mismo ancho): para el TOTAL
 // Avanza y corta (parcial). Los \n dan margen para no cortar sobre el texto.
 const CUT = '\n\n\n' + GS + 'V' + '\x42' + '\x00';
 
@@ -104,14 +106,16 @@ function barcode128(value: string): string {
 }
 
 /** Construye el recibo como texto ESC/POS. */
-export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width = 48): string {
+export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width = 48, logo?: Uint8Array | null): string {
     const w = width || 48;
+    // Logo (si se pudo convertir): imagen raster centrada arriba del nombre.
+    const logoBlock = logo ? ALIGN_C + bytesToBinary(logo) + '\n' : '';
 
     // ── Diseño CLÁSICO (térmico estilo ferretería) ──
     if ((cfg.design ?? 'modern') === 'classic') {
         const num = `${cfg.receiptPrefix || ''}${sale.saleNumber}`;
         const d = new Date(sale.date);
-        let c = INIT + ALIGN_C;
+        let c = INIT + logoBlock + ALIGN_C;
         if (cfg.businessName) c += bigTitle(cfg.businessName, w);
         if (cfg.showAddress && cfg.address) c += center(cfg.address, w);
         if (cfg.showPhone && cfg.phone) c += center(`Tel: ${cfg.phone}`, w);
@@ -144,12 +148,14 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
         return c;
     }
 
-    let o = INIT + ALIGN_C;
+    let o = INIT + logoBlock + ALIGN_C;
     // Nombre del negocio en doble tamaño (ocupa el doble → centrar sobre w/2).
     if (cfg.businessName) o += bigTitle(cfg.businessName, w);
     if (cfg.showRnc && cfg.rnc) o += center(`RNC/Reg: ${cfg.rnc}`, w);
     if (cfg.showAddress && cfg.address) o += center(cfg.address, w);
     if (cfg.showPhone && cfg.phone) o += center(`Tel: ${cfg.phone}`, w);
+    if (cfg.showEmail && cfg.email) o += center(cfg.email, w);
+    if (cfg.headerNote) { o += '\n'; for (const ln of String(cfg.headerNote).split('\n')) o += center(ln, w); }
     o += ALIGN_L + rule(w);
     o += two('Factura #', String(sale.saleNumber), w);
     o += two('Fecha', new Date(sale.date).toLocaleString(), w);
@@ -157,21 +163,25 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     if (cfg.showCashier && sale.cashierName) o += two('Cajero', sale.cashierName, w);
     o += rule(w);
     for (const it of sale.items) {
-        o += leftLine(it.name.slice(0, w));
-        o += two(`  ${it.quantity} x ${money(it.unitPrice)}`, money(it.quantity * it.unitPrice), w);
+        const amount = money(it.quantity * it.unitPrice);
+        const nameLines = wrapWords(deburr(it.name), Math.max(8, w - amount.length - 1));
+        o += two(nameLines[0], amount, w);
+        for (const ln of nameLines.slice(1)) o += leftLine(ln);
+        o += leftLine(`${it.quantity} x ${money(it.unitPrice)}`);
         if (it.note) o += leftLine(`  * ${it.note}`.slice(0, w));
     }
     o += rule(w);
     o += two('Subtotal', money(sale.subtotal), w);
     if (sale.discount > 0) o += two('Descuento', `-${money(sale.discount)}`, w);
-    if (sale.taxState || sale.taxMunicipal || sale.taxReduced) {
+    if (!((sale.tax || 0) > 0)) { /* sin IVU: no se imprime la línea */ }
+    else if (sale.taxState || sale.taxMunicipal || sale.taxReduced) {
         if (sale.taxState) o += two('IVU Estatal', money(sale.taxState), w);
         if (sale.taxMunicipal) o += two('IVU Municipal', money(sale.taxMunicipal), w);
         if (sale.taxReduced) o += two('IVU Reducido', money(sale.taxReduced), w);
     } else if (cfg.showTaxBreakdown) {
         o += two('IVU', money(sale.tax), w);
     }
-    o += BOLD_ON + two('TOTAL', money(sale.total), w) + BOLD_OFF;
+    o += BOLD_ON + TALL_ON + two('TOTAL', money(sale.total), w) + DBL_OFF + BOLD_OFF;
     o += rule(w);
     for (const p of sale.payments) {
         o += two(p.method, money(p.amount), w);
@@ -211,8 +221,23 @@ export async function printReceiptViaQz(
     const printer = rc.reciboPrinter || (await qz.printers.getDefault());
     if (!printer) throw new Error('No hay impresora de recibos configurada.');
     const config = qz.configs.create(printer, { encoding: 'CP437' });
-    const data = buildReceiptEscPos(sale, cfg, rc.width);
-    await qz.print(config, [{ type: 'raw', format: 'plain', data }]);
+    const logo = await receiptLogo(cfg, rc.width);
+    const text = buildReceiptEscPos(sale, cfg, rc.width);
+    if (!logo) {
+        await qz.print(config, [{ type: 'raw', format: 'plain', data: text }]);
+        return;
+    }
+    const head = new Uint8Array([0x1b, 0x40, 0x1b, 0x61, 0x01, ...logo, 0x0a]); // INIT + centrar + logo
+    await qz.print(config, [
+        { type: 'raw', format: 'command', flavor: 'base64', data: bytesToBase64(head) },
+        { type: 'raw', format: 'plain', data: text.slice(INIT.length) }, // sin el INIT (borraría el buffer)
+    ]);
+}
+
+/** Logo del recibo listo para la térmica (null si no hay logo, está oculto o no se pudo convertir). */
+export async function receiptLogo(cfg: ReceiptConfig, cols: number): Promise<Uint8Array | null> {
+    if (!cfg.showLogo || !cfg.logoUrl) return null;
+    return logoRaster(cfg.logoUrl, cols || 48);
 }
 
 /** Imprime un documento de PRUEBA (para "Probar"). Para factura, el llamador pasa el HTML carta. */
