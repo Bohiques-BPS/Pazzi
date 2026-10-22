@@ -74,6 +74,8 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     // sumando (denominación × cantidad) en vez de digitarse a mano.
     const [denomMode, setDenomMode] = useState(true);
     const [denomCounts, setDenomCounts] = useState<Record<string, string>>({});
+    // Modal propio para el conteo por denominación (más espacio y números más grandes).
+    const [denomOpen, setDenomOpen] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !cajaId) return;
@@ -254,12 +256,14 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                             <div className="col-span-3 px-3 py-1.5 text-right tabular-nums">{money(r.expected)}</div>
                                             <div className="col-span-2 px-2 py-1 text-right">
                                                 {r.cash && denomMode ? (
-                                                    <span
-                                                        title="Calculado por denominación (abajo)"
-                                                        className="inline-block w-28 text-right px-2 py-1.5 text-base rounded border border-dashed border-primary/50 bg-primary/5 dark:bg-primary/10 tabular-nums font-semibold"
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDenomOpen(true)}
+                                                        title="Calculado por denominación — clic para contar"
+                                                        className="inline-block w-28 text-right px-2 py-1.5 text-base rounded border border-dashed border-primary/50 bg-primary/5 dark:bg-primary/10 tabular-nums font-semibold hover:bg-primary/10"
                                                     >
                                                         {denomTotal.toFixed(2)}
-                                                    </span>
+                                                    </button>
                                                 ) : (
                                                     <input
                                                         type="number" min="0" step="0.01" inputMode="decimal"
@@ -318,42 +322,68 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Conteo asistido de la gaveta por denominación (billetes/monedas). */}
-                    <div className="mt-3 border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden">
-                        <label className="flex items-center gap-2 px-3 py-2 bg-neutral-50 dark:bg-neutral-800/60 text-sm font-semibold text-neutral-700 dark:text-neutral-200 cursor-pointer">
-                            <input type="checkbox" checked={denomMode} onChange={e => setDenomMode(e.target.checked)} className="h-4 w-4" />
+                    {/* Conteo asistido de la gaveta por denominación: se abre en su propio modal. */}
+                    <div className="mt-3 flex flex-wrap items-center gap-3 border border-neutral-200 dark:border-neutral-700 rounded-md px-3 py-2 bg-neutral-50 dark:bg-neutral-800/60">
+                        <button
+                            type="button"
+                            onClick={() => setDenomOpen(true)}
+                            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-base font-semibold text-white hover:opacity-90"
+                        >
                             🧮 Contar efectivo por denominación
-                            <span className="text-xs font-normal text-neutral-500">(billetes y monedas — suma automática)</span>
-                        </label>
-                        {denomMode && (
-                            <div className="p-3">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                    {DENOMINATIONS.map(d => {
-                                        const qty = denomInt(denomCounts[String(d.v)]);
-                                        const sub = Math.round(d.v * qty * 100) / 100;
-                                        return (
-                                            <div key={d.v} className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-700 rounded-md px-3 py-2">
-                                                <span className="w-16 text-base font-semibold text-neutral-700 dark:text-neutral-200 tabular-nums">{d.label}</span>
-                                                <span className="text-neutral-400">×</span>
-                                                <input
-                                                    type="number" min="0" step="1" inputMode="numeric"
-                                                    value={denomCounts[String(d.v)] ?? ''}
-                                                    onChange={e => setDenomCounts(prev => ({ ...prev, [String(d.v)]: e.target.value }))}
-                                                    placeholder="0"
-                                                    className="w-20 text-right px-2 py-1.5 text-base rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 tabular-nums"
-                                                />
-                                                <span className="ml-auto text-sm text-neutral-600 dark:text-neutral-300 tabular-nums">{money(sub)}</span>
-                                            </div>
-                                        );
-                                    })}
+                        </button>
+                        <span className="text-sm text-neutral-600 dark:text-neutral-300">
+                            {denomMode
+                                ? (anyDenomEntered ? <>Total contado por denominación: <b className="tabular-nums">{money(denomTotal)}</b></> : 'Billetes y monedas — suma automática.')
+                                : 'Usando el monto escrito a mano en "Efectivo (gaveta)".'}
+                        </span>
+                    </div>
+
+                    <Modal isOpen={denomOpen} onClose={() => setDenomOpen(false)} title="Contar efectivo por denominación" size="3xl"
+                        footer={
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-baseline gap-3">
+                                    <span className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Total contado</span>
+                                    <span className="text-3xl font-bold text-primary dark:text-accent tabular-nums">{money(denomTotal)}</span>
                                 </div>
-                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                                    <span className="text-base font-semibold text-neutral-700 dark:text-neutral-200">Total contado (gaveta)</span>
-                                    <span className="text-xl font-bold text-primary dark:text-accent tabular-nums">{money(denomTotal)}</span>
+                                <div className="flex flex-wrap gap-2">
+                                    <button type="button" onClick={() => setDenomCounts({})} className="rounded-md border border-neutral-300 dark:border-neutral-600 px-4 py-2 text-base font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700">Limpiar</button>
+                                    <button type="button" onClick={() => { setDenomMode(false); setDenomOpen(false); }} className="rounded-md border border-neutral-300 dark:border-neutral-600 px-4 py-2 text-base font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700">Escribir el total a mano</button>
+                                    <button type="button" onClick={() => { setDenomMode(true); setDenomOpen(false); }} className="rounded-md bg-green-600 px-6 py-2 text-base font-semibold text-white hover:bg-green-700">Usar este total</button>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        }
+                    >
+                        <p className="mb-4 text-base text-neutral-500 dark:text-neutral-400">Escribe cuántos billetes y monedas hay de cada tipo; el total se suma solo.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                            {[{ title: 'Billetes', list: DENOMINATIONS.filter(d => d.v >= 1) }, { title: 'Monedas', list: DENOMINATIONS.filter(d => d.v < 1) }].map(group => (
+                                <div key={group.title}>
+                                    <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-400">{group.title}</p>
+                                    <div className="space-y-2">
+                                        {group.list.map((d, i) => {
+                                            const qty = denomInt(denomCounts[String(d.v)]);
+                                            const sub = Math.round(d.v * qty * 100) / 100;
+                                            return (
+                                                <div key={d.v} className="flex items-center gap-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2.5">
+                                                    <span className="w-20 text-2xl font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{d.label}</span>
+                                                    <span className="text-xl text-neutral-400">×</span>
+                                                    <input
+                                                        type="number" min="0" step="1" inputMode="numeric"
+                                                        value={denomCounts[String(d.v)] ?? ''}
+                                                        onChange={e => setDenomCounts(prev => ({ ...prev, [String(d.v)]: e.target.value }))}
+                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setDenomMode(true); setDenomOpen(false); } }}
+                                                        placeholder="0"
+                                                        autoFocus={group.title === 'Billetes' && i === 0}
+                                                        className="w-28 text-right px-3 py-2 text-xl rounded-md border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 tabular-nums"
+                                                    />
+                                                    <span className={`ml-auto text-xl tabular-nums ${qty ? 'font-semibold text-neutral-800 dark:text-neutral-100' : 'text-neutral-400'}`}>{money(sub)}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Modal>
 
                     {/* Diferencia de gaveta + notas */}
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">

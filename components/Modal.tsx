@@ -20,6 +20,9 @@ export interface ModalProps {
   /** Pie FIJO (botones Guardar/Cancelar): queda siempre visible abajo aunque el contenido haga scroll. */
   footer?: React.ReactNode;
 }
+/** Modales abiertos, en orden de apertura (el último es el de arriba). */
+const MODAL_STACK: symbol[] = [];
+
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'xl', disableEscClose, isDirty, footer }) => {
   const { t } = useTranslation();
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -31,12 +34,22 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     else onClose();
   };
 
+  // Pila de modales abiertos: con un modal dentro de otro, Escape solo cierra el de arriba.
+  const stackIdRef = useRef(Symbol('modal'));
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = stackIdRef.current;
+    MODAL_STACK.push(id);
+    return () => { const i = MODAL_STACK.lastIndexOf(id); if (i >= 0) MODAL_STACK.splice(i, 1); };
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen || disableEscClose) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // Un control interno (p. ej. la lista de @ de comentarios) ya atendió el Escape.
         if (e.defaultPrevented) return;
+        if (MODAL_STACK[MODAL_STACK.length - 1] !== stackIdRef.current) return; // hay otro modal encima
         e.stopPropagation();
         if (confirmLeave) setConfirmLeave(false); // Esc en la confirmación = seguir editando
         else requestClose();
