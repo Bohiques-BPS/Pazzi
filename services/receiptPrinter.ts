@@ -55,6 +55,7 @@ const INIT = ESC + '@';
 const ALIGN_C = ESC + 'a' + '\x01', ALIGN_L = ESC + 'a' + '\x00';
 const BOLD_ON = ESC + 'E' + '\x01', BOLD_OFF = ESC + 'E' + '\x00';
 const DBL_ON = GS + '!' + '\x11', DBL_OFF = GS + '!' + '\x00';
+const DBL_H_ON = GS + '!' + '\x01'; // solo doble alto (mismo ancho)
 // Avanza y corta (parcial). Los \n dan margen para no cortar sobre el texto.
 const CUT = '\n\n\n' + GS + 'V' + '\x42' + '\x00';
 
@@ -68,10 +69,32 @@ function two(l: string, r: string, w: number): string {
     const space = Math.max(1, w - l.length - r.length);
     return l + ' '.repeat(space) + r + '\n';
 }
+/** Parte el texto en líneas de hasta `w` caracteres por palabras (nunca a mitad de palabra, salvo una palabra más larga que la línea). */
+function wrapWords(t: string, w: number): string[] {
+    const lines: string[] = [];
+    let cur = '';
+    for (let word of t.split(/\s+/).filter(Boolean)) {
+        while (word.length > w) { if (cur) { lines.push(cur); cur = ''; } lines.push(word.slice(0, w)); word = word.slice(w); }
+        if (!cur) cur = word;
+        else if (cur.length + 1 + word.length <= w) cur += ' ' + word;
+        else { lines.push(cur); cur = word; }
+    }
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [''];
+}
 function center(t: string, w: number): string {
     t = deburr(t);
-    const pad = Math.max(0, Math.floor((w - t.length) / 2));
-    return ' '.repeat(pad) + t + '\n';
+    // Si no cabe, se parte por palabras y cada línea se centra (la impresora lo cortaría a mitad de palabra).
+    return wrapWords(t, w).map(ln => ' '.repeat(Math.max(0, Math.floor((w - ln.length) / 2))) + ln + '\n').join('');
+}
+/**
+ * Nombre del negocio en grande: doble alto y ancho si cabe; si no, solo doble alto (ancho normal,
+ * caben el doble de letras); si aun así no cabe, center() lo parte por palabras.
+ */
+function bigTitle(name: string, w: number): string {
+    const t = deburr(name).trim();
+    if (t.length <= Math.floor(w / 2)) return BOLD_ON + DBL_ON + center(t, Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
+    return BOLD_ON + DBL_H_ON + center(t, w) + DBL_OFF + BOLD_OFF;
 }
 const leftLine = (t: string) => deburr(t) + '\n';
 const rule = (w: number) => '-'.repeat(w) + '\n';
@@ -92,7 +115,7 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
         const num = `${cfg.receiptPrefix || ''}${sale.saleNumber}`;
         const d = new Date(sale.date);
         let c = INIT + ALIGN_C;
-        if (cfg.businessName) c += BOLD_ON + DBL_ON + center(cfg.businessName, Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
+        if (cfg.businessName) c += bigTitle(cfg.businessName, w);
         if (cfg.showAddress && cfg.address) c += center(cfg.address, w);
         if (cfg.showPhone && cfg.phone) c += center(`Tel: ${cfg.phone}`, w);
         if (cfg.showRnc && cfg.rnc) c += center(cfg.rnc, w);
@@ -126,7 +149,7 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
 
     let o = INIT + ALIGN_C;
     // Nombre del negocio en doble tamaño (ocupa el doble → centrar sobre w/2).
-    if (cfg.businessName) o += BOLD_ON + DBL_ON + center(cfg.businessName, Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
+    if (cfg.businessName) o += bigTitle(cfg.businessName, w);
     if (cfg.showRnc && cfg.rnc) o += center(`RNC/Reg: ${cfg.rnc}`, w);
     if (cfg.showAddress && cfg.address) o += center(cfg.address, w);
     if (cfg.showPhone && cfg.phone) o += center(`Tel: ${cfg.phone}`, w);
