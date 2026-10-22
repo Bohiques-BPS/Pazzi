@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProjectStatus, Employee, UserRole } from '../../types';
@@ -95,6 +95,18 @@ export const ProjectChatPage: React.FC = () => {
     const lastMarkedRef = useRef<string | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [newMessage, setNewMessage] = useState('');
+    // Enlace desde una notificación (/pm/chat?p=<proyecto>): abre ese chat.
+    const [searchParams] = useSearchParams();
+    const linkedProjectId = searchParams.get('p');
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    // ── Menciones (@) — mismas reglas que en los comentarios de tareas ──
+    type MentionPerson = { userId: string; name: string; role: string };
+    const [mentionable, setMentionable] = useState<MentionPerson[]>([]);
+    const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+    const [mentionIndex, setMentionIndex] = useState(0);
+    // Personas elegidas en este mensaje (userId → nombre) para enviarlas al servidor.
+    const [pickedMentions, setPickedMentions] = useState<Record<string, string>>({});
     const [projectMessages, setProjectMessages] = useState<ChatMessageRecord[]>([]);
     const [sending, setSending] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -216,11 +228,17 @@ export const ProjectChatPage: React.FC = () => {
      // Auto-select first project if list changes and current selection is invalid or none
     useEffect(() => {
         if (activeProjects.length > 0 && (!selectedProjectId || !activeProjects.find(p => p.id === selectedProjectId))) {
-            setSelectedProjectId(activeProjects[0].id);
+            const linked = linkedProjectId && activeProjects.find(p => p.id === linkedProjectId);
+            setSelectedProjectId(linked ? linked.id : activeProjects[0].id);
         } else if (activeProjects.length === 0) {
             setSelectedProjectId(null);
         }
-    }, [activeProjects, selectedProjectId]);
+    }, [activeProjects, selectedProjectId, linkedProjectId]);
+
+    // Si llega otro enlace (?p=) con la página ya abierta (clic en una notificación), cambia de chat.
+    useEffect(() => {
+        if (linkedProjectId && activeProjects.some(p => p.id === linkedProjectId)) setSelectedProjectId(linkedProjectId);
+    }, [linkedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
     // ¿La tienda tiene WhatsApp activo? (para mostrar el toggle de envío).
@@ -244,20 +262,76 @@ export const ProjectChatPage: React.FC = () => {
         toast.error(reasons[w.reason || 'error'] || 'No se pudo enviar por WhatsApp.');
     };
 
+    useEffect(() => {
+        setMentionable([]); setMention(null); setPickedMentions({});
+        if (!selectedProjectId) return;
+        let alive = true;
+        chatService.mentionable(selectedProjectId)
+            .then(list => { if (alive && Array.isArray(list)) setMentionable(list); })
+            .catch(() => { /* sin menciones: el chat sigue funcionando */ });
+        return () => { alive = false; };
+    }, [selectedProjectId]);
+
+    const mentionMatches = useMemo(() => {
+        if (!mention) return [] as MentionPerson[];
+        const q = mention.query.trim().toLowerCase();
+        return mentionable.filter(p => !q || p.name.toLowerCase().split(/\s+/).some(w => w.startsWith(q)) || p.name.toLowerCase().startsWith(q)).slice(0, 8);
+    }, [mention, mentionable]);
+
+    const updateMentionQuery = (value: string, caret: number) => {
+        const before = value.slice(0, caret);
+        const at = before.lastIndexOf('@');
+        if (at < 0 || (at > 0 && !/\s/.test(before[at - 1]))) { setMention(null); return; }
+        const query = before.slice(at + 1);
+        // Hasta nombre y apellido; sin saltos de línea.
+        if (query.length > 40 || /\n/.test(query) || query.split(' ').length > 3) { setMention(null); return; }
+        setMention({ start: at, query });
+        setMentionIndex(0);
+    };
+
+    const pickMention = (p: MentionPerson) => {
+        if (!mention) return;
+        const input = textareaRef.current;
+        const caret = input?.selectionStart ?? newMessage.length;
+        const insert = `@${p.name} `;
+        setNewMessage(newMessage.slice(0, mention.start) + insert + newMessage.slice(caret));
+        setPickedMentions(prev => ({ ...prev, [p.userId]: p.name }));
+        setMention(null);
+        const pos = mention.start + insert.length;
+        requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(pos, pos); });
+    };
+
+    // Solo las menciones que siguen en el texto al enviar.
+    const takeMentions = (text: string) => Object.entries(pickedMentions).filter(([, name]) => text.includes(`@${name}`)).map(([id]) => id);
+    const afterSendMentions = (ids: string[]) => {
+        setPickedMentions({}); setMention(null);
+        if (ids.length) toast.success(ids.length === 1 ? 'Se notificó a la persona mencionada.' : `Se notificó a ${ids.length} personas mencionadas.`);
+    };
+
+    // Nombres a resaltar en los mensajes (etiquetables + el usuario actual).
+    const mentionNames = useMemo(() => {
+        const names = new Set(mentionable.map(p => p.name));
+        if (currentUser) names.add(`${currentUser.name || ''} ${(currentUser as any).lastName || ''}`.trim());
+        return Array.from(names).filter(Boolean);
+    }, [mentionable, currentUser]);
+
     const handleSendMessage = async () => {
         if (!newMessage.trim() || !selectedProjectId || !currentUser) return;
         const text = newMessage.trim();
         setSending(true);
         try {
+            const mentions = takeMentions(text);
             const message = await chatService.sendMessage({
                 projectId: selectedProjectId,
                 text,
                 senderName: `${currentUser.name} ${currentUser.lastName || ''}`.trim() || currentUser.email,
                 sendWhatsapp: sendToWa && can('projects.sendWhatsapp'),
+                mentions,
             });
             appendMessage(message);
             notifyWaResult(message);
             setNewMessage('');
+            afterSendMentions(mentions);
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('pm2x.chat.send_error'));
         } finally {
@@ -285,6 +359,7 @@ export const ProjectChatPage: React.FC = () => {
             });
             if (!res.ok) throw new Error('No se pudo subir el archivo.');
             const { url } = await res.json();
+            const mentions = takeMentions(newMessage.trim());
             const message = await chatService.sendMessage({
                 projectId: selectedProjectId,
                 text: newMessage.trim(),
@@ -293,10 +368,12 @@ export const ProjectChatPage: React.FC = () => {
                 attachmentType: isImage ? 'image' : isVideo ? 'video' : 'file',
                 attachmentName: file.name,
                 sendWhatsapp: sendToWa && can('projects.sendWhatsapp'),
+                mentions,
             });
             appendMessage(message);
             notifyWaResult(message);
             setNewMessage('');
+            afterSendMentions(mentions);
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : (err instanceof Error ? err.message : 'No se pudo enviar el adjunto.'));
         } finally {
@@ -575,6 +652,7 @@ export const ProjectChatPage: React.FC = () => {
                                                 isCurrentUser={currentUser.id === msg.senderId}
                                                 showName={firstOfRun}
                                                 showAvatar={lastOfRun}
+                                                mentionNames={mentionNames}
                                             />
                                         </div>
                                     </React.Fragment>
@@ -594,7 +672,25 @@ export const ProjectChatPage: React.FC = () => {
                                     {sendToWa && <span className="text-[11px] text-green-600 dark:text-green-400">(este mensaje irá al chat y a WhatsApp)</span>}
                                 </label>
                             )}
-                            <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-2 sm:space-x-3">
+                            <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative flex items-center space-x-2 sm:space-x-3">
+                                {/* Lista de personas para etiquetar al escribir "@" */}
+                                {mention && mentionMatches.length > 0 && (
+                                    <ul className="absolute bottom-full left-10 sm:left-12 mb-2 z-30 w-72 max-w-[calc(100%-3rem)] max-h-56 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg py-1">
+                                        {mentionMatches.map((p, i) => (
+                                            <li key={p.userId}>
+                                                <button
+                                                    type="button"
+                                                    onMouseDown={(e) => { e.preventDefault(); pickMention(p); }}
+                                                    onMouseEnter={() => setMentionIndex(i)}
+                                                    className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 text-sm ${i === mentionIndex ? 'bg-primary/10 text-primary' : 'text-neutral-700 dark:text-neutral-200'}`}
+                                                >
+                                                    <span className="truncate">@{p.name}</span>
+                                                    <span className="flex-shrink-0 text-[11px] text-neutral-400">{p.role}</span>
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -613,16 +709,24 @@ export const ProjectChatPage: React.FC = () => {
                                     {uploading ? <span className="text-xs">Subiendo…</span> : <DocumentArrowUpIcon className="w-5 h-5" />}
                                 </button>
                                 <textarea
+                                    ref={textareaRef}
                                     value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    onChange={(e) => { setNewMessage(e.target.value); updateMentionQuery(e.target.value, e.target.selectionStart ?? e.target.value.length); }}
                                     onPaste={handlePaste}
+                                    onBlur={() => setTimeout(() => setMention(null), 150)}
                                     onKeyDown={(e) => {
+                                        if (mention && mentionMatches.length > 0) {
+                                            if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => (i + 1) % mentionMatches.length); return; }
+                                            if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex(i => (i - 1 + mentionMatches.length) % mentionMatches.length); return; }
+                                            if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(mentionMatches[mentionIndex] || mentionMatches[0]); return; }
+                                            if (e.key === 'Escape') { e.preventDefault(); setMention(null); return; }
+                                        }
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();
                                             handleSendMessage();
                                         }
                                     }}
-                                    placeholder={t('pm2x.chat.message_placeholder')}
+                                    placeholder={mentionable.length ? 'Escribe un mensaje… usa @ para etiquetar' : t('pm2x.chat.message_placeholder')}
                                     className={`${inputFormStyle} flex-grow !py-2 resize-none max-h-24`}
                                     rows={1}
                                     aria-label={t('pm2x.chat.write_message')}

@@ -36,8 +36,12 @@ export const chatService = {
   getMessages: (projectId: string) =>
     api.get<ChatMessageRecord[]>(`/chat/${encodeURIComponent(projectId)}`),
 
-  sendMessage: (data: { projectId: string; text: string; senderName: string; attachmentUrl?: string | null; attachmentType?: 'image' | 'video' | 'file' | null; attachmentName?: string | null; sendWhatsapp?: boolean }) =>
+  sendMessage: (data: { projectId: string; text: string; senderName: string; attachmentUrl?: string | null; attachmentType?: 'image' | 'video' | 'file' | null; attachmentName?: string | null; sendWhatsapp?: boolean; mentions?: string[] }) =>
     api.post<ChatMessageRecord>('/chat', data),
+
+  /** Personas que se pueden etiquetar (@) en el chat del proyecto: colaboradores asignados + gerente. */
+  mentionable: (projectId: string) =>
+    api.get<{ userId: string; name: string; role: string }[]>(`/chat/${encodeURIComponent(projectId)}/mentionable`),
 
   /** Último mensaje + conteo por proyecto (para el indicador de no leídos). */
   getOverview: () => api.get<ChatOverviewRow[]>('/chat/overview'),

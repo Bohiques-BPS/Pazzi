@@ -8,7 +8,12 @@ interface ChatMessageItemProps {
     showName?: boolean;
     /** Mostrar el avatar (Telegram: solo en el último mensaje de una racha); si no, deja el hueco. */
     showAvatar?: boolean;
+    /** Nombres que se resaltan cuando aparecen como @Nombre en el texto (menciones). */
+    mentionNames?: string[];
 }
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Colores estables por remitente para el avatar de iniciales y el nombre (estilo Telegram).
 const PALETTE = [
@@ -42,7 +47,17 @@ const SenderAvatar: React.FC<{ name: string; url?: string | null; colorKey: stri
     );
 };
 
-export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, isCurrentUser, showName = true, showAvatar = true }) => {
+export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, isCurrentUser, showName = true, showAvatar = true, mentionNames }) => {
+    // Resalta las menciones (@Nombre) dentro del HTML del mensaje.
+    const html = React.useMemo(() => {
+        const text = message.text || '';
+        const names = (mentionNames || []).filter(Boolean);
+        if (!text || !names.length || !text.includes('@')) return text;
+        const alts = names.flatMap(n => [n, escapeHtml(n)]).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => b.length - a.length);
+        const re = new RegExp(`@(${alts.map(escapeRegExp).join('|')})`, 'g');
+        const cls = isCurrentUser ? 'font-semibold underline decoration-white/60' : 'font-semibold text-primary bg-primary/10 rounded px-0.5';
+        return text.replace(re, m => `<span class="${cls}">${m}</span>`);
+    }, [message.text, mentionNames, isCurrentUser]);
     const bubbleClass = isCurrentUser
         ? 'bg-primary text-white dark:bg-primary'
         : 'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100';
@@ -75,7 +90,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, isCur
                 )}
 
                 {message.text && (
-                    <div className="text-sm prose dark:prose-invert max-w-none prose-p:my-0 prose-ul:my-1 prose-ol:my-1" dangerouslySetInnerHTML={{ __html: message.text }}></div>
+                    <div className="text-sm prose dark:prose-invert max-w-none prose-p:my-0 prose-ul:my-1 prose-ol:my-1" dangerouslySetInnerHTML={{ __html: html }}></div>
                 )}
                 <p
                     className={`text-xs mt-1 opacity-70 ${isCurrentUser ? 'text-right' : 'text-left'}`}
