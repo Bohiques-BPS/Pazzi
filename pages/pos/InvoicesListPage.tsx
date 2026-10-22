@@ -469,7 +469,7 @@ export const InvoicesListPage: React.FC = () => {
             if (from && ts < from) return false;
             if (to && ts > to) return false;
             if (q) {
-                const hay = `${inv.number ?? ''} ${inv.clientName ?? ''} ${inv.clientEmail ?? ''} ${inv.description ?? ''} ${inv.type ?? ''} ${inv.cashierName ?? ''} ${inv.projectName ?? ''}`.toLowerCase();
+                const hay = `${inv.number ?? ''} ${inv.clientName ?? ''} ${inv.clientEmail ?? ''} ${inv.description ?? ''} ${inv.type ?? ''} ${inv.cashierName ?? ''} ${inv.projectName ?? ''} ${inv.projectKey ?? ''}`.toLowerCase();
                 if (!hay.includes(q)) return false;
             }
             return true;
@@ -482,7 +482,7 @@ export const InvoicesListPage: React.FC = () => {
     // Proyectos presentes en las facturas cargadas (para el filtro).
     const projectOptions = useMemo(() => {
         const m = new Map<string, string>();
-        for (const i of items) if (i.projectId) m.set(i.projectId, i.projectName || i.projectId);
+        for (const i of items) if (i.projectId) m.set(i.projectId, `${i.projectKey ? `[${String(i.projectKey).toUpperCase()}] ` : ''}${i.projectName || i.projectId}`);
         return [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
     }, [items]);
 
@@ -498,7 +498,7 @@ export const InvoicesListPage: React.FC = () => {
         {
             header: t('posx.invoices.project_label'), sortValue: inv => inv.projectName || '',
             accessor: (inv) => inv.projectId
-                ? <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/pm/projects/${inv.projectId}?tab=details&sub=billing`); }} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:underline max-w-[180px] truncate" title={inv.projectName || ''}>{inv.projectName || t('posx.invoices.project_linked')}</button>
+                ? <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/pm/projects/${inv.projectId}?tab=details&sub=billing`); }} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:underline max-w-[180px] truncate" title={inv.projectName || ''}>{inv.projectKey ? <span className="font-semibold">{String(inv.projectKey).toUpperCase()} · </span> : null}{inv.projectName || t('posx.invoices.project_linked')}</button>
                 : <span className="text-neutral-400">—</span>,
         },
         { header: t('posx.invoices.type_label'), sortValue: inv => inv.type || '', accessor: (inv) => inv.type ? <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-200">{inv.type}</span> : <span className="text-neutral-400">—</span> },

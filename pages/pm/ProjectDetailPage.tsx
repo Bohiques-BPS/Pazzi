@@ -36,6 +36,42 @@ import { ProjectJoinRequestsPanel } from '../../components/pm/ProjectJoinRequest
 
 type ActiveTab = 'details' | 'chat' | 'tasks' | 'seguimiento' | 'historico';
 
+/** Lista de días de trabajo como tarjetas (mes + número, día de la semana), ordenadas por fecha. */
+const WorkDayList: React.FC<{ items: { key: string; date: string; detail?: string; onRemove: () => void }[] }> = ({ items }) => {
+    if (!items.length) return null;
+    const today = new Date().toISOString().split('T')[0];
+    const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date));
+    return (
+        <div className="mt-3">
+            <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                {items.length === 1 ? '1 día programado' : `${items.length} días programados`}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
+                {sorted.map(it => {
+                    const d = new Date(it.date + 'T00:00:00');
+                    const past = it.date < today;
+                    const weekday = d.toLocaleDateString('es-ES', { weekday: 'long' });
+                    return (
+                        <div key={it.key} className={`group flex items-center gap-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 ${past ? 'opacity-60' : ''}`}>
+                            <div className="flex w-11 flex-shrink-0 flex-col items-center rounded-md bg-primary/10 py-1 text-primary">
+                                <span className="text-[10px] font-semibold uppercase leading-none">{d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</span>
+                                <span className="text-lg font-bold leading-tight">{d.getDate()}</span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium capitalize text-neutral-800 dark:text-neutral-100">{weekday}</p>
+                                <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{it.detail || d.getFullYear()}{past ? ' · pasado' : ''}</p>
+                            </div>
+                            <button type="button" onClick={it.onRemove} title="Quitar día" aria-label={`Quitar ${it.date}`} className="flex-shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400">
+                                <TrashIconMini />
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 export const ProjectDetailPage: React.FC = () => {
     const { t } = useTranslation();
     const { projectId } = useParams<{ projectId: string }>();
@@ -648,10 +684,10 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                                     </div>
                                     <button type="button" onClick={handleAddSingleWorkDay} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.add')}</button>
                                 </div>
-                                {formData.workDays.length > 0 && <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">{formData.workDays.map(day => (<li key={day} className="flex justify-between items-center">{new Date(day + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}<button type="button" onClick={() => handleRemoveSingleWorkDay(day)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={t('pm2x.project.remove_day', { day })}><TrashIconMini/></button></li>))}</ul>}
+                                <WorkDayList items={formData.workDays.map(day => ({ key: day, date: day, onRemove: () => handleRemoveSingleWorkDay(day) }))} />
                             </div>
                         )}
-                        {formData.workMode === 'daysAndTimes' && <div className="space-y-2"><div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end"><div className="md:col-span-2"><label htmlFor="rangeDate" className="block text-xs font-medium">{t('project.schedule.date')}</label><input type="date" name="date" id="rangeDate" value={currentWorkDayRange.date} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeStartTime" className="block text-xs font-medium">{t('project.schedule.start_time')}</label><input type="time" name="startTime" id="rangeStartTime" value={currentWorkDayRange.startTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeEndTime" className="block text-xs font-medium">{t('project.schedule.end_time')}</label><input type="time" name="endTime" id="rangeEndTime" value={currentWorkDayRange.endTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div></div><button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} w-full`}><PlusIcon className="w-4 h-4 mr-1" />{t('project.schedule.add_range')}</button>{formData.workDayTimeRanges.length > 0 && <ul className="list-disc list-inside space-y-1 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded text-xs">{formData.workDayTimeRanges.map((range, index) => (<li key={index} className="flex justify-between items-center"><span>{new Date(range.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })} de {range.startTime} a {range.endTime}</span><button type="button" onClick={() => handleRemoveWorkDayTimeRange(index)} className="text-red-500 hover:text-red-700 text-xs p-0.5" aria-label={t('pm2x.project.remove_range', { n: index })}><TrashIconMini/></button></li>))}</ul>}</div>}
+                        {formData.workMode === 'daysAndTimes' && <div className="space-y-2"><div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end"><div className="md:col-span-2"><label htmlFor="rangeDate" className="block text-xs font-medium">{t('project.schedule.date')}</label><input type="date" name="date" id="rangeDate" value={currentWorkDayRange.date} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeStartTime" className="block text-xs font-medium">{t('project.schedule.start_time')}</label><input type="time" name="startTime" id="rangeStartTime" value={currentWorkDayRange.startTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div><div><label htmlFor="rangeEndTime" className="block text-xs font-medium">{t('project.schedule.end_time')}</label><input type="time" name="endTime" id="rangeEndTime" value={currentWorkDayRange.endTime} onChange={handleWorkDayRangeChange} className={inputFormStyle} /></div></div><button type="button" onClick={handleAddWorkDayTimeRange} className={`${BUTTON_SECONDARY_SM_CLASSES} w-full`}><PlusIcon className="w-4 h-4 mr-1" />{t('project.schedule.add_range')}</button><WorkDayList items={formData.workDayTimeRanges.map((range, index) => ({ key: `${range.date}-${index}`, date: range.date, detail: `${range.startTime} – ${range.endTime}`, onRemove: () => handleRemoveWorkDayTimeRange(index) }))} /></div>}
                         {formData.workMode === 'dateRange' && <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><div><label htmlFor="workStartDate" className="block text-xs font-medium">{t('project.schedule.range_start')}</label><input type="date" name="workStartDate" id="workStartDate" value={formData.workStartDate || ''} onChange={handleChange} className={inputFormStyle} /></div><div><label htmlFor="workEndDate" className="block text-xs font-medium">{t('project.schedule.range_end')}</label><input type="date" name="workEndDate" id="workEndDate" value={formData.workEndDate || ''} onChange={handleChange} className={inputFormStyle} /></div></div>}
                     </div>
                  </fieldset>

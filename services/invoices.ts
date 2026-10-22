@@ -23,6 +23,7 @@ export interface Invoice {
     /** Proyecto al que pertenece la factura (opcional) y su nombre (enriquecido por el BE en la lista). */
     projectId?: string | null;
     projectName?: string | null;
+    projectKey?: string | null;
     /** Aviso no bloqueante del BE (ej. el cliente de la factura no coincide con el del proyecto). */
     warning?: string;
     publicToken: string;

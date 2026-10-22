@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { projectsService } from '../../services/projects';
 import { INPUT_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { normalizeProjectKey } from '../ui/ProjectKeyChip';
 
 interface Props {
     /** Cliente cuyos proyectos se listan. Sin cliente, el select queda deshabilitado. */
@@ -20,7 +21,7 @@ interface Props {
  */
 export const ProjectSelectForClient: React.FC<Props> = ({ clientId, value, onChange, currentLabel, className }) => {
     const { t } = useTranslation();
-    const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
+    const [options, setOptions] = useState<{ id: string; name: string; key?: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [unavailable, setUnavailable] = useState(false);
 
@@ -29,7 +30,7 @@ export const ProjectSelectForClient: React.FC<Props> = ({ clientId, value, onCha
         if (!clientId) { setOptions([]); setUnavailable(false); return; }
         setLoading(true);
         projectsService.getAll({ clientId })
-            .then(list => { if (alive) { setOptions((Array.isArray(list) ? list : []).map((p: any) => ({ id: p.id, name: p.name }))); setUnavailable(false); } })
+            .then(list => { if (alive) { setOptions((Array.isArray(list) ? list : []).map((p: any) => ({ id: p.id, name: p.name, key: normalizeProjectKey(p.projectKey) }))); setUnavailable(false); } })
             .catch(() => { if (alive) { setOptions([]); setUnavailable(true); } })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
@@ -37,7 +38,7 @@ export const ProjectSelectForClient: React.FC<Props> = ({ clientId, value, onCha
 
     // El proyecto ya vinculado se muestra aunque no pertenezca al cliente elegido.
     const all = value && !options.some(o => o.id === value)
-        ? [{ id: value, name: currentLabel || t('posx.invoices.project_linked') }, ...options]
+        ? [{ id: value, name: currentLabel || t('posx.invoices.project_linked'), key: '' }, ...options]
         : options;
     const disabled = (!clientId && !value) || loading;
 
@@ -54,7 +55,8 @@ export const ProjectSelectForClient: React.FC<Props> = ({ clientId, value, onCha
                     : loading ? t('common.loading')
                     : (all.length === 0 ? t('posx.invoices.project_none_for_client') : t('posx.invoices.project_none'))}
             </option>
-            {all.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            {/* El prefijo va delante del nombre (un <option> solo admite texto). */}
+            {all.map(o => <option key={o.id} value={o.id}>{o.key ? `[${o.key}] ${o.name}` : o.name}</option>)}
         </select>
     );
 };
