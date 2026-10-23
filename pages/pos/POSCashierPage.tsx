@@ -38,8 +38,8 @@ import { ManualPriceModal } from '../../components/pos/ManualPriceModal';
 import { PunchModal } from '../../components/pos/PunchModal';
 import { productsService } from '../../services/products';
 
-// Precio manual (pedir el precio al agregar productos "Solo Precio") — desactivado por ahora.
-// Poner en true para reactivar el prompt de precio manual en la caja.
+// Precio manual: la caja pide el precio al agregar productos/variantes con "Pedir precio manual al vender".
+// Poner en false para apagarlo en todas las cajas (se agregan con su precio base).
 const MANUAL_PRICE_ENABLED = true;
 
 // Lazy: ZXing solo se descarga al abrir la cámara (no infla el bundle inicial del POS).
