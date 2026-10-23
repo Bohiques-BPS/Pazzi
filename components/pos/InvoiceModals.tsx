@@ -323,9 +323,9 @@ export function invoicePdfBusinessFromSettings(settings: any): InvoicePdfBusines
         showEmail: id.showEmail ?? rc.showEmail, showRnc: id.showRnc ?? rc.showRnc,
         showLineDescription: id.showLineDescription,
     };
-    // Tasas IVU para desglosar Estatal/Municipal en el PDF (solo si el breakdown está activo).
-    const taxStateRate = settings?.taxBreakdownEnabled ? (Number(settings.taxStateRate) || 0) : 0;
-    const taxMunicipalRate = settings?.taxBreakdownEnabled ? (Number(settings.taxMunicipalRate) || 0) : 0;
+    // Tasas IVU para desglosar Estatal/Municipal en el PDF (siempre que la tienda tenga tasas).
+    const taxStateRate = Number(settings?.taxStateRate) || 0;
+    const taxMunicipalRate = Number(settings?.taxMunicipalRate) || 0;
     return { businessName: rc.businessName, rnc: rc.rnc, address: rc.address, phone: rc.phone, email: rc.email, logoUrl: rc.logoUrl, design, taxStateRate, taxMunicipalRate };
 }
 

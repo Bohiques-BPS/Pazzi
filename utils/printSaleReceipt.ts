@@ -1,3 +1,4 @@
+import { taxLines } from './taxBreakdown';
 interface StoreInfo { businessName?: string; address?: string; phone?: string; }
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -57,7 +58,7 @@ export function printSaleReceipt(sale: any, store: StoreInfo = {}) {
       </table>
       <hr/>
       <div class="row"><span>Subtotal</span><span>${money(subtotal)}</span></div>
-      ${tax ? `<div class="row"><span>IVU/Impuesto</span><span>${money(tax)}</span></div>` : ''}
+      ${taxLines(tax, sale).map(l => `<div class="row"><span>${l.label}</span><span>${money(l.amount)}</span></div>`).join('')}
       <div class="row b" style="font-size:14px;"><span>TOTAL</span><span>${money(total)}</span></div>
       ${payRows ? `<hr/><div class="b">Pagos</div>${payRows}` : ''}
       <div class="row b"><span>Pagado</span><span>${money(paid)}</span></div>

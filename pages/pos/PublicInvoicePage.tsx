@@ -9,6 +9,7 @@ import { usePublicT } from '../../hooks/usePublicTranslation';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
 import { ApiError, API_URL } from '../../services/api';
+import { taxLines } from '../../utils/taxBreakdown';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
@@ -34,6 +35,11 @@ function saleFrom(inv: PublicInvoice): ReceiptSale {
         items: inv.items.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })),
         subtotal: inv.subtotal,
         tax: inv.tax,
+        ...(() => {
+            const l = taxLines(inv.tax, undefined, { state: inv.taxStateRate ?? undefined, municipal: inv.taxMunicipalRate ?? undefined });
+            const get = (k: string) => l.find(x => x.label.endsWith(k))?.amount;
+            return { taxState: get('Estatal'), taxMunicipal: get('Municipal') };
+        })(),
         discount: 0,
         total: inv.total,
         payments: inv.status === 'paid'

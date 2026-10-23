@@ -7,6 +7,7 @@ import { loadImageAsDataUrl, dataUrlFormat } from '../../utils/imageData';
 import { isReceiptPrinterEnabled, printReceiptViaQz, getPrintFormat } from '../../services/receiptPrinter';
 import { isWebUsbEnabled, printReceiptViaWebUsb } from '../../services/webusbPrinter';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { taxLines } from '../../utils/taxBreakdown';
 
 export interface ReceiptSale {
     saleNumber: string;
@@ -106,7 +107,9 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
             <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">${money(it.quantity * it.unitPrice)}</td>
         </tr>`).join('');
 
-    const taxLine = (sale.tax || 0) > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">${esc(L('tax', 'IVU'))}:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(sale.tax)}</td></tr>` : '';
+    // IVU desglosado (Estatal / Municipal / Reducido) en vez de una sola línea.
+    const taxLine = taxLines(sale.tax || 0, sale, undefined, L('tax', 'IVU'))
+        .map(l => `<tr><td style="text-align:right;padding:2px 8px;color:#555;">${esc(l.label)}:</td><td style="text-align:right;padding:2px 0;width:110px;">${money(l.amount)}</td></tr>`).join('');
     const changeLine = sale.changeDue && sale.changeDue > 0 ? `<tr><td style="text-align:right;padding:2px 8px;color:#555;">${esc(L('change', 'Cambio'))}:</td><td style="text-align:right;padding:2px 0;">${money(sale.changeDue)}</td></tr>` : '';
 
     return `
@@ -351,7 +354,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig, opts?: 
         };
         totRow(`${L('subtotal', 'Subtotal')}:`, money(sale.subtotal));
         if (sale.discount > 0) totRow(`${L('discount', 'Descuento')}:`, `-${money(sale.discount)}`);
-        if ((sale.tax || 0) > 0) totRow(`${L('tax', 'IVU')}:`, money(sale.tax));
+        for (const l of taxLines(sale.tax || 0, sale, undefined, L('tax', 'IVU'))) totRow(`${l.label}:`, money(l.amount));
         totRow(`${L('total', 'Total')}:`, money(sale.total), true);
         if (sale.changeDue && sale.changeDue > 0) totRow(`${L('change', 'Cambio')}:`, money(sale.changeDue));
         const footerText = dz.footerText != null ? dz.footerText : '¡Gracias por su preferencia!';
@@ -433,7 +436,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig, opts?: 
     doc.line(M, y, W - M, y); y += 4;
     row('Subtotal', money(sale.subtotal));
     if (sale.discount > 0) row('Descuento', `-${money(sale.discount)}`);
-    if (cfg.showTaxBreakdown && (sale.tax || 0) > 0) row('IVU', money(sale.tax));
+    if (cfg.showTaxBreakdown) for (const l of taxLines(sale.tax || 0, sale)) row(l.label, money(l.amount));
     row('TOTAL', money(sale.total), true);
     y += 1; doc.line(M, y, W - M, y); y += 4;
     sale.payments.forEach(p => row(p.method + (p.reference ? ` (${p.reference})` : ''), money(p.amount)));

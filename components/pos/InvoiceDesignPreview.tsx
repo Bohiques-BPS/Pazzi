@@ -1,4 +1,5 @@
 import React from 'react';
+import { taxLines } from '../../utils/taxBreakdown';
 
 interface DesignLike {
     template?: string;
@@ -120,7 +121,9 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
                 {/* Totales */}
                 <div className="ml-auto w-1/2 space-y-0.5 text-[11px]">
                     <div className="flex justify-between"><span className="text-neutral-500">{L('subtotal', 'Subtotal')}</span><span>{money(subtotal)}</span></div>
-                    <div className="flex justify-between"><span className="text-neutral-500">{L('tax', 'IVU')}</span><span>{money(tax)}</span></div>
+                    {taxLines(tax, undefined, undefined, L('tax', 'IVU')).map(l => (
+                        <div key={l.label} className="flex justify-between"><span className="text-neutral-500">{l.label}</span><span>{money(l.amount)}</span></div>
+                    ))}
                     <div className="flex justify-between font-bold text-[13px] pt-1 mt-1 border-t" style={{ color: accent, borderColor: accent }}>
                         <span>{L('total', 'Total')}</span><span>{money(total)}</span>
                     </div>

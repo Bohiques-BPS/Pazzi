@@ -2,6 +2,7 @@
 import React, { useState, createContext, useContext, useEffect, useCallback } from 'react';
 import { GlobalSettings, DEFAULT_RECEIPT_CONFIG, DEFAULT_PAYMENT_METHODS, DEFAULT_PAYMENT_METHOD_SCOPES } from '../types';
 import { api } from '../services/api';
+import { setDefaultTaxRates } from '../utils/taxBreakdown';
 import { LEADS_I18N } from '../i18n/leads';
 
 export interface GlobalSettingsContextType {
@@ -7293,6 +7294,8 @@ export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     // La configuración vive en la BASE DE DATOS (per negocio), no en localStorage.
     // Se arranca con los defaults y se hidrata con loadSettings() tras el login.
     const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
+    // Tasas de IVU para desglosar Estatal/Municipal en recibos y facturas que solo guardan el total.
+    useEffect(() => { setDefaultTaxRates(settings.taxStateRate, settings.taxMunicipalRate); }, [settings.taxStateRate, settings.taxMunicipalRate]);
 
     const loadSettings = useCallback(async () => {
         try {
