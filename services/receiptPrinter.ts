@@ -242,6 +242,19 @@ export async function printReceiptViaQz(
     ]);
 }
 
+/** Herramientas de formato ESC/POS, para otros documentos térmicos (p. ej. el cuadre de caja). */
+export const escpos = { INIT, ALIGN_C, ALIGN_L, BOLD_ON, BOLD_OFF, DBL_ON, TALL_ON, DBL_OFF, CUT, two, center, rule, leftLine };
+
+/** Envía texto ESC/POS ya armado a la impresora de recibos por QZ. Lanza si falla. */
+export async function printRawViaQz(text: string): Promise<void> {
+    const rc = getReceiptPrinterConfig();
+    const qz = await ensureConnected();
+    const printer = rc.reciboPrinter || (await qz.printers.getDefault());
+    if (!printer) throw new Error('No hay impresora de recibos configurada.');
+    const config = qz.configs.create(printer, { encoding: 'CP437' });
+    await qz.print(config, [{ type: 'raw', format: 'command', flavor: 'plain', data: text }]);
+}
+
 /** Logo del recibo listo para la térmica (null si no hay logo, está oculto o no se pudo convertir). */
 export async function receiptLogo(cfg: ReceiptConfig, cols: number): Promise<Uint8Array | null> {
     if (!cfg.showLogo || !cfg.logoUrl) return null;

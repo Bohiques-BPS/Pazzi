@@ -111,6 +111,11 @@ async function sendRaw(data: string): Promise<void> {
     }
 }
 
+/** Envía texto ESC/POS ya armado (p. ej. el cuadre de caja) por WebUSB. Lanza si falla. */
+export async function printRawViaWebUsb(data: string): Promise<void> {
+    await sendRaw(data);
+}
+
 /** Imprime un recibo (ESC/POS) por WebUSB. Lanza si falla. */
 export async function printReceiptViaWebUsb(sale: ReceiptSale, cfg: ReceiptConfig): Promise<void> {
     const wc = getWebUsbConfig();

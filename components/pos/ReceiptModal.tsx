@@ -452,7 +452,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig, opts?: 
  * para que el driver imprima el rollo continuo con el ancho correcto (no como carta con márgenes).
  * Usa un iframe oculto (más confiable que window.open; no lo bloquea el popup blocker).
  */
-function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
+export function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
     const pageCss = paperSize === '80mm'
         ? '@page { size: 80mm auto; margin: 0; }'
         : '@page { size: letter; margin: 12mm; }';

@@ -5,6 +5,8 @@ import { timeclockService } from '../../services/timeclock';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
+import { printCuadre } from '../../services/cuadrePrint';
+import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 
 interface DailyCloseModalProps {
     isOpen: boolean;
@@ -61,6 +63,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     onClosed,
     onOpenHistory,
 }) => {
+    const { settings } = useGlobalSettings();
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<CajaSession | null>(null);
     const [totals, setTotals] = useState<SessionTotals | null>(null);
@@ -193,6 +196,20 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         || (session?.openedByUser ? `${session.openedByUser.name} ${session.openedByUser.lastName || ''}`.trim() : '—');
 
     const diffColor = (d: number) => d === 0 ? 'text-neutral-500' : d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+
+    // Imprime el cuadre como RECIBO (térmica; o 80 mm por el navegador si no hay impresora).
+    const handlePrint = () => {
+        if (!totals) return;
+        printCuadre({
+            businessName: (settings as any)?.receiptConfig?.businessName,
+            cajaName, date: cuadreDate, cashier: cajero, sessionId: session?.id,
+            rows: rows.map(r => ({ label: r.label, expected: r.expected, counted: r.countable ? (r.cash ? cashCounted : num(counted[r.key])) : null })),
+            totalSales: totals.totalSales, salesCount: totals.salesCount, returnsCount: totals.returnsCount,
+            cash: { openingFloat: totals.openingFloat, cashSales: totals.cashSales, cashIn: totals.cashIn, payouts: totals.payouts, cashRefunds: totals.cashRefunds, expectedCash: totals.expectedCash },
+            denominations: denomMode ? DENOMINATIONS.map(d => { const qty = denomInt(denomCounts[String(d.v)]); return { label: d.label, qty, subtotal: Math.round(d.v * qty * 100) / 100 }; }) : undefined,
+            notes,
+        }).catch(e => toast.error(e?.message || 'No se pudo imprimir el cuadre.'));
+    };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Cuadre de tienda diario (F7)" size="screen">
@@ -460,7 +477,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                     {/* Footer */}
                     <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
                         {onOpenHistory && <button onClick={onOpenHistory} className="mr-auto px-4 py-2 rounded-md bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-100 font-semibold text-sm">📋 Turnos anteriores</button>}
-                        <button onClick={() => window.print()} className="px-4 py-2 rounded-md bg-yellow-400 hover:bg-yellow-500 text-neutral-800 font-semibold text-sm">🖨️ Imprimir</button>
+                        <button onClick={handlePrint} className="px-4 py-2 rounded-md bg-yellow-400 hover:bg-yellow-500 text-neutral-800 font-semibold text-sm">🖨️ Imprimir</button>
                         <button onClick={onClose} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold text-sm">Cancelar</button>
                         <button onClick={handleClose} disabled={submitting} className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white font-semibold text-sm disabled:opacity-50">
                             {submitting ? 'Cerrando…' : 'Aceptar - Cerrar Turno'}

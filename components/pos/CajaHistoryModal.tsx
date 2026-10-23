@@ -3,6 +3,8 @@ import { Modal } from '../Modal';
 import { cajasService, type CajaSession, type SessionTotals } from '../../services/cajas';
 import { ApiError } from '../../services/api';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
+import { printCuadre } from '../../services/cuadrePrint';
+import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 
 interface CajaHistoryModalProps {
     isOpen: boolean;
@@ -68,6 +70,22 @@ export const CajaHistoryModal: React.FC<CajaHistoryModalProps> = ({ isOpen, onCl
 
     const totalExpected = rows.reduce((a, r) => a + r.expected, 0);
     const totalCounted = rows.reduce((a, r) => a + r.counted, 0);
+
+    // Reimprime el cuadre del turno seleccionado como RECIBO (térmica o 80 mm por el navegador).
+    const { settings } = useGlobalSettings();
+    const handlePrint = () => {
+        if (!detail) return;
+        const t = detail.totals, s = detail.session as any;
+        const credit = (l: string) => /cr[ée]dito|credit|factura|invoice/i.test(l);
+        printCuadre({
+            businessName: (settings as any)?.receiptConfig?.businessName,
+            cajaName, date: s.closedAt || s.openedAt, cashier: cajero(detail.session), sessionId: s.id, closed: !!s.closedAt,
+            rows: rows.map(r => ({ label: r.label, expected: r.expected, counted: !r.cash && credit(r.label) ? null : r.counted })),
+            totalSales: t.totalSales, salesCount: t.salesCount, returnsCount: t.returnsCount,
+            cash: { openingFloat: t.openingFloat, cashSales: t.cashSales, cashIn: t.cashIn, payouts: t.payouts, cashRefunds: t.cashRefunds, expectedCash: t.expectedCash },
+            notes: s.closingNotes || '',
+        }).catch(e => setError(e?.message || 'No se pudo imprimir el cuadre.'));
+    };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Historial de turnos ${cajaName ? `· ${cajaName}` : ''}`} size="5xl">
@@ -171,7 +189,7 @@ export const CajaHistoryModal: React.FC<CajaHistoryModalProps> = ({ isOpen, onCl
                                 {detail.session.closingNotes && <p className="text-xs text-neutral-500 mt-2">Nota de cierre: {detail.session.closingNotes}</p>}
 
                                 <div className="flex justify-end mt-3">
-                                    <button onClick={() => window.print()} className="px-4 py-2 rounded-md bg-yellow-400 hover:bg-yellow-500 text-neutral-800 font-semibold text-sm">🖨️ Imprimir</button>
+                                    <button onClick={handlePrint} className="px-4 py-2 rounded-md bg-yellow-400 hover:bg-yellow-500 text-neutral-800 font-semibold text-sm">🖨️ Imprimir</button>
                                 </div>
                             </div>
                         )}
