@@ -26,6 +26,8 @@ export interface ReceiptSale {
     cashierName?: string;
     /** true cuando es una reimpresión (muestra la etiqueta DUPLICADO/REPRINT/COPY en el diseño clásico). */
     isReprint?: boolean;
+    /** Etiqueta del documento arriba de los datos (p. ej. "DEVOLUCIÓN · Factura original #85"). */
+    docLabel?: string;
 }
 
 interface ReceiptModalProps {
@@ -49,7 +51,7 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
     const L = (k: string, dflt: string) => (d.labels && d.labels[k]) || dflt;
     const headerColor = d.headerColor || '#4CAF50';
     const accentColor = d.accentColor || '#7E57C2';
-    const title = d.title || 'FACTURA';
+    const title = sale.docLabel || d.title || 'FACTURA';
     const footerText = d.footerText != null ? d.footerText : '¡Gracias por su preferencia!';
     const showLogo = d.showLogo !== false;
     const showBusiness = d.showBusiness !== false;
@@ -186,6 +188,7 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-top:6px;"><span>${esc(d.toLocaleDateString())}</span><span>${esc(d.toLocaleTimeString())}</span></div>
                 <div style="text-align:center;font-weight:700;margin:4px 0;font-size:${is80 ? '13px' : '15px'};">Recibo : ${esc(num)}</div>
+                ${sale.docLabel ? `<div style="text-align:center;font-weight:700;">${esc(sale.docLabel)}</div>` : ''}
                 ${reprint}
                 ${dash}
                 ${sale.items.map(it => `
@@ -261,6 +264,7 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
         <div style="width:${widthCss};margin:0 auto;padding:${pad};font-family:'Courier New',monospace;font-size:${fs};color:#111;box-sizing:border-box;">
             ${header}
             ${headerNote}
+            ${sale.docLabel ? `<div style="text-align:center;font-weight:700;margin-bottom:6px;">${esc(sale.docLabel)}</div>` : ''}
             ${meta}
             <table style="width:100%;border-collapse:collapse;">${itemsRows}</table>
             ${totals}

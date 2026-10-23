@@ -32,7 +32,7 @@ import { ProductAutocomplete } from '../../components/ui/ProductAutocomplete';
 import { ReceiptModal, buildReceiptHTML, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DailyCloseModal } from '../../components/pos/DailyCloseModal';
 import { CajaHistoryModal } from '../../components/pos/CajaHistoryModal';
-import { ReprintModal } from '../../components/pos/ReprintModal';
+import { ReprintModal, toReceiptSale } from '../../components/pos/ReprintModal';
 import { CartLineModal } from '../../components/pos/CartLineModal';
 import { ManualPriceModal } from '../../components/pos/ManualPriceModal';
 import { PunchModal } from '../../components/pos/PunchModal';
@@ -1357,6 +1357,19 @@ export const POSCashierPage: React.FC = () => {
                 else toast.warning(`AgilPay: ${result.agilpayRefund.message}`);
             }
             setActiveModal(null);
+            // Recibo de la devolución (antes no se generaba): misma pantalla de recibo de una venta.
+            if (result.sale) {
+                const orig = sales.find(s => s.id === originalSaleId);
+                const rs = toReceiptSale({ ...result.sale, client: orig ? (orig as any).client : undefined });
+                const origNum = (result.sale as any).originalSaleNumber ?? (orig as any)?.saleNumber;
+                setLastReceipt({
+                    ...rs,
+                    payments: [{ method: refundMethod || 'Efectivo', amount: result.refundAmount }],
+                    clientName: rs.clientName || (selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined),
+                    cashierName: operatorName || rs.cashierName,
+                    docLabel: `DEVOLUCIÓN${origNum != null ? ` · Factura original #${origNum}` : ''}`,
+                });
+            }
             // Refrescar ventas para que el estado/saldo de la venta original y la nota de devolución
             // se reflejen sin recargar la página.
             try { setSales(await salesService.getAll({ limit: 200 } as any)); } catch { /* el próximo refresh lo corrige */ }

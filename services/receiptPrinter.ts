@@ -126,6 +126,7 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
         if (cfg.showRnc && cfg.rnc) c += center(cfg.rnc, w);
         c += ALIGN_L + two(d.toLocaleDateString(), d.toLocaleTimeString(), w);
         c += ALIGN_C + BOLD_ON + center(`Recibo : ${num}`, w) + BOLD_OFF;
+        if (sale.docLabel) c += BOLD_ON + center(sale.docLabel, w) + BOLD_OFF;
         if (sale.isReprint && cfg.reprintLabel) c += center(cfg.reprintLabel, w);
         c += ALIGN_L + rule(w);
         for (const it of sale.items) {
@@ -160,6 +161,7 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     if (cfg.showPhone && cfg.phone) o += center(`Tel: ${cfg.phone}`, w);
     if (cfg.showEmail && cfg.email) o += center(cfg.email, w);
     if (cfg.headerNote) { o += '\n'; for (const ln of String(cfg.headerNote).split('\n')) o += center(ln, w); }
+    if (sale.docLabel) o += '\n' + BOLD_ON + center(sale.docLabel, w) + BOLD_OFF;
     o += ALIGN_L + rule(w);
     o += two('Factura #', String(sale.saleNumber), w);
     o += two('Fecha', new Date(sale.date).toLocaleString(), w);

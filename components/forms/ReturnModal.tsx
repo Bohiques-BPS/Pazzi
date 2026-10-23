@@ -222,20 +222,32 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
         setItemsToReturnDetails(newItems);
     };
 
-    const totalRefundAmount = useMemo(() => {
+    // Igual que el servidor: lo devuelto = lo que el cliente PAGÓ (descuento de línea + su parte del
+    // descuento general) + su parte proporcional del IVU. Antes se mostraba/devolvía sin IVU.
+    const saleFactors = useMemo(() => {
+        if (!foundSale) return { gd: 1, tax: 0 };
+        const sumNet = foundSale.items.reduce((acc, it) => acc + calculateRefundForItem(it, it.quantity), 0);
+        const disc = Number((foundSale as any).discountAmount) || 0;
+        const gd = sumNet > 0 ? Math.max(0, sumNet - disc) / sumNet : 1;
+        const net = sumNet * gd;
+        const taxAmt = (foundSale as any).taxAmount != null ? Number((foundSale as any).taxAmount) : Math.max(0, (Number(foundSale.totalAmount) || 0) - net);
+        return { gd, tax: net > 0 ? taxAmt / net : 0 };
+    }, [foundSale]);
+
+    const refundPreTax = useMemo(() => {
         let total = 0;
         itemsToReturnDetails.forEach((details, itemId) => {
             const originalItem = foundSale?.items.find(i => i.id === itemId);
             if (!originalItem) return;
-
-            if (details.customRefundAmount !== undefined) {
-                total += details.customRefundAmount;
-            } else {
-                total += calculateRefundForItem(originalItem, details.quantity);
-            }
+            // El monto editado a mano es antes de IVU (se le suma su IVU abajo).
+            total += details.customRefundAmount !== undefined
+                ? details.customRefundAmount
+                : calculateRefundForItem(originalItem, details.quantity) * saleFactors.gd;
         });
-        return total;
-    }, [itemsToReturnDetails, foundSale]);
+        return Math.round(total * 100) / 100;
+    }, [itemsToReturnDetails, foundSale, saleFactors]);
+    const refundTax = Math.round(refundPreTax * saleFactors.tax * 100) / 100;
+    const totalRefundAmount = Math.round((refundPreTax + refundTax) * 100) / 100;
 
     const [authorizing, setAuthorizing] = useState(false);
 
@@ -381,8 +393,15 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                                 </select>
                                 <p className="text-xs text-neutral-500 mt-1">{t('cmpx.return.refund_method_hint')}</p>
                             </div>
-                            <div className="text-right text-xl font-bold text-red-600 dark:text-red-400">
-                                {t('cmpx.return.total_refund', { amount: totalRefundAmount.toFixed(2) })}
+                            <div className="text-right">
+                                {refundTax > 0 && (
+                                    <div className="text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">
+                                        Subtotal ${refundPreTax.toFixed(2)} · IVU ${refundTax.toFixed(2)}
+                                    </div>
+                                )}
+                                <div className="text-xl font-bold text-red-600 dark:text-red-400">
+                                    {t('cmpx.return.total_refund', { amount: totalRefundAmount.toFixed(2) })}
+                                </div>
                             </div>
                         </div>
 

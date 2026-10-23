@@ -14,7 +14,7 @@ import { clientDocName } from '../../utils/clientName';
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
 /** Convierte una venta del backend al formato de recibo para reimprimir. */
-function toReceiptSale(sale: any): ReceiptSale {
+export function toReceiptSale(sale: any): ReceiptSale {
     const payments = Array.isArray(sale.payments) && sale.payments.length
         ? sale.payments.map((p: any) => ({ method: p.paymentMethodUsed, amount: p.amountPaid, reference: p.notes || undefined }))
         : [{ method: sale.paymentMethod || 'Pago', amount: sale.totalAmount }];
