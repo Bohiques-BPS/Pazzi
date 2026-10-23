@@ -26,6 +26,8 @@ interface ClientAccountModalProps {
     /** Desde la caja: solo Ventas, Cuentas por cobrar y Recibos de pago (la caja no gestiona
      *  proyectos de gestión; sus "proyectos" son solo para cobro). Oculta Proyectos/Cotizaciones/etc. */
     fromPos?: boolean;
+    /** Caja abierta en el POS (los abonos cobrados aquí cuentan en su cuadre). */
+    cajaId?: string | null;
 }
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -179,7 +181,7 @@ function SmartTable<T>({ rows, columns, selectFilters = [], initialSortKey, init
 
 type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products' | 'receipts' | 'leads';
 
-export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client, fromPos }) => {
+export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client, fromPos, cajaId }) => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { settings } = useGlobalSettings();
@@ -547,6 +549,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
             onClose={() => setPayOpen(false)}
             clientId={client.id}
             clientName={clientDocName(client)}
+            cajaId={cajaId}
             onPaid={(info) => {
                 setPayOpen(false);
                 if (info.receipt) {

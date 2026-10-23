@@ -15,6 +15,8 @@ interface ClientSearchModalProps {
     onOpenCreateClient: () => void;
     /** Desde la caja: el estado de cuenta solo muestra cobro (sin proyectos de gestión). */
     fromPos?: boolean;
+    /** Caja abierta en el POS (los abonos cobrados aquí cuentan en su cuadre). */
+    cajaId?: string | null;
 }
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -25,7 +27,8 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
     clients,
     onClientSelect,
     onOpenCreateClient,
-    fromPos
+    fromPos,
+    cajaId
 }) => {
     const { t } = useTranslation();
     const [searchTerm, setSearchTerm] = useState('');
@@ -155,7 +158,7 @@ export const ClientSearchModal: React.FC<ClientSearchModalProps> = ({
             </div>
         </Modal>
         {/* Vista grande del estado de cuenta del cliente (sin seleccionarlo para la venta). */}
-        <ClientAccountModal isOpen={!!viewClient} onClose={() => setViewClient(null)} client={viewClient} fromPos={fromPos} />
+        <ClientAccountModal isOpen={!!viewClient} onClose={() => setViewClient(null)} client={viewClient} fromPos={fromPos} cajaId={cajaId} />
       </>
     );
 };

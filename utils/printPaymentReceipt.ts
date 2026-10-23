@@ -49,6 +49,7 @@ export function printPaymentReceipt(receipt: PaymentReceipt, store: StoreInfo = 
         </table>
         <hr/>
         <div class="row b"><span>Total Pagado:</span><span>${money(receipt.totalPaid)}</span></div>
+        ${(receipt as any).accountCredit ? `<div class="row"><span>Saldo a favor:</span><span>${money((receipt as any).accountCredit)}</span></div>` : ''}
         <div class="row b"><span>Balance por pagar:</span><span>${money(receipt.balanceAfter)}</span></div>
         <hr/>
         <div class="center" style="font-size:11px;">*** Gracias por su patrocinio ***</div>

@@ -14,7 +14,8 @@ export function printSaleReceipt(sale: any, store: StoreInfo = {}) {
     price: Number(it.unitPrice) || 0,
   }));
   const payments = (sale.payments || []).map((p: any) => ({ method: p.paymentMethodUsed || 'Pago', amount: Number(p.amountPaid) || 0 }));
-  const total = Number(sale.totalAmount) || 0;
+  // Total en centavos: ventas viejas guardaron fracciones de centavo (12.25385).
+  const total = Math.round((Number(sale.totalAmount) || 0) * 100) / 100;
   const tax = Number(sale.taxAmount) || 0;
   const subtotal = sale.subtotal != null ? Number(sale.subtotal) : (total - tax);
   const paid = payments.reduce((a: number, p: any) => a + p.amount, 0);
@@ -60,7 +61,7 @@ export function printSaleReceipt(sale: any, store: StoreInfo = {}) {
       <div class="row b" style="font-size:14px;"><span>TOTAL</span><span>${money(total)}</span></div>
       ${payRows ? `<hr/><div class="b">Pagos</div>${payRows}` : ''}
       <div class="row b"><span>Pagado</span><span>${money(paid)}</span></div>
-      ${balance > 0.001 ? `<div class="row b"><span>Balance por pagar</span><span>${money(balance)}</span></div>` : ''}
+      ${balance >= 0.01 ? `<div class="row b"><span>Balance por pagar</span><span>${money(balance)}</span></div>` : ''}
       <hr/>
       <div class="center" style="font-size:11px;">*** Gracias por su patrocinio ***</div>
     </body></html>`;

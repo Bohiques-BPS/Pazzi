@@ -135,6 +135,8 @@ export interface PaymentReceipt {
   method: string;
   reference?: string | null;
   totalPaid: number;
+  /** Parte del pago que quedó como saldo a favor (incluida en totalPaid). */
+  accountCredit?: number | null;
   balanceAfter: number;
   cashierName?: string | null;
   allocations: PaymentReceiptAllocation[];

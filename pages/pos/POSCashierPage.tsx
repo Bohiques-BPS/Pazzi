@@ -728,7 +728,12 @@ export const POSCashierPage: React.FC = () => {
             if (breakdown) tx = txState + txMunicipal + txReduced;
         }
 
-        return { subtotal: sub, globalDiscountAmount: discountAmt, tax: tx, taxState: txState, taxMunicipal: txMunicipal, taxReduced: txReduced, total: netSubtotal + tx };
+        // Todo en centavos: el IVU por línea suma fracciones de centavo y, sin redondear, la venta quedaba
+        // con un residuo (p. ej. 12.25385) que aparecía como saldo pendiente al pagarla completa.
+        const c = (n: number) => Math.round(n * 100) / 100;
+        const [rState, rMunicipal, rReduced] = [c(txState), c(txMunicipal), c(txReduced)];
+        const rTax = breakdown ? c(rState + rMunicipal + rReduced) : c(tx);
+        return { subtotal: c(sub), globalDiscountAmount: c(discountAmt), tax: rTax, taxState: rState, taxMunicipal: rMunicipal, taxReduced: rReduced, total: c(c(netSubtotal) + rTax) };
     }, [cart, selectedClient, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate, settings.taxBreakdownEnabled, settings.taxStateRate, settings.taxMunicipalRate, settings.taxReducedRate]);
 
     // Agrega al carrito una línea ya resuelta (producto simple o una variación específica).
@@ -1838,7 +1843,7 @@ export const POSCashierPage: React.FC = () => {
             </footer>
             
             {/* MODALS */}
-            <ClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients} onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }} onOpenCreateClient={() => setActiveModal('createClient')} fromPos />
+            <ClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients} onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }} onOpenCreateClient={() => setActiveModal('createClient')} fromPos cajaId={selectedCajaId || null} />
             <ClientFormModal isOpen={activeModal === 'createClient'} onClose={(client) => {setActiveModal(null); if(client) setSelectedClient(client);}} client={null} />
             <POSProjectFormModal isOpen={activeModal === 'createProject'} onClose={() => setActiveModal(null)} clientId={selectedClient?.id || ''} onProjectCreated={(newProject) => { setClientProjects(prev => [newProject, ...prev]); setSelectedProjectId(newProject.id); setActiveModal(null); }} />
             <HeldCartsModal

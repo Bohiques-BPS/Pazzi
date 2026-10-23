@@ -25,12 +25,14 @@ interface ClientCreditPaymentModalProps {
     onClose: () => void;
     clientId: string;
     clientName?: string;
+    /** Caja donde se cobra (desde el POS), para que el abono cuente en su cuadre. */
+    cajaId?: string | null;
     /** Se llama tras registrar el abono (para refrescar y/o imprimir comprobante). */
     onPaid?: (info: { total: number; method: string; reference?: string; receipt?: any }) => void;
 }
 
 /** "Pagos y Créditos a Clientes": abona a varias facturas pendientes distribuyendo el pago. */
-export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> = ({ isOpen, onClose, clientId, clientName, onPaid }) => {
+export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> = ({ isOpen, onClose, clientId, clientName, cajaId, onPaid }) => {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [sales, setSales] = useState<PendingSale[]>([]);
@@ -39,13 +41,17 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     const [method, setMethod] = useState('Efectivo');
     const [reference, setReference] = useState('');
     const [distribute, setDistribute] = useState('');
-    const [excessAction, setExcessAction] = useState<'change' | 'credit'>('change'); // qué hacer con el excedente
+    // Qué hacer con el excedente. Por defecto saldo a favor: en un abono a deuda lo normal es no dar vuelto.
+    const [excessAction, setExcessAction] = useState<'change' | 'credit'>('credit');
+    // Monto que se repartió de verdad (botón Repartir / Pagar todo). Solo con un reparto hecho hay
+    // excedente; antes, con solo escribir en "Repartir" ya salía todo como "vuelto".
+    const [distributedTotal, setDistributedTotal] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !clientId) return;
         let cancelled = false;
-        setLoading(true); setAmounts({}); setSelected({}); setMethod('Efectivo'); setReference(''); setDistribute(''); setExcessAction('change');
+        setLoading(true); setAmounts({}); setSelected({}); setMethod('Efectivo'); setReference(''); setDistribute(''); setExcessAction('credit'); setDistributedTotal(null);
         // Mismo criterio que "Cuentas por Cobrar": pendiente = SALDO > 0 (total − pagos), no el
         // campo paymentStatus exacto (que puede diferir). Así siempre coincide con lo que ve el
         // usuario en CxC. Excluimos anuladas y devoluciones.
@@ -56,9 +62,10 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                     .filter(s => s.paymentStatus !== 'Anulado' && !s.isReturn)
                     .map(s => {
                         const paid = (s.payments || []).reduce((a: number, p: any) => a + (Number(p.amountPaid) || 0), 0);
-                        return { id: s.id, saleNumber: s.saleNumber, date: s.date, totalAmount: Number(s.totalAmount) || 0, balance: r2((Number(s.totalAmount) || 0) - paid) };
+                        // Total en centavos: ventas viejas guardaron fracciones de centavo (residuos de $0.01–0.02).
+                        return { id: s.id, saleNumber: s.saleNumber, date: s.date, totalAmount: Number(s.totalAmount) || 0, balance: r2(r2(Number(s.totalAmount) || 0) - paid) };
                     })
-                    .filter(s => s.balance > 0.001)
+                    .filter(s => s.balance >= 0.01)
                     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // más antiguas primero
                 setSales(rows);
             })
@@ -76,10 +83,13 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
     const anySelected = useMemo(() => sales.some(s => selected[s.id]), [sales, selected]);
     // El monto a "Repartir" es lo que paga el cliente. Si paga de más, el excedente es el vuelto
     // (en efectivo) o saldo a favor. El excedente = lo que paga − lo aplicado a facturas.
+    // El vuelto solo existe en efectivo; con otros métodos el excedente solo puede quedar a favor.
     const isCash = method === 'Efectivo';
-    const excess = useMemo(() => r2(Math.max(0, num(distribute) - assigned)), [distribute, assigned]);
-    const change = excessAction === 'change' ? excess : 0;
-    const accountCredit = excessAction === 'credit' ? excess : 0;
+    const excess = useMemo(() => distributedTotal != null && Math.abs(distributedTotal - num(distribute)) < 0.005
+        ? r2(Math.max(0, distributedTotal - assigned)) : 0, [distributedTotal, distribute, assigned]);
+    const effectiveAction = isCash ? excessAction : 'credit';
+    const change = effectiveAction === 'change' ? excess : 0;
+    const accountCredit = effectiveAction === 'credit' ? excess : 0;
 
     // Marca/desmarca una factura: al marcarla, autocompleta su saldo (editable); al desmarcar, limpia.
     const toggleSelect = (s: PendingSale, on: boolean) => {
@@ -110,6 +120,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
         }
         setAmounts(next);
         setSelected(nextSel);
+        setDistributedTotal(r2(total));
     };
 
     const canSubmit = assigned > 0.001 && !saving;
@@ -122,9 +133,9 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
         if (allocations.length === 0) return toast.error(t('cmpx.credit.enter_amount'));
         setSaving(true);
         try {
-            const res = await salesService.bulkPayment({ clientId, method, reference: reference.trim() || undefined, allocations, accountCredit: isCash && accountCredit > 0 ? accountCredit : undefined });
+            const res = await salesService.bulkPayment({ clientId, method, reference: reference.trim() || undefined, allocations, accountCredit: accountCredit > 0 ? accountCredit : undefined, cajaId: cajaId || undefined });
             toast.success(t('cmpx.credit.payment_ok', { amount: money(res.total), count: res.count }));
-            if (isCash && accountCredit > 0) toast.success(t('cmpx.credit.credit_added', { amount: money(accountCredit) }));
+            if (accountCredit > 0) toast.success(t('cmpx.credit.credit_added', { amount: money(accountCredit) }));
             // Recibo que muestra cada abono y la deuda final (se imprime en el padre vía onPaid).
             // Si el backend ya devolvió un recibo con folio real, se usa ese; si no, se arma aquí.
             const built: PaymentReceipt = {
@@ -135,7 +146,8 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                 date: new Date().toISOString(),
                 method,
                 reference: reference.trim() || null,
-                totalPaid: r2(res.total),
+                totalPaid: r2(res.total + accountCredit),
+                accountCredit: accountCredit || null,
                 balanceAfter: r2(totalBalance - res.total),
                 cashierName: null,
                 allocations: allocations.map(a => {
@@ -174,7 +186,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         </div>
                         <button type="button" onClick={() => doDistribute(num(distribute))} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.distribute_oldest')}</button>
                         <button type="button" onClick={() => { setDistribute(totalBalance.toFixed(2)); doDistribute(totalBalance); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('cmpx.credit.pay_all')}</button>
-                        <button type="button" onClick={() => setAmounts({})} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-red-600`}>{t('cmpx.credit.clear')}</button>
+                        <button type="button" onClick={() => { setAmounts({}); setSelected({}); setDistribute(''); setDistributedTotal(null); }} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-red-600`}>{t('cmpx.credit.clear')}</button>
                     </div>
 
                     {/* Facturas */}
@@ -240,9 +252,9 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                         </div>
                     </div>
 
-                    {/* Efectivo con excedente: si el cliente paga más de lo que debe, el sobrante es
-                        vuelto (se devuelve) o saldo a favor (queda en su cuenta). */}
-                    {isCash && excess > 0.001 && (
+                    {/* Excedente de un reparto: si el cliente paga más de lo que debe, el sobrante queda
+                        como saldo a favor (por defecto) o, solo en efectivo, se devuelve como vuelto. */}
+                    {excess > 0.001 && (
                         <div className="space-y-2">
                             <div className={`flex items-center justify-between rounded-md px-3 py-2 border ${accountCredit > 0 ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
                                 <span className={`text-sm font-medium ${accountCredit > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-green-700 dark:text-green-300'}`}>
@@ -252,7 +264,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                                     {money(accountCredit > 0 ? accountCredit : change)}
                                 </span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                            {isCash && <div className="flex flex-wrap items-center gap-2 text-sm">
                                 <span className="text-neutral-500">{t('cmpx.credit.excess_q', { amount: money(excess) })}</span>
                                 <label className="inline-flex items-center gap-1.5 cursor-pointer">
                                     <input type="radio" name="excessAction" checked={excessAction === 'change'} onChange={() => setExcessAction('change')} className="h-4 w-4" />
@@ -262,7 +274,7 @@ export const ClientCreditPaymentModal: React.FC<ClientCreditPaymentModalProps> =
                                     <input type="radio" name="excessAction" checked={excessAction === 'credit'} onChange={() => setExcessAction('credit')} className="h-4 w-4" />
                                     {t('cmpx.credit.leave_as_credit')}
                                 </label>
-                            </div>
+                            </div>}
                         </div>
                     )}
 
