@@ -254,6 +254,9 @@ export const POSCashierPage: React.FC = () => {
     // Menú "Opciones" del cliente activo (pagar cuenta, ver estado de cuenta).
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
+    // Estimados cargados en el carrito: al cobrar quedan "Convertido" y enlazados a la venta.
+    const [cartEstimateIds, setCartEstimateIds] = useState<string[]>([]);
+    const pendingEstimateIdsRef = useRef<string[]>([]);
     // Cambio de precio de una línea pendiente de autorizar con PIN de gerente.
     const [pendingPrice, setPendingPrice] = useState<{ id: string; price: number } | null>(null);
     // Producto de precio manual esperando que el cajero ingrese el precio.
@@ -983,6 +986,7 @@ export const POSCashierPage: React.FC = () => {
 
     const clearCart = () => {
         setCart([]);
+        setCartEstimateIds([]);
         const defaultClient = findDefaultClient(clients);
         setSelectedClient(defaultClient || null);
         setSelectedProjectId(null);
@@ -1112,6 +1116,7 @@ export const POSCashierPage: React.FC = () => {
                 operatorUserId: operatorUserId,
                 isExternal: isExternalSale,
                 allowOversell,
+                relatedEstimateIds: cartEstimateIds,
             } as any, selectedBranchId);
         } catch (err: any) {
             // La venta NO se guardó: mostramos un modal claro y conservamos el carrito para reintentar.
@@ -1135,6 +1140,11 @@ export const POSCashierPage: React.FC = () => {
         // (Sin overlay grande de cambio: el cambio ya se ve en el modal de pago "Cambio a Devolver"
         //  y en el recibo. Antes salía a pantalla completa; el cliente pidió quitarlo.)
 
+        // Los estimados cobrados pasan a "Convertido" también en pantalla (el BE ya los marcó).
+        if (cartEstimateIds.length) {
+            const ids = new Set(cartEstimateIds);
+            setEstimates(prev => prev.map(e => ids.has(e.id) ? { ...e, status: EstimateStatus.CONVERTIDO } : e));
+        }
         clearCart();
     };
 
@@ -1185,10 +1195,12 @@ export const POSCashierPage: React.FC = () => {
     const handleLoadEstimatesToCart = (items: CartItem[], estimateIds: string[]) => {
         if (cart.length > 0) {
             setPendingCartItems(items);
+            pendingEstimateIdsRef.current = estimateIds;
             setShowCartReplaceConfirm(true);
             return;
         }
         setCart(items);
+        setCartEstimateIds(estimateIds);
         setPosError(null);
         setActiveModal(null);
     };
@@ -1196,6 +1208,7 @@ export const POSCashierPage: React.FC = () => {
     const confirmCartReplace = () => {
         if (pendingCartItems) {
             setCart(pendingCartItems);
+            setCartEstimateIds(pendingEstimateIdsRef.current);
             setPosError(null);
             setActiveModal(null);
         }
@@ -1206,6 +1219,7 @@ export const POSCashierPage: React.FC = () => {
     const confirmEstimateReplace = () => {
         if (pendingEstimateData) {
             setCart(pendingEstimateData.items);
+            setCartEstimateIds(pendingEstimateIdsRef.current);
             if (pendingEstimateData.clientId) {
                 const client = clients.find(c => c.id === pendingEstimateData!.clientId);
                 if (client) setSelectedClient(client);
@@ -1231,12 +1245,15 @@ export const POSCashierPage: React.FC = () => {
                 unitPrice: it.unitPrice,
             }));
             sessionStorage.removeItem('pazzi_estimate_to_convert');
+            const ids = parsed.estimateId ? [String(parsed.estimateId)] : [];
             if (cart.length > 0) {
+                pendingEstimateIdsRef.current = ids;
                 setPendingEstimateData({ items, clientId: parsed.clientId });
                 setShowEstimateReplaceConfirm(true);
                 return;
             }
             setCart(items);
+            setCartEstimateIds(ids);
             if (parsed.clientId) {
                 const client = clients.find(c => c.id === parsed.clientId);
                 if (client) setSelectedClient(client);

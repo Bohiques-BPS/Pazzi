@@ -571,6 +571,8 @@ export enum EstimateStatus {
     RECHAZADO = 'Rechazado',
     EXPIRADO = 'Expirado',
     COMBINADO = 'Combinado',
+    /** Cobrado en el POS: queda guardado y enlazado a la venta (no se puede volver a convertir). */
+    CONVERTIDO = 'Convertido',
 }
 
 export interface Estimate {

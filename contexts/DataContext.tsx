@@ -805,6 +805,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 allowOversell: saleData.allowOversell || false,
                 payments: paymentsPayload,
                 items,
+                // Estimados cobrados en esta venta: el BE los enlaza y los marca "Convertido".
+                relatedEstimateIds: (saleData as any).relatedEstimateIds || [],
             } as any);
 
             const newSale: Sale = {

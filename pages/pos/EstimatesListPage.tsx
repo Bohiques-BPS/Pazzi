@@ -188,9 +188,16 @@ export const EstimatesListPage: React.FC = () => {
     const [selectedEstimateIds, setSelectedEstimateIds] = useState<string[]>([]);
     const [showCombineConfirm, setShowCombineConfirm] = useState(false);
 
-    const sortedEstimates = useMemo(() => 
-        [...estimates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    [estimates]);
+    // Activos = se pueden cobrar; Convertidos = ya cobrados/combinados (quedan guardados para consulta).
+    const [view, setView] = useState<'active' | 'converted' | 'all'>('active');
+    const isUsed = (e: Estimate) => e.status === EstimateStatus.COMBINADO || e.status === EstimateStatus.CONVERTIDO;
+    const sortedEstimates = useMemo(() =>
+        [...estimates]
+            .filter(e => view === 'all' ? true : view === 'converted' ? isUsed(e) : !isUsed(e))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [estimates, view]);
+    const convertedCount = useMemo(() => estimates.filter(isUsed).length, [estimates]);
 
     const openModalForCreate = () => {
         setEditingEstimate(null);
@@ -260,7 +267,7 @@ export const EstimatesListPage: React.FC = () => {
 
     const navigate = useNavigate();
     const handleConvertToSale = async (estimate: Estimate) => {
-        if (estimate.status === EstimateStatus.COMBINADO) {
+        if (estimate.status === EstimateStatus.COMBINADO || estimate.status === EstimateStatus.CONVERTIDO) {
             toast.warning(t('posx.estimates.already_converted'));
             return;
         }
@@ -559,9 +566,20 @@ export const EstimatesListPage: React.FC = () => {
                     e.status === EstimateStatus.ACEPTADO ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' :
                     e.status === EstimateStatus.RECHAZADO || e.status === EstimateStatus.EXPIRADO ? 'bg-red-100 text-red-700 dark:bg-red-600 dark:text-red-100' :
                     e.status === EstimateStatus.COMBINADO ? 'bg-purple-100 text-purple-700 dark:bg-purple-700 dark:text-purple-200' :
+                    e.status === EstimateStatus.CONVERTIDO ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-200' :
                     'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200' // Borrador
                 }`}>{e.status}</span>
             )
+        },
+        {
+            header: 'Venta',
+            sortable: false,
+            accessor: (e) => {
+                const linked = ((e as any).linkedSales || []).map((l: any) => l.sale).filter(Boolean);
+                return linked.length
+                    ? <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">{linked.map((s: any) => `#${s.saleNumber ?? s.id.slice(0, 6)}`).join(', ')}</span>
+                    : <span className="text-xs text-neutral-400">—</span>;
+            },
         },
     ];
 
@@ -580,11 +598,19 @@ export const EstimatesListPage: React.FC = () => {
                     </button>
                 </div>
             </div>
+            <div className="mb-3 inline-flex rounded-md border border-neutral-200 dark:border-neutral-700 overflow-hidden text-sm">
+                {([['active', 'Activos'], ['converted', `Convertidos (${convertedCount})`], ['all', 'Todos']] as const).map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => setView(k)}
+                        className={`px-3 py-1.5 font-medium ${view === k ? 'bg-primary text-white' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}>
+                        {label}
+                    </button>
+                ))}
+            </div>
             <DataTable<Estimate> onRowClick={openModalForEdit}
                 data={sortedEstimates}
                 columns={columns}
                 actions={(estimate) => {
-                    const isClosed = estimate.status === EstimateStatus.COMBINADO;
+                    const isClosed = isUsed(estimate);
                     return (
                         <div className="flex space-x-1">
                             <PermissionGate require={['estimates.manage', 'pos.sell']}>

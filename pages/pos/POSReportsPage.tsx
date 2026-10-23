@@ -10,6 +10,8 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal } from '../../components/Modal';
 import { exportToPDF, exportToExcel, type ExportColumn } from '../../utils/reportExport';
+import { useSearchParams } from 'react-router-dom';
+import { printCuadre } from '../../services/cuadrePrint';
 
 type DateFilterKey = 'today' | 'yesterday' | 'this_month' | 'last_month' | 'last_30_days' | 'last_90_days' | 'custom';
 
@@ -117,7 +119,10 @@ export const POSReportsPage: React.FC = () => {
     const [customEnd, setCustomEnd] = useState(getISODateString(new Date()));
     const [branchId, setBranchId] = useState('');
     const [cajaId, setCajaId] = useState('');
-    const [activeTab, setActiveTab] = useState<TabKey>('resumen');
+    // ?tab=cortes (menú "Cuadres diarios") abre directo los cuadres guardados.
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState<TabKey>(() => (searchParams.get('tab') as TabKey) || 'resumen');
+    useEffect(() => { const tab = searchParams.get('tab') as TabKey | null; if (tab) setActiveTab(tab); }, [searchParams]);
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any>(null);
@@ -396,11 +401,34 @@ const XTab: React.FC<{ data: any; cajaSelected: boolean }> = ({ data }) => {
 
 const SessionDetailModal: React.FC<{ detail: any; onClose: () => void }> = ({ detail, onClose }) => {
     const { t: tr } = useTranslation();
+    const { settings } = useGlobalSettings();
     const s = detail?.session || {}; const t = detail?.totals || {};
+    // Cuadre por método: lo del sistema vs. lo que contó el cajero al cerrar (countedByMethod).
+    const counted = (s.countedByMethod || {}) as Record<string, number>;
+    const isCashM = (m: string) => /efectivo|cash/i.test(m);
+    const isInfo = (m: string) => /cr[ée]dito|credit|factura|invoice/i.test(m);
+    const cuadreRows = [
+        { label: 'Efectivo (gaveta)', expected: Number(t.expectedCash) || 0, counted: s.countedCash != null ? Number(s.countedCash) : (counted['Efectivo'] != null ? Number(counted['Efectivo']) : null) as number | null },
+        ...arr(t.byMethod).filter((m: any) => !isCashM(m.method)).map((m: any) => ({
+            label: m.method, expected: Number(m.amount) || 0,
+            counted: isInfo(m.method) ? null : (counted[m.method] != null ? Number(counted[m.method]) : 0) as number | null,
+        })),
+    ];
+    const handlePrint = () => {
+        printCuadre({
+            businessName: (settings as any)?.receiptConfig?.businessName,
+            cajaName: s.caja?.name, date: s.closedAt || s.openedAt,
+            cashier: s.closedByUser?.name || s.openedByUser?.name, sessionId: s.id, closed: !!s.closedAt,
+            rows: cuadreRows,
+            totalSales: Number(t.totalSales) || 0, salesCount: Number(t.salesCount) || 0, returnsCount: Number(t.returnsCount) || 0,
+            cash: { openingFloat: Number(t.openingFloat) || 0, cashSales: Number(t.cashSales) || 0, cashIn: Number(t.cashIn) || 0, payouts: Number(t.payouts) || 0, cashRefunds: Number(t.cashRefunds) || 0, expectedCash: Number(t.expectedCash) || 0 },
+            notes: s.closingNotes || '',
+        }).catch(e => toast.error(e?.message || 'No se pudo imprimir el cuadre.'));
+    };
     return (
         <Modal isOpen onClose={onClose} title={tr('posx.reports.zCut', { caja: s.caja?.name || '' })} size="lg">
             <div className="space-y-4">
-                <div className="flex justify-end"><button onClick={() => window.print()} className={BUTTON_SECONDARY_SM_CLASSES}>{tr('posx.reports.print')}</button></div>
+                <div className="flex justify-end"><button onClick={handlePrint} className={BUTTON_SECONDARY_SM_CLASSES}>{tr('posx.reports.print')}</button></div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                     <div><span className="text-neutral-500">{tr('posx.reports.branchLabel')}</span> {s.caja?.branch?.name || '—'}</div>
                     <div><span className="text-neutral-500">{tr('posx.reports.statusLabel')}</span> {s.status}</div>
@@ -415,6 +443,30 @@ const SessionDetailModal: React.FC<{ detail: any; onClose: () => void }> = ({ de
                     <Card title={tr('posx.reports.difference')} value={money(s.difference ?? 0)} />
                     <Card title={tr('posx.reports.totalSales')} value={money(t.totalSales)} />
                 </div>
+                {s.closedAt && (
+                    <div>
+                        <h4 className="font-semibold text-sm mb-1">Cuadre por método</h4>
+                        <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+                            <thead className="bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
+                                <tr><th className="px-3 py-2 text-left font-medium">Método</th><th className="px-3 py-2 text-right font-medium">Sistema</th><th className="px-3 py-2 text-right font-medium">Contado</th><th className="px-3 py-2 text-right font-medium">Diferencia</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
+                                {cuadreRows.map(r => {
+                                    const d = r.counted == null ? null : Math.round((r.counted - r.expected) * 100) / 100;
+                                    return (
+                                        <tr key={r.label}>
+                                            <td className="px-3 py-2">{r.label}</td>
+                                            <td className="px-3 py-2 text-right tabular-nums">{money(r.expected)}</td>
+                                            <td className="px-3 py-2 text-right tabular-nums">{r.counted == null ? <span className="text-xs text-neutral-400">informativo</span> : money(r.counted)}</td>
+                                            <td className={`px-3 py-2 text-right tabular-nums ${d == null || d === 0 ? 'text-neutral-500' : d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{d == null ? '—' : `${d >= 0 ? '+' : '-'}${money(Math.abs(d))}`}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        {s.closingNotes && <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300"><span className="text-neutral-500">Notas:</span> {s.closingNotes}</p>}
+                    </div>
+                )}
                 <div>
                     <h4 className="font-semibold text-sm mb-1">{tr('posx.reports.byPaymentMethod')}</h4>
                     <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">

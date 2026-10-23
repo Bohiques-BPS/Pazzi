@@ -601,6 +601,8 @@ export const APP_MODULES_CONFIG = [
         ] },
         { type: 'group', name: 'Cajas', icon: CubeIcon, children: [
             { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
+            // Cuadres guardados de cada día (todas las cajas): la pestaña "Cortes" de Reportes de Caja.
+            { type: 'link', name: 'Cuadres diarios', path: '/pos/reports?tab=cortes', icon: ClipboardDocumentListIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
             { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: CubeIcon, permission: 'caja.open' },
             { type: 'link', name: 'Métodos de Pago', path: '/pos/payment-methods', icon: BanknotesIcon, permission: 'settings.viewCompany' },
         ] },
