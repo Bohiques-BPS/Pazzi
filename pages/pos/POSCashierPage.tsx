@@ -1315,6 +1315,8 @@ export const POSCashierPage: React.FC = () => {
                 reason,
                 // Caja 4: método de reembolso elegido según el pago original (ya no fijo a 'Efectivo').
                 refundMethod: refundMethod || 'Efectivo',
+                // La devolución cuenta en el cuadre de ESTA caja (no en la de la venta original).
+                cajaId: selectedCajaId || null,
             });
             toast.success(result.message || t('posx.cashier.return_processed', { amount: result.refundAmount.toFixed(2) }));
             // Resultado del reembolso automático por AgilPay, si aplicó.
