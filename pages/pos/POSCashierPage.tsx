@@ -2097,6 +2097,7 @@ export const POSCashierPage: React.FC = () => {
                 onClose={() => setActiveModal(null)} 
                 onApply={handleApplyDiscount} 
                 currentDiscount={currentDiscountForModal}
+                baseAmount={discountTarget === 'general' ? subtotal : cart.find(c => c.id === discountTarget)?.unitPrice}
             />
             <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} />
             <ConfirmationModal

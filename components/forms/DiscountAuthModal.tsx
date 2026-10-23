@@ -11,12 +11,18 @@ interface DiscountAuthModalProps {
     onClose: () => void;
     onApply: (discount: { type: 'percentage' | 'fixed'; value: number }) => void;
     currentDiscount?: { type: 'percentage' | 'fixed'; value: number } | null;
+    /** Precio sobre el que se descuenta (precio por unidad en una línea; subtotal en el general).
+     *  Permite la opción "Precio final": se escribe cuánto debe costar y se calcula el descuento. */
+    baseAmount?: number;
 }
 
-export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, onClose, onApply, currentDiscount }) => {
+export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, onClose, onApply, currentDiscount, baseAmount }) => {
     const { t } = useTranslation();
-    const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+    const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | 'final'>('percentage');
+    const hasBase = baseAmount != null && baseAmount > 0;
     const [discountValue, setDiscountValue] = useState('');
+    const finalValue = parseFloat(discountValue);
+    const finalDiscount = hasBase && !isNaN(finalValue) ? Math.round((baseAmount! - finalValue) * 100) / 100 : 0;
     const [supervisorPin, setSupervisorPin] = useState('');
     const [error, setError] = useState('');
     const [authorizing, setAuthorizing] = useState(false);
@@ -38,7 +44,11 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
     const handleApply = async () => {
         setError('');
         const value = parseFloat(discountValue);
-        if (isNaN(value) || value <= 0) {
+        // Precio final: se convierte en el descuento fijo equivalente (base − precio final).
+        if (discountType === 'final') {
+            if (isNaN(value) || value < 0) { setError('Escribe el precio final.'); return; }
+            if (!hasBase || value >= baseAmount!) { setError(`El precio final debe ser menor que $${(baseAmount || 0).toFixed(2)}.`); return; }
+        } else if (isNaN(value) || value <= 0) {
             setError(t('cmpx.discount.err_value'));
             return;
         }
@@ -54,7 +64,7 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
         setAuthorizing(true);
         try {
             await authService.verifySupervisorPin(supervisorPin);
-            onApply({ type: discountType, value });
+            onApply(discountType === 'final' ? { type: 'fixed', value: finalDiscount } : { type: discountType, value });
             onClose();
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
@@ -75,20 +85,27 @@ export const DiscountAuthModal: React.FC<DiscountAuthModalProps> = ({ isOpen, on
                     <select value={discountType} onChange={e => setDiscountType(e.target.value as any)} className={inputFormStyle}>
                         <option value="percentage">{t('cmpx.discount.type_percentage')}</option>
                         <option value="fixed">{t('cmpx.discount.type_fixed')}</option>
+                        {hasBase && <option value="final">Precio final ($)</option>}
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium">{t('cmpx.discount.value_label')}</label>
+                    <label className="block text-sm font-medium">{discountType === 'final' ? 'Precio final' : t('cmpx.discount.value_label')}</label>
                     <input
                         type="number"
                         value={discountValue}
                         onChange={e => setDiscountValue(e.target.value)}
                         className={inputFormStyle}
-                        placeholder={discountType === 'percentage' ? t('cmpx.discount.value_ph_percent') : t('cmpx.discount.value_ph_fixed')}
+                        placeholder={discountType === 'percentage' ? t('cmpx.discount.value_ph_percent') : discountType === 'final' ? 'Ej. 30.00' : t('cmpx.discount.value_ph_fixed')}
                         step="0.01"
                         min="0"
                         autoFocus
                     />
+                    {discountType === 'final' && hasBase && (
+                        <p className="text-xs text-neutral-500 mt-1">
+                            Precio actual ${baseAmount!.toFixed(2)}
+                            {discountValue !== '' && finalDiscount > 0 && <> · descuento de <b>${finalDiscount.toFixed(2)}</b></>}
+                        </p>
+                    )}
                 </div>
                 <div className="border-t pt-4 dark:border-neutral-700">
                     <label className="block text-sm font-medium">{t('cmpx.common.supervisor_pin')}</label>
