@@ -538,6 +538,8 @@ export type CartItem = Product & {
     productId?: string;
     variationId?: string;
     variationName?: string;
+    /** Precio cambiado en la caja con PIN de gerente: precio original y quién lo autorizó. */
+    priceOverride?: { originalPrice: number; authorizedBy: string };
 };
 
 export interface Sale {

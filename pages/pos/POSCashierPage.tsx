@@ -254,6 +254,8 @@ export const POSCashierPage: React.FC = () => {
     // Menú "Opciones" del cliente activo (pagar cuenta, ver estado de cuenta).
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
+    // Cambio de precio de una línea pendiente de autorizar con PIN de gerente.
+    const [pendingPrice, setPendingPrice] = useState<{ id: string; price: number } | null>(null);
     // Producto de precio manual esperando que el cajero ingrese el precio.
     const [manualPriceProduct, setManualPriceProduct] = useState<Product | null>(null);
     // Siempre apunta al handler vigente de atajos de pago F1..F6 (sin closures obsoletos).
@@ -327,7 +329,7 @@ export const POSCashierPage: React.FC = () => {
 
     
     // Modal states
-    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | 'clientCredit' | 'clientAccount' | null;
+    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | 'clientCredit' | 'clientAccount' | 'priceAuth' | null;
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     
     const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
@@ -927,6 +929,31 @@ export const POSCashierPage: React.FC = () => {
             removeCartItem(itemToDelete.id);
             setActiveModal(null);
             setItemToDelete(null);
+            return true;
+        } catch (err) {
+            return err instanceof ApiError ? err.message : false;
+        }
+    };
+
+    // Cambiar el precio de una línea: se pide el PIN del gerente y, si es válido, se aplica
+    // guardando el precio original y quién autorizó (se ve en "Modificar línea").
+    const handleRequestPriceChange = (id: string, price: number) => {
+        setPendingPrice({ id, price });
+        setActiveModal('priceAuth');
+    };
+    const handleConfirmPriceChange = async (pin: string): Promise<boolean | string> => {
+        if (!pendingPrice) return false;
+        try {
+            const { manager } = await authService.verifySupervisorPin(pin);
+            const who = `${manager?.name || ''} ${manager?.lastName || ''}`.trim() || 'Gerente';
+            setCart(prev => prev.map(item => item.id === pendingPrice.id ? {
+                ...item,
+                unitPrice: pendingPrice.price,
+                priceOverride: { originalPrice: item.priceOverride?.originalPrice ?? item.unitPrice, authorizedBy: who },
+            } : item));
+            toast.success(`Precio cambiado a $${pendingPrice.price.toFixed(2)} (autorizó ${who})`);
+            setPendingPrice(null);
+            setActiveModal(null);
             return true;
         } catch (err) {
             return err instanceof ApiError ? err.message : false;
@@ -1677,7 +1704,7 @@ export const POSCashierPage: React.FC = () => {
                                                             </span>
                                                         </>
                                                     ) : (
-                                                        <span className="text-xs sm:text-base text-neutral-500">${item.unitPrice.toFixed(2)} /u</span>
+                                                        <span className="text-xs sm:text-base text-neutral-500">${item.unitPrice.toFixed(2)} /u{item.priceOverride && <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400" title={`Precio original $${item.priceOverride.originalPrice.toFixed(2)} · autorizó ${item.priceOverride.authorizedBy}`}>· precio cambiado</span>}</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -1939,6 +1966,7 @@ export const POSCashierPage: React.FC = () => {
                 onNote={updateItemNote}
                 onDiscount={handleOpenDiscountModal}
                 onDelete={(item) => { setEditingLineId(null); handleRequestItemDelete(item); }}
+                onPriceChange={handleRequestPriceChange}
             />
 
             {/* Precio manual: pide el precio al agregar un producto de servicio / "Solo Precio". */}
@@ -2004,6 +2032,13 @@ export const POSCashierPage: React.FC = () => {
                     <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title={t('posx.cashier.scan_product')} />
                 </Suspense>
             )}
+            <POSActionAuthModal
+                isOpen={activeModal === 'priceAuth'}
+                onClose={() => { setActiveModal(null); setPendingPrice(null); }}
+                onConfirm={handleConfirmPriceChange}
+                title="Autorizar cambio de precio"
+                message={pendingPrice ? `Para cambiar el precio a $${pendingPrice.price.toFixed(2)} se necesita el PIN del gerente.` : ''}
+            />
             <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => setActiveModal(null)} onConfirm={handleConfirmItemDelete} title={t('posx.cashier.confirm_delete')} message={t('posx.cashier.confirm_delete_msg')} />
             {selectedCajaId && (
                 <EndShiftModal
