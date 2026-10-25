@@ -530,6 +530,8 @@ export const InvoicesListPage: React.FC = () => {
             <div className="flex justify-between items-center mb-2">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.title')}</h1>
                 <div className="flex items-center gap-2">
+                    {/* Reportes de facturas (facturado, cobrado, por cobrar; por cliente/proyecto/estado…) */}
+                    <button onClick={() => navigate('/pos/reports?section=invoices')} className={BUTTON_SECONDARY_SM_CLASSES}>Reportes</button>
                     <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
                     {!showDeleted && <button onClick={() => { if (showForm) { setShowForm(false); resetForm(); } else { resetForm(); setShowForm(true); } }} className={showForm ? BUTTON_CLOSE_SM_CLASSES : BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.invoices.close') : t('posx.invoices.new_invoice_btn')}</button>}
                 </div>

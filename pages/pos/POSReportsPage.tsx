@@ -12,6 +12,15 @@ import { Modal } from '../../components/Modal';
 import { exportToPDF, exportToExcel, type ExportColumn } from '../../utils/reportExport';
 import { useSearchParams } from 'react-router-dom';
 import { printCuadre } from '../../services/cuadrePrint';
+import { AnalyticsReports } from './AnalyticsReports';
+
+/** Sección de reportes: General (ventas + facturas), Por caja (lo de siempre) o solo Facturas. */
+type Section = 'general' | 'caja' | 'invoices';
+const SECTIONS: { key: Section; label: string; hint: string }[] = [
+    { key: 'general', label: 'General', hint: 'Ventas del POS y facturas: cuánto se ha vendido y ganado' },
+    { key: 'caja', label: 'Por caja', hint: 'Cortes, cuadres, descuadres y movimientos de las cajas' },
+    { key: 'invoices', label: 'Facturas', hint: 'Facturas del módulo Facturas: facturado, cobrado y por cobrar' },
+];
 
 type DateFilterKey = 'today' | 'yesterday' | 'this_month' | 'last_month' | 'last_30_days' | 'last_90_days' | 'custom';
 
@@ -120,9 +129,13 @@ export const POSReportsPage: React.FC = () => {
     const [branchId, setBranchId] = useState('');
     const [cajaId, setCajaId] = useState('');
     // ?tab=cortes (menú "Cuadres diarios") abre directo los cuadres guardados.
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabKey>(() => (searchParams.get('tab') as TabKey) || 'resumen');
     useEffect(() => { const tab = searchParams.get('tab') as TabKey | null; if (tab) setActiveTab(tab); }, [searchParams]);
+    // ?section=general|caja|invoices. Con ?tab=… (p. ej. "Cuadres diarios") se abre "Por caja".
+    const sectionParam = searchParams.get('section') as Section | null;
+    const section: Section = sectionParam && SECTIONS.some(s => s.key === sectionParam) ? sectionParam : (searchParams.get('tab') ? 'caja' : 'general');
+    const setSection = (s: Section) => setSearchParams(s === 'general' ? {} : { section: s }, { replace: true });
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any>(null);
@@ -159,7 +172,8 @@ export const POSReportsPage: React.FC = () => {
         } finally { setLoading(false); }
     }, [activeTab, filters, cajaId]);
 
-    useEffect(() => { load(); }, [load]);
+    // Los datos de caja solo se piden en la sección "Por caja".
+    useEffect(() => { if (section === 'caja') load(); }, [load, section]);
 
     const openSessionDetail = async (sessionId: string) => {
         try { setDetailSession(await cajaReportsService.sessionDetail(sessionId)); }
@@ -168,8 +182,20 @@ export const POSReportsPage: React.FC = () => {
 
     return (
         <div>
-            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-4">{t('posx.reports.title')}</h1>
+            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 mb-1">{t('posx.reports.title')}</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{SECTIONS.find(s => s.key === section)?.hint}</p>
 
+            {/* Sección: General / Por caja / Facturas */}
+            <div className="inline-flex rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden mb-5">
+                {SECTIONS.map(s => (
+                    <button key={s.key} type="button" onClick={() => setSection(s.key)}
+                        className={`px-5 py-2 text-sm font-semibold transition-colors ${section === s.key ? 'bg-primary text-white' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}>
+                        {s.label}
+                    </button>
+                ))}
+            </div>
+
+            {section !== 'caja' ? <AnalyticsReports scope={section} /> : (<>
             {/* Filtros compartidos */}
             <div className="flex flex-wrap gap-2 mb-4 items-end bg-neutral-50 dark:bg-neutral-700/50 p-3 rounded-md">
                 <div>
@@ -245,6 +271,7 @@ export const POSReportsPage: React.FC = () => {
 
             {!loading && !data && activeTab !== 'x' && <EmptyState title={t('posx.reports.noDataTitle')} description={t('posx.reports.noDataDesc')} />}
             {!loading && activeTab === 'x' && !cajaId && <EmptyState title={t('posx.reports.selectRegisterTitle')} description={t('posx.reports.selectRegisterDesc')} />}
+            </>)}
 
             {/* Detalle Z reimprimible */}
             {detailSession && <SessionDetailModal detail={detailSession} onClose={() => setDetailSession(null)} />}

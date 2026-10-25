@@ -88,3 +88,28 @@ export const cajaReportsService = {
       currentSession: { expectedCash: number; openingFloat: number } | null;
     }>('/cajas/reports/daily', { cajaId, startDate, endDate } as any),
 };
+
+// ── Ventas y ganancia (Reportes › General / Facturas) ──
+export type AnalyticsScope = 'general' | 'pos' | 'invoices';
+export type AnalyticsGroupBy = 'day' | 'month' | 'client' | 'project' | 'product' | 'category' | 'department' | 'caja' | 'branch' | 'seller' | 'paymentMethod' | 'status' | 'type';
+export interface AnalyticsFilters {
+  scope: AnalyticsScope; groupBy: AnalyticsGroupBy; startDate?: string; endDate?: string;
+  branchId?: string; cajaId?: string; clientId?: string; projectId?: string;
+  categoryId?: string; departmentId?: string; productId?: string; sellerId?: string;
+}
+export interface AnalyticsRow {
+  key: string; label: string; count: number; qty: number;
+  net: number; tax: number; total: number; cost: number; profit: number; margin: number | null;
+  pending: number; paid: number;
+}
+export interface AnalyticsReport {
+  scope: AnalyticsScope; groupBy: AnalyticsGroupBy; seriesUnit: 'day' | 'month';
+  summary: AnalyticsRow & { salesCount: number; invoicesCount: number; returnsCount: number; returns: number; avgTicket: number };
+  rows: AnalyticsRow[];
+  series: { key: string; total: number; net: number; profit: number }[];
+  truncated: boolean;
+  notes: { invoicesExcluded: boolean };
+}
+export const analyticsService = {
+  get: (f: AnalyticsFilters) => api.get<AnalyticsReport>('/cajas/reports/analytics', f as any),
+};
