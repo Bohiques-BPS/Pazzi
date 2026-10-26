@@ -63,6 +63,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [section, setSection] = useState<string>(task.section || '');
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<TaskCommentRecord[]>(((task as any).comments as TaskCommentRecord[]) || []);
+    // Edición de un comentario propio (corregir errores).
+    const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+    const [editCommentText, setEditCommentText] = useState('');
+    const [savingComment, setSavingComment] = useState(false);
+    const saveCommentEdit = async (commentId: string) => {
+        const text = editCommentText.trim();
+        setSavingComment(true);
+        try {
+            const updated = await tasksService.updateComment(task.id, commentId, text);
+            setComments(prev => prev.map(c => c.id === commentId ? { ...c, text: updated.text, editedAt: updated.editedAt } : c));
+            setEditingCommentId(null);
+        } catch (err: any) {
+            toast.error(err?.message || 'No se pudo editar el comentario.');
+        } finally { setSavingComment(false); }
+    };
     const [commentImage, setCommentImage] = useState<string | null>(null);
     const [uploadingCommentImg, setUploadingCommentImg] = useState(false);
     const commentFileRef = React.useRef<HTMLInputElement>(null);
@@ -948,11 +963,36 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                     <div className="space-y-3 max-h-48 overflow-y-auto pr-2 bg-neutral-50 dark:bg-neutral-700/50 p-2 rounded-md">
                         {sortedComments.length > 0 ? sortedComments.map(comment => (
                             <div key={comment.id} id={`task-comment-${comment.id}`} className={`text-base rounded-md transition-shadow ${flashCommentId === comment.id ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-neutral-800' : ''}`}>
-                                <div className="flex justify-between items-baseline">
+                                <div className="flex justify-between items-baseline gap-2">
                                     <span className="font-semibold text-primary/80 dark:text-accent/80">{comment.senderName || t('cmpx.common.user')}</span>
-                                    <span className="text-xs text-neutral-400">{new Date(comment.timestamp).toLocaleString()}</span>
+                                    <span className="flex items-baseline gap-2 text-xs text-neutral-400">
+                                        {comment.editedAt && <span className="italic" title={`Editado ${new Date(comment.editedAt).toLocaleString()}`}>(editado)</span>}
+                                        {new Date(comment.timestamp).toLocaleString()}
+                                        {/* Solo el autor puede corregir su comentario. */}
+                                        {currentUser && comment.senderId === currentUser.id && editingCommentId !== comment.id && (
+                                            <button type="button" onClick={() => { setEditingCommentId(comment.id); setEditCommentText(comment.text || ''); }} className="font-medium text-primary hover:underline">Editar</button>
+                                        )}
+                                    </span>
                                 </div>
-                                {comment.text && <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{renderCommentText(comment.text)}</p>}
+                                {editingCommentId === comment.id ? (
+                                    <div className="space-y-1.5">
+                                        <textarea
+                                            value={editCommentText}
+                                            onChange={e => setEditCommentText(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Escape') { e.preventDefault(); setEditingCommentId(null); }
+                                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveCommentEdit(comment.id); }
+                                            }}
+                                            rows={3}
+                                            autoFocus
+                                            className="w-full text-sm p-2 rounded border border-primary/50 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100"
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <button type="button" onClick={() => setEditingCommentId(null)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                                            <button type="button" onClick={() => saveCommentEdit(comment.id)} disabled={savingComment || (!editCommentText.trim() && !comment.imageUrl)} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{savingComment ? 'Guardando…' : 'Guardar'}</button>
+                                        </div>
+                                    </div>
+                                ) : comment.text && <p className="text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-600/50 p-1.5 rounded whitespace-pre-wrap">{renderCommentText(comment.text)}</p>}
                                 {comment.imageUrl && (
                                     <button type="button" onClick={() => setZoomImage(comment.imageUrl!)} className="inline-block mt-1">
                                         <img src={comment.imageUrl} alt="imagen" className="max-h-40 rounded border border-neutral-200 dark:border-neutral-600 cursor-zoom-in" />

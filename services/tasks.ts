@@ -35,6 +35,8 @@ export interface TaskCommentRecord {
   timestamp: string;
   senderName?: string;
   imageUrl?: string | null;
+  /** Última edición del texto por su autor (se muestra "editado"). */
+  editedAt?: string | null;
 }
 
 export interface ChecklistItem {
@@ -116,6 +118,10 @@ export const tasksService = {
   /** Personas que se pueden etiquetar en los comentarios: colaboradores del proyecto + gerente. */
   mentionable: (id: string) =>
     api.get<{ userId: string; name: string; role: string }[]>(`/tasks/${id}/mentionable`),
+
+  /** El autor corrige el texto de su comentario. */
+  updateComment: (id: string, commentId: string, text: string) =>
+    api.put<TaskCommentRecord>(`/tasks/${id}/comments/${commentId}`, { text }),
 
   getComments: (id: string) =>
     api.get<TaskCommentRecord[]>(`/tasks/${id}/comments`),
