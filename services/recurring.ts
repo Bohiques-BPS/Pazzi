@@ -123,6 +123,8 @@ export const recurringService = {
     create: (data: CreateRecurringInput) => api.post<{ recurring: RecurringPayment; warning?: string }>('/payments/recurring', data),
     update: (id: string, data: UpdateRecurringInput) => api.put<{ recurring: RecurringPayment; warning?: string }>(`/payments/recurring/${id}`, data),
     /** force=true: el usuario confirmó cobrar aunque hubo un cobro hace pocos minutos (409 RECENT_CHARGE). */
+    /** Reenvía por correo el enlace de enrolamiento (autorizar tarjeta). */
+    sendEnroll: (id: string, email?: string) => api.post<{ sent: boolean; to: string }>(`/payments/recurring/${id}/send-enroll`, email ? { email } : {}),
     chargeNow: (id: string, force = false) => api.post<{ status: string; message: string; reference?: string }>(`/payments/recurring/${id}/charge`, { force }),
     setStatus: (id: string, action: 'pause' | 'resume' | 'cancel') => api.post<RecurringPayment>(`/payments/recurring/${id}/${action}`),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
