@@ -481,7 +481,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 ) : archivedTasks.length === 0 ? (
                     <p className="text-neutral-500 dark:text-neutral-400 py-8 px-2">{t('cmpx.task.archived_empty')}</p>
                 ) : archivedColumns.names.map(col => { const list = archivedColumns.map[col] || []; return (
-                    <div key={col} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[75vh] opacity-95">
+                    <div key={col} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[max(20rem,calc(100vh-18rem))] opacity-95">
                         <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg gap-1">
                             <span className="truncate flex items-center gap-1.5" title={col}><ArchiveBoxIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />{col}</span>
                             <span className="flex items-center gap-1 flex-shrink-0">
@@ -529,7 +529,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                         key={status}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, status)}
-                        className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[75vh]"
+                        className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[max(20rem,calc(100vh-18rem))]"
                     >
                         <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg gap-1">
                            <span className="truncate" title={status}>{status}</span>
