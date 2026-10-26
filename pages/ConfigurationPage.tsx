@@ -9,6 +9,7 @@ import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
 import { ClockIcon, WrenchScrewdriverIcon, EyeIcon, ArrowPathIcon, SunIcon, MoonIcon, ExclamationTriangleIcon } from '../components/icons';
 import { toast } from '../hooks/useToast';
 import { timezoneOptions } from '../utils/timezones';
+import { DATE_FORMATS } from '../utils/dateFormat';
 
 export const ConfigurationPage: React.FC = () => {
     const { settings, updateSettings } = useGlobalSettings();
@@ -98,6 +99,30 @@ export const ConfigurationPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {isManager && (
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('config.date_format')}</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {DATE_FORMATS.map(f => (
+                                    <button
+                                        key={f.key}
+                                        type="button"
+                                        onClick={() => updateSettings({ dateFormat: f.key } as any)}
+                                        className={`py-2 px-3 rounded-md border text-sm transition-all text-left ${
+                                            (settings.dateFormat || 'DD/MM/YYYY') === f.key
+                                                ? 'bg-primary text-white border-primary ring-2 ring-offset-1 ring-primary dark:ring-offset-neutral-800'
+                                                : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600'
+                                        }`}
+                                    >
+                                        <span className="block font-semibold tabular-nums">{f.example}</span>
+                                        <span className="block text-[11px] opacity-75">{f.key}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t('config.date_format_hint')}</p>
+                        </div>
+                        )}
 
                         {isManager && (
                         <div>

@@ -123,6 +123,8 @@ export const DEFAULT_PAYMENT_METHOD_SCOPES: PaymentMethodScopes = { branchDisabl
 export interface GlobalSettings {
     timezone: string;
     numberFormat: 'comma_decimal' | 'dot_decimal'; // comma_decimal = 1,000.00; dot_decimal = 1.000,00
+    /** Formato de fecha de toda la web (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, …). Lo elige el gerente. */
+    dateFormat?: string;
     language: 'es' | 'en';
     fontSize: 'sm' | 'md' | 'lg';
     defaultTaxRate: number; // Universal IVU

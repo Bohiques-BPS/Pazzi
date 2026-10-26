@@ -3,6 +3,10 @@ import React, { useState, createContext, useContext, useEffect, useCallback } fr
 import { GlobalSettings, DEFAULT_RECEIPT_CONFIG, DEFAULT_PAYMENT_METHODS, DEFAULT_PAYMENT_METHOD_SCOPES } from '../types';
 import { api } from '../services/api';
 import { setDefaultTaxRates } from '../utils/taxBreakdown';
+import { installDateFormat, setDateFormat } from '../utils/dateFormat';
+
+// Las fechas sin formato explícito (toLocaleDateString()) siguen el formato elegido por el gerente.
+installDateFormat();
 import { LEADS_I18N } from '../i18n/leads';
 
 export interface GlobalSettingsContextType {
@@ -18,6 +22,7 @@ export const GlobalSettingsContext = createContext<GlobalSettingsContextType | n
 const DEFAULT_SETTINGS: GlobalSettings = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     numberFormat: 'comma_decimal',
+    dateFormat: 'DD/MM/YYYY',
     language: 'es',
     fontSize: 'md',
     defaultTaxRate: 0.115, // Default IVU in PR is 11.5%
@@ -563,6 +568,8 @@ export const TRANSLATIONS = {
         'config.timezone_help': 'Esto afectará a los relojes del sistema y registros de fecha/hora.',
         'config.language': 'Idioma de la Interfaz',
         'config.number_format': 'Formato de Números',
+        'config.date_format': 'Formato de Fecha',
+        'config.date_format_hint': 'Se usa en toda la web para todos los usuarios de la tienda. Los campos para elegir fecha usan el formato del navegador.',
         'config.appearance': 'Apariencia',
         'config.font_size': 'Tamaño de Fuente Global',
         'config.default_tax': 'Tasa de Impuesto Universal (IVU)',
@@ -4170,6 +4177,8 @@ export const TRANSLATIONS = {
         'config.timezone_help': 'This will affect system clocks and date/time records.',
         'config.language': 'Interface Language',
         'config.number_format': 'Number Format',
+        'config.date_format': 'Date Format',
+        'config.date_format_hint': 'Used across the whole app for every user of the store. Date pickers use the browser format.',
         'config.appearance': 'Appearance',
         'config.font_size': 'Global Font Size',
         'config.default_tax': 'Universal Tax Rate (SUT)',
@@ -7296,6 +7305,9 @@ export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
     // Tasas de IVU para desglosar Estatal/Municipal en recibos y facturas que solo guardan el total.
     useEffect(() => { setDefaultTaxRates(settings.taxStateRate, settings.taxMunicipalRate); }, [settings.taxStateRate, settings.taxMunicipalRate]);
+    // Formato de fecha de toda la web. setDateFormat corre ANTES de pintar (en el render) para que la
+    // primera pantalla ya salga con el formato correcto.
+    setDateFormat(settings.dateFormat, settings.language);
 
     const loadSettings = useCallback(async () => {
         try {
