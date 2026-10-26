@@ -15,9 +15,22 @@ const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 
 /** Convierte una venta del backend al formato de recibo para reimprimir. */
 export function toReceiptSale(sale: any): ReceiptSale {
-    const payments = Array.isArray(sale.payments) && sale.payments.length
-        ? sale.payments.map((p: any) => ({ method: p.paymentMethodUsed, amount: p.amountPaid, reference: p.notes || undefined }))
-        : [{ method: sale.paymentMethod || 'Pago', amount: sale.totalAmount }];
+    // Notas internas que el sistema pone por defecto: no son una referencia real del pago.
+    const realRef = (n?: string | null) => (n && !/^pago desde pos$/i.test(n.trim()) ? n : undefined);
+    const change = Number(sale.changeDue) || 0;
+    let pendingChange = change;
+    const payments = (Array.isArray(sale.payments) && sale.payments.length
+        ? sale.payments.map((p: any) => ({ method: p.paymentMethodUsed, amount: p.amountPaid, reference: realRef(p.notes) }))
+        : [{ method: sale.paymentMethod || 'Pago', amount: sale.totalAmount }])
+        // Igual que el recibo original: el efectivo muestra lo ENTREGADO (aplicado + cambio).
+        .map((p: any) => {
+            if (pendingChange > 0.001 && /efectivo|cash/i.test(p.method || '')) {
+                const out = { ...p, amount: Math.round((p.amount + pendingChange) * 100) / 100 };
+                pendingChange = 0;
+                return out;
+            }
+            return p;
+        });
     return {
         saleNumber: sale.saleNumber != null ? String(sale.saleNumber) : String(sale.id).slice(0, 8),
         date: sale.date,
@@ -30,7 +43,7 @@ export function toReceiptSale(sale: any): ReceiptSale {
         discount: sale.discountAmount ?? 0,
         total: sale.totalAmount,
         payments,
-        changeDue: 0,
+        changeDue: change,
         clientName: sale.client ? clientDocName(sale.client) : undefined,
         cashierName: sale.employee ? `${sale.employee.name} ${sale.employee.lastName || ''}`.trim() : undefined,
     };

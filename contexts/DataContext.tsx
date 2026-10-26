@@ -807,6 +807,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 items,
                 // Estimados cobrados en esta venta: el BE los enlaza y los marca "Convertido".
                 relatedEstimateIds: (saleData as any).relatedEstimateIds || [],
+                // Vuelto entregado: la reimpresión lo necesita para mostrar entregado y cambio.
+                changeDue: (saleData as any).changeDue || 0,
             } as any);
 
             const newSale: Sale = {

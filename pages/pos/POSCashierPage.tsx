@@ -255,6 +255,8 @@ export const POSCashierPage: React.FC = () => {
     // Menú "Opciones" del cliente activo (pagar cuenta, ver estado de cuenta).
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
+    // Resumen de la última venta (total, recibido, cambio) visible con el carrito vacío.
+    const [lastSaleSummary, setLastSaleSummary] = useState<{ saleNumber: string; total: number; received: number; change: number; methods: string } | null>(null);
     // "Artículo general": Enter con el buscador vacío → línea libre con cantidad y precio.
     const [showGeneralItem, setShowGeneralItem] = useState(false);
     const [addingGeneral, setAddingGeneral] = useState(false);
@@ -1141,6 +1143,7 @@ export const POSCashierPage: React.FC = () => {
                 isExternal: isExternalSale,
                 allowOversell,
                 relatedEstimateIds: cartEstimateIds,
+                changeDue: changeDue || 0,
             } as any, selectedBranchId);
         } catch (err: any) {
             // La venta NO se guardó: mostramos un modal claro y conservamos el carrito para reintentar.
@@ -1160,6 +1163,13 @@ export const POSCashierPage: React.FC = () => {
         const folio = (created as any)?.saleNumber;
         const saleNumber = folio ? String(folio) : `V-${Date.now().toString().slice(-6)}`;
         setLastReceipt({ ...receiptSnapshot, saleNumber });
+        // Total y cambio quedan EN PANTALLA (carrito vacío) hasta empezar la próxima venta.
+        setLastSaleSummary({
+            saleNumber, total: receiptSnapshot.total,
+            received: receiptSnapshot.payments.reduce((a, p) => a + p.amount, 0),
+            change: changeDue || 0,
+            methods: [...new Set(payments.map(p => p.method))].join(' + '),
+        });
 
         // (Sin overlay grande de cambio: el cambio ya se ve en el modal de pago "Cambio a Devolver"
         //  y en el recibo. Antes salía a pantalla completa; el cliente pidió quitarlo.)
@@ -1727,7 +1737,31 @@ export const POSCashierPage: React.FC = () => {
                     </div>
                     <div className="flex-grow overflow-y-auto">
                         {cart.length === 0 ? (
-                            <div className="flex items-center justify-center h-full"><p className="text-neutral-400 dark:text-neutral-500">{t('pos.empty_cart')}</p></div>
+                            <div className="flex flex-col items-center justify-center h-full gap-4 p-4">
+                                {lastSaleSummary && (
+                                    <div className="w-full max-w-md rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm overflow-hidden">
+                                        <div className="flex items-center justify-between px-4 py-2 bg-neutral-50 dark:bg-neutral-900/60 border-b border-neutral-200 dark:border-neutral-700">
+                                            <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">Última venta #{lastSaleSummary.saleNumber}</span>
+                                            <span className="text-xs text-neutral-400">{lastSaleSummary.methods}</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 divide-x divide-neutral-200 dark:divide-neutral-700 text-center">
+                                            <div className="py-3">
+                                                <p className="text-xs uppercase tracking-wide text-neutral-500">Total</p>
+                                                <p className="text-2xl font-bold tabular-nums text-neutral-800 dark:text-neutral-100">${lastSaleSummary.total.toFixed(2)}</p>
+                                            </div>
+                                            <div className="py-3">
+                                                <p className="text-xs uppercase tracking-wide text-neutral-500">Recibido</p>
+                                                <p className="text-2xl font-bold tabular-nums text-neutral-800 dark:text-neutral-100">${lastSaleSummary.received.toFixed(2)}</p>
+                                            </div>
+                                            <div className="py-3 bg-emerald-50 dark:bg-emerald-900/20">
+                                                <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Cambio</p>
+                                                <p className="text-3xl font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">${lastSaleSummary.change.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <p className="text-neutral-400 dark:text-neutral-500">{t('pos.empty_cart')}</p>
+                            </div>
                         ) : (
                             <div className="divide-y divide-gray-200 dark:divide-neutral-700">
                                 {cart.map(item => (
