@@ -24,6 +24,26 @@ interface ProjectTaskBoardProps {
 const DEFAULT_COLUMNS = [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.FOR_APPROVAL, TaskStatus.DONE] as string[];
 
 export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId }) => {
+    // Alto de cada columna = lo que queda de pantalla debajo del tablero (medido, no fijo): así la
+    // última tarea se ve completa sin scroll de la página, con cualquier tamaño de letra o ventana.
+    const boardRef = useRef<HTMLDivElement | null>(null);
+    const [colMax, setColMax] = useState<number | null>(null);
+    useEffect(() => {
+        const measure = () => {
+            const el = boardRef.current;
+            if (!el) return;
+            const main = el.closest('main');
+            const top = el.getBoundingClientRect().top + (main ? main.scrollTop : 0) - (main ? main.getBoundingClientRect().top : 0);
+            const viewport = main ? main.clientHeight : window.innerHeight;
+            const padBottom = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
+            // − padding inferior de la página − pb-2 del tablero (barra de scroll horizontal) − margen.
+            setColMax(Math.max(320, Math.floor(viewport - top - padBottom - 20)));
+        };
+        measure();
+        const id = window.setTimeout(measure, 300); // tras cargar secciones/filtros que cambian el alto de arriba
+        window.addEventListener('resize', measure);
+        return () => { window.clearTimeout(id); window.removeEventListener('resize', measure); };
+    });
     const { t } = useTranslation();
     const { tasks, setTasks, addTask, updateTask, taskComments, getAllEmployees, projects, setProjects } = useData();
     const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -475,13 +495,13 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 )}
             </div>
             {showArchived ? (
-            <div className="flex gap-4 overflow-x-auto pb-2 items-start">
+            <div ref={boardRef} style={{ ['--task-col-max' as any]: colMax ? `${colMax}px` : undefined }} className="flex gap-4 overflow-x-auto pb-2 items-start">
                 {archivedLoading ? (
                     <p className="text-neutral-500 dark:text-neutral-400 py-8 px-2">{t('cmpx.task.loading')}</p>
                 ) : archivedTasks.length === 0 ? (
                     <p className="text-neutral-500 dark:text-neutral-400 py-8 px-2">{t('cmpx.task.archived_empty')}</p>
                 ) : archivedColumns.names.map(col => { const list = archivedColumns.map[col] || []; return (
-                    <div key={col} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[max(20rem,calc(100vh-18rem))] opacity-95">
+                    <div key={col} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[var(--task-col-max,75vh)] opacity-95">
                         <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg gap-1">
                             <span className="truncate flex items-center gap-1.5" title={col}><ArchiveBoxIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" />{col}</span>
                             <span className="flex items-center gap-1 flex-shrink-0">
@@ -523,13 +543,13 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                 ); })}
             </div>
             ) : (
-            <div className="flex gap-4 overflow-x-auto pb-2 items-start">
+            <div ref={boardRef} style={{ ['--task-col-max' as any]: colMax ? `${colMax}px` : undefined }} className="flex gap-4 overflow-x-auto pb-2 items-start">
                 {columnNames.map((status) => { const columnTasks = columns[status] || []; const tasksInColumn = searchTerm ? columnTasks.filter(matchesSearch) : columnTasks; return (
                     <div
                         key={status}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, status)}
-                        className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[max(20rem,calc(100vh-18rem))]"
+                        className="bg-slate-100 dark:bg-slate-800 rounded-xl p-2 flex flex-col w-72 flex-shrink-0 max-h-[var(--task-col-max,75vh)]"
                     >
                         <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 flex justify-between items-center text-lg gap-1">
                            <span className="truncate" title={status}>{status}</span>
