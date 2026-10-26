@@ -659,6 +659,8 @@ export const APP_MODULES_CONFIG = [
       { type: 'link', name: 'Dashboard Admin', path: '/admin/dashboard', icon: HomeIcon },
       { type: 'link', name: 'Datos del Negocio', path: '/admin/business', icon: BuildingStorefrontIcon },
       { type: 'link', name: 'Módulos del Sistema', path: '/admin/modules', icon: Squares2X2Icon },
+      // Ajustes del negocio que heredan todos los empleados (zona horaria, formatos, IVU, lealtad…).
+      { type: 'link', name: 'Configuración', path: '/admin/settings', icon: Cog6ToothIcon },
       { type: 'link', name: 'Alertas por Correo', path: '/admin/alerts', icon: BellIcon },
       { type: 'link', name: 'Bitácora de accesos', path: '/admin/access-log', icon: ClockIcon },
       { type: 'link', name: 'WhatsApp', path: '/admin/whatsapp', icon: ChatBubbleLeftRightIcon },

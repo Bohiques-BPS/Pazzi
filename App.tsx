@@ -138,6 +138,7 @@ const PublicEnrollPage = lazyNamed(() => import('./pages/pos/PublicEnrollPage'),
 const AdminDashboardPage = lazyNamed(() => import('./pages/admin/AdminDashboardPage'), 'AdminDashboardPage');
 const AdminBusinessPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminBusinessPage');
 const AdminModulesPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminModulesPage');
+const AdminSettingsPage = lazyNamed(() => import('./pages/admin/AdminSettingsPage'), 'AdminSettingsPage');
 const AdminAlertsPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminAlertsPage');
 const AdminAccessLogPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminAccessLogPage');
 const AdminWhatsappPage = lazyNamed(() => import('./pages/admin/AdminSections'), 'AdminWhatsappPage');
@@ -520,6 +521,7 @@ const AppContent: React.FC = () => {
                 <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                 <Route path="/admin/business" element={<AdminBusinessPage />} />
                 <Route path="/admin/modules" element={<AdminModulesPage />} />
+                <Route path="/admin/settings" element={<AdminSettingsPage />} />
                 <Route path="/admin/alerts" element={<AdminAlertsPage />} />
                 <Route path="/admin/access-log" element={<AdminAccessLogPage />} />
                 <Route path="/admin/whatsapp" element={<AdminWhatsappPage />} />
