@@ -1,0 +1,1 @@
+import{aj as e}from"./index-Dj9ps-cy.js";const c={getProducts:t=>e.get("/public/products",t),getProduct:t=>e.get(`/public/products/${t}`),getStoreSettings:t=>e.get(`/public/store/${t}`),createOrder:t=>e.post("/public/orders",t),getOrder:(t,r)=>e.get(`/public/orders/${t}`,{email:r})};export{c as p};

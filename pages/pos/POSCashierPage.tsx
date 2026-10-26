@@ -35,6 +35,7 @@ import { CajaHistoryModal } from '../../components/pos/CajaHistoryModal';
 import { ReprintModal, toReceiptSale } from '../../components/pos/ReprintModal';
 import { CartLineModal } from '../../components/pos/CartLineModal';
 import { ManualPriceModal } from '../../components/pos/ManualPriceModal';
+import { GeneralItemModal } from '../../components/pos/GeneralItemModal';
 import { PunchModal } from '../../components/pos/PunchModal';
 import { productsService } from '../../services/products';
 
@@ -254,6 +255,10 @@ export const POSCashierPage: React.FC = () => {
     // Menú "Opciones" del cliente activo (pagar cuenta, ver estado de cuenta).
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
+    // "Artículo general": Enter con el buscador vacío → línea libre con cantidad y precio.
+    const [showGeneralItem, setShowGeneralItem] = useState(false);
+    const [addingGeneral, setAddingGeneral] = useState(false);
+    const generalItemRef = useRef<Product | null>(null);
     // Estimados cargados en el carrito: al cobrar quedan "Convertido" y enlazados a la venta.
     const [cartEstimateIds, setCartEstimateIds] = useState<string[]>([]);
     const pendingEstimateIdsRef = useRef<string[]>([]);
@@ -775,6 +780,25 @@ export const POSCashierPage: React.FC = () => {
         if (!projectId || autoLoadedProjectRef.current === projectId) return;
         // Automático solo con el carrito vacío, para no duplicar ni mezclar con lo que ya se marcó.
         if (cart.length === 0) { autoLoadedProjectRef.current = projectId; loadProjectResources(projectId); }
+    };
+
+    // Agrega el "Artículo general" (producto de servicio de la tienda; se crea la primera vez). Cada
+    // uno es una línea propia (id único) porque cada artículo general tiene su propio precio.
+    const handleAddGeneralItem = async (quantity: number, unitPrice: number, note: string) => {
+        setAddingGeneral(true);
+        try {
+            if (!generalItemRef.current) generalItemRef.current = await productsService.generalItem();
+            const g = generalItemRef.current;
+            addResolvedToCart({
+                ...g, id: `${g.id}::gen-${Date.now()}`, productId: g.id, unitPrice, quantity,
+                isManual: true, ...(note ? { note } : {}),
+            } as CartItem);
+            setShowGeneralItem(false);
+        } catch (err: any) {
+            toast.error(err?.message || 'No se pudo agregar el artículo general.');
+        } finally {
+            setAddingGeneral(false);
+        }
     };
 
     const addResolvedToCart = (item: CartItem) => {
@@ -1683,6 +1707,7 @@ export const POSCashierPage: React.FC = () => {
                                     inputRef={productSearchRef}
                                     onRemoteSearch={searchProductsRemote}
                                     onEmptyArrowLeft={() => quantityInputRef.current?.focus()}
+                                    onEmptyEnter={() => { if (isShiftActive && !activeModal) setShowGeneralItem(true); }}
                                     disabled={!isShiftActive}
                                     autoFocus
                                     placeholder={t('posx.cashier.product_search_placeholder')}
@@ -2009,6 +2034,14 @@ export const POSCashierPage: React.FC = () => {
                 product={manualPriceProduct}
                 onClose={() => setManualPriceProduct(null)}
                 onConfirm={handleAddManualPrice}
+            />
+
+            {/* Artículo general: Enter con el buscador vacío. */}
+            <GeneralItemModal
+                isOpen={showGeneralItem}
+                onClose={() => { setShowGeneralItem(false); productSearchRef.current?.focus(); }}
+                onConfirm={handleAddGeneralItem}
+                loading={addingGeneral}
             />
 
             {selectedCajaId && (

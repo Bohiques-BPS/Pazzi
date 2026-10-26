@@ -17,6 +17,8 @@ interface MoneyInputProps {
     autoFocus?: boolean;
     /** Se dispara con Enter (útil en modales de precio manual). */
     onEnter?: () => void;
+    /** Referencia al <input> (p. ej. para pasarle el foco desde otro campo). */
+    inputRef?: React.Ref<HTMLInputElement>;
 }
 
 /** Deja solo dígitos y UN separador decimal; convierte "," a ".". Sin negativos. */
@@ -42,7 +44,7 @@ const asDisplay = (value: number | string | null | undefined): string => {
  * decimal y formatea a 2 decimales al salir del campo. Emite un string numérico ("12.50").
  */
 export const MoneyInput: React.FC<MoneyInputProps> = ({
-    value, onChange, currency, placeholder, className, disabled, id, name, autoFocus, onEnter,
+    value, onChange, currency, placeholder, className, disabled, id, name, autoFocus, onEnter, inputRef,
 }) => {
     const defaultCurrency = useCurrency();
     const sym = (currency || defaultCurrency || '$');
@@ -60,6 +62,7 @@ export const MoneyInput: React.FC<MoneyInputProps> = ({
                 {sym}
             </span>
             <input
+                ref={inputRef}
                 type="text"
                 inputMode="decimal"
                 id={id}

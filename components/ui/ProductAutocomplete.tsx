@@ -31,6 +31,8 @@ interface ProductAutocompleteProps {
     autoFocus?: boolean;
     /** Se llama al presionar ← con el buscador vacío (para mover el foco al input de cantidad). */
     onEmptyArrowLeft?: () => void;
+    /** Se llama al presionar Enter con el buscador vacío (POS: abre "Artículo general"). */
+    onEmptyEnter?: () => void;
 }
 
 export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
@@ -42,6 +44,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onRemoteSearch,
     autoFocus = false,
     onEmptyArrowLeft,
+    onEmptyEnter,
 }) => {
     const { t } = useTranslation();
     const resolvedPlaceholder = placeholder ?? t('cmpx.product_ac.search_ph');
@@ -214,6 +217,11 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         if (disabled) return;
 
         // Atajo: con el buscador vacío, ← mueve el foco al input de cantidad.
+        if (event.key === 'Enter' && searchTerm.trim() === '' && onEmptyEnter) {
+            event.preventDefault();
+            onEmptyEnter();
+            return;
+        }
         if (event.key === 'ArrowLeft' && searchTerm === '' && onEmptyArrowLeft) {
             event.preventDefault();
             onEmptyArrowLeft();

@@ -1,4 +1,5 @@
 import { api } from './api';
+import type { Product } from '../types';
 
 export interface ProductFilters {
   search?: string;
@@ -45,6 +46,8 @@ export const normalizeProductFromApi = (p: any) => ({
 });
 
 export const productsService = {
+  /** "Artículo general" del POS (se crea la primera vez; no lleva inventario). */
+  generalItem: () => api.post<Product>('/products/general-item', {}),
   getAll: (filters?: ProductFilters) =>
     api.get<any[]>('/products', filters as any),
 
