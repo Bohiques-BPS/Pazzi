@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal, ConfirmationModal } from '../Modal';
 import { Lead, Pipeline, LeadSource, LeadActivity, LeadNote, LeadTag, LeadCustomField, LeadTemplate } from '../../types';
@@ -116,6 +116,11 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
 
   const [actType, setActType] = useState<LeadActivity['type']>('call');
   const [actBody, setActBody] = useState('');
+  // Eliminar una nota del seguimiento pide confirmación (antes la ✕ borraba al instante).
+  const [activityToDelete, setActivityToDelete] = useState<LeadActivity | null>(null);
+  const actBodyRef = useRef<HTMLTextAreaElement | null>(null);
+  // Al registrar (texto vacío) el cuadro vuelve a su alto normal.
+  useEffect(() => { if (!actBody && actBodyRef.current) actBodyRef.current.style.height = ''; }, [actBody]);
   const [actDue, setActDue] = useState('');
   const [addingAct, setAddingAct] = useState(false);
 
@@ -568,7 +573,17 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                     <select value={actType} onChange={e => setActType(e.target.value as any)} className={inputFormStyle + ' !w-auto'}>
                       {Object.keys(ACTIVITY_META).map(k => <option key={k} value={k}>{activityLabel(k)}</option>)}
                     </select>
-                    <input value={actBody} onChange={e => setActBody(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddActivity(); } }} placeholder={t('leads.detail.activity_ph')} className={inputFormStyle + ' flex-1 min-w-[160px]'} />
+                    {/* Cuadro que crece con el texto (antes una sola línea: no se veía lo escrito).
+                        Enter registra; Shift+Enter hace salto de línea. */}
+                    <textarea
+                      ref={actBodyRef}
+                      value={actBody}
+                      onChange={e => { setActBody(e.target.value); const el = e.currentTarget; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 240)}px`; }}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddActivity(); } }}
+                      placeholder={`${t('leads.detail.activity_ph')} (Shift+Enter: nueva línea)`}
+                      rows={2}
+                      className={inputFormStyle + ' !h-auto order-first basis-full resize-y min-h-[3.5rem]'}
+                    />
                     <input type="datetime-local" value={actDue} onChange={e => setActDue(e.target.value)} title={t('leads.detail.schedule_hint')} className={inputFormStyle + ' !w-auto'} />
                     <button onClick={handleAddActivity} disabled={addingAct} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{actDue ? t('leads.detail.schedule') : t('leads.detail.log')}</button>
                   </div>
@@ -584,13 +599,13 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
                           <input type="checkbox" checked={a.done} disabled={!canEdit} onChange={() => toggleActivityDone(a)} className={`${CHECKBOX} mt-1.5 flex-shrink-0`} title={t('leads.detail.mark_done')} />
                           <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary dark:text-teal-300 flex items-center justify-center flex-shrink-0"><Icon className="w-4 h-4" /></span>
                           <div className="min-w-0 flex-1">
-                            <p className={`text-sm ${a.done ? 'text-neutral-500 dark:text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'}`}><span className="font-semibold">{a.title || activityLabel(a.type)}</span>{a.body ? `: ${a.body}` : ''}</p>
+                            <p className={`text-sm whitespace-pre-wrap break-words ${a.done ? 'text-neutral-500 dark:text-neutral-400' : 'text-neutral-700 dark:text-neutral-200'}`}><span className="font-semibold">{a.title || activityLabel(a.type)}</span>{a.body ? `: ${a.body}` : ''}</p>
                             <p className="text-xs text-neutral-400">
                               {a.createdByName || ''} · {new Date(a.createdAt).toLocaleString()}
                               {a.dueAt && <span className={overdue ? 'text-red-500 dark:text-red-400 font-semibold' : ''}> · {overdue ? t('leads.detail.overdue') : t('leads.detail.scheduled')} {new Date(a.dueAt).toLocaleString()}</span>}
                             </p>
                           </div>
-                          {canEdit && <button type="button" onClick={() => deleteActivity(a)} className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 transition-opacity p-0.5 flex-shrink-0" aria-label={t('leads.detail.delete_activity')} title={t('leads.detail.delete_activity')}><XMarkIcon className="w-4 h-4" /></button>}
+                          {canEdit && <button type="button" onClick={() => setActivityToDelete(a)} className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500 transition-opacity p-0.5 flex-shrink-0" aria-label={t('leads.detail.delete_activity')} title={t('leads.detail.delete_activity')}><XMarkIcon className="w-4 h-4" /></button>}
                         </li>
                       );
                     })}
@@ -739,6 +754,14 @@ export const LeadDetailModal: React.FC<Props> = ({ lead: initialLead, pipelines,
         </div>
       </Modal>
 
+      <ConfirmationModal
+        isOpen={!!activityToDelete}
+        onClose={() => setActivityToDelete(null)}
+        onConfirm={() => { if (activityToDelete) deleteActivity(activityToDelete); setActivityToDelete(null); }}
+        title={t('leads.detail.delete_activity')}
+        message={activityToDelete ? `¿Eliminar esta nota del seguimiento?${activityToDelete.body ? `\n\n"${activityToDelete.body.length > 160 ? activityToDelete.body.slice(0, 157) + '…' : activityToDelete.body}"` : ''}` : ''}
+        confirmButtonText={t('leads.common.delete')}
+      />
       <ConfirmationModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={handleDelete} title={t('leads.detail.delete_title')} message={t('leads.detail.delete_message', { name: lead.name })} confirmButtonText={t('leads.common.delete')} />
 
       {zoomImage && (
