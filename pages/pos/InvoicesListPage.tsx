@@ -755,10 +755,11 @@ export const InvoicesListPage: React.FC = () => {
                                         );
                                     })()}
                                 </div>
-                                <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.invoices.qty_placeholder')} className={`${INPUT_SM_CLASSES} w-20`} />
-                                <div className="w-32"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={INPUT_SM_CLASSES} /></div>
-                                <span className="w-24 text-right text-sm text-neutral-500">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
-                                <button onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
+                                <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.invoices.qty_placeholder')} className={`${INPUT_SM_CLASSES} w-20 flex-shrink-0`} />
+                                <div className="w-32 flex-shrink-0"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={INPUT_SM_CLASSES} /></div>
+                                {/* Total de la línea: no se encoge (antes, con nombres largos, se cortaba y solo se veía "00"). */}
+                                <span className="min-w-[6rem] flex-shrink-0 whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
+                                <button onClick={() => removeLine(i)} className="flex-shrink-0 text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
                               </div>
                               {/* Descripción opcional por línea (sale debajo del nombre si está activado en Config. Factura). */}
                               <input type="text" value={l.description || ''} onChange={e => setLine(i, { description: e.target.value })} placeholder={t('cmpx.invoice.item_line_description_ph')} className={`${INPUT_SM_CLASSES} w-full !text-xs`} />

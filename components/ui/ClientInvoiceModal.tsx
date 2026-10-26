@@ -193,10 +193,10 @@ export const ClientInvoiceModal: React.FC<ClientInvoiceModalProps> = ({ isOpen, 
                                         if (pd && (!l.description || !l.description.trim())) patch.description = pd;
                                         setLine(i, patch);
                                     }} placeholder={t('cmpx.invoice.item_desc_ph')} className={`${INPUT_SM_CLASSES} flex-1`} />
-                                    <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('cmpx.invoice.item_qty_ph')} className={`${INPUT_SM_CLASSES} w-20`} />
-                                    <input type="number" value={l.unitPrice} onChange={e => setLine(i, { unitPrice: e.target.value })} placeholder={t('cmpx.invoice.item_price_ph')} className={`${INPUT_SM_CLASSES} w-28`} />
-                                    <span className="w-24 text-right text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
-                                    <button type="button" onClick={() => removeLine(i)} className="text-red-500 hover:text-red-700 px-1" title={t('cmpx.invoice.remove')}>✕</button>
+                                    <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('cmpx.invoice.item_qty_ph')} className={`${INPUT_SM_CLASSES} w-20 flex-shrink-0`} />
+                                    <input type="number" value={l.unitPrice} onChange={e => setLine(i, { unitPrice: e.target.value })} placeholder={t('cmpx.invoice.item_price_ph')} className={`${INPUT_SM_CLASSES} w-28 flex-shrink-0`} />
+                                    <span className="min-w-[6rem] flex-shrink-0 whitespace-nowrap text-right text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
+                                    <button type="button" onClick={() => removeLine(i)} className="flex-shrink-0 text-red-500 hover:text-red-700 px-1" title={t('cmpx.invoice.remove')}>✕</button>
                                 </div>
                                 {/* Descripción opcional por línea (se muestra debajo del nombre si está activado en Config. Factura). */}
                                 <input type="text" value={l.description || ''} onChange={e => setLine(i, { description: e.target.value })} placeholder={t('cmpx.invoice.item_line_description_ph')} className={`${INPUT_SM_CLASSES} w-full !text-xs`} />
