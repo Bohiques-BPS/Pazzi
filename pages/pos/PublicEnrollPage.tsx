@@ -70,6 +70,11 @@ export const PublicEnrollPage: React.FC = () => {
                         <div className="flex justify-between font-bold text-neutral-900 dark:text-white pt-1 border-t border-neutral-100 dark:border-neutral-700">
                             <span>{t('enroll.per_period')}</span><span>{money(data.amount)} · {freq}</span>
                         </div>
+                        {(data.periodsDue ?? 1) > 1 && (
+                            <div className="flex justify-between font-bold text-amber-700 dark:text-amber-400 pt-1">
+                                <span>Hoy se cobran {data.periodsDue} períodos vencidos</span><span>{money(data.amountDue ?? data.amount)}</span>
+                            </div>
+                        )}
                         {data.description && <p className="text-xs text-neutral-500 pt-1">{data.description}</p>}
                     </div>
 
@@ -90,7 +95,7 @@ export const PublicEnrollPage: React.FC = () => {
                             <div className={accepted ? '' : 'opacity-50 pointer-events-none select-none'} aria-disabled={!accepted}>
                                 {!accepted && <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">{t('enroll.terms_required')}</p>}
                                 <AgilPayCardForm
-                                    amount={data.amount}
+                                    amount={data.amountDue ?? data.amount}
                                     t={t}
                                     onSuccess={() => setDone(true)}
                                     chargeFn={async (card) => {

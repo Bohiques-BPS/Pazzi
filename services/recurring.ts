@@ -159,6 +159,9 @@ export interface PublicEnroll {
     enrolled: boolean;
     clientName?: string | null;
     amount: number;
+    /** Períodos vencidos que se cobran al autorizar (enrolamiento tardío) y el total de hoy. */
+    periodsDue?: number;
+    amountDue?: number;
     items?: RecurringItem[] | null;
     interval: RecurringPayment['interval'];
     intervalCount?: number;
