@@ -104,6 +104,8 @@ export const RecurringPaymentsPage: React.FC = () => {
     const [sendEnrollFor, setSendEnrollFor] = useState<RecurringPayment | null>(null);
     const [sendEnrollEmail, setSendEnrollEmail] = useState('');
     const [sendingEnroll, setSendingEnroll] = useState(false);
+    // Paso de confirmación: "¿Seguro que quieres enviar el correo a …?"
+    const [confirmSendEnroll, setConfirmSendEnroll] = useState(false);
     const submitSendEnroll = async () => {
         if (!sendEnrollFor) return;
         setSendingEnroll(true);
@@ -111,6 +113,7 @@ export const RecurringPaymentsPage: React.FC = () => {
             const r = await recurringService.sendEnroll(sendEnrollFor.id, sendEnrollEmail.trim() || undefined);
             toast.success(`Enlace enviado a ${r.to}`);
             setSendEnrollFor(null);
+            setConfirmSendEnroll(false);
         } catch (err: any) {
             toast.error(err?.message || 'No se pudo enviar el correo.');
         } finally { setSendingEnroll(false); }
@@ -835,20 +838,31 @@ export const RecurringPaymentsPage: React.FC = () => {
             <Modal isOpen={!!sendEnrollFor} onClose={() => setSendEnrollFor(null)} title="Enviar enlace de enrolamiento" size="sm">
                 <div className="space-y-3">
                     <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                        Se enviará el correo de autorización (plantilla de Pagos recurrentes) con el enlace para que {sendEnrollFor?.clientName || 'el cliente'} registre su tarjeta.
+                        Le llegará a <strong>{sendEnrollFor?.clientName || 'el cliente'}</strong> un correo con el botón <strong>"Autorizar pago recurrente"</strong>. Al abrirlo, el cliente ingresa su tarjeta y se hace el primer cobro de <strong>${(sendEnrollFor?.amount ?? 0).toFixed(2)}</strong>.
+                    </p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Revisa que el correo sea el correcto antes de enviarlo.
                     </p>
                     <div>
                         <label className="block text-xs text-neutral-500 mb-1">Correo del cliente</label>
                         <input type="email" value={sendEnrollEmail} onChange={e => setSendEnrollEmail(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitSendEnroll(); } }}
+                            onKeyDown={e => { if (e.key === 'Enter' && sendEnrollEmail.trim()) { e.preventDefault(); setConfirmSendEnroll(true); } }}
                             placeholder="cliente@correo.com" className={`${INPUT_SM_CLASSES} w-full`} autoFocus />
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={() => setSendEnrollFor(null)} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                        <button type="button" onClick={submitSendEnroll} disabled={sendingEnroll || !sendEnrollEmail.trim()} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{sendingEnroll ? 'Enviando…' : 'Enviar'}</button>
+                        <button type="button" onClick={() => setConfirmSendEnroll(true)} disabled={sendingEnroll || !sendEnrollEmail.trim()} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{sendingEnroll ? 'Enviando…' : 'Enviar'}</button>
                     </div>
                 </div>
             </Modal>
+            <ConfirmationModal
+                isOpen={confirmSendEnroll && !!sendEnrollFor}
+                onClose={() => setConfirmSendEnroll(false)}
+                onConfirm={submitSendEnroll}
+                title="¿Enviar el correo?"
+                message={`¿Seguro que quieres enviar el enlace para autorizar el pago recurrente a ${sendEnrollEmail.trim()}?`}
+                confirmButtonText="Sí, enviar"
+            />
 
             <ConfirmationModal
                 isOpen={!!toCancel}
