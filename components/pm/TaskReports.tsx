@@ -96,11 +96,15 @@ export const TaskReports: React.FC = () => {
 
     const periodLabel = PERIODS.find(p => p.key === period)?.label || '';
     const s = data?.summary;
+    // Columnas abiertas (Por realizar, En progreso, Para aprobar…) para desglosar cada fila.
+    const openStatuses = (data?.byStatus || []).map(b => b.status);
     const groupRows: TaskReportRow[] = view === 'user' ? (data?.byUser || []) : (data?.byProject || []);
     const groupCols: ExportColumn[] = [
         { header: view === 'user' ? 'Colaborador' : 'Proyecto', key: 'label' },
         { header: 'Completadas', key: 'completed' }, { header: 'Creadas', key: 'created' },
-        { header: 'Abiertas (hoy)', key: 'open' }, { header: 'Vencidas', key: 'overdue' },
+        { header: 'Abiertas (hoy)', key: 'open' },
+        ...openStatuses.map(st => ({ header: st, key: `st:${st}` })),
+        { header: 'Vencidas', key: 'overdue' },
         { header: 'A tiempo', key: 'onTime' }, { header: 'Prom. para completar', key: 'avg' },
     ];
     const taskCols: ExportColumn[] = [
@@ -115,7 +119,7 @@ export const TaskReports: React.FC = () => {
         }
         : {
             title: `Tareas por ${view === 'user' ? 'colaborador' : 'proyecto'} — ${periodLabel}`, cols: groupCols,
-            rows: groupRows.map(r => ({ label: r.label, completed: r.completed, created: r.created, open: r.open, overdue: r.overdue, onTime: pct(r.onTimeRate), avg: days(r.avgDays) })),
+            rows: groupRows.map(r => ({ label: r.label, completed: r.completed, created: r.created, open: r.open, ...Object.fromEntries(openStatuses.map(st => [`st:${st}`, r.openByStatus?.[st] ?? 0])), overdue: r.overdue, onTime: pct(r.onTimeRate), avg: days(r.avgDays) })),
         };
     const canExport = view === 'tasks' ? !!data?.tasks.length : groupRows.length > 0;
 
@@ -176,7 +180,9 @@ export const TaskReports: React.FC = () => {
                     <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 ${loading ? 'opacity-60' : ''}`}>
                         <Kpi title="Completadas" value={String(s.completed)} sub="en el período" tone="green" />
                         <Kpi title="Creadas" value={String(s.created)} sub="en el período" />
-                        <Kpi title="Abiertas" value={String(s.open)} sub={s.openOverdue ? `${s.openOverdue} con fecha vencida` : 'estado actual'} tone={s.openOverdue ? 'red' : 'default'} />
+                        <Kpi title="Abiertas" value={String(s.open)}
+                            sub={[data!.byStatus.map(b => `${b.count} ${b.status.toLowerCase()}`).join(' · '), s.openOverdue ? `${s.openOverdue} con fecha vencida` : ''].filter(Boolean).join(' — ') || 'estado actual'}
+                            tone={s.openOverdue ? 'red' : 'default'} />
                         <Kpi title="Vencidas" value={String(s.overdue)} sub="vencían en el período y no se terminaron a tiempo" tone={s.overdue ? 'red' : 'default'} />
                         <Kpi title="A tiempo" value={pct(s.onTimeRate)} sub="de las completadas" tone="green" />
                         <Kpi title="Tiempo promedio" value={days(s.avgDays)} sub="de creada a completada" />
@@ -236,6 +242,7 @@ export const TaskReports: React.FC = () => {
                                                 <th className={`${thCls} text-right`}>Completadas</th>
                                                 <th className={`${thCls} text-right`}>Creadas</th>
                                                 <th className={`${thCls} text-right`}>Abiertas (hoy)</th>
+                                                {openStatuses.map(st => <th key={st} className={`${thCls} text-right normal-case`} title="Abiertas en esta columna">{st}</th>)}
                                                 <th className={`${thCls} text-right`}>Vencidas</th>
                                                 <th className={`${thCls} text-right`}>A tiempo</th>
                                                 <th className={`${thCls} text-right`}>Prom. para completar</th>
@@ -248,7 +255,10 @@ export const TaskReports: React.FC = () => {
                                                     <td className="px-3 py-2 font-medium">{r.label}</td>
                                                     <td className="px-3 py-2 text-right tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">{r.completed}</td>
                                                     <td className="px-3 py-2 text-right tabular-nums">{r.created}</td>
-                                                    <td className="px-3 py-2 text-right tabular-nums">{r.open}</td>
+                                                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{r.open}</td>
+                                                    {openStatuses.map(st => (
+                                                        <td key={st} className={`px-3 py-2 text-right tabular-nums ${r.openByStatus?.[st] ? '' : 'text-neutral-300 dark:text-neutral-600'}`}>{r.openByStatus?.[st] ?? 0}</td>
+                                                    ))}
                                                     <td className={`px-3 py-2 text-right tabular-nums ${r.overdue ? 'text-red-600 dark:text-red-400 font-semibold' : ''}`}>{r.overdue}</td>
                                                     <td className="px-3 py-2 text-right tabular-nums">{pct(r.onTimeRate)}</td>
                                                     <td className="px-3 py-2 text-right tabular-nums">{days(r.avgDays)}</td>

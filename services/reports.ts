@@ -119,6 +119,8 @@ export interface TaskReportRow {
   key: string; label: string;
   open: number; created: number; completed: number; overdue: number;
   onTimeRate: number | null; avgDays: number | null;
+  /** Abiertas por columna del tablero (p. ej. { "En progreso": 4, "Para aprobar": 33 }). */
+  openByStatus: Record<string, number>;
 }
 export interface TaskReportItem {
   id: string; title: string; projectId: string; project: string; status: string; archived: boolean;
