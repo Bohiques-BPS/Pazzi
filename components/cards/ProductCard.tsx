@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Product } from '../../types'; // Adjusted path
 import { EllipsisVerticalIcon, ListBulletIcon as HistoryIcon, Cog6ToothIcon as AdjustIcon, EditIcon, DeleteIcon } from '../icons'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // For getting default branch stock (optional display)
@@ -26,6 +27,29 @@ const PinIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onRequestDelete, onAdjustStock, onViewHistory, selected, onToggleSelect }) => {
     const [actionsOpen, setActionsOpen] = useState(false);
+    // El menú se pinta en un portal con posición fija: dentro de la tarjeta lo recortaba el
+    // overflow-hidden (y el translate del hover rompe el `fixed` de los hijos).
+    const menuBtnRef = useRef<HTMLButtonElement>(null);
+    const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+    const openMenu = () => {
+        const r = menuBtnRef.current?.getBoundingClientRect();
+        if (!r) return;
+        const right = Math.max(8, window.innerWidth - r.right);
+        // Si no cabe debajo, se abre hacia arriba.
+        setMenuPos(window.innerHeight - r.bottom < 260 && r.top > 260
+            ? { bottom: window.innerHeight - r.top + 4, right }
+            : { top: r.bottom + 4, right });
+        setActionsOpen(true);
+    };
+    useEffect(() => {
+        if (!actionsOpen) return;
+        const close = () => setActionsOpen(false);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+        window.addEventListener('keydown', onKey);
+        return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); window.removeEventListener('keydown', onKey); };
+    }, [actionsOpen]);
     const { t } = useTranslation();
     const { branches } = useData();
     const activeBranches = branches.filter(b => b.isActive);
@@ -100,13 +124,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
 
                 {/* Menú de acciones */}
                 <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={(e) => { e.stopPropagation(); setActionsOpen(!actionsOpen); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/95 dark:bg-neutral-900/90 text-neutral-600 dark:text-neutral-200 hover:bg-primary hover:text-white dark:hover:bg-primary border border-neutral-200 dark:border-neutral-600 shadow-sm backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`} aria-label={t('cmp.productcard.options') || 'Opciones'} title={t('cmp.productcard.options') || 'Opciones'}>
+                    <button ref={menuBtnRef} onClick={(e) => { e.stopPropagation(); if (actionsOpen) setActionsOpen(false); else openMenu(); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/95 dark:bg-neutral-900/90 text-neutral-600 dark:text-neutral-200 hover:bg-primary hover:text-white dark:hover:bg-primary border border-neutral-200 dark:border-neutral-600 shadow-sm backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors" aria-haspopup="true" aria-expanded={actionsOpen} aria-controls={`product-actions-${product.id}`} aria-label={t('cmp.productcard.options') || 'Opciones'} title={t('cmp.productcard.options') || 'Opciones'}>
                         <EllipsisVerticalIcon className="w-5 h-5" />
                     </button>
-                    {actionsOpen && (
-                        <>
-                            <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
-                            <div id={`product-actions-${product.id}`} className="absolute right-0 mt-1 w-52 bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-20 border border-neutral-200 dark:border-neutral-600">
+                    {actionsOpen && menuPos && createPortal(
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <div className="fixed inset-0 z-[60]" onClick={() => setActionsOpen(false)} />
+                            <div id={`product-actions-${product.id}`} style={{ position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right }} className="w-56 max-h-[60vh] overflow-y-auto bg-white dark:bg-neutral-700 rounded-md shadow-lg py-1 z-[61] border border-neutral-200 dark:border-neutral-600">
                                 <button onClick={() => { onEdit(product); setActionsOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-base text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600">
                                     <EditIcon className="w-4 h-4 mr-2" /> {t('common.edit')}
                                 </button>
@@ -124,7 +148,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onReq
                                     <DeleteIcon className="w-4 h-4 mr-2" /> {t('common.delete')}
                                 </button>
                             </div>
-                        </>
+                        </div>,
+                        document.body,
                     )}
                 </div>
             </div>
