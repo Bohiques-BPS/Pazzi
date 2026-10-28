@@ -123,6 +123,11 @@ export const tasksService = {
   updateComment: (id: string, commentId: string, text: string) =>
     api.put<TaskCommentRecord>(`/tasks/${id}/comments/${commentId}`, { text }),
 
+  /** Duplica la tarea (y opcionalmente colaboradores, checklist sin marcar y subtareas). */
+  duplicate: (id: string, opts: { title?: string; dueDate?: string | null; status?: string; includeAssignees?: boolean; includeChecklist?: boolean; includeSubtasks?: boolean }) =>
+    api.post<{ task: any; subtasks: any[] }>(`/tasks/${id}/duplicate`, opts)
+      .then(r => ({ task: normalizeTaskFromApi(r.task) as TaskRecord, subtasks: r.subtasks.map(normalizeTaskFromApi) as TaskRecord[] })),
+
   getComments: (id: string) =>
     api.get<TaskCommentRecord[]>(`/tasks/${id}/comments`),
 
