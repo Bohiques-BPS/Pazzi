@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useModules } from '../../hooks/useModules';
 import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { recordPageVisit } from '../../utils/pageTracker';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const SIDEBAR_COLLAPSED_KEY = 'pazzi_sidebar_collapsed';
 
@@ -35,6 +36,8 @@ export const MainLayout: React.FC = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
+  // Título de la pestaña del navegador según la página (p. ej. "PPAZI · Tareas — Pazzi").
+  usePageTitle();
 
   // Confinamiento de clientes de portal: un CLIENT_PROJECT/CLIENT_ECOMMERCE solo puede estar
   // en SU portal. Si navega (por URL) a una página de staff (POS, Tienda, Proyectos, etc.),
