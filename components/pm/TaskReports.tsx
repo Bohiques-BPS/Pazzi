@@ -76,9 +76,9 @@ export const TaskReports: React.FC = () => {
     const [data, setData] = useState<TaskReport | null>(null);
 
     // Colaboradores: la asignación de tareas usa User.id (Employee.userId).
+    // (Sin usuario se manda el Employee.id; el servidor reconoce ambos.)
     const collaborators = useMemo(() => employees
-        .filter(e => (e as any).userId)
-        .map(e => ({ id: (e as any).userId as string, name: `${e.name} ${e.lastName || ''}`.trim() }))
+        .map(e => ({ id: ((e as any).userId || e.id) as string, name: `${e.name} ${e.lastName || ''}`.trim() }))
         .sort((a, b) => a.name.localeCompare(b.name)), [employees]);
     const projectOptions = useMemo(() => [...projects]
         .filter(p => !(p as any).billingOnly)
