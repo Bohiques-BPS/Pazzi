@@ -6,6 +6,8 @@ import { DataTable, TableColumn } from '../../components/DataTable';
 import { ChartBarIcon, UsersIcon, BriefcaseIcon, BanknotesIcon, ClockIcon, ExclamationTriangleIcon, ArrowUpIcon, ArrowDownIcon } from '../../components/icons';
 import { INPUT_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import hook
+import { useSearchParams } from 'react-router-dom';
+import { TaskReports } from '../../components/pm/TaskReports';
 
 interface SortConfig<T> {
   key: keyof T | null;
@@ -89,6 +91,10 @@ interface PendingProjectReportItem extends Project {
 export const ProjectReportsPage: React.FC = () => {
     const { t } = useTranslation(); // Use hook
     const { projects, employees, clients, products: allProducts, getClientById } = useData();
+    // Pestañas: ?tab=tasks (Tareas) o Proyectos (por defecto).
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tab: 'projects' | 'tasks' = searchParams.get('tab') === 'tasks' ? 'tasks' : 'projects';
+    const setTab = (t2: 'projects' | 'tasks') => setSearchParams(t2 === 'tasks' ? { tab: 'tasks' } : {}, { replace: true });
 
     // State for Employee Performance Report
     const [employeeSearch, setEmployeeSearch] = useState('');
@@ -349,6 +355,17 @@ export const ProjectReportsPage: React.FC = () => {
         <div className="p-4 sm:p-6 space-y-6">
             <h1 className="text-2xl sm:text-3xl font-semibold text-neutral-800 dark:text-neutral-100">{t('reports.pm.title')}</h1>
 
+            <div className="flex gap-1 border-b border-neutral-200 dark:border-neutral-700">
+                {([['projects', 'Proyectos'], ['tasks', 'Tareas']] as const).map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => setTab(k)}
+                        className={`px-4 py-2 -mb-px text-sm font-semibold border-b-2 transition-colors ${tab === k ? 'border-primary text-primary dark:text-accent' : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            {tab === 'tasks' ? <TaskReports /> : (<>
+
             {renderSection(
                 "reports.pm.employee_performance", <UsersIcon />,
                 <input type="text" placeholder={t('common.search') + "..."} value={employeeSearch} onChange={e => setEmployeeSearch(e.target.value)} className={`${INPUT_SM_CLASSES} mb-3 w-full sm:w-1/2`} />,
@@ -391,6 +408,7 @@ export const ProjectReportsPage: React.FC = () => {
                 </div>,
                 paginatedPendingProjectData, pendingProjectColumns, pendingProjectPage, pendingProjectData.length, setPendingProjectPage
             )}
+            </>)}
         </div>
     );
 };

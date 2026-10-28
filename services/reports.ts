@@ -113,3 +113,30 @@ export interface AnalyticsReport {
 export const analyticsService = {
   get: (f: AnalyticsFilters) => api.get<AnalyticsReport>('/cajas/reports/analytics', f as any),
 };
+
+/** Reportes PM › Tareas (creadas / completadas / vencidas por colaborador y proyecto). */
+export interface TaskReportRow {
+  key: string; label: string;
+  open: number; created: number; completed: number; overdue: number;
+  onTimeRate: number | null; avgDays: number | null;
+}
+export interface TaskReportItem {
+  id: string; title: string; projectId: string; project: string; status: string; archived: boolean;
+  priority?: string | null; isSubtask: boolean; assignees: string[];
+  createdAt: string; dueDate?: string | null; completedAt?: string | null;
+  state: 'on_time' | 'late' | 'overdue' | 'done' | 'open';
+}
+export interface TaskReport {
+  summary: { open: number; created: number; completed: number; overdue: number; openOverdue: number; onTimeRate: number | null; avgDays: number | null };
+  byUser: TaskReportRow[];
+  byProject: TaskReportRow[];
+  byStatus: { status: string; count: number }[];
+  series: { key: string; created: number; completed: number }[];
+  seriesUnit: 'day' | 'month';
+  tasks: TaskReportItem[];
+  truncated: boolean;
+}
+export const taskReportService = {
+  get: (f: { from: string; to: string; projectId?: string; userId?: string }) =>
+    api.get<TaskReport>('/tasks/report', Object.fromEntries(Object.entries(f).filter(([, v]) => v)) as any),
+};

@@ -9,7 +9,7 @@ import { ProjectCard } from '../../components/cards/ProjectCard';
 import { PlusIcon, Squares2X2Icon, ListBulletIcon, EditIcon, DeleteIcon, BriefcaseIcon, ClipboardDocumentListIcon, ChartBarIcon, UserGroupIcon, MagnifyingGlassIcon } from '../../components/icons';
 import { DataTable, TableColumn } from '../../components/DataTable';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
-import { BUTTON_PRIMARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, PROJECT_STATUS_OPTIONS } from '../../constants';
 import { ClientNameLink, EmployeeNameLink } from '../../components/ui/EntityNameLink';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { toast } from 'react-hot-toast';
@@ -232,12 +232,19 @@ export const ProjectsListPage: React.FC = () => {
                         {projects.length} {t('project.list.count_suffix')} · {t('project.list.updated_today')}
                     </p>
                 </div>
-                <button
-                    onClick={() => navigate('/pm/projects/new')}
-                    className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center flex-shrink-0 self-start sm:self-auto`}
-                >
-                    <PlusIcon className="w-5 h-5"/> {t('project.list.create')}
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-auto">
+                    {can('reports.viewProjects') && (
+                        <button onClick={() => navigate('/pm/reports')} className={`${BUTTON_SECONDARY_SM_CLASSES} flex items-center gap-1`}>
+                            <ChartBarIcon className="w-5 h-5" /> Reportes
+                        </button>
+                    )}
+                    <button
+                        onClick={() => navigate('/pm/projects/new')}
+                        className={`${BUTTON_PRIMARY_SM_CLASSES} flex items-center`}
+                    >
+                        <PlusIcon className="w-5 h-5"/> {t('project.list.create')}
+                    </button>
+                </div>
             </div>
 
             {/* KPIs */}
