@@ -25,14 +25,6 @@ export const ProjectsListPage: React.FC = () => {
     const projects = useMemo(() => _allProjects.filter(p => !p.billingOnly), [_allProjects]);
     const navigate = useNavigate();
 
-    // KPIs de la cabecera.
-    const kpis = useMemo(() => ({
-        active: projects.filter(p => p.status === ProjectStatus.ACTIVE).length,
-        completed: projects.filter(p => p.status === ProjectStatus.COMPLETED).length,
-        pendingTasks: tasks.filter(tk => !tk.archived && tk.status !== 'Hecho').length,
-        collaborators: allEmployees.length,
-    }), [projects, tasks, allEmployees]);
-
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
@@ -67,13 +59,6 @@ export const ProjectsListPage: React.FC = () => {
     const [showTasksModal, setShowTasksModal] = useState(false);
     const [showCollabModal, setShowCollabModal] = useState(false);
 
-    // Tareas pendientes (todas las de proyectos, sin archivar y sin completar) con el nombre del proyecto.
-    const pendingTaskRows = useMemo(() => {
-        const projName = new Map(projects.map(p => [p.id, p.name]));
-        return tasks
-            .filter(tk => !tk.archived && tk.status !== 'Hecho')
-            .map(tk => ({ ...tk, projectName: projName.get(tk.projectId) || '—' }));
-    }, [tasks, projects]);
 
 
     const handleViewProject = (project: Project, initialTab: 'details' | 'chat' | 'tasks' = 'details') => {
@@ -126,11 +111,14 @@ export const ProjectsListPage: React.FC = () => {
         .sort((a, b) => a.label.localeCompare(b.label)),
     [allEmployees, projects]);
 
-    const filteredProjects = useMemo(() => {
+    const selectedCollab = useMemo(() => collabOptions.find(o => o.key === collabFilter)?.emp, [collabOptions, collabFilter]);
+
+    // Alcance de los filtros de abajo SIN el estado (colaborador, prefijo, búsqueda): las tarjetas de
+    // arriba se calculan sobre esto (si no, "Completados" daría 0 al filtrar por "Activo").
+    const scopeProjects = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        const collab = collabOptions.find(o => o.key === collabFilter)?.emp;
+        const collab = selectedCollab;
         return projects
-            .filter(project => (statusFilter === 'Todos' || project.status === statusFilter))
             .filter(project => {
                 if (!keyFilter) return true;
                 const k = normalizeProjectKey(project.projectKey);
@@ -146,13 +134,42 @@ export const ProjectsListPage: React.FC = () => {
                 const client = getClientById(project.clientId);
                 const clientName = client ? `${client.name || ''} ${client.lastName || ''} ${client.companyName || ''}`.toLowerCase() : '';
                 return (project.name || '').toLowerCase().includes(q) || clientName.includes(q) || normalizeProjectKey(project.projectKey).toLowerCase() === q;
-            })
-            .sort((a, b) => {
-                const dateA = a.visitDate || a.workStartDate || '0';
-                const dateB = b.visitDate || b.workStartDate || '0';
-                return new Date(dateB).getTime() - new Date(dateA).getTime();
             });
-    }, [projects, statusFilter, searchQuery, getClientById, collabFilter, collabOptions, keyFilter]);
+    }, [projects, searchQuery, getClientById, collabFilter, selectedCollab, keyFilter]);
+
+    const filteredProjects = useMemo(() => scopeProjects
+        .filter(project => (statusFilter === 'Todos' || project.status === statusFilter))
+        .sort((a, b) => {
+            const dateA = a.visitDate || a.workStartDate || '0';
+            const dateB = b.visitDate || b.workStartDate || '0';
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+        }), [scopeProjects, statusFilter]);
+
+    // Tareas pendientes de los proyectos filtrados (sin archivar ni completadas). Con filtro de
+    // colaborador, solo las asignadas a esa persona (por User.id o Employee.id).
+    const pendingTaskRows = useMemo(() => {
+        const projName = new Map(scopeProjects.map(p => [p.id, p.name]));
+        const ids = selectedCollab ? new Set([(selectedCollab as any).userId, selectedCollab.id].filter(Boolean)) : null;
+        return tasks
+            .filter(tk => projName.has(tk.projectId) && !tk.archived && tk.status !== 'Hecho')
+            .filter(tk => !ids || (tk.assignedEmployeeIds || []).some(id => ids.has(id)))
+            .map(tk => ({ ...tk, projectName: projName.get(tk.projectId) || '—' }));
+    }, [tasks, scopeProjects, selectedCollab]);
+
+    // Colaboradores de los proyectos filtrados (sin filtros = todos los empleados).
+    const scopeEmployees = useMemo(() => {
+        if (!collabFilter && !keyFilter && !searchQuery.trim()) return allEmployees;
+        return allEmployees.filter(e => scopeProjects.some(p => isAssigned(p, e)));
+    }, [allEmployees, scopeProjects, collabFilter, keyFilter, searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // KPIs de la cabecera: siguen a los filtros de colaborador, prefijo y búsqueda.
+    const kpis = useMemo(() => ({
+        active: scopeProjects.filter(p => p.status === ProjectStatus.ACTIVE).length,
+        completed: scopeProjects.filter(p => p.status === ProjectStatus.COMPLETED).length,
+        pendingTasks: pendingTaskRows.length,
+        collaborators: scopeEmployees.length,
+    }), [scopeProjects, pendingTaskRows, scopeEmployees]);
+    const hasScopeFilter = !!(collabFilter || keyFilter || searchQuery.trim());
 
     // Prefijos en uso (para el filtro), con cuántos proyectos tiene cada uno.
     const keyOptions = useMemo(() => {
@@ -229,7 +246,7 @@ export const ProjectsListPage: React.FC = () => {
                 <div>
                     <h1 className="text-3xl font-bold text-neutral-800 dark:text-neutral-100">{t('project.list.title')}</h1>
                     <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-                        {projects.length} {t('project.list.count_suffix')} · {t('project.list.updated_today')}
+                        {hasScopeFilter || statusFilter !== 'Todos' ? `${filteredProjects.length} de ${projects.length}` : projects.length} {t('project.list.count_suffix')} · {t('project.list.updated_today')}
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-auto">
@@ -437,8 +454,8 @@ export const ProjectsListPage: React.FC = () => {
             </Modal>
 
             {/* Colaboradores: tabla en la misma vista (antes iba al módulo Tienda). */}
-            <Modal isOpen={showCollabModal} onClose={() => setShowCollabModal(false)} title={`${t('project.kpi.collaborators')} (${allEmployees.length})`} size="3xl">
-                {allEmployees.length === 0 ? (
+            <Modal isOpen={showCollabModal} onClose={() => setShowCollabModal(false)} title={`${t('project.kpi.collaborators')} (${scopeEmployees.length})`} size="3xl">
+                {scopeEmployees.length === 0 ? (
                     <p className="text-center text-neutral-500 dark:text-neutral-400 py-8">{'Sin colaboradores.'}</p>
                 ) : (
                     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700 max-h-[60vh]">
@@ -452,7 +469,7 @@ export const ProjectsListPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
-                                {allEmployees.map((e: any) => (
+                                {scopeEmployees.map((e: any) => (
                                     <tr key={e.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30">
                                         <td className="px-3 py-2">{`${e.name || ''} ${e.lastName || ''}`.trim() || '—'}</td>
                                         <td className="px-3 py-2">{e.email || '—'}</td>
