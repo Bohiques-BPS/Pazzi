@@ -27,7 +27,7 @@ import { projectsService, normalizeProjectFromApi } from '../../services/project
 import { chatService, type ChatMessageRecord } from '../../services/chat';
 import { whatsappService } from '../../services/whatsapp';
 import { getSocket, joinProjectRoom } from '../../services/socket';
-import { markProjectChatRead } from '../../hooks/useChatUnread';
+import { markProjectChatRead, registerOpenChat } from '../../hooks/useChatUnread';
 import { ApiError, API_URL } from '../../services/api';
 import { ProjectInvoicesTab } from '../../components/pm/ProjectInvoicesTab';
 import { ClientProjectsPanel } from '../../components/pm/ClientProjectsPanel';
@@ -829,11 +829,12 @@ const ProjectChatView: React.FC<{ project: Project }> = ({ project }) => {
     // Tiempo real: unirse a la sala del proyecto y escuchar mensajes nuevos por socket.
     useEffect(() => {
         markProjectChatRead(project.id); // ver el chat del proyecto lo marca como leído
+        const unregister = registerOpenChat(project.id); // sin avisos "sin leer" de este chat mientras está abierto
         const leave = joinProjectRoom(project.id);
         const socket = getSocket();
         const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === project.id) { appendMessage(msg); markProjectChatRead(project.id); } };
         socket.on('chat:message', onMessage);
-        return () => { socket.off('chat:message', onMessage); leave?.(); };
+        return () => { socket.off('chat:message', onMessage); leave?.(); unregister(); };
     }, [project.id, appendMessage]);
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);

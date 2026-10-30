@@ -10,7 +10,7 @@ import { CallModal } from '../../components/CallModal';
 import { chatService, type ChatMessageRecord, type ChatLastMessage } from '../../services/chat';
 import { whatsappService } from '../../services/whatsapp';
 import { getSocket, joinProjectRoom } from '../../services/socket';
-import { useChatUnread, markProjectChatRead } from '../../hooks/useChatUnread';
+import { useChatUnread, markProjectChatRead, registerOpenChat } from '../../hooks/useChatUnread';
 import { usePermissions } from '../../hooks/usePermissions';
 import { ApiError, API_URL } from '../../services/api';
 import { toast } from '../../hooks/useToast';
@@ -216,13 +216,14 @@ export const ProjectChatPage: React.FC = () => {
         }
         fetchMessages(selectedProjectId);
         markProjectChatRead(selectedProjectId); // al abrir el chat, se considera leído
+        const unregister = registerOpenChat(selectedProjectId); // sin avisos "sin leer" de este chat mientras está abierto
         const interval = setInterval(() => fetchMessages(selectedProjectId), POLLING_INTERVAL_MS);
         // Tiempo real: unirse a la sala del proyecto y escuchar mensajes nuevos.
         const leave = joinProjectRoom(selectedProjectId);
         const socket = getSocket();
         const onMessage = (msg: ChatMessageRecord) => { if (msg?.projectId === selectedProjectId) { appendMessage(msg); markProjectChatRead(selectedProjectId); } };
         socket.on('chat:message', onMessage);
-        return () => { clearInterval(interval); socket.off('chat:message', onMessage); leave?.(); };
+        return () => { clearInterval(interval); socket.off('chat:message', onMessage); leave?.(); unregister(); };
     }, [selectedProjectId, fetchMessages, appendMessage]);
 
      // Auto-select first project if list changes and current selection is invalid or none

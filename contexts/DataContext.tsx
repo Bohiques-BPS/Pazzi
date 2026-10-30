@@ -12,6 +12,8 @@ import {
 import { useAuth } from './AuthContext'; 
 import { API_URL } from '../services/api';
 import { getSocket } from '../services/socket';
+import { chatService } from '../services/chat';
+import { isChatOpen } from '../hooks/useChatUnread';
 import { toast } from 'react-hot-toast';
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons';
 import { posService } from '../services/pos';
@@ -532,6 +534,12 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
         try { if (Notif && Notif.permission === 'default') Notif.requestPermission().catch(() => {}); } catch { /* noop */ }
         const socket = getSocket();
         const onNotif = (n: any) => {
+            // Mensaje del chat que el usuario ESTÁ viendo: no es "sin leer". Se marca leído (y se
+            // borra de la campanita) sin toast ni popup.
+            if (n?.type === 'chat_message' && isChatOpen(n?.projectId)) {
+                chatService.markRead(n.projectId).catch(() => { /* noop */ }).finally(() => fetchNotifications());
+                return;
+            }
             fetchNotifications();
             const body = String(n?.message || '').slice(0, 120);
             try { toast(`${n?.title || 'Nueva notificación'}${body ? `\n${body}` : ''}`, { icon: '🔔' }); } catch { /* noop */ }

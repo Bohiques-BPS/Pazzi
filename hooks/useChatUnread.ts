@@ -24,6 +24,20 @@ const sendMarkRead = (projectId: string) => {
         });
 };
 
+// Chats que están abiertos AHORA en esta pestaña (contador por proyecto). Sirve para no mostrar
+// el aviso "Mensajes sin leer en …" del chat que el usuario está leyendo.
+const openChats: Record<string, number> = {};
+/** Registra que el chat del proyecto está en pantalla; devuelve la función para quitarlo. */
+export const registerOpenChat = (projectId: string) => {
+    if (!projectId) return () => { /* noop */ };
+    openChats[projectId] = (openChats[projectId] || 0) + 1;
+    return () => { openChats[projectId] = Math.max(0, (openChats[projectId] || 0) - 1); };
+};
+/** ¿El usuario está viendo el chat de este proyecto (pestaña visible)? */
+export const isChatOpen = (projectId?: string | null) =>
+    !!projectId && (openChats[projectId] || 0) > 0
+    && (typeof document === 'undefined' || document.visibilityState === 'visible');
+
 /** Marca un proyecto como leído (al abrir su chat, enviar o recibir con el chat abierto). */
 export const markProjectChatRead = (projectId: string) => {
     if (!projectId) return;
