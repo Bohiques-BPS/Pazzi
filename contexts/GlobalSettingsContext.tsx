@@ -37,6 +37,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     taxReducedRate: 0.06,
     allowEditPaidInvoices: false,
     posPriceChangeRequiresPin: true,
+    posItemDeleteRequiresPin: true,
 };
 
 // --- Translations Dictionary ---

@@ -164,6 +164,25 @@ export const ModulesConfiguration: React.FC = () => {
                     <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 dark:peer-focus:ring-primary/80 rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-neutral-600 peer-checked:bg-primary"></div>
                 </label>
             </div>
+            <div className="flex items-start justify-between gap-4 mt-5 pt-5 border-t border-neutral-200 dark:border-neutral-700">
+                <div className="min-w-0">
+                    <h4 className="font-medium text-neutral-800 dark:text-neutral-100">Pedir PIN de gerente para quitar un producto</h4>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                        Si está activo, el cajero necesita el PIN de un gerente para quitar un producto de la venta en curso.
+                        Si está apagado, lo quita directamente.
+                    </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input
+                        type="checkbox"
+                        checked={settings.posItemDeleteRequiresPin !== false}
+                        onChange={(e) => updateSettings({ posItemDeleteRequiresPin: e.target.checked })}
+                        className="sr-only peer"
+                        aria-label="Pedir PIN de gerente para quitar un producto"
+                    />
+                    <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 dark:peer-focus:ring-primary/80 rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-neutral-600 peer-checked:bg-primary"></div>
+                </label>
+            </div>
         </div>
       </div>
     );

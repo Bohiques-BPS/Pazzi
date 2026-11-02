@@ -943,7 +943,7 @@ export const POSCashierPage: React.FC = () => {
     }, [searchProductsRemote]);
 
     // Cambiar la cantidad NUNCA elimina la línea: se limita a mínimo 1. Quitar un producto del
-    // carrito se hace con el botón de basura (sin PIN). Así, poner 0 no borra el artículo.
+    // carrito se hace con el botón de basura (con o sin PIN según el negocio). Así, poner 0 no borra el artículo.
     const updateQuantity = (productId: string, quantity: number) => {
         setPosError(null);
         const q = Math.max(1, Math.floor(Number(quantity)) || 1);
@@ -961,9 +961,25 @@ export const POSCashierPage: React.FC = () => {
         setCart(prev => prev.map(item => item.id === id ? { ...item, note: note || undefined } : item));
     };
     
-    // Quitar un producto de la venta: directo, sin PIN (pedido del cliente).
+    // Quitar un producto de la venta. Si el negocio lo exige (Administración › Caja Registradora),
+    // se pide el PIN del gerente; si no, se quita directo.
+    const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
     const handleRequestItemDelete = (item: CartItem) => {
-        removeCartItem(item.id);
+        if (settings.posItemDeleteRequiresPin === false) { removeCartItem(item.id); return; }
+        setItemToDelete(item);
+        setActiveModal('deleteItemAuth');
+    };
+    const handleConfirmItemDelete = async (pin: string): Promise<boolean | string> => {
+        if (!itemToDelete) return false;
+        try {
+            await authService.verifySupervisorPin(pin);
+            removeCartItem(itemToDelete.id);
+            setActiveModal(null);
+            setItemToDelete(null);
+            return true;
+        } catch (err) {
+            return err instanceof ApiError ? err.message : false;
+        }
     };
 
     // Cambiar el precio de una línea. Si el negocio lo exige (Administración › Caja Registradora),
@@ -2156,6 +2172,7 @@ export const POSCashierPage: React.FC = () => {
                     <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title={t('posx.cashier.scan_product')} />
                 </Suspense>
             )}
+            <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => { setActiveModal(null); setItemToDelete(null); }} onConfirm={handleConfirmItemDelete} title={t('posx.cashier.confirm_delete')} message={t('posx.cashier.confirm_delete_msg')} />
             <POSActionAuthModal
                 isOpen={activeModal === 'priceAuth'}
                 onClose={() => { setActiveModal(null); setPendingPrice(null); }}

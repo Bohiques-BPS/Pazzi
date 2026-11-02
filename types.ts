@@ -150,6 +150,8 @@ export interface GlobalSettings {
     allowEditPaidInvoices?: boolean;
     /** Caja: cambiar el precio de una línea pide PIN de gerente (default true). */
     posPriceChangeRequiresPin?: boolean;
+    /** Caja: quitar un producto de la venta pide PIN de gerente (default true). */
+    posItemDeleteRequiresPin?: boolean;
     /** Recordatorios automáticos de cobro (clientes con crédito vencido). */
     creditReminderEnabled?: boolean;
     creditReminderDaysAfterDue?: number; // días de gracia tras el vencimiento
