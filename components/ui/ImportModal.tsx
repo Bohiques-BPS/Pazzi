@@ -58,6 +58,9 @@ function guessColumn(field: ImportFieldDef, headers: string[]): string {
         const hit = normHeaders.find(h => h.norm === c);
         if (hit) return hit.raw;
     }
+    // Los campos sí/no solo se mapean por coincidencia EXACTA: el parcial asignaba la columna
+    // "Precio" a "Precio manual" (y un precio "1" se volvía "sí" → pedía precio manual al vender).
+    if (field.type === 'boolean') return '';
     // 2) contiene / contenido — con guardas para evitar falsos positivos.
     // El match inverso (el candidato CONTIENE al header) exige header ≥4 caracteres: si no,
     // headers cortos como "ID" harían match con candidatos que los contienen (p.ej. "vendido"

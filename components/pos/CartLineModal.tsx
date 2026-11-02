@@ -13,12 +13,14 @@ interface CartLineModalProps {
     /** Abre el flujo de descuento por línea (el POS cierra este modal primero). */
     onDiscount: (id: string) => void;
     onDelete: (item: CartItem) => void;
-    /** Pide cambiar el precio unitario (el POS exige PIN de gerente antes de aplicarlo). */
+    /** Pide cambiar el precio unitario (el POS puede exigir PIN de gerente antes de aplicarlo). */
     onPriceChange: (id: string, newPrice: number) => void;
+    /** Si el cambio de precio pide PIN (ajuste del negocio). */
+    priceNeedsPin?: boolean;
 }
 
 /** "Modificar Línea": editar cantidad, comentario, descuento o eliminar un item del carrito. */
-export const CartLineModal: React.FC<CartLineModalProps> = ({ item, onClose, onQuantity, onNote, onDiscount, onDelete, onPriceChange }) => {
+export const CartLineModal: React.FC<CartLineModalProps> = ({ item, onClose, onQuantity, onNote, onDiscount, onDelete, onPriceChange, priceNeedsPin = true }) => {
     const [note, setNote] = useState('');
     const [price, setPrice] = useState('');
     useEffect(() => { if (item) { setNote(item.note || ''); setPrice(item.unitPrice.toFixed(2)); } }, [item?.id, item?.unitPrice]);
@@ -52,7 +54,7 @@ export const CartLineModal: React.FC<CartLineModalProps> = ({ item, onClose, onQ
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium mb-1">Precio unitario <span className="text-xs font-normal text-neutral-400">(requiere PIN del gerente)</span></label>
+                    <label className="block text-sm font-medium mb-1">Precio unitario {priceNeedsPin && <span className="text-xs font-normal text-neutral-400">(requiere PIN del gerente)</span>}</label>
                     <div className="flex items-center gap-2">
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">$</span>

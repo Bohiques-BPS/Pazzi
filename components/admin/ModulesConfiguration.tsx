@@ -135,6 +135,36 @@ export const ModulesConfiguration: React.FC = () => {
                 </label>
             </div>
         </div>
+
+        {/* Ajustes de la Caja Registradora */}
+        <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold text-primary mb-1 flex items-center">
+                <CashBillIcon className="w-5 h-5 mr-2" />
+                Caja Registradora
+            </h2>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+                Controles del cajero en el punto de venta.
+            </p>
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <h4 className="font-medium text-neutral-800 dark:text-neutral-100">Pedir PIN de gerente para cambiar el precio</h4>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                        Si está activo, el cajero necesita el PIN de un gerente para cambiar el precio de un artículo en la venta.
+                        Si está apagado, el cajero puede cambiarlo directamente (queda registrado el precio original).
+                    </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input
+                        type="checkbox"
+                        checked={settings.posPriceChangeRequiresPin !== false}
+                        onChange={(e) => updateSettings({ posPriceChangeRequiresPin: e.target.checked })}
+                        className="sr-only peer"
+                        aria-label="Pedir PIN de gerente para cambiar el precio"
+                    />
+                    <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 dark:peer-focus:ring-primary/80 rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-neutral-600 peer-checked:bg-primary"></div>
+                </label>
+            </div>
+        </div>
       </div>
     );
 };

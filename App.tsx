@@ -248,9 +248,20 @@ const AppContent: React.FC = () => {
                 case UserRole.CLIENT_PROJECT:
                     targetPath = '/project-client/dashboard';
                     break;
-                case UserRole.EMPLOYEE:
-                    targetPath = '/'; // Go to dashboard first
+                case UserRole.EMPLOYEE: {
+                    // Cajero (acceso a caja y sin Proyectos/Tareas/Visitas/Leads): directo a la caja,
+                    // donde elige la caja y pone el fondo inicial del turno. El resto, al inicio.
+                    const p: Record<string, boolean> = (currentUser.permissions as any) || {};
+                    const isCashier = !!(p['pos.access'] || p['pos.sell'])
+                        && !Object.keys(p).some(k => p[k] && /^(projects|tasks|visits|leads)\./.test(k));
+                    if (isCashier) {
+                        // Acaba de entrar con su contraseña: la caja no le vuelve a pedir PIN de acceso.
+                        try { sessionStorage.setItem('pazzi_pos_fresh_login', '1'); } catch { /* noop */ }
+                        setCurrentModule(AppModule.POS);
+                    }
+                    targetPath = isCashier ? '/pos/cashier' : '/';
                     break;
+                }
                 case UserRole.MANAGER:
                     targetPath = '/'; // Go to dashboard first
                     break;

@@ -111,6 +111,9 @@ export const ProductsListPage: React.FC = () => {
     const [selectedSupplier, setSelectedSupplier] = useState<string>('Todos');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'out'>('all');
+    // Solo productos con "pedir precio manual al vender" (para revisar/corregir los marcados por error).
+    const [manualOnly, setManualOnly] = useState(false);
+    const [bulkManualBusy, setBulkManualBusy] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const PAGE_SIZE = 24;
@@ -133,7 +136,23 @@ export const ProductsListPage: React.FC = () => {
     }, [searchTerm]);
 
     // Al cambiar cualquier filtro, volver a la página 1 y limpiar la selección.
-    useEffect(() => { setCurrentPage(1); setSelectedIds(new Set()); }, [debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter]);
+    useEffect(() => { setCurrentPage(1); setSelectedIds(new Set()); }, [debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter, manualOnly]);
+
+    const handleBulkClearManual = async () => {
+        const ids = Array.from(selectedIds);
+        if (ids.length === 0) return;
+        setBulkManualBusy(true);
+        try {
+            const res = await productsService.bulkManualPrice(ids, false);
+            toast.success(`Precio manual quitado a ${res.updated} producto(s)`);
+            clearSelection();
+            setRefreshKey(k => k + 1);
+        } catch (err: any) {
+            toast.error(err?.message || 'No se pudo actualizar');
+        } finally {
+            setBulkManualBusy(false);
+        }
+    };
     // Al cambiar de página también se limpia la selección (las tarjetas cambian).
     useEffect(() => { setSelectedIds(new Set()); }, [currentPage]);
 
@@ -190,6 +209,7 @@ export const ProductsListPage: React.FC = () => {
                 if (selectedSupplier !== 'Todos') params.set('supplierId', selectedSupplier);
                 if (statusFilter !== 'all') params.set('isActive', statusFilter === 'active' ? 'true' : 'false');
                 if (stockFilter !== 'all') params.set('stockStatus', stockFilter);
+                if (manualOnly) params.set('manualPrice', 'true');
                 const response = await fetch(`${API_URL}/products?${params.toString()}`, {
                     method: 'GET',
                     headers: {
@@ -212,7 +232,7 @@ export const ProductsListPage: React.FC = () => {
             }
         };
         fetchProducts();
-    }, [refreshKey, currentPage, debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter, dynamicCategories]);
+    }, [refreshKey, currentPage, debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter, manualOnly, dynamicCategories]);
 
 
     const openModalForCreate = () => {
@@ -479,9 +499,13 @@ export const ProductsListPage: React.FC = () => {
                     <option value="in">{t('pmx.product.stock_in')}</option>
                     <option value="out">{t('pmx.product.stock_out')}</option>
                 </select>
-                {(selectedCategory !== 'Todos' || selectedDepartment !== 'Todos' || selectedSupplier !== 'Todos' || statusFilter !== 'all' || stockFilter !== 'all') && (
+                <label className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer flex-shrink-0">
+                    <input type="checkbox" checked={manualOnly} onChange={e => setManualOnly(e.target.checked)} className="h-4 w-4" />
+                    Con precio manual
+                </label>
+                {(selectedCategory !== 'Todos' || selectedDepartment !== 'Todos' || selectedSupplier !== 'Todos' || statusFilter !== 'all' || stockFilter !== 'all' || manualOnly) && (
                     <button
-                        onClick={() => { setSelectedCategory('Todos'); setSelectedDepartment('Todos'); setSelectedSupplier('Todos'); setStatusFilter('all'); setStockFilter('all'); }}
+                        onClick={() => { setSelectedCategory('Todos'); setSelectedDepartment('Todos'); setSelectedSupplier('Todos'); setStatusFilter('all'); setStockFilter('all'); setManualOnly(false); }}
                         className="text-sm text-primary hover:underline flex-shrink-0"
                     >
                         {t('pmx.common.clear_filters')}
@@ -506,11 +530,21 @@ export const ProductsListPage: React.FC = () => {
                                 <button onClick={() => setShowBulkDeleteConfirm(true)} className="inline-flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700">
                                     <DeleteIcon className="w-4 h-4" /> {t('pmx.product.delete_selected')}
                                 </button>
+                                <button onClick={handleBulkClearManual} disabled={bulkManualBusy} className="text-sm font-medium text-primary hover:underline disabled:opacity-50">
+                                    Quitar precio manual
+                                </button>
                                 <button onClick={clearSelection} className="text-sm text-neutral-500 dark:text-neutral-400 hover:underline">{t('pmx.product.clear_selection')}</button>
                             </div>
                         ) : (
                             paginatedCardProducts.length > 0 && (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('pmx.product.showing_count', { shown: paginatedCardProducts.length, total: totalCount })}</p>
+                                <div className="flex items-center gap-3">
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('pmx.product.showing_count', { shown: paginatedCardProducts.length, total: totalCount })}</p>
+                                    {manualOnly && (
+                                        <button onClick={() => setSelectedIds(new Set(paginatedCardProducts.map(p => p.id)))} className="text-sm text-primary hover:underline">
+                                            Seleccionar esta página
+                                        </button>
+                                    )}
+                                </div>
                             )
                         )}
                     </div>

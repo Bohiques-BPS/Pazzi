@@ -36,6 +36,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     taxMunicipalRate: 0.01,
     taxReducedRate: 0.06,
     allowEditPaidInvoices: false,
+    posPriceChangeRequiresPin: true,
 };
 
 // --- Translations Dictionary ---
@@ -3287,6 +3288,11 @@ export const TRANSLATIONS = {
         'cmpx.payment.ath_received_msg': 'Pago ATH Móvil recibido',
         'cmpx.payment.ath_received_toast': 'Pago ATH Móvil recibido',
         'cmpx.payment.change_due': 'Cambio a Devolver',
+        'cmpx.payment.sale_done': 'Venta completada',
+        'cmpx.payment.sale_number': 'Venta #{n}',
+        'cmpx.payment.new_sale': 'Nueva venta',
+        'cmpx.payment.processing': 'Registrando venta…',
+        'cmpx.payment.methods_used': 'Método',
         'cmpx.payment.change_live': 'Cambio: ${amount}',
         'cmpx.payment.clear': 'Limpiar',
         'cmpx.payment.confirm_manual': 'Confirma el pago manualmente si no se registra automáticamente.',
@@ -6884,6 +6890,11 @@ export const TRANSLATIONS = {
         'cmpx.payment.ath_received_msg': 'ATH Móvil payment received',
         'cmpx.payment.ath_received_toast': 'ATH Móvil payment received',
         'cmpx.payment.change_due': 'Change Due',
+        'cmpx.payment.sale_done': 'Sale completed',
+        'cmpx.payment.sale_number': 'Sale #{n}',
+        'cmpx.payment.new_sale': 'New sale',
+        'cmpx.payment.processing': 'Saving sale…',
+        'cmpx.payment.methods_used': 'Method',
         'cmpx.payment.change_live': 'Change: ${amount}',
         'cmpx.payment.clear': 'Clear',
         'cmpx.payment.confirm_manual': 'Confirm the payment manually if it is not recorded automatically.',

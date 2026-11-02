@@ -256,6 +256,10 @@ export const POSCashierPage: React.FC = () => {
     // Item del carrito en edición ("Modificar Línea"). Guardamos el id para reflejar cambios en vivo.
     const [editingLineId, setEditingLineId] = useState<string | null>(null);
     // Resumen de la última venta (total, recibido, cambio) visible con el carrito vacío.
+    // Venta recién cobrada: la pantalla de pago se queda mostrando cobrado/cambio hasta Enter o ESC.
+    const [paymentDone, setPaymentDone] = useState(false);
+    const [finalizing, setFinalizing] = useState(false);
+    const finalizingRef = useRef(false);
     const [lastSaleSummary, setLastSaleSummary] = useState<{ saleNumber: string; total: number; received: number; change: number; methods: string } | null>(null);
     // "Artículo general": Enter con el buscador vacío → línea libre con cantidad y precio.
     const [showGeneralItem, setShowGeneralItem] = useState(false);
@@ -281,7 +285,10 @@ export const POSCashierPage: React.FC = () => {
     const operatorUserId = operator?.userId || currentUser?.id;
 
     // Shift and security states
-    const [isPosAuthenticated, setIsPosAuthenticated] = useState(false);
+    const [isPosAuthenticated, setIsPosAuthenticated] = useState(() => {
+        try { return sessionStorage.getItem('pazzi_pos_fresh_login') === '1'; } catch { return false; }
+    });
+    useEffect(() => { try { sessionStorage.removeItem('pazzi_pos_fresh_login'); } catch { /* noop */ } }, []);
     // currentSession refleja la CajaSession real del BE para la caja seleccionada.
     const [currentSession, setCurrentSession] = useState<CajaSession | null>(null);
     // shiftState es derivado (mantenemos forma compatible con el resto del componente).
@@ -342,7 +349,6 @@ export const POSCashierPage: React.FC = () => {
     type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | 'clientCredit' | 'clientAccount' | 'priceAuth' | null;
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     
-    const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
     // Producto con variaciones pendiente de elegir (abre el selector de variación).
     const [variationProduct, setVariationProduct] = useState<Product | null>(null);
     const [initialPaymentMethod, setInitialPaymentMethod] = useState<PaymentMethod>('Efectivo');
@@ -581,6 +587,12 @@ export const POSCashierPage: React.FC = () => {
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, []);
+
+    // Cuadre (botón o F7): abre la gaveta en cuanto se elige, para que el cajero cuente el dinero.
+    useEffect(() => {
+        if (activeModal !== 'dailyClose' || !isCashDrawerEnabled()) return;
+        openCashDrawer().catch(err => toast.error(t('posx.cashier.drawer_error', { msg: err?.message || t('posx.cashier.drawer_open_failed') })));
+    }, [activeModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // El overlay del cambio se auto-cierra a los 5s; ESC o clic lo cierran de inmediato.
     useEffect(() => {
@@ -931,15 +943,14 @@ export const POSCashierPage: React.FC = () => {
     }, [searchProductsRemote]);
 
     // Cambiar la cantidad NUNCA elimina la línea: se limita a mínimo 1. Quitar un producto del
-    // carrito solo se hace con el botón de basura, que exige autorización (PIN/contraseña) del
-    // gerente/supervisor. Así, poner 0 no borra el artículo.
+    // carrito se hace con el botón de basura (sin PIN). Así, poner 0 no borra el artículo.
     const updateQuantity = (productId: string, quantity: number) => {
         setPosError(null);
         const q = Math.max(1, Math.floor(Number(quantity)) || 1);
         setCart(prev => prev.map(item => item.id === productId ? { ...item, quantity: q } : item));
     };
 
-    // Elimina realmente la línea del carrito. SOLO debe llamarse tras autorización (delete auth).
+    // Elimina la línea del carrito.
     const removeCartItem = (productId: string) => {
         setPosError(null);
         setCart(prev => prev.filter(item => item.id !== productId));
@@ -950,28 +961,25 @@ export const POSCashierPage: React.FC = () => {
         setCart(prev => prev.map(item => item.id === id ? { ...item, note: note || undefined } : item));
     };
     
+    // Quitar un producto de la venta: directo, sin PIN (pedido del cliente).
     const handleRequestItemDelete = (item: CartItem) => {
-        setItemToDelete(item);
-        setActiveModal('deleteItemAuth');
+        removeCartItem(item.id);
     };
 
-    const handleConfirmItemDelete = async (pin: string): Promise<boolean | string> => {
-        if (!currentUser || !itemToDelete) return false;
-        try {
-            // Eliminar un artículo del carrito requiere PIN de supervisor (gerente).
-            await authService.verifySupervisorPin(pin);
-            removeCartItem(itemToDelete.id);
-            setActiveModal(null);
-            setItemToDelete(null);
-            return true;
-        } catch (err) {
-            return err instanceof ApiError ? err.message : false;
-        }
-    };
-
-    // Cambiar el precio de una línea: se pide el PIN del gerente y, si es válido, se aplica
-    // guardando el precio original y quién autorizó (se ve en "Modificar línea").
+    // Cambiar el precio de una línea. Si el negocio lo exige (Administración › Caja Registradora),
+    // se pide el PIN del gerente; si no, se aplica directo. Siempre se guarda el precio original
+    // y quién lo cambió/autorizó (se ve en "Modificar línea").
+    const priceChangeNeedsPin = settings.posPriceChangeRequiresPin !== false;
     const handleRequestPriceChange = (id: string, price: number) => {
+        if (!priceChangeNeedsPin) {
+            setCart(prev => prev.map(item => item.id === id ? {
+                ...item,
+                unitPrice: price,
+                priceOverride: { originalPrice: item.priceOverride?.originalPrice ?? item.unitPrice, authorizedBy: operatorName || 'Cajero' },
+            } : item));
+            toast.success(`Precio cambiado a $${price.toFixed(2)}`);
+            return;
+        }
         setPendingPrice({ id, price });
         setActiveModal('priceAuth');
     };
@@ -1054,6 +1062,7 @@ export const POSCashierPage: React.FC = () => {
             if (over) { setPosError(over); return; }
         }
         setInitialPaymentMethod(method);
+        setPaymentDone(false);
         setActiveModal('payment');
     };
 
@@ -1120,7 +1129,10 @@ export const POSCashierPage: React.FC = () => {
             cashierName: operatorName,
         };
 
-        setActiveModal(null);
+        // La pantalla de pago NO se cierra: al registrar la venta muestra lo cobrado y el cambio.
+        if (finalizingRef.current) return; // evita doble registro (Enter repetido)
+        finalizingRef.current = true;
+        setFinalizing(true);
 
         let created: any;
         try {
@@ -1146,12 +1158,17 @@ export const POSCashierPage: React.FC = () => {
                 changeDue: changeDue || 0,
             } as any, selectedBranchId);
         } catch (err: any) {
+            finalizingRef.current = false;
+            setFinalizing(false);
+            setActiveModal(null);
             // La venta NO se guardó: mostramos un modal claro y conservamos el carrito para reintentar.
             // Guardamos el intento (pagos/vuelto) por si el usuario confirma vender sin stock (sobreventa).
             setPendingSaleRetry({ payments, changeDue });
             setSaleError({ message: err?.message || 'No se pudo registrar la venta.', code: err?.code, details: err?.details });
             return;
         }
+        finalizingRef.current = false;
+        setFinalizing(false);
 
         // Abrir la gaveta si está habilitada y la venta involucra efectivo (o hay vuelto).
         const involvesCash = payments.some(p => /efectivo|cash/i.test(p.method)) || (changeDue || 0) > 0;
@@ -1170,6 +1187,8 @@ export const POSCashierPage: React.FC = () => {
             change: changeDue || 0,
             methods: [...new Set(payments.map(p => p.method))].join(' + '),
         });
+        setPaymentDone(true);
+        setActiveModal('payment'); // (al reintentar una sobreventa el modal ya estaba cerrado)
 
         // (Sin overlay grande de cambio: el cambio ya se ve en el modal de pago "Cambio a Devolver"
         //  y en el recibo. Antes salía a pantalla completa; el cliente pidió quitarlo.)
@@ -1967,7 +1986,9 @@ export const POSCashierPage: React.FC = () => {
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
             <PaymentModal
                 isOpen={activeModal === 'payment'}
-                onClose={() => setActiveModal(null)}
+                onClose={() => { setActiveModal(null); setPaymentDone(false); }}
+                completed={paymentDone ? lastSaleSummary : null}
+                processing={finalizing}
                 totalAmount={total}
                 subtotalAmount={subtotal}
                 taxAmount={tax}
@@ -2061,6 +2082,7 @@ export const POSCashierPage: React.FC = () => {
                 onDiscount={handleOpenDiscountModal}
                 onDelete={(item) => { setEditingLineId(null); handleRequestItemDelete(item); }}
                 onPriceChange={handleRequestPriceChange}
+                priceNeedsPin={priceChangeNeedsPin}
             />
 
             {/* Precio manual: pide el precio al agregar un producto de servicio / "Solo Precio". */}
@@ -2141,7 +2163,6 @@ export const POSCashierPage: React.FC = () => {
                 title="Autorizar cambio de precio"
                 message={pendingPrice ? `Para cambiar el precio a $${pendingPrice.price.toFixed(2)} se necesita el PIN del gerente.` : ''}
             />
-            <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => setActiveModal(null)} onConfirm={handleConfirmItemDelete} title={t('posx.cashier.confirm_delete')} message={t('posx.cashier.confirm_delete_msg')} />
             {selectedCajaId && (
                 <EndShiftModal
                     isOpen={activeModal === 'endShift'}

@@ -70,6 +70,9 @@ export const productsService = {
   bulkDelete: (ids: string[]) =>
     api.post<{ deleted: number; skippedCount: number; skipped: { id: string; reason: string }[] }>('/products/bulk-delete', { ids }),
 
+  bulkManualPrice: (ids: string[], manualPrice: boolean) =>
+    api.post<{ updated: number }>('/products/bulk-manual-price', { ids, manualPrice }),
+
   resetLegacyCounters: () =>
     api.post<{ updated: number }>('/products/reset-legacy-counters', {}),
 

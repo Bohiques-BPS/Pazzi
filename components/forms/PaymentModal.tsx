@@ -43,6 +43,10 @@ interface PaymentModalProps {
   /** Métodos habilitados (en orden); el índice define el atajo F1, F2, … */
   methods: PaymentMethodOption[];
   onFinalizeSale: (paymentMethods: Payment[], changeDue?: number) => void;
+  /** Venta ya registrada: la pantalla se queda mostrando cobrado y cambio (Enter o ESC sale). */
+  completed?: { saleNumber: string; total: number; received: number; change: number; methods: string } | null;
+  /** La venta se está registrando en el servidor (evita doble Enter). */
+  processing?: boolean;
 }
 
 // Denominaciones rápidas de efectivo (billetes comunes).
@@ -50,7 +54,7 @@ interface PaymentModalProps {
 // recibido, para que el cajero cuente el dinero que entrega el cliente.
 const CASH_DENOMINATIONS = [100, 50, 20, 10, 5, 1];
 
-export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, totalAmount, subtotalAmount, taxAmount, athItems, customerName, customerEmail, initialMethod, methods, onFinalizeSale }) => {
+export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, totalAmount, subtotalAmount, taxAmount, athItems, customerName, customerEmail, initialMethod, methods, onFinalizeSale, completed, processing }) => {
     const { t } = useTranslation();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [selectedMethod, setSelectedMethod] = useState<string>(initialMethod);
@@ -75,6 +79,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     const onEnterRef = useRef<() => void>(() => {});
     // F12: finaliza SOLO si la venta ya está totalmente pagada (atajo de "cobro terminado").
     const finalizeIfPaidRef = useRef<() => void>(() => {});
+    const completedRef = useRef(completed);
+    completedRef.current = completed;
+    const processingRef = useRef(!!processing);
+    processingRef.current = !!processing;
+    const onCloseRef = useRef(onClose);
+    onCloseRef.current = onClose;
 
     const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
     // El saldo se redondea a centavos: el total con IVU puede tener >2 decimales (ej. 120.38655),
@@ -157,6 +167,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
     useEffect(() => {
         if (!isOpen) return;
         const handler = (e: KeyboardEvent) => {
+            // Venta terminada: Enter sale (ESC lo maneja el Modal). Si hay otro modal encima
+            // (p. ej. elegir cómo imprimir), no se toca.
+            if (completedRef.current) {
+                if (e.key === 'Enter' && Number(document.body.dataset.modalCount || '0') <= 1) {
+                    e.preventDefault();
+                    onCloseRef.current();
+                }
+                return;
+            }
+            if (processingRef.current) {
+                if (e.key === 'Enter' || e.key === 'F12') e.preventDefault();
+                return;
+            }
             const fk = /^F([1-9])$/.exec(e.key);
             if (fk) {
                 const idx = Number(fk[1]) - 1;
@@ -297,6 +320,46 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
         toast.success(t('cmpx.payment.ath_received_toast'));
     };
 
+    // Venta terminada: misma pantalla de pago con lo cobrado y el cambio; Enter o ESC para salir.
+    if (completed) {
+        return (
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={t('cmpx.payment.title')}
+                size="screen"
+                footer={
+                    <div className="flex justify-end">
+                        <button type="button" onClick={onClose} className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 !text-2xl !px-10 !py-4`}>
+                            {t('cmpx.payment.new_sale')} <span className="ml-2 text-sm opacity-80">(Enter / Esc)</span>
+                        </button>
+                    </div>
+                }
+            >
+                <div className="space-y-5">
+                    <div className="flex items-center justify-between gap-3 flex-wrap bg-green-50 dark:bg-green-900/30 border-2 border-green-300 dark:border-green-700 rounded-xl px-6 py-4">
+                        <span className="text-3xl font-extrabold text-green-700 dark:text-green-300">✓ {t('cmpx.payment.sale_done')}</span>
+                        <span className="text-xl font-semibold text-neutral-600 dark:text-neutral-300">{t('cmpx.payment.sale_number', { n: completed.saleNumber })} · {completed.methods}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center justify-between gap-4 bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 rounded-xl px-6 py-5">
+                            <span className="text-2xl sm:text-3xl font-semibold text-primary dark:text-accent">{t('cmpx.payment.total_to_charge')}</span>
+                            <span className="text-5xl sm:text-6xl font-extrabold text-primary dark:text-accent tabular-nums leading-none">${completed.total.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4 bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 rounded-xl px-6 py-5">
+                            <span className="text-2xl sm:text-3xl font-semibold text-primary dark:text-accent">{t('cmpx.payment.total_received')}</span>
+                            <span className="text-5xl sm:text-6xl font-extrabold text-primary dark:text-accent tabular-nums leading-none">${completed.received.toFixed(2)}</span>
+                        </div>
+                        <div className="col-span-2 flex items-center justify-between gap-4 bg-green-50 dark:bg-green-900/30 border-2 border-green-200 dark:border-green-800 rounded-xl px-6 py-8">
+                            <span className="text-3xl sm:text-4xl font-semibold text-green-700 dark:text-green-300">{t('cmpx.payment.change_due')}</span>
+                            <span className="text-7xl sm:text-8xl font-extrabold text-green-600 dark:text-green-400 tabular-nums leading-none">${completed.change.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+        );
+    }
+
     // Pie fijo del modal: qué imprimir + Cancelar / Finalizar siempre abajo (header · body · footer).
     const footerContent = (
             <div className="flex justify-between items-center gap-3 flex-wrap">
@@ -322,9 +385,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tot
                         className={`${BUTTON_PRIMARY_CLASSES} bg-green-600 hover:bg-green-700 disabled:bg-gray-400 !text-2xl !px-10 !py-4`}
                         // Habilitado cuando ya está pagado, O cuando el monto escrito (método directo) cubre
                         // el saldo: así no hay que pulsar "Agregar Pago" primero (USO-13).
-                        disabled={balance > 0.001 && !(isDirectMethod && coversBalance(amountInput, balance))}
+                        disabled={!!processing || (balance > 0.001 && !(isDirectMethod && coversBalance(amountInput, balance)))}
                     >
-                        {t('cmpx.payment.finalize')} <span className="ml-2 text-sm opacity-80">(Enter / F12)</span>
+                        {processing ? t('cmpx.payment.processing') : <>{t('cmpx.payment.finalize')} <span className="ml-2 text-sm opacity-80">(Enter / F12)</span></>}
                     </button>
                 </div>
             </div>

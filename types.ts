@@ -148,6 +148,8 @@ export interface GlobalSettings {
     taxReducedRate?: number;    // reducida (ej. 0.06)
     /** Permite editar facturas ya pagadas desde el módulo Facturas (default false). */
     allowEditPaidInvoices?: boolean;
+    /** Caja: cambiar el precio de una línea pide PIN de gerente (default true). */
+    posPriceChangeRequiresPin?: boolean;
     /** Recordatorios automáticos de cobro (clientes con crédito vencido). */
     creditReminderEnabled?: boolean;
     creditReminderDaysAfterDue?: number; // días de gracia tras el vencimiento
