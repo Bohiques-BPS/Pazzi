@@ -88,7 +88,9 @@ export const MoneyInput: React.FC<MoneyInputProps> = ({
                     onChange(Number.isFinite(n) ? n.toFixed(2) : '');
                 }}
                 onKeyDown={e => { if (e.key === 'Enter' && onEnter) onEnter(); }}
-                className={`${className ?? inputFormStyle} ${padLeft}`}
+                // w-full: siempre llena su contenedor (sin él, el input toma su ancho por defecto,
+                // se sale de cajas angostas y tapa lo de al lado, p. ej. el total de la línea en Facturas).
+                className={`${className ?? inputFormStyle} w-full ${padLeft}`}
             />
         </div>
     );
