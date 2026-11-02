@@ -72,6 +72,9 @@ export const productsService = {
 
   bulkManualPrice: (ids: string[], manualPrice: boolean) =>
     api.post<{ updated: number }>('/products/bulk-manual-price', { ids, manualPrice }),
+  /** Quita "pedir precio manual al vender" a TODOS los productos del negocio que lo tengan. */
+  clearAllManualPrice: () =>
+    api.post<{ updated: number }>('/products/bulk-manual-price', { all: true, manualPrice: false }),
 
   resetLegacyCounters: () =>
     api.post<{ updated: number }>('/products/reset-legacy-counters', {}),

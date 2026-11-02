@@ -114,6 +114,7 @@ export const ProductsListPage: React.FC = () => {
     // Solo productos con "pedir precio manual al vender" (para revisar/corregir los marcados por error).
     const [manualOnly, setManualOnly] = useState(false);
     const [bulkManualBusy, setBulkManualBusy] = useState(false);
+    const [showClearAllManual, setShowClearAllManual] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const PAGE_SIZE = 24;
@@ -137,6 +138,22 @@ export const ProductsListPage: React.FC = () => {
 
     // Al cambiar cualquier filtro, volver a la página 1 y limpiar la selección.
     useEffect(() => { setCurrentPage(1); setSelectedIds(new Set()); }, [debouncedSearch, selectedCategory, selectedDepartment, selectedSupplier, statusFilter, stockFilter, manualOnly]);
+
+    // Quitar "precio manual" a TODOS los productos que lo tienen (no solo esta página).
+    const handleClearAllManual = async () => {
+        setBulkManualBusy(true);
+        try {
+            const res = await productsService.clearAllManualPrice();
+            toast.success(`Precio manual quitado a ${res.updated} producto(s)`);
+            setShowClearAllManual(false);
+            clearSelection();
+            setRefreshKey(k => k + 1);
+        } catch (err: any) {
+            toast.error(err?.message || 'No se pudo actualizar');
+        } finally {
+            setBulkManualBusy(false);
+        }
+    };
 
     const handleBulkClearManual = async () => {
         const ids = Array.from(selectedIds);
@@ -540,9 +557,14 @@ export const ProductsListPage: React.FC = () => {
                                 <div className="flex items-center gap-3">
                                     <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('pmx.product.showing_count', { shown: paginatedCardProducts.length, total: totalCount })}</p>
                                     {manualOnly && (
-                                        <button onClick={() => setSelectedIds(new Set(paginatedCardProducts.map(p => p.id)))} className="text-sm text-primary hover:underline">
-                                            Seleccionar esta página
-                                        </button>
+                                        <>
+                                            <button onClick={() => setSelectedIds(new Set(paginatedCardProducts.map(p => p.id)))} className="text-sm text-primary hover:underline">
+                                                Seleccionar esta página
+                                            </button>
+                                            <button onClick={() => setShowClearAllManual(true)} className="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
+                                                Quitar precio manual a todos
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             )
@@ -636,6 +658,14 @@ export const ProductsListPage: React.FC = () => {
                 title={t('pmx.product.bulk_delete_title')}
                 message={t('pmx.product.bulk_delete_message', { n: selectedIds.size })}
                 confirmButtonText={bulkDeleting ? t('pmx.common.deleting') : t('pmx.common.yes_delete')}
+            />
+            <ConfirmationModal
+                isOpen={showClearAllManual}
+                onClose={() => !bulkManualBusy && setShowClearAllManual(false)}
+                onConfirm={handleClearAllManual}
+                title="Quitar precio manual"
+                message="Se apagará “Pedir precio manual al vender” en TODOS los productos que lo tienen activo. No se borra ningún producto ni otro dato. Si algún producto sí lo necesita, después puedes volver a marcarlo en su ficha."
+                confirmButtonText={bulkManualBusy ? 'Actualizando…' : 'Sí, quitar a todos'}
             />
             <InventoryHistoryModal
                 isOpen={showHistoryModal}
