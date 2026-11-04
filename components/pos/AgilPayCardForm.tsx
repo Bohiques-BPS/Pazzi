@@ -103,7 +103,7 @@ export const AgilPayCardForm: React.FC<AgilPayCardFormProps> = ({ amount, tax, c
             <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder={t('cmpx.agilpay.card_ph')} className={inputCls} autoComplete="off" />
             <div className="grid grid-cols-3 gap-2">
                 <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder={t('cmpx.agilpay.expiry_ph')} className={inputCls} autoComplete="off" />
-                <input type="text" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={inputCls} autoComplete="off" />
+                <input type="password" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={inputCls} autoComplete="off" />
                 <input type="text" inputMode="numeric" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))} placeholder="Zip" className={inputCls} autoComplete="off" />
             </div>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

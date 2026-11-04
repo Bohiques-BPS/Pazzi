@@ -702,7 +702,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                                     <input type="text" inputMode="numeric" value={card} onChange={e => onCard(e.target.value)} placeholder={t('posx.recurring.form.cardNumber.ph')} className={`${INPUT_SM_CLASSES} w-full mb-2`} autoComplete="off" />
                                     <div className="grid grid-cols-3 gap-2">
                                         <input type="text" inputMode="numeric" value={expiry} onChange={e => onExpiry(e.target.value)} placeholder={t('posx.recurring.form.expiry.ph')} className={INPUT_SM_CLASSES} autoComplete="off" />
-                                        <input type="text" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={INPUT_SM_CLASSES} autoComplete="off" />
+                                        <input type="password" inputMode="numeric" value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="CVV" className={INPUT_SM_CLASSES} autoComplete="off" />
                                         <input type="text" inputMode="numeric" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))} placeholder="Zip" className={INPUT_SM_CLASSES} autoComplete="off" />
                                     </div>
                                 </div>
