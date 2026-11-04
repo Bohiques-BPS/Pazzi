@@ -10,7 +10,6 @@ import logo from '../../assets/logo.png';
 import banner from '../../assets/img/banner.png';
 
 const ACCOUNT_TYPES = [
-  { role: UserRole.MANAGER,         label: 'Administrador',    icon: '🏢' },
   { role: UserRole.CLIENT_ECOMMERCE, label: 'Cliente Compras', icon: '🛍️' },
   { role: UserRole.CLIENT_PROJECT,   label: 'Cliente Proyecto', icon: '📋' },
 ];
@@ -21,7 +20,7 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<UserRole>(UserRole.MANAGER);
+  const [role, setRole] = useState<UserRole>(UserRole.CLIENT_ECOMMERCE);
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +79,7 @@ export const RegisterPage: React.FC = () => {
             {/* Tipo de cuenta */}
             <div>
               <p className="text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Tipo de cuenta</p>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 {ACCOUNT_TYPES.map(type => (
                   <button key={type.role} type="button" onClick={() => handleRoleChange(type.role)}
                     className={`flex flex-col items-center py-2.5 px-1 rounded-xl border-2 transition-all text-center

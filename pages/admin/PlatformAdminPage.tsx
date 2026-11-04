@@ -6,7 +6,7 @@ import { ApiError } from '../../services/api';
 import {
     platformService,
     type BillingInterval, type DowngradePolicy, type Plan, type PlanChangePreview, type PlatformAuditEntry,
-    type PlatformBusiness, type PlatformInvoice, type PlatformSettings, type UpgradePolicy,
+    type PlatformBusiness, type PlatformInvoice, type PlatformSettings, type SubscriptionTerm, type UpgradePolicy,
 } from '../../services/platform';
 import { toast } from '../../hooks/useToast';
 import { Modal, ConfirmationModal } from '../../components/Modal';
@@ -14,10 +14,16 @@ import { DataTable, type TableColumn } from '../../components/DataTable';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { MoneyInput } from '../../components/ui/MoneyInput';
+import { SecretInput } from '../../components/pos/SecretInput';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, TOGGLEABLE_MODULES } from '../../constants';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
-const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString('es-PR', { timeZone: 'UTC' }) : '—');
+// Fechas del panel en hora de Puerto Rico: una fecha de fin vale hasta el final de ese día.
+const PR_TZ = 'America/Puerto_Rico';
+const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString('es-PR', { timeZone: PR_TZ }) : '—');
+const dateInputValue = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: PR_TZ });
+const endOfDay = (date: string) => new Date(`${date}T23:59:59-04:00`).toISOString();
+const todayInput = () => dateInputValue(new Date().toISOString());
 const fmtDateTime = (d?: string | null) => (d ? new Date(d).toLocaleString('es-PR') : '—');
 const errMsg = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 const inputCls = `${INPUT_SM_CLASSES} w-full`;
@@ -45,7 +51,13 @@ const SUB_STATUS: Record<string, { tone: 'green' | 'amber' | 'red' | 'blue' | 'n
     active: { tone: 'green', label: 'Al día' },
     past_due: { tone: 'red', label: 'Atrasada' },
     cancelled: { tone: 'neutral', label: 'Cancelada' },
+    expired: { tone: 'red', label: 'Vencida' },
 };
+const TERM_OPTIONS: { value: SubscriptionTerm; label: string }[] = [
+    { value: 'recurring', label: 'Por períodos (renueva y genera facturas)' },
+    { value: 'indefinite', label: 'Indefinida (no vence ni genera facturas)' },
+    { value: 'fixed', label: 'Con fecha de fin (sin facturas)' },
+];
 const INVOICE_STATUS: Record<string, { tone: 'green' | 'amber' | 'neutral'; label: string }> = {
     pending: { tone: 'amber', label: 'Pendiente' },
     paid: { tone: 'green', label: 'Pagada' },
@@ -124,7 +136,8 @@ const SettingsTab: React.FC = () => {
     const [form, setForm] = useState<PlatformSettings | null>(null);
     const [taxPct, setTaxPct] = useState('0');
     const [agilSecret, setAgilSecret] = useState('');
-    const [verifying, setVerifying] = useState(false);
+    const [athSecret, setAthSecret] = useState('');
+    const [verifying, setVerifying] = useState<'' | 'agilpay' | 'ath_movil'>('');
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -144,29 +157,39 @@ const SettingsTab: React.FC = () => {
                 agilpayEnabled: data.agilpayEnabled, agilpayEnvironment: data.agilpayEnvironment,
                 agilpayMerchantKey: data.agilpayMerchantKey?.trim() || null, agilpayClientId: data.agilpayClientId?.trim() || null,
                 ...(agilSecret.trim() ? { agilpayClientSecret: agilSecret.trim() } : {}),
+                athEnabled: data.athEnabled, athEnvironment: data.athEnvironment,
+                athPublicToken: data.athPublicToken?.trim() || null, athAccountPhone: data.athAccountPhone?.trim() || null,
+                ...(athSecret.trim() ? { athPrivateToken: athSecret.trim() } : {}),
                 prorationEnabled: data.prorationEnabled, upgradePolicy: data.upgradePolicy, downgradePolicy: data.downgradePolicy,
                 prorationBasis: data.prorationBasis, minProrationAmount: Number(data.minProrationAmount) || 0,
                 trialDays: Number(data.trialDays) || 0, graceDays: Number(data.graceDays) || 0, taxRate: (parseFloat(taxPct) || 0) / 100,
             });
             setForm(saved);
             setAgilSecret('');
+            setAthSecret('');
             toast.success('Reglas guardadas. Aplican a los próximos cambios de plan.');
         } catch (err) { toast.error(errMsg(err, 'No se pudieron guardar.')); }
         finally { setSaving(false); }
     };
 
-    const verify = async () => {
-        setVerifying(true);
+    const verify = async (method: 'agilpay' | 'ath_movil') => {
+        setVerifying(method);
         try {
-            const r = await platformService.verifyAgilpay({
-                merchantKey: form.agilpayMerchantKey?.trim() || undefined, clientId: form.agilpayClientId?.trim() || undefined,
+            const r = await platformService.verifyPayment(method === 'agilpay' ? {
+                method, merchantKey: form.agilpayMerchantKey?.trim() || undefined, clientId: form.agilpayClientId?.trim() || undefined,
                 clientSecret: agilSecret.trim() || undefined, environment: form.agilpayEnvironment,
+            } : {
+                method, publicToken: form.athPublicToken?.trim() || undefined,
+                privateToken: athSecret.trim() || undefined, environment: form.athEnvironment,
             });
             if (r.valid) toast.success('Credenciales válidas.');
+            else if (r.inconclusive) toast.warning(r.message || 'No se pudo confirmar.');
             else toast.error(r.message || 'Credenciales inválidas.');
         } catch (err) { toast.error(errMsg(err, 'No se pudieron verificar.')); }
-        finally { setVerifying(false); }
+        finally { setVerifying(''); }
     };
+
+    const REVEAL = '/admin/platform/settings/reveal-secret';
 
     return (
         <div className="max-w-3xl space-y-5">
@@ -224,35 +247,62 @@ const SettingsTab: React.FC = () => {
             </div>
         </div>
 
-        <div className={`${cardCls} space-y-4`}>
+        <div className={`${cardCls} space-y-5`}>
             <div>
-                <h2 className="text-lg font-semibold text-primary">Cuenta de AgilPay de la plataforma</h2>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">La cuenta con la que se cobrarán las suscripciones. Es independiente de la que cada negocio usa con sus clientes y se puede cambiar cuando quieras. El sistema todavía no cobra con ella.</p>
-            </div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={form.agilpayEnabled} onChange={e => set({ agilpayEnabled: e.target.checked })} className="h-4 w-4" />
-                Cuenta activa
-            </label>
-            <div className="grid sm:grid-cols-2 gap-4">
-                <div><label className={labelCls}>Merchant Key</label><input value={form.agilpayMerchantKey || ''} onChange={e => set({ agilpayMerchantKey: e.target.value })} autoComplete="off" className={inputCls} /></div>
-                <div><label className={labelCls}>Client ID</label><input value={form.agilpayClientId || ''} onChange={e => set({ agilpayClientId: e.target.value })} autoComplete="off" className={inputCls} /></div>
-                <div>
-                    <label className={labelCls}>Client Secret</label>
-                    <input type="password" value={agilSecret} onChange={e => setAgilSecret(e.target.value)} autoComplete="new-password" placeholder={form.agilpayHasSecret ? 'Guardado: déjalo vacío para no cambiarlo' : ''} className={inputCls} />
-                </div>
-                <div>
-                    <label className={labelCls}>Ambiente</label>
-                    <select value={form.agilpayEnvironment} onChange={e => set({ agilpayEnvironment: e.target.value as PlatformSettings['agilpayEnvironment'] })} className={inputCls}>
-                        <option value="sandbox">Pruebas (sandbox)</option>
-                        <option value="production">Producción</option>
-                    </select>
-                </div>
+                <h2 className="text-lg font-semibold text-primary">Cuentas de cobro de la plataforma</h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Las cuentas con las que se cobrarán las suscripciones. Son independientes de las que cada negocio usa con sus clientes y se pueden cambiar cuando quieras. El sistema todavía no cobra con ellas.</p>
             </div>
             {!form.secretsEncrypted && (
-                <p className="text-sm text-amber-700 dark:text-amber-300">Falta PAYMENT_SECRETS_KEY en el servidor: el Client Secret se guardaría sin encriptar.</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300">Falta PAYMENT_SECRETS_KEY en el servidor: los secretos se guardarían sin encriptar.</p>
             )}
-            <div className="flex justify-end gap-2">
-                <button onClick={verify} disabled={verifying} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{verifying ? 'Verificando…' : 'Verificar credenciales'}</button>
+
+            <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                    <input type="checkbox" checked={form.agilpayEnabled} onChange={e => set({ agilpayEnabled: e.target.checked })} className="h-4 w-4" />
+                    AgilPay
+                </label>
+                <div className="grid sm:grid-cols-4 gap-2">
+                    <div><label className={labelCls}>Merchant Key</label><input value={form.agilpayMerchantKey || ''} onChange={e => set({ agilpayMerchantKey: e.target.value })} autoComplete="off" className={inputCls} /></div>
+                    <div><label className={labelCls}>Client ID</label><input value={form.agilpayClientId || ''} onChange={e => set({ agilpayClientId: e.target.value })} autoComplete="off" className={inputCls} /></div>
+                    <div>
+                        <label className={labelCls}>Client Secret</label>
+                        <SecretInput methodId="platform" field="agilpayClientSecret" value={agilSecret} onChange={setAgilSecret} hasSecret={form.agilpayHasSecret} revealEndpoint={REVEAL} />
+                    </div>
+                    <div>
+                        <label className={labelCls}>Ambiente</label>
+                        <select value={form.agilpayEnvironment} onChange={e => set({ agilpayEnvironment: e.target.value as PlatformSettings['agilpayEnvironment'] })} className={inputCls}>
+                            <option value="production">Producción</option>
+                            <option value="sandbox">Pruebas (sandbox)</option>
+                        </select>
+                    </div>
+                </div>
+                <button onClick={() => verify('agilpay')} disabled={!!verifying} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{verifying === 'agilpay' ? 'Verificando…' : 'Verificar credenciales'}</button>
+            </div>
+
+            <div className="space-y-3 border-t border-neutral-100 dark:border-neutral-700 pt-4">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                    <input type="checkbox" checked={form.athEnabled} onChange={e => set({ athEnabled: e.target.checked })} className="h-4 w-4" />
+                    ATH Móvil
+                </label>
+                <div className="grid sm:grid-cols-4 gap-2">
+                    <div><label className={labelCls}>Public Token</label><input value={form.athPublicToken || ''} onChange={e => set({ athPublicToken: e.target.value })} autoComplete="off" className={inputCls} /></div>
+                    <div>
+                        <label className={labelCls}>Private Token</label>
+                        <SecretInput methodId="platform" field="athPrivateToken" value={athSecret} onChange={setAthSecret} hasSecret={form.athHasSecret} revealEndpoint={REVEAL} />
+                    </div>
+                    <div>
+                        <label className={labelCls}>Ambiente</label>
+                        <select value={form.athEnvironment} onChange={e => set({ athEnvironment: e.target.value as PlatformSettings['athEnvironment'] })} className={inputCls}>
+                            <option value="production">Producción</option>
+                            <option value="sandbox">Pruebas (sandbox)</option>
+                        </select>
+                    </div>
+                    <div><label className={labelCls}>Teléfono de la cuenta</label><input type="tel" inputMode="numeric" value={form.athAccountPhone || ''} onChange={e => set({ athAccountPhone: e.target.value })} autoComplete="off" className={inputCls} /></div>
+                </div>
+                <button onClick={() => verify('ath_movil')} disabled={!!verifying} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{verifying === 'ath_movil' ? 'Verificando…' : 'Verificar credenciales'}</button>
+            </div>
+
+            <div className="flex justify-end">
                 <button onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : 'Guardar'}</button>
             </div>
         </div>
@@ -400,7 +450,7 @@ const ChangePlanModal: React.FC<{ business: PlatformBusiness; plans: Plan[]; onC
         <Modal isOpen onClose={onClose} title={`Cambiar plan — ${business.name}`} size="2xl">
             <div className="space-y-4">
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    Actual: {plans.find(p => p.id === sub.planId)?.name || sub.plan?.name} · {INTERVAL_LABEL[sub.interval]} · {money(sub.price)}, período hasta {fmtDate(sub.currentPeriodEnd)}
+                    Actual: {plans.find(p => p.id === sub.planId)?.name || sub.plan?.name} · {sub.term === 'indefinite' ? 'indefinida' : sub.term === 'fixed' ? `hasta ${fmtDate(sub.currentPeriodEnd)}` : `${INTERVAL_LABEL[sub.interval]} · ${money(sub.price)}, período hasta ${fmtDate(sub.currentPeriodEnd)}`}
                 </p>
                 <div className="grid sm:grid-cols-3 gap-3">
                     <div>
@@ -459,7 +509,7 @@ const ChangePlanModal: React.FC<{ business: PlatformBusiness; plans: Plan[]; onC
                             <p className="font-semibold text-neutral-800 dark:text-neutral-100">
                                 {r.effective === 'now' ? 'Cambia ahora' : `Se programa para el ${fmtDate(sub.currentPeriodEnd)}`} · precio nuevo {money(preview!.newPrice)}
                             </p>
-                            {sub.status === 'trialing' && <p className="text-neutral-500 dark:text-neutral-400">En prueba gratis: no hay cargo.</p>}
+                            {(sub.status === 'trialing' || sub.term !== 'recurring') && <p className="text-neutral-500 dark:text-neutral-400">{sub.term !== 'recurring' ? 'Suscripción otorgada: no hay cargo.' : 'En prueba gratis: no hay cargo.'}</p>}
                             <div className="flex justify-between"><span>Días restantes</span><span className="tabular-nums">{r.remainingDays} de {r.totalDays}</span></div>
                             <div className="flex justify-between"><span>Crédito por lo no usado</span><span className="tabular-nums">−{money(r.unusedCredit)}</span></div>
                             <div className="flex justify-between"><span>{r.resetsPeriod ? 'Plan nuevo (período completo)' : 'Plan nuevo (días restantes)'}</span><span className="tabular-nums">{money(r.newCharge)}</span></div>
@@ -499,7 +549,9 @@ const ChangePlanModal: React.FC<{ business: PlatformBusiness; plans: Plan[]; onC
 const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[]; onClose: () => void; onDone: () => void }> = ({ business, plans, onClose, onDone }) => {
     const sub = business.subscription!;
     const [price, setPrice] = useState(String(sub.price));
-    const [periodEnd, setPeriodEnd] = useState(sub.currentPeriodEnd.slice(0, 10));
+    const initialEnd = dateInputValue(sub.currentPeriodEnd);
+    const [periodEnd, setPeriodEnd] = useState(initialEnd);
+    const [term, setTerm] = useState<SubscriptionTerm>(sub.term);
     const [creditAmount, setCreditAmount] = useState('');
     const [creditRemove, setCreditRemove] = useState(false);
     const [clearScheduled, setClearScheduled] = useState(false);
@@ -514,15 +566,19 @@ const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[
     const [saving, setSaving] = useState(false);
 
     const save = async () => {
+        if (term === 'fixed' && !periodEnd) { toast.error('Indica la fecha de fin.'); return; }
         setSaving(true);
         try {
             const adj = Number(creditAmount) || 0;
+            const endChanged = periodEnd !== initialEnd;
             await platformService.editSubscription(business.id, {
-                price: Number(price) || 0,
-                ...(periodEnd !== sub.currentPeriodEnd.slice(0, 10) ? { currentPeriodEnd: new Date(`${periodEnd}T00:00:00Z`).toISOString() } : {}),
+                ...(term !== sub.term ? { term } : {}),
+                ...(term === 'recurring' ? { price: Number(price) || 0 } : {}),
+                ...(term === 'recurring' && sub.term === 'recurring' && endChanged ? { currentPeriodEnd: endOfDay(periodEnd) } : {}),
+                ...(term === 'fixed' && (endChanged || sub.term !== 'fixed') ? { endsAt: endOfDay(periodEnd) } : {}),
                 ...(adj ? { creditAdjustment: creditRemove ? -adj : adj } : {}),
                 ...(clearScheduled ? { clearScheduled: true } : {}),
-                cancelAtPeriodEnd: cancelAtEnd,
+                ...(term === 'recurring' ? { cancelAtPeriodEnd: cancelAtEnd } : {}),
                 customModules: customOn ? customModules : null,
                 customLimits: customOn ? limitValues(customLimits) : null,
                 ...(reason.trim() ? { reason: reason.trim() } : {}),
@@ -536,10 +592,25 @@ const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[
     return (
         <Modal isOpen onClose={onClose} title={`Ajustar suscripción — ${business.name}`} size="xl">
             <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                    <div><label className={labelCls}>Precio contratado</label><MoneyInput value={price} onChange={setPrice} className={INPUT_SM_CLASSES} /></div>
-                    <div><label className={labelCls}>Fin del período</label><input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className={inputCls} /></div>
+                <div>
+                    <label className={labelCls}>Tipo</label>
+                    <select value={term} onChange={e => setTerm(e.target.value as SubscriptionTerm)} className={inputCls}>
+                        {TERM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
                 </div>
+                {term === 'recurring' && (
+                    <div className="grid grid-cols-2 gap-3">
+                        <div><label className={labelCls}>Precio contratado</label><MoneyInput value={price} onChange={setPrice} className={INPUT_SM_CLASSES} /></div>
+                        {sub.term === 'recurring' && <div><label className={labelCls}>Fin del período</label><input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className={inputCls} /></div>}
+                    </div>
+                )}
+                {term === 'fixed' && (
+                    <div>
+                        <label className={labelCls}>Vigente hasta</label>
+                        <input type="date" min={todayInput()} value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className={inputCls} />
+                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">Al pasar esa fecha, el negocio queda suspendido hasta que le asignes un plan de nuevo.</p>
+                    </div>
+                )}
                 <div>
                     <label className={labelCls}>Ajustar saldo a favor (actual: {money(sub.creditBalance)})</label>
                     <div className="grid grid-cols-2 gap-3">
@@ -556,10 +627,12 @@ const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[
                         Quitar el cambio programado a {plans.find(p => p.id === sub.scheduledPlanId)?.name || 'otro plan'}
                     </label>
                 )}
-                <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={cancelAtEnd} onChange={e => setCancelAtEnd(e.target.checked)} className="h-4 w-4" />
-                    Cancelar al terminar el período
-                </label>
+                {term === 'recurring' && (
+                    <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={cancelAtEnd} onChange={e => setCancelAtEnd(e.target.checked)} className="h-4 w-4" />
+                        Cancelar al terminar el período
+                    </label>
+                )}
                 <div className="border border-neutral-200 dark:border-neutral-700 rounded-md p-3 space-y-3">
                     <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
                         <input type="checkbox" checked={customOn} onChange={e => setCustomOn(e.target.checked)} className="h-4 w-4" />
@@ -583,7 +656,11 @@ const BusinessesTab: React.FC = () => {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [search, setSearch] = useState('');
     const [assign, setAssign] = useState<PlatformBusiness | null>(null);
-    const [assignForm, setAssignForm] = useState({ planId: '', interval: 'month' as BillingInterval, customPrice: '', trialDays: '' });
+    const [assignForm, setAssignForm] = useState({ planId: '', interval: 'month' as BillingInterval, customPrice: '', trialDays: '', term: 'indefinite' as SubscriptionTerm, endsAt: '' });
+    const EMPTY_MANAGER = { name: '', lastName: '', email: '', businessName: '' };
+    const [newManager, setNewManager] = useState<typeof EMPTY_MANAGER | null>(null);
+    const [creating, setCreating] = useState(false);
+    const [invite, setInvite] = useState<{ email: string; emailSent: boolean; activationLink: string } | null>(null);
     const [change, setChange] = useState<PlatformBusiness | null>(null);
     const [edit, setEdit] = useState<PlatformBusiness | null>(null);
     const [statusTarget, setStatusTarget] = useState<{ business: PlatformBusiness; status: PlatformBusiness['status'] } | null>(null);
@@ -603,15 +680,46 @@ const BusinessesTab: React.FC = () => {
 
     const submitAssign = async () => {
         if (!assign || !assignForm.planId) { toast.error('Elige un plan.'); return; }
+        if (assignForm.term === 'fixed' && !assignForm.endsAt) { toast.error('Indica la fecha de fin.'); return; }
         try {
+            const recurring = assignForm.term === 'recurring';
             await platformService.createSubscription(assign.id, {
-                planId: assignForm.planId, interval: assignForm.interval,
-                ...(assignForm.customPrice !== '' ? { customPrice: Number(assignForm.customPrice) } : {}),
-                ...(assignForm.trialDays !== '' ? { trialDays: Number(assignForm.trialDays) } : {}),
+                planId: assignForm.planId, interval: assignForm.interval, term: assignForm.term,
+                ...(recurring && assignForm.customPrice !== '' ? { customPrice: Number(assignForm.customPrice) } : {}),
+                ...(recurring && assignForm.trialDays !== '' ? { trialDays: Number(assignForm.trialDays) } : {}),
+                ...(assignForm.term === 'fixed' ? { endsAt: endOfDay(assignForm.endsAt) } : {}),
             });
             toast.success('Plan asignado.');
             setAssign(null); load();
         } catch (err) { toast.error(errMsg(err, 'No se pudo asignar el plan.')); }
+    };
+
+    const submitManager = async () => {
+        if (!newManager) return;
+        if (!newManager.name.trim() || !newManager.lastName.trim() || !newManager.email.trim()) { toast.error('Completa nombre, apellido y correo.'); return; }
+        setCreating(true);
+        try {
+            const r = await platformService.createManager({
+                name: newManager.name.trim(), lastName: newManager.lastName.trim(), email: newManager.email.trim(),
+                ...(newManager.businessName.trim() ? { businessName: newManager.businessName.trim() } : {}),
+            });
+            setInvite({ email: newManager.email.trim(), emailSent: r.emailSent, activationLink: r.activationLink });
+            setNewManager(null); load();
+        } catch (err) { toast.error(errMsg(err, 'No se pudo crear el gerente.')); }
+        finally { setCreating(false); }
+    };
+
+    const resend = async (b: PlatformBusiness) => {
+        try {
+            const r = await platformService.resendInvite(b.id);
+            setInvite({ email: b.owner.email, emailSent: r.emailSent, activationLink: r.activationLink });
+        } catch (err) { toast.error(errMsg(err, 'No se pudo reenviar la invitación.')); }
+    };
+
+    const copyInvite = async () => {
+        if (!invite) return;
+        try { await navigator.clipboard.writeText(invite.activationLink); toast.success('Enlace copiado.'); }
+        catch { toast.error('No se pudo copiar el enlace.'); }
     };
 
     const submitStatus = async () => {
@@ -627,7 +735,10 @@ const BusinessesTab: React.FC = () => {
     const activePlans = plans.filter(p => p.isActive);
     return (
         <>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar negocio, gerente o correo…" className={`${INPUT_SM_CLASSES} w-full sm:w-80 mb-3`} />
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar negocio, gerente o correo…" className={`${INPUT_SM_CLASSES} w-full sm:w-80`} />
+                <button onClick={() => setNewManager(EMPTY_MANAGER)} className={`${BUTTON_PRIMARY_SM_CLASSES} flex-shrink-0`}>+ Nuevo gerente</button>
+            </div>
             {visible.length === 0 ? <EmptyState title="Sin negocios" description="No hay negocios que coincidan." /> : (
                 <DataTable<PlatformBusiness>
                     data={visible}
@@ -638,6 +749,7 @@ const BusinessesTab: React.FC = () => {
                                 <div>
                                     <div className="font-medium text-neutral-800 dark:text-neutral-100">{b.name}</div>
                                     <div className="text-xs text-neutral-500 dark:text-neutral-400">{b.owner.email} · {b.employees} colaborador(es)</div>
+                                    {b.owner.status === 'INVITED' && <div className="mt-0.5"><Badge tone="amber">Invitación pendiente</Badge></div>}
                                 </div>
                             ),
                         },
@@ -652,7 +764,7 @@ const BusinessesTab: React.FC = () => {
                                     <div>
                                         <div className="flex items-center gap-2"><span>{sub.plan?.name}</span><Badge tone={s.tone}>{s.label}</Badge></div>
                                         <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                                            {money(sub.price)} {INTERVAL_LABEL[sub.interval].toLowerCase()} · hasta {fmtDate(sub.currentPeriodEnd)}
+                                            {sub.term === 'indefinite' ? 'Indefinida, sin facturas' : sub.term === 'fixed' ? `Hasta ${fmtDate(sub.currentPeriodEnd)}, sin facturas` : `${money(sub.price)} ${INTERVAL_LABEL[sub.interval].toLowerCase()} · hasta ${fmtDate(sub.currentPeriodEnd)}`}
                                             {sub.scheduledPlanId ? ` · cambio programado a ${plans.find(p => p.id === sub.scheduledPlanId)?.name || 'otro plan'}` : ''}
                                             {sub.cancelAtPeriodEnd ? ' · se cancela al terminar' : ''}
                                         </div>
@@ -666,13 +778,16 @@ const BusinessesTab: React.FC = () => {
                     ] as TableColumn<PlatformBusiness>[]}
                     actions={b => (
                         <>
-                            {b.subscription && b.subscription.status !== 'cancelled' ? (
+                            {b.owner.status === 'INVITED' && (
+                                <button onClick={() => resend(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Reenviar invitación</button>
+                            )}
+                            {b.subscription && b.subscription.status !== 'cancelled' && b.subscription.status !== 'expired' ? (
                                 <>
                                     <button onClick={() => setChange(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Cambiar plan</button>
                                     <button onClick={() => setEdit(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Ajustar</button>
                                 </>
                             ) : (
-                                <button onClick={() => { setAssign(b); setAssignForm({ planId: activePlans[0]?.id || '', interval: 'month', customPrice: '', trialDays: '' }); }} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Asignar plan</button>
+                                <button onClick={() => { setAssign(b); setAssignForm({ planId: activePlans[0]?.id || '', interval: 'month', customPrice: '', trialDays: '', term: 'indefinite', endsAt: '' }); }} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Asignar plan</button>
                             )}
                             {b.status === 'active'
                                 ? <button onClick={() => setStatusTarget({ business: b, status: 'suspended' })} className="text-red-600 dark:text-red-400 hover:underline text-xs">Suspender</button>
@@ -693,18 +808,63 @@ const BusinessesTab: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className={labelCls}>Ciclo</label>
-                                <select value={assignForm.interval} onChange={e => setAssignForm(f => ({ ...f, interval: e.target.value as BillingInterval }))} className={inputCls}>
-                                    <option value="month">Mensual</option>
-                                    <option value="year">Anual</option>
+                                <label className={labelCls}>Tipo</label>
+                                <select value={assignForm.term} onChange={e => setAssignForm(f => ({ ...f, term: e.target.value as SubscriptionTerm }))} className={inputCls}>
+                                    {TERM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
                             </div>
-                            <div><label className={labelCls}>Precio especial (opcional)</label><MoneyInput value={assignForm.customPrice} onChange={v => setAssignForm(f => ({ ...f, customPrice: v }))} className={INPUT_SM_CLASSES} /></div>
-                            <div><label className={labelCls}>Días de prueba (vacío = regla general)</label><input type="number" min={0} value={assignForm.trialDays} onChange={e => setAssignForm(f => ({ ...f, trialDays: e.target.value }))} className={inputCls} /></div>
+                            {assignForm.term === 'fixed' && (
+                                <div><label className={labelCls}>Vigente hasta</label><input type="date" min={todayInput()} value={assignForm.endsAt} onChange={e => setAssignForm(f => ({ ...f, endsAt: e.target.value }))} className={inputCls} /></div>
+                            )}
+                            {assignForm.term === 'recurring' && (
+                                <>
+                                    <div>
+                                        <label className={labelCls}>Ciclo</label>
+                                        <select value={assignForm.interval} onChange={e => setAssignForm(f => ({ ...f, interval: e.target.value as BillingInterval }))} className={inputCls}>
+                                            <option value="month">Mensual</option>
+                                            <option value="year">Anual</option>
+                                        </select>
+                                    </div>
+                                    <div><label className={labelCls}>Precio especial (opcional)</label><MoneyInput value={assignForm.customPrice} onChange={v => setAssignForm(f => ({ ...f, customPrice: v }))} className={INPUT_SM_CLASSES} /></div>
+                                    <div><label className={labelCls}>Días de prueba (vacío = regla general)</label><input type="number" min={0} value={assignForm.trialDays} onChange={e => setAssignForm(f => ({ ...f, trialDays: e.target.value }))} className={inputCls} /></div>
+                                </>
+                            )}
                         </div>
+                        {assignForm.term === 'fixed' && (
+                            <p className="text-sm text-amber-700 dark:text-amber-300">Al pasar esa fecha, el negocio queda suspendido hasta que le asignes un plan de nuevo. No se borra ningún dato.</p>
+                        )}
                         <div className="flex justify-end gap-2 pt-1">
                             <button onClick={() => setAssign(null)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
                             <button onClick={submitAssign} className={BUTTON_PRIMARY_SM_CLASSES}>Asignar</button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+            <Modal isOpen={!!newManager} onClose={() => setNewManager(null)} title="Nuevo gerente" size="md">
+                {newManager && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><label className={labelCls}>Nombre</label><input value={newManager.name} onChange={e => setNewManager({ ...newManager, name: e.target.value })} className={inputCls} /></div>
+                            <div><label className={labelCls}>Apellido</label><input value={newManager.lastName} onChange={e => setNewManager({ ...newManager, lastName: e.target.value })} className={inputCls} /></div>
+                        </div>
+                        <div><label className={labelCls}>Correo</label><input type="email" value={newManager.email} onChange={e => setNewManager({ ...newManager, email: e.target.value })} className={inputCls} /></div>
+                        <div><label className={labelCls}>Nombre del negocio (opcional)</label><input value={newManager.businessName} onChange={e => setNewManager({ ...newManager, businessName: e.target.value })} className={inputCls} /></div>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Recibirá un correo con un enlace para crear su contraseña. El enlace vence en 7 días.</p>
+                        <div className="flex justify-end gap-2 pt-1">
+                            <button onClick={() => setNewManager(null)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
+                            <button onClick={submitManager} disabled={creating} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{creating ? 'Creando…' : 'Crear gerente'}</button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+            <Modal isOpen={!!invite} onClose={() => setInvite(null)} title="Invitación" size="md">
+                {invite && (
+                    <div className="space-y-3">
+                        <p className="text-sm">{invite.emailSent ? `Enviamos el enlace de activación a ${invite.email}.` : `No se pudo enviar el correo a ${invite.email}. Comparte este enlace a mano.`}</p>
+                        <input readOnly value={invite.activationLink} onFocus={e => e.currentTarget.select()} className={inputCls} />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={copyInvite} className={BUTTON_SECONDARY_SM_CLASSES}>Copiar enlace</button>
+                            <button onClick={() => setInvite(null)} className={BUTTON_PRIMARY_SM_CLASSES}>Listo</button>
                         </div>
                     </div>
                 )}
@@ -830,6 +990,9 @@ const AUDIT_LABEL: Record<string, string> = {
     'subscription.edit': 'Ajustó una suscripción',
     'invoice.pay': 'Registró un pago',
     'invoice.void': 'Anuló una factura',
+    'manager.create': 'Creó un gerente',
+    'manager.resend_invite': 'Reenvió una invitación',
+    'settings.reveal_secret': 'Reveló un secreto de cobro',
 };
 
 const AuditTab: React.FC = () => {
@@ -856,7 +1019,7 @@ const AuditTab: React.FC = () => {
 const TABS = [
     { key: 'businesses', label: 'Negocios' },
     { key: 'plans', label: 'Planes' },
-    { key: 'settings', label: 'Prorrateo y AgilPay' },
+    { key: 'settings', label: 'Prorrateo y cuentas de cobro' },
     { key: 'invoices', label: 'Facturas' },
     { key: 'audit', label: 'Auditoría' },
 ] as const;

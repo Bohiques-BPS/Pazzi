@@ -14,6 +14,8 @@ interface Props {
     /** El backend indica que hay un secreto guardado (aunque no lo envíe). */
     hasSecret: boolean;
     placeholder?: string;
+    /** Endpoint que revela el secreto guardado (por defecto, el de los métodos de pago del negocio). */
+    revealEndpoint?: string;
 }
 
 /**
@@ -21,7 +23,7 @@ interface Props {
  * Si el campo ya tiene valor local, el ojito solo alterna ver/ocultar. Si está vacío pero hay
  * un secreto guardado en el servidor, el ojito pide la CONTRASEÑA del usuario para revelarlo.
  */
-export const SecretInput: React.FC<Props> = ({ methodId, field, value, onChange, hasSecret, placeholder }) => {
+export const SecretInput: React.FC<Props> = ({ methodId, field, value, onChange, hasSecret, placeholder, revealEndpoint = '/settings/reveal-secret' }) => {
     const { t } = useTranslation();
     const [visible, setVisible] = useState(false);
     const [askPw, setAskPw] = useState(false);
@@ -38,7 +40,7 @@ export const SecretInput: React.FC<Props> = ({ methodId, field, value, onChange,
         if (!pw.trim()) return;
         setBusy(true);
         try {
-            const r = await api.post<{ value: string }>('/settings/reveal-secret', { methodId, field, password: pw });
+            const r = await api.post<{ value: string }>(revealEndpoint, { methodId, field, password: pw });
             onChange(r.value);
             setVisible(true);
             setAskPw(false);

@@ -162,12 +162,6 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-base text-neutral-600 dark:text-neutral-400">
-              {t('auth.no_account')}{' '}
-              <Link to="/register" className={authLinkStyle}>{t('auth.create_now')}</Link>
-            </p>
-          </div>
 
           
 

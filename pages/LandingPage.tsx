@@ -85,9 +85,6 @@ export const LandingPage: React.FC = () => {
                                 <RouterLink to="/login" className="bg-primary hover:bg-secondary text-white px-4 py-2 rounded-md text-base font-medium transition-colors">
                                     Iniciar Sesión
                                 </RouterLink>
-                                <RouterLink to="/register" className="text-primary dark:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 px-4 py-2 rounded-md text-base font-medium border border-primary transition-colors">
-                                    Registrarse
-                                </RouterLink>
                             </div>
                             <div className="md:hidden flex items-center">
                                 <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} type="button" className="inline-flex items-center justify-center p-2 rounded-md text-neutral-400 hover:text-primary hover:bg-neutral-100 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary" aria-controls="mobile-menu" aria-expanded="false">
@@ -114,9 +111,6 @@ export const LandingPage: React.FC = () => {
                                     </RouterLink>
                                 </div>
                                 <div className="mt-3 px-5">
-                                     <RouterLink to="/register" className="w-full block text-center text-primary dark:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 px-4 py-2 rounded-md text-base font-medium border border-primary transition-colors">
-                                        Registrarse
-                                    </RouterLink>
                                 </div>
                             </div>
                         </div>
@@ -194,9 +188,9 @@ export const LandingPage: React.FC = () => {
                                         <li>Característica 2</li>
                                         <li>Característica 3</li>
                                     </ul>
-                                    <RouterLink to="/register" className="w-full bg-primary hover:bg-secondary text-white font-semibold py-2 px-6 rounded-md transition-colors">
-                                        Elegir Plan
-                                    </RouterLink>
+                                    <a href="#contact" className="w-full bg-primary hover:bg-secondary text-white font-semibold py-2 px-6 rounded-md transition-colors">
+                                        Contáctanos
+                                    </a>
                                 </div>
                             ))}
                         </div>

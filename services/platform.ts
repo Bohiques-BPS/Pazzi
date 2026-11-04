@@ -19,10 +19,16 @@ export interface PlatformSettings {
     agilpayClientId?: string | null;
     agilpayEnvironment: 'sandbox' | 'production';
     agilpayHasSecret: boolean;
+    athEnabled: boolean;
+    athPublicToken?: string | null;
+    athEnvironment: 'sandbox' | 'production';
+    athAccountPhone?: string | null;
+    athHasSecret: boolean;
     secretsEncrypted: boolean;
 }
 
-export type PlatformSettingsUpdate = Partial<Omit<PlatformSettings, 'id' | 'agilpayHasSecret' | 'secretsEncrypted'>> & { agilpayClientSecret?: string };
+export type PlatformSettingsUpdate = Partial<Omit<PlatformSettings, 'id' | 'agilpayHasSecret' | 'athHasSecret' | 'secretsEncrypted'>> & { agilpayClientSecret?: string; athPrivateToken?: string };
+export type SubscriptionTerm = 'recurring' | 'indefinite' | 'fixed';
 
 export interface Plan {
     id: string;
@@ -44,7 +50,8 @@ export interface Subscription {
     planId: string;
     interval: BillingInterval;
     price: number;
-    status: 'trialing' | 'active' | 'past_due' | 'cancelled';
+    status: 'trialing' | 'active' | 'past_due' | 'cancelled' | 'expired';
+    term: SubscriptionTerm;
     trialEnd?: string | null;
     currentPeriodStart: string;
     currentPeriodEnd: string;
@@ -135,8 +142,8 @@ const base = '/admin/platform';
 export const platformService = {
     getSettings: () => api.get<PlatformSettings>(`${base}/settings`),
     updateSettings: (data: PlatformSettingsUpdate) => api.put<PlatformSettings>(`${base}/settings`, data),
-    verifyAgilpay: (data: { merchantKey?: string; clientId?: string; clientSecret?: string; environment?: string }) =>
-        api.post<{ valid: boolean; message?: string }>(`${base}/settings/agilpay/verify`, data),
+    verifyPayment: (data: { method: 'agilpay' | 'ath_movil'; merchantKey?: string; clientId?: string; clientSecret?: string; publicToken?: string; privateToken?: string; environment?: string }) =>
+        api.post<{ valid: boolean; inconclusive?: boolean; message?: string }>(`${base}/settings/verify-payment`, data),
 
     listPlans: () => api.get<Plan[]>(`${base}/plans`),
     createPlan: (data: Partial<Plan>) => api.post<Plan>(`${base}/plans`, data),
@@ -146,9 +153,13 @@ export const platformService = {
     setBusinessStatus: (id: string, status: PlatformBusiness['status'], reason?: string) =>
         api.put(`${base}/businesses/${id}/status`, { status, reason }),
 
-    createSubscription: (businessId: string, data: { planId: string; interval: BillingInterval; customPrice?: number | null; trialDays?: number | null }) =>
+    createManager: (data: { name: string; lastName: string; email: string; businessName?: string }) =>
+        api.post<{ emailSent: boolean; activationLink: string }>('/admin/managers', data),
+    resendInvite: (id: string) => api.post<{ emailSent: boolean; activationLink: string }>(`/admin/managers/${id}/resend-invite`, {}),
+
+    createSubscription: (businessId: string, data: { planId: string; interval: BillingInterval; customPrice?: number | null; trialDays?: number | null; term?: SubscriptionTerm; endsAt?: string }) =>
         api.post<Subscription>(`${base}/businesses/${businessId}/subscription`, data),
-    editSubscription: (businessId: string, data: { price?: number; currentPeriodEnd?: string; creditAdjustment?: number; clearScheduled?: boolean; cancelAtPeriodEnd?: boolean; customModules?: string[] | null; customLimits?: Record<string, number> | null; reason?: string }) =>
+    editSubscription: (businessId: string, data: { price?: number; currentPeriodEnd?: string; creditAdjustment?: number; clearScheduled?: boolean; cancelAtPeriodEnd?: boolean; customModules?: string[] | null; customLimits?: Record<string, number> | null; term?: SubscriptionTerm; endsAt?: string; reason?: string }) =>
         api.put<Subscription>(`${base}/businesses/${businessId}/subscription`, data),
     previewChange: (businessId: string, data: PlanChangeBody) =>
         api.post<PlanChangePreview>(`${base}/businesses/${businessId}/subscription/preview`, data),
