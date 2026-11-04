@@ -88,6 +88,7 @@ const ClientsListPage = lazyNamed(() => import('./pages/pm/ClientsListPage'), 'C
 const EmployeesListPage = lazyNamed(() => import('./pages/pm/EmployeesListPage'), 'EmployeesListPage');
 const RolesListPage = lazyNamed(() => import('./pages/pm/RolesListPage'), 'RolesListPage');
 const ProjectsListPage = lazyNamed(() => import('./pages/pm/ProjectsListPage'), 'ProjectsListPage');
+const PlatformAdminPage = lazyNamed(() => import('./pages/admin/PlatformAdminPage'), 'PlatformAdminPage');
 const ModuleHubPage = lazyNamed(() => import('./pages/ModuleHubPage'), 'ModuleHubPage');
 const NotificationsPage = lazyNamed(() => import('./pages/NotificationsPage'), 'NotificationsPage');
 const LeadsPage = lazyNamed(() => import('./pages/leads/LeadsPage'), 'LeadsPage');
@@ -170,7 +171,7 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: UserRole[] }) => {
   // The useEffect hook for login redirect will handle the primary navigation, this is a fallback for direct URL access.
   if (allowedRoles.includes(currentUser.role)) return <Outlet />;
   // El super-admin tiene su propia sección; evita el bucle de redirigir a "/".
-  const fallback = currentUser.role === UserRole.SUPER_ADMIN ? '/admin/users' : '/';
+  const fallback = currentUser.role === UserRole.SUPER_ADMIN ? '/admin/platform' : '/';
   return <Navigate to={fallback} replace />;
 };
 
@@ -240,7 +241,7 @@ const AppContent: React.FC = () => {
              let targetPath = '/';
              switch (currentUser.role) {
                 case UserRole.SUPER_ADMIN:
-                    targetPath = '/admin/users';
+                    targetPath = '/admin/platform';
                     break;
                 case UserRole.CLIENT_ECOMMERCE:
                     targetPath = '/store';
@@ -461,6 +462,7 @@ const AppContent: React.FC = () => {
         {/* Super-administrador (sección propia, sin el layout de tienda) */}
         <Route element={<ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]} />}>
             <Route path="/admin/users" element={<SuperAdminUsersPage />} />
+            <Route path="/admin/platform" element={<PlatformAdminPage />} />
         </Route>
 
         {/* Authenticated Routes */}

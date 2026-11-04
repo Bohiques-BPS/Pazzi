@@ -131,6 +131,14 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
        res.status === 500 ? 'Error interno del servidor' :
        'Error de conexión');
 
+    // Cuenta deshabilitada o negocio suspendido con la sesión abierta: se cierra la sesión.
+    if (res.status === 403 && token && (errorData.code === 'ACCOUNT_DISABLED' || errorData.code === 'BUSINESS_SUSPENDED') && !url.includes('/auth/login')) {
+      localStorage.removeItem('pazzi_token');
+      localStorage.removeItem('pazzi_refresh_token');
+      localStorage.removeItem('pazzi_user');
+      window.location.href = '/login';
+    }
+
     const apiErr = new ApiError(message, res.status, errorData.errors, errorData.code, errorData.details);
     emit(apiErr);
     throw apiErr;

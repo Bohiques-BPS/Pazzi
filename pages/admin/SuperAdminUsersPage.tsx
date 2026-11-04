@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { UserRole } from '../../types';
@@ -73,6 +74,7 @@ export const SuperAdminUsersPage: React.FC = () => {
             <header className="bg-[#00897B] text-white px-6 py-3 flex items-center justify-between">
                 <span className="font-bold">{t('adminx.superadmin.brand')}</span>
                 <div className="flex items-center gap-3 text-sm">
+                    <Link to="/admin/platform" className="hover:underline">Plataforma</Link>
                     <span className="opacity-90">{currentUser?.name} {currentUser?.lastName}</span>
                     <button onClick={() => logout()} className="bg-black/20 hover:bg-black/30 px-3 py-1 rounded">{t('adminx.common.logout')}</button>
                 </div>
@@ -94,7 +96,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                     actions={(a) => (
                         <>
                             <button onClick={() => openEdit(a)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">{t('common.edit')}</button>
-                            <button onClick={() => setToDelete(a)} className="text-red-600 dark:text-red-400 hover:underline text-xs" disabled={a.id === currentUser?.id}>{t('common.delete')}</button>
+                            <button onClick={() => setToDelete(a)} className="text-red-600 dark:text-red-400 hover:underline text-xs" disabled={a.id === currentUser?.id}>{t('adminx.admins.archive')}</button>
                         </>
                     )}
                 />
@@ -142,7 +144,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                 onConfirm={confirmDelete}
                 title={t('adminx.admins.delete_confirm_title')}
                 message={t('adminx.admins.delete_confirm_message', { name: toDelete?.name, lastName: toDelete?.lastName, email: toDelete?.email })}
-                confirmButtonText={t('adminx.confirm.delete_yes')}
+                confirmButtonText={t('adminx.admins.archive')}
             />
             </div>
         </div>
