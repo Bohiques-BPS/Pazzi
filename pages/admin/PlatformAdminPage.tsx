@@ -14,7 +14,7 @@ import { DataTable, type TableColumn } from '../../components/DataTable';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { MoneyInput } from '../../components/ui/MoneyInput';
-import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
+import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, TOGGLEABLE_MODULES } from '../../constants';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
 const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString('es-PR', { timeZone: 'UTC' }) : '—');
@@ -63,10 +63,68 @@ const DOWNGRADE_OPTIONS: { value: DowngradePolicy; label: string }[] = [
     { value: 'no_credit', label: 'Cambiar ahora sin devolver nada' },
 ];
 
+// ─── Módulos y límites (plan y excepciones por negocio) ──────────────────────
+const LIMIT_FIELDS = [
+    { key: 'users', label: 'Colaboradores' },
+    { key: 'branches', label: 'Sucursales' },
+    { key: 'cajas', label: 'Cajas' },
+    { key: 'products', label: 'Productos' },
+];
+type LimitInputs = Record<string, string>;
+
+const limitInputs = (limits?: Record<string, number> | null): LimitInputs =>
+    Object.fromEntries(LIMIT_FIELDS.map(f => [f.key, limits?.[f.key] === undefined ? '' : String(limits[f.key])]));
+
+const limitValues = (inputs: LimitInputs): Record<string, number> =>
+    Object.fromEntries(
+        Object.entries(inputs)
+            .filter(([, v]) => v.trim() !== '')
+            .map(([k, v]) => [k, Math.max(0, Math.floor(Number(v)) || 0)]),
+    );
+
+const EntitlementFields: React.FC<{
+    modules: string[];
+    limits: LimitInputs;
+    onModules: (m: string[]) => void;
+    onLimits: (l: LimitInputs) => void;
+}> = ({ modules, limits, onModules, onLimits }) => (
+    <div className="space-y-3">
+        <div>
+            <label className={labelCls}>Módulos incluidos</label>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                {TOGGLEABLE_MODULES.map(m => (
+                    <label key={m} className="flex items-center gap-2 text-sm">
+                        <input
+                            type="checkbox"
+                            checked={modules.includes(m)}
+                            onChange={e => onModules(e.target.checked ? [...modules, m] : modules.filter(x => x !== m))}
+                            className="h-4 w-4"
+                        />
+                        {m}
+                    </label>
+                ))}
+            </div>
+        </div>
+        <div>
+            <label className={labelCls}>Límites (vacío = sin límite)</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {LIMIT_FIELDS.map(f => (
+                    <div key={f.key}>
+                        <span className="block text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{f.label}</span>
+                        <input type="number" min={0} value={limits[f.key] ?? ''} onChange={e => onLimits({ ...limits, [f.key]: e.target.value })} className={inputCls} />
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
 // ─── Reglas de prorrateo ─────────────────────────────────────────────────────
 const SettingsTab: React.FC = () => {
     const [form, setForm] = useState<PlatformSettings | null>(null);
     const [taxPct, setTaxPct] = useState('0');
+    const [agilSecret, setAgilSecret] = useState('');
+    const [verifying, setVerifying] = useState(false);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -81,20 +139,38 @@ const SettingsTab: React.FC = () => {
     const save = async () => {
         setSaving(true);
         try {
-            const { id: _id, ...data } = form;
+            const data = form;
             const saved = await platformService.updateSettings({
+                agilpayEnabled: data.agilpayEnabled, agilpayEnvironment: data.agilpayEnvironment,
+                agilpayMerchantKey: data.agilpayMerchantKey?.trim() || null, agilpayClientId: data.agilpayClientId?.trim() || null,
+                ...(agilSecret.trim() ? { agilpayClientSecret: agilSecret.trim() } : {}),
                 prorationEnabled: data.prorationEnabled, upgradePolicy: data.upgradePolicy, downgradePolicy: data.downgradePolicy,
                 prorationBasis: data.prorationBasis, minProrationAmount: Number(data.minProrationAmount) || 0,
                 trialDays: Number(data.trialDays) || 0, graceDays: Number(data.graceDays) || 0, taxRate: (parseFloat(taxPct) || 0) / 100,
             });
             setForm(saved);
+            setAgilSecret('');
             toast.success('Reglas guardadas. Aplican a los próximos cambios de plan.');
         } catch (err) { toast.error(errMsg(err, 'No se pudieron guardar.')); }
         finally { setSaving(false); }
     };
 
+    const verify = async () => {
+        setVerifying(true);
+        try {
+            const r = await platformService.verifyAgilpay({
+                merchantKey: form.agilpayMerchantKey?.trim() || undefined, clientId: form.agilpayClientId?.trim() || undefined,
+                clientSecret: agilSecret.trim() || undefined, environment: form.agilpayEnvironment,
+            });
+            if (r.valid) toast.success('Credenciales válidas.');
+            else toast.error(r.message || 'Credenciales inválidas.');
+        } catch (err) { toast.error(errMsg(err, 'No se pudieron verificar.')); }
+        finally { setVerifying(false); }
+    };
+
     return (
-        <div className={`${cardCls} max-w-3xl space-y-5`}>
+        <div className="max-w-3xl space-y-5">
+        <div className={`${cardCls} space-y-5`}>
             <div>
                 <h2 className="text-lg font-semibold text-primary">Prorrateo y cobro</h2>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Reglas que se usan al cambiar a un negocio de plan. En cada cambio puedes usar otra regla o escribir el monto a mano.</p>
@@ -144,15 +220,49 @@ const SettingsTab: React.FC = () => {
                 </div>
             </div>
             <div className="flex justify-end">
-                <button onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : 'Guardar reglas'}</button>
+                <button onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : 'Guardar'}</button>
             </div>
+        </div>
+
+        <div className={`${cardCls} space-y-4`}>
+            <div>
+                <h2 className="text-lg font-semibold text-primary">Cuenta de AgilPay de la plataforma</h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">La cuenta con la que se cobrarán las suscripciones. Es independiente de la que cada negocio usa con sus clientes y se puede cambiar cuando quieras. El sistema todavía no cobra con ella.</p>
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={form.agilpayEnabled} onChange={e => set({ agilpayEnabled: e.target.checked })} className="h-4 w-4" />
+                Cuenta activa
+            </label>
+            <div className="grid sm:grid-cols-2 gap-4">
+                <div><label className={labelCls}>Merchant Key</label><input value={form.agilpayMerchantKey || ''} onChange={e => set({ agilpayMerchantKey: e.target.value })} autoComplete="off" className={inputCls} /></div>
+                <div><label className={labelCls}>Client ID</label><input value={form.agilpayClientId || ''} onChange={e => set({ agilpayClientId: e.target.value })} autoComplete="off" className={inputCls} /></div>
+                <div>
+                    <label className={labelCls}>Client Secret</label>
+                    <input type="password" value={agilSecret} onChange={e => setAgilSecret(e.target.value)} autoComplete="new-password" placeholder={form.agilpayHasSecret ? 'Guardado: déjalo vacío para no cambiarlo' : ''} className={inputCls} />
+                </div>
+                <div>
+                    <label className={labelCls}>Ambiente</label>
+                    <select value={form.agilpayEnvironment} onChange={e => set({ agilpayEnvironment: e.target.value as PlatformSettings['agilpayEnvironment'] })} className={inputCls}>
+                        <option value="sandbox">Pruebas (sandbox)</option>
+                        <option value="production">Producción</option>
+                    </select>
+                </div>
+            </div>
+            {!form.secretsEncrypted && (
+                <p className="text-sm text-amber-700 dark:text-amber-300">Falta PAYMENT_SECRETS_KEY en el servidor: el Client Secret se guardaría sin encriptar.</p>
+            )}
+            <div className="flex justify-end gap-2">
+                <button onClick={verify} disabled={verifying} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>{verifying ? 'Verificando…' : 'Verificar credenciales'}</button>
+                <button onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : 'Guardar'}</button>
+            </div>
+        </div>
         </div>
     );
 };
 
 // ─── Planes ──────────────────────────────────────────────────────────────────
-type PlanForm = { id?: string; name: string; description: string; monthlyPrice: string; annualPrice: string; isPublic: boolean; isActive: boolean; order: string };
-const EMPTY_PLAN: PlanForm = { name: '', description: '', monthlyPrice: '', annualPrice: '', isPublic: true, isActive: true, order: '0' };
+type PlanForm = { id?: string; name: string; description: string; monthlyPrice: string; annualPrice: string; isPublic: boolean; isActive: boolean; order: string; modules: string[]; limits: LimitInputs };
+const EMPTY_PLAN: PlanForm = { name: '', description: '', monthlyPrice: '', annualPrice: '', isPublic: true, isActive: true, order: '0', modules: [...TOGGLEABLE_MODULES], limits: limitInputs() };
 
 const PlansTab: React.FC = () => {
     const [plans, setPlans] = useState<Plan[] | null>(null);
@@ -173,6 +283,9 @@ const PlansTab: React.FC = () => {
                 name: form.name.trim(), description: form.description.trim() || null,
                 monthlyPrice: Number(form.monthlyPrice) || 0, annualPrice: Number(form.annualPrice) || 0,
                 isPublic: form.isPublic, isActive: form.isActive, order: Number(form.order) || 0,
+                // Todos marcados = sin restricción (también incluirá módulos futuros).
+                modules: form.modules.length >= TOGGLEABLE_MODULES.length ? null : form.modules,
+                limits: Object.keys(limitValues(form.limits)).length ? limitValues(form.limits) : null,
             };
             if (form.id) await platformService.updatePlan(form.id, data);
             else await platformService.createPlan(data);
@@ -196,18 +309,20 @@ const PlansTab: React.FC = () => {
                         { header: 'Plan', accessor: p => <span className="font-medium text-neutral-800 dark:text-neutral-100">{p.name}</span>, sortValue: p => p.name },
                         { header: 'Mensual', accessor: p => money(p.monthlyPrice), sortValue: p => p.monthlyPrice },
                         { header: 'Anual', accessor: p => money(p.annualPrice), sortValue: p => p.annualPrice },
+                        { header: 'Módulos', accessor: p => (Array.isArray(p.modules) ? `${p.modules.length} de ${TOGGLEABLE_MODULES.length}` : 'Todos') },
+                        { header: 'Límites', accessor: p => { const l = LIMIT_FIELDS.filter(f => p.limits?.[f.key] !== undefined); return l.length ? l.map(f => `${p.limits![f.key]} ${f.label.toLowerCase()}`).join(', ') : 'Sin límite'; } },
                         { header: 'Negocios', accessor: p => p._count?.subscriptions ?? 0, sortValue: p => p._count?.subscriptions ?? 0 },
                         { header: 'Estado', accessor: p => <Badge tone={p.isActive ? 'green' : 'neutral'}>{p.isActive ? (p.isPublic ? 'Público' : 'Privado') : 'Archivado'}</Badge> },
                     ] as TableColumn<Plan>[]}
                     actions={p => (
                         <button
-                            onClick={() => setForm({ id: p.id, name: p.name, description: p.description || '', monthlyPrice: String(p.monthlyPrice), annualPrice: String(p.annualPrice), isPublic: p.isPublic, isActive: p.isActive, order: String(p.order) })}
+                            onClick={() => setForm({ id: p.id, name: p.name, description: p.description || '', monthlyPrice: String(p.monthlyPrice), annualPrice: String(p.annualPrice), isPublic: p.isPublic, isActive: p.isActive, order: String(p.order), modules: Array.isArray(p.modules) ? p.modules : [...TOGGLEABLE_MODULES], limits: limitInputs(p.limits) })}
                             className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
                         >Editar</button>
                     )}
                 />
             )}
-            <Modal isOpen={!!form} onClose={() => setForm(null)} title={form?.id ? 'Editar plan' : 'Nuevo plan'} size="md">
+            <Modal isOpen={!!form} onClose={() => setForm(null)} title={form?.id ? 'Editar plan' : 'Nuevo plan'} size="xl">
                 {form && (
                     <div className="space-y-3">
                         <div><label className={labelCls}>Nombre</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={inputCls} /></div>
@@ -216,6 +331,7 @@ const PlansTab: React.FC = () => {
                             <div><label className={labelCls}>Precio mensual</label><MoneyInput value={form.monthlyPrice} onChange={v => setForm({ ...form, monthlyPrice: v })} className={INPUT_SM_CLASSES} /></div>
                             <div><label className={labelCls}>Precio anual</label><MoneyInput value={form.annualPrice} onChange={v => setForm({ ...form, annualPrice: v })} className={INPUT_SM_CLASSES} /></div>
                         </div>
+                        <EntitlementFields modules={form.modules} limits={form.limits} onModules={modules => setForm({ ...form, modules })} onLimits={limits => setForm({ ...form, limits })} />
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isPublic} onChange={e => setForm({ ...form, isPublic: e.target.checked })} className="h-4 w-4" /> Público (se podrá mostrar en la web)</label>
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} className="h-4 w-4" /> Activo (desmarca para archivarlo)</label>
                         <div className="flex justify-end gap-2 pt-2">
@@ -359,6 +475,16 @@ const ChangePlanModal: React.FC<{ business: PlatformBusiness; plans: Plan[]; onC
                     )}
                 </div>
 
+                {!!preview?.overLimits?.length && (
+                    <div className="text-sm rounded-md p-3 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                        <p className="font-medium">Este negocio ya supera los límites del plan nuevo:</p>
+                        <ul className="list-disc pl-5">
+                            {preview.overLimits.map(o => <li key={o.label}>{o.used} {o.label} (permite {o.limit})</li>)}
+                        </ul>
+                        <p>No se borra nada, pero no podrá crear más hasta bajar de ese número.</p>
+                    </div>
+                )}
+
                 <div><label className={labelCls}>Nota (queda en la auditoría)</label><input value={note} onChange={e => setNote(e.target.value)} maxLength={500} className={inputCls} /></div>
                 <div className="flex justify-end gap-2">
                     <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
@@ -379,6 +505,12 @@ const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[
     const [clearScheduled, setClearScheduled] = useState(false);
     const [cancelAtEnd, setCancelAtEnd] = useState(sub.cancelAtPeriodEnd);
     const [reason, setReason] = useState('');
+    const currentPlan = plans.find(p => p.id === sub.planId);
+    const [customOn, setCustomOn] = useState(Array.isArray(sub.customModules) || !!sub.customLimits);
+    const [customModules, setCustomModules] = useState<string[]>(
+        Array.isArray(sub.customModules) ? sub.customModules : Array.isArray(currentPlan?.modules) ? currentPlan!.modules! : [...TOGGLEABLE_MODULES],
+    );
+    const [customLimits, setCustomLimits] = useState<LimitInputs>(limitInputs(sub.customLimits ?? currentPlan?.limits));
     const [saving, setSaving] = useState(false);
 
     const save = async () => {
@@ -391,6 +523,8 @@ const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[
                 ...(adj ? { creditAdjustment: creditRemove ? -adj : adj } : {}),
                 ...(clearScheduled ? { clearScheduled: true } : {}),
                 cancelAtPeriodEnd: cancelAtEnd,
+                customModules: customOn ? customModules : null,
+                customLimits: customOn ? limitValues(customLimits) : null,
                 ...(reason.trim() ? { reason: reason.trim() } : {}),
             });
             toast.success('Suscripción actualizada.');
@@ -400,7 +534,7 @@ const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[
     };
 
     return (
-        <Modal isOpen onClose={onClose} title={`Ajustar suscripción — ${business.name}`} size="md">
+        <Modal isOpen onClose={onClose} title={`Ajustar suscripción — ${business.name}`} size="xl">
             <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                     <div><label className={labelCls}>Precio contratado</label><MoneyInput value={price} onChange={setPrice} className={INPUT_SM_CLASSES} /></div>
@@ -426,6 +560,13 @@ const EditSubscriptionModal: React.FC<{ business: PlatformBusiness; plans: Plan[
                     <input type="checkbox" checked={cancelAtEnd} onChange={e => setCancelAtEnd(e.target.checked)} className="h-4 w-4" />
                     Cancelar al terminar el período
                 </label>
+                <div className="border border-neutral-200 dark:border-neutral-700 rounded-md p-3 space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                        <input type="checkbox" checked={customOn} onChange={e => setCustomOn(e.target.checked)} className="h-4 w-4" />
+                        Módulos y límites especiales para este negocio
+                    </label>
+                    {customOn && <EntitlementFields modules={customModules} limits={customLimits} onModules={setCustomModules} onLimits={setCustomLimits} />}
+                </div>
                 <div><label className={labelCls}>Motivo (queda en la auditoría)</label><input value={reason} onChange={e => setReason(e.target.value)} maxLength={500} className={inputCls} /></div>
                 <div className="flex justify-end gap-2 pt-1">
                     <button onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
@@ -715,7 +856,7 @@ const AuditTab: React.FC = () => {
 const TABS = [
     { key: 'businesses', label: 'Negocios' },
     { key: 'plans', label: 'Planes' },
-    { key: 'settings', label: 'Prorrateo y cobro' },
+    { key: 'settings', label: 'Prorrateo y AgilPay' },
     { key: 'invoices', label: 'Facturas' },
     { key: 'audit', label: 'Auditoría' },
 ] as const;

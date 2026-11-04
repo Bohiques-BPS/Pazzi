@@ -139,6 +139,8 @@ export interface GlobalSettings {
      * esté explícitamente en `false`. Solo los módulos de TOGGLEABLE_MODULES son apagables.
      */
     enabledModules?: Record<string, boolean>;
+    /** Lo que permite el plan contratado (solo lectura; lo manda el backend). modules null = todos. */
+    planEntitlements?: { hasPlan: boolean; planName: string | null; modules: string[] | null; limits: Record<string, number> };
     /** Puntos de lealtad que gana el cliente por cada $1 de venta (0 = desactivado). */
     loyaltyPointsPerDollar?: number;
     /** Desglose de IVU (PR): Estatal / Municipal / Reducido en el recibo. */

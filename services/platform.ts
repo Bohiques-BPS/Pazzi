@@ -14,7 +14,15 @@ export interface PlatformSettings {
     trialDays: number;
     graceDays: number;
     taxRate: number;
+    agilpayEnabled: boolean;
+    agilpayMerchantKey?: string | null;
+    agilpayClientId?: string | null;
+    agilpayEnvironment: 'sandbox' | 'production';
+    agilpayHasSecret: boolean;
+    secretsEncrypted: boolean;
 }
+
+export type PlatformSettingsUpdate = Partial<Omit<PlatformSettings, 'id' | 'agilpayHasSecret' | 'secretsEncrypted'>> & { agilpayClientSecret?: string };
 
 export interface Plan {
     id: string;
@@ -46,6 +54,8 @@ export interface Subscription {
     scheduledInterval?: BillingInterval | null;
     scheduledPrice?: number | null;
     cancelAtPeriodEnd: boolean;
+    customModules?: string[] | null;
+    customLimits?: Record<string, number> | null;
     notes?: string | null;
     plan?: { id: string; name: string };
 }
@@ -75,6 +85,7 @@ export interface PlanChangePreview {
     newPrice: number;
     taxRate: number;
     creditBalance: number;
+    overLimits?: { label: string; used: number; limit: number }[];
     invoice: { subtotal: number; creditApplied: number; tax: number; total: number } | null;
     result: {
         remainingDays: number;
@@ -123,7 +134,9 @@ const base = '/admin/platform';
 
 export const platformService = {
     getSettings: () => api.get<PlatformSettings>(`${base}/settings`),
-    updateSettings: (data: Partial<PlatformSettings>) => api.put<PlatformSettings>(`${base}/settings`, data),
+    updateSettings: (data: PlatformSettingsUpdate) => api.put<PlatformSettings>(`${base}/settings`, data),
+    verifyAgilpay: (data: { merchantKey?: string; clientId?: string; clientSecret?: string; environment?: string }) =>
+        api.post<{ valid: boolean; message?: string }>(`${base}/settings/agilpay/verify`, data),
 
     listPlans: () => api.get<Plan[]>(`${base}/plans`),
     createPlan: (data: Partial<Plan>) => api.post<Plan>(`${base}/plans`, data),
@@ -135,7 +148,7 @@ export const platformService = {
 
     createSubscription: (businessId: string, data: { planId: string; interval: BillingInterval; customPrice?: number | null; trialDays?: number | null }) =>
         api.post<Subscription>(`${base}/businesses/${businessId}/subscription`, data),
-    editSubscription: (businessId: string, data: { price?: number; currentPeriodEnd?: string; creditAdjustment?: number; clearScheduled?: boolean; cancelAtPeriodEnd?: boolean; reason?: string }) =>
+    editSubscription: (businessId: string, data: { price?: number; currentPeriodEnd?: string; creditAdjustment?: number; clearScheduled?: boolean; cancelAtPeriodEnd?: boolean; customModules?: string[] | null; customLimits?: Record<string, number> | null; reason?: string }) =>
         api.put<Subscription>(`${base}/businesses/${businessId}/subscription`, data),
     previewChange: (businessId: string, data: PlanChangeBody) =>
         api.post<PlanChangePreview>(`${base}/businesses/${businessId}/subscription/preview`, data),

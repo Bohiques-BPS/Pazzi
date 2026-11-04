@@ -52,7 +52,7 @@ const MODULE_META: Record<string, { icon: React.ComponentType<{ className?: stri
 export const ModulesConfiguration: React.FC = () => {
     const { currentUser } = useAuth();
     const { settings, updateSettings } = useGlobalSettings();
-    const { isModuleEnabled: isOn } = useModules();
+    const { isModuleEnabled: isOn, isInPlan, isSwitchedOn } = useModules();
 
     if (currentUser?.role !== UserRole.MANAGER) return null;
 
@@ -61,7 +61,7 @@ export const ModulesConfiguration: React.FC = () => {
     const handleToggle = (module: AppModule) => {
         updateSettings({
             // La caja se guarda explícita: si no, al apagar Punto de Venta se apagaría con él.
-            enabledModules: { ...enabledModules, [AppModule.CAJA]: isOn(AppModule.CAJA), [module]: !isOn(module) },
+            enabledModules: { ...enabledModules, [AppModule.CAJA]: isSwitchedOn(AppModule.CAJA), [module]: !isSwitchedOn(module) },
         });
     };
 
@@ -82,6 +82,7 @@ export const ModulesConfiguration: React.FC = () => {
                     const meta = MODULE_META[module];
                     const Icon = meta?.icon || Squares2X2Icon;
                     const on = isOn(module);
+                    const inPlan = isInPlan(module);
                     return (
                         <div
                             key={module}
@@ -93,13 +94,14 @@ export const ModulesConfiguration: React.FC = () => {
                                 </span>
                                 <div className="min-w-0">
                                     <h4 className="font-medium text-neutral-800 dark:text-neutral-100">{module}</h4>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{meta?.description}</p>
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{inPlan ? meta?.description : 'No incluido en tu plan.'}</p>
                                 </div>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
                                 <input
                                     type="checkbox"
                                     checked={on}
+                                    disabled={!inPlan}
                                     onChange={() => handleToggle(module)}
                                     className="sr-only peer"
                                     aria-label={`Activar módulo ${module}`}

@@ -21,16 +21,25 @@ export function useModules() {
 
   return useMemo(() => {
     const map = settings.enabledModules || {};
+    const planModules = settings.planEntitlements?.modules;
 
-    const isModuleEnabled = (module: AppModule | null | undefined): boolean => {
-      if (!module) return true;
-      if (!TOGGLEABLE_MODULES.includes(module)) return true; // no apagable → siempre activo
+    /** ¿Lo incluye el plan del negocio? Sin plan, todo. */
+    const isInPlan = (module: AppModule): boolean => !planModules || planModules.includes(module);
+
+    /** Preferencia del gerente, sin mirar el plan. */
+    const isSwitchedOn = (module: AppModule): boolean => {
       // Caja sin valor propio (negocios de antes de separarla): sigue a Punto de Venta, para que
       // quien tenía POS apagado no vea aparecer la caja.
       if (module === AppModule.CAJA && map[module] === undefined) return map[AppModule.POS] !== false;
       return map[module] !== false; // ausente o true = activo
     };
 
-    return { isModuleEnabled, enabledModules: map, toggleableModules: TOGGLEABLE_MODULES };
-  }, [settings.enabledModules]);
+    const isModuleEnabled = (module: AppModule | null | undefined): boolean => {
+      if (!module) return true;
+      if (!TOGGLEABLE_MODULES.includes(module)) return true; // no apagable → siempre activo
+      return isInPlan(module) && isSwitchedOn(module);
+    };
+
+    return { isModuleEnabled, isInPlan, isSwitchedOn, enabledModules: map, toggleableModules: TOGGLEABLE_MODULES };
+  }, [settings.enabledModules, settings.planEntitlements]);
 }
