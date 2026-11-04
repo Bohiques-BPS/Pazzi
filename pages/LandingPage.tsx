@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { LandingLayout } from '../components/layout/LandingLayout';
+import { api, ApiError } from '../services/api';
 import {
     BriefcaseIcon,
     LightBulbIcon,
@@ -42,6 +43,22 @@ const solutionItems = [
 
 export const LandingPage: React.FC = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+    const [contact, setContact] = React.useState({ name: '', email: '', message: '', website: '' });
+    const [contactStatus, setContactStatus] = React.useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+    const [contactError, setContactError] = React.useState('');
+
+    const submitContact = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setContactStatus('sending');
+        try {
+            await api.post('/public/contact', contact);
+            setContact({ name: '', email: '', message: '', website: '' });
+            setContactStatus('sent');
+        } catch (err) {
+            setContactError(err instanceof ApiError ? err.message : 'No se pudo enviar el mensaje. Intenta más tarde.');
+            setContactStatus('error');
+        }
+    };
 
     useEffect(() => {
         const smoothScroll = (targetId: string) => {
@@ -197,28 +214,32 @@ export const LandingPage: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Contact Section (Placeholder) */}
+                {/* Contact Section */}
                 <section id="contact" className="py-16 md:py-24 bg-neutral-100 dark:bg-neutral-900">
                     <div className="container mx-auto px-6">
                         <h2 className="text-4xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-12">Ponte en Contacto</h2>
                         <div className="max-w-lg mx-auto bg-white dark:bg-neutral-800 p-8 rounded-lg shadow-xl">
-                            <form className="space-y-6">
+                            <form onSubmit={submitContact} className="space-y-6">
+                                {/* Trampa para bots: oculto para las personas. */}
+                                <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" value={contact.website} onChange={e => setContact(c => ({ ...c, website: e.target.value }))} />
                                 <div>
                                     <label htmlFor="name" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">Nombre Completo</label>
-                                    <input type="text" name="name" id="name" className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" />
+                                    <input type="text" name="name" id="name" required maxLength={120} value={contact.name} onChange={e => setContact(c => ({ ...c, name: e.target.value }))} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" />
                                 </div>
                                 <div>
                                     <label htmlFor="email_contact_form" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">Email</label>
-                                    <input type="email" name="email_contact_form" id="email_contact_form" className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" />
+                                    <input type="email" name="email_contact_form" id="email_contact_form" required maxLength={200} value={contact.email} onChange={e => setContact(c => ({ ...c, email: e.target.value }))} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" />
                                 </div>
                                 <div>
                                     <label htmlFor="message" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">Mensaje</label>
-                                    <textarea name="message" id="message" rows={4} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"></textarea>
+                                    <textarea name="message" id="message" rows={4} required maxLength={5000} value={contact.message} onChange={e => setContact(c => ({ ...c, message: e.target.value }))} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"></textarea>
                                 </div>
                                 <div>
-                                    <button type="submit" className="w-full bg-primary hover:bg-secondary text-white font-semibold py-2.5 px-4 rounded-md shadow-sm transition-colors duration-150">
-                                        Enviar Mensaje
+                                    <button type="submit" disabled={contactStatus === 'sending'} className="w-full bg-primary hover:bg-secondary disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-md shadow-sm transition-colors duration-150">
+                                        {contactStatus === 'sending' ? 'Enviando…' : 'Enviar Mensaje'}
                                     </button>
+                                    {contactStatus === 'sent' && <p role="status" className="mt-3 text-sm text-green-700 dark:text-green-400">Mensaje enviado. Te responderemos pronto.</p>}
+                                    {contactStatus === 'error' && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{contactError}</p>}
                                 </div>
                             </form>
                         </div>
