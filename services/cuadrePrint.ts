@@ -151,5 +151,19 @@ export async function printCuadre(d: CuadrePrintData): Promise<void> {
     }
     // Carga diferida: el componente del recibo trae medio POS; solo hace falta en este respaldo.
     const { printReceipt } = await import('../components/pos/ReceiptModal');
-    printReceipt(buildCuadreHtml(d), '80mm');
+    await printReceipt(buildCuadreHtml(d), '80mm');
+}
+
+/**
+ * Imprime la hoja al cerrar el turno. El turno ya quedó cerrado: un fallo solo se avisa, y una
+ * impresora que no responde no deja al cajero esperando.
+ */
+export async function printCuadreOnClose(d: CuadrePrintData, onError: (message: string) => void): Promise<void> {
+    const timeout = new Promise<void>(resolve => { setTimeout(resolve, 8000); });
+    try {
+        await Promise.race([printCuadre({ ...d, closed: true }), timeout]);
+    } catch (e: any) {
+        console.error('No se pudo imprimir el cuadre al cerrar:', e);
+        onError('El turno se cerró, pero no se pudo imprimir el cuadre. Puedes reimprimirlo desde el historial de la caja.');
+    }
 }

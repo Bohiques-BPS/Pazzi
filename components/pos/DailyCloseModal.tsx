@@ -5,7 +5,7 @@ import { timeclockService } from '../../services/timeclock';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
-import { printCuadre } from '../../services/cuadrePrint';
+import { printCuadre, printCuadreOnClose, type CuadrePrintData } from '../../services/cuadrePrint';
 import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 
 interface DailyCloseModalProps {
@@ -167,6 +167,9 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                 forceWithDifference: isHighDiff,
             });
             toast.success(cashDiff === 0 ? 'Turno cerrado sin diferencia ✓' : `Turno cerrado con diferencia de ${money(Math.abs(cashDiff))}`);
+            // La hoja de cuadre sale sola al cerrar; se espera antes de salir de la pantalla (puede cerrar la sesión).
+            const sheet = cuadreData();
+            if (sheet) await printCuadreOnClose(sheet, m => toast.error(m));
             // Ponche de salida al cerrar turno: registra la SALIDA del cajero (best-effort).
             // Si la secuencia del día no permite salir aún (p. ej. está en almuerzo), el servidor
             // lo rechaza y no bloquea el cierre.
@@ -198,9 +201,9 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     const diffColor = (d: number) => d === 0 ? 'text-neutral-500' : d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
 
     // Imprime el cuadre como RECIBO (térmica; o 80 mm por el navegador si no hay impresora).
-    const handlePrint = () => {
-        if (!totals) return;
-        printCuadre({
+    const cuadreData = (): CuadrePrintData | null => {
+        if (!totals) return null;
+        return {
             businessName: (settings as any)?.receiptConfig?.businessName,
             cajaName, date: cuadreDate, cashier: cajero, sessionId: session?.id,
             rows: rows.map(r => ({ label: r.label, expected: r.expected, counted: r.countable ? (r.cash ? cashCounted : num(counted[r.key])) : null })),
@@ -208,7 +211,12 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
             cash: { openingFloat: totals.openingFloat, cashSales: totals.cashSales, cashIn: totals.cashIn, payouts: totals.payouts, cashRefunds: totals.cashRefunds, expectedCash: totals.expectedCash },
             denominations: denomMode ? DENOMINATIONS.map(d => { const qty = denomInt(denomCounts[String(d.v)]); return { label: d.label, qty, subtotal: Math.round(d.v * qty * 100) / 100 }; }) : undefined,
             notes,
-        }).catch(e => toast.error(e?.message || 'No se pudo imprimir el cuadre.'));
+        };
+    };
+    const handlePrint = () => {
+        const sheet = cuadreData();
+        if (!sheet) return;
+        printCuadre(sheet).catch(e => toast.error(e?.message || 'No se pudo imprimir el cuadre.'));
     };
 
     return (

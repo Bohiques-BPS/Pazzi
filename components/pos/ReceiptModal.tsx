@@ -452,7 +452,8 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig, opts?: 
  * para que el driver imprima el rollo continuo con el ancho correcto (no como carta con márgenes).
  * Usa un iframe oculto (más confiable que window.open; no lo bloquea el popup blocker).
  */
-export function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm') {
+/** Se resuelve cuando ya se lanzó la impresión (el navegador muestra su diálogo). */
+export function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm'): Promise<void> {
     const pageCss = paperSize === '80mm'
         ? '@page { size: 80mm auto; margin: 0; }'
         : '@page { size: letter; margin: 12mm; }';
@@ -469,20 +470,23 @@ export function printReceipt(html: string, paperSize: '80mm' | 'letter' = '80mm'
     document.body.appendChild(iframe);
 
     const win = iframe.contentWindow;
-    if (!win) { document.body.removeChild(iframe); return; }
+    if (!win) { document.body.removeChild(iframe); return Promise.resolve(); }
 
     win.document.open();
     win.document.write(doc);
     win.document.close();
 
     const cleanup = () => { setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ya removido */ } }, 1500); };
-    const doPrint = () => {
-        try { win.focus(); win.print(); } catch { /* impresión cancelada */ }
-        cleanup();
-    };
-    // Esperar a que carguen recursos (logo, etc.) antes de imprimir.
-    if (win.document.readyState === 'complete') setTimeout(doPrint, 250);
-    else win.onload = () => setTimeout(doPrint, 250);
+    return new Promise(resolve => {
+        const doPrint = () => {
+            try { win.focus(); win.print(); } catch { /* impresión cancelada */ }
+            cleanup();
+            resolve();
+        };
+        // Esperar a que carguen recursos (logo, etc.) antes de imprimir.
+        if (win.document.readyState === 'complete') setTimeout(doPrint, 250);
+        else win.onload = () => setTimeout(doPrint, 250);
+    });
 }
 
 /**

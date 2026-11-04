@@ -6,7 +6,8 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { ExclamationTriangleIcon } from '../icons';
 import { LoadingSkeleton } from './LoadingSkeleton';
-import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettingsContext';
+import { printCuadreOnClose } from '../../services/cuadrePrint';
 
 interface EndShiftModalProps {
     isOpen: boolean;
@@ -27,6 +28,7 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
     onClosed,
 }) => {
     const { t } = useTranslation();
+    const { settings } = useGlobalSettings();
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<CajaSession | null>(null);
     const [totals, setTotals] = useState<SessionTotals | null>(null);
@@ -95,6 +97,21 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
                     ? t('cmpx.endshift.closed_no_diff')
                     : t('cmpx.endshift.closed_with_diff', { amount: Math.abs(difference).toFixed(2) })
             );
+            // La hoja de cuadre sale sola al cerrar; se espera antes de salir de la pantalla (puede cerrar la sesión).
+            const opener = (session as any).openedByUser;
+            await printCuadreOnClose({
+                businessName: (settings as any)?.receiptConfig?.businessName,
+                cajaName, date: new Date(), sessionId: session.id,
+                cashier: totals.cashierName || (opener ? `${opener.name} ${opener.lastName || ''}`.trim() : undefined),
+                // Aquí solo se cuenta el efectivo; los demás métodos salen como informativos.
+                rows: [
+                    { label: 'Efectivo (gaveta)', expected: totals.expectedCash, counted },
+                    ...totals.byMethod.filter(m => !/efectivo|cash/i.test(m.method)).map(m => ({ label: m.method, expected: m.amount, counted: null })),
+                ],
+                totalSales: totals.totalSales, salesCount: totals.salesCount, returnsCount: totals.returnsCount,
+                cash: { openingFloat: totals.openingFloat, cashSales: totals.cashSales, cashIn: totals.cashIn, payouts: totals.payouts, cashRefunds: totals.cashRefunds, expectedCash: totals.expectedCash },
+                notes,
+            }, m => toast.error(m));
             onClosed?.(result.session, result.totals);
             onClose();
         } catch (err) {
