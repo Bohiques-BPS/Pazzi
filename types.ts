@@ -784,6 +784,7 @@ export interface Notification {
 
 
 export enum AppModule {
+    CAJA = 'Caja Registradora',
     TIENDA = 'Tienda',
     PROJECT_MANAGEMENT = 'Gestión de Proyectos',
     POS = 'Punto de Venta',

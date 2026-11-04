@@ -25,6 +25,9 @@ export function useModules() {
     const isModuleEnabled = (module: AppModule | null | undefined): boolean => {
       if (!module) return true;
       if (!TOGGLEABLE_MODULES.includes(module)) return true; // no apagable → siempre activo
+      // Caja sin valor propio (negocios de antes de separarla): sigue a Punto de Venta, para que
+      // quien tenía POS apagado no vea aparecer la caja.
+      if (module === AppModule.CAJA && map[module] === undefined) return map[AppModule.POS] !== false;
       return map[module] !== false; // ausente o true = activo
     };
 

@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { UserRole, AppModule } from '../../types';
 import { TOGGLEABLE_MODULES } from '../../constants';
+import { useModules } from '../../hooks/useModules';
 import {
     Squares2X2Icon,
     Cog6ToothIcon,
@@ -14,6 +15,10 @@ import {
 
 // Metadatos de presentación por módulo apagable.
 const MODULE_META: Record<string, { icon: React.ComponentType<{ className?: string }>; description: string }> = {
+    [AppModule.CAJA]: {
+        icon: CashBillIcon,
+        description: 'Pantalla de cobro: ventas, devoluciones, apertura de turno y cuadre.',
+    },
     [AppModule.TIENDA]: {
         icon: Cog6ToothIcon,
         description: 'Productos, inventario, categorías, clientes, empleados, sucursales y proveedores.',
@@ -24,7 +29,7 @@ const MODULE_META: Record<string, { icon: React.ComponentType<{ className?: stri
     },
     [AppModule.POS]: {
         icon: CashBillIcon,
-        description: 'Caja registradora, ventas, estimados, apartados, cuentas y facturación.',
+        description: 'Historial de ventas, facturas, estimados, apartados, cuentas y configuración de cajas.',
     },
     [AppModule.ECOMMERCE]: {
         icon: ShoppingCartIcon,
@@ -47,15 +52,16 @@ const MODULE_META: Record<string, { icon: React.ComponentType<{ className?: stri
 export const ModulesConfiguration: React.FC = () => {
     const { currentUser } = useAuth();
     const { settings, updateSettings } = useGlobalSettings();
+    const { isModuleEnabled: isOn } = useModules();
 
     if (currentUser?.role !== UserRole.MANAGER) return null;
 
     const enabledModules = settings.enabledModules || {};
-    const isOn = (module: AppModule) => enabledModules[module] !== false; // ausente o true = activo
 
     const handleToggle = (module: AppModule) => {
         updateSettings({
-            enabledModules: { ...enabledModules, [module]: !isOn(module) },
+            // La caja se guarda explícita: si no, al apagar Punto de Venta se apagaría con él.
+            enabledModules: { ...enabledModules, [AppModule.CAJA]: isOn(AppModule.CAJA), [module]: !isOn(module) },
         });
     };
 

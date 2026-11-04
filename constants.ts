@@ -528,6 +528,20 @@ export interface SubModuleGroup {
 }
 
 export const APP_MODULES_CONFIG = [
+  // Módulo propio: abre directo la caja (pantalla completa, sin hub). Mismo permiso de siempre.
+  {
+    name: AppModule.CAJA,
+    path: '/pos/cashier',
+    icon: CashBillIcon,
+    subModulesProject: [] as SidebarItemConfig[],
+    subModulesPOS: [
+      { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: CashBillIcon, permission: 'pos.access' },
+    ] as SidebarItemConfig[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [] as SidebarItemConfig[],
+  },
   { 
     name: AppModule.TIENDA, 
     path: '/tienda', 
@@ -580,8 +594,6 @@ export const APP_MODULES_CONFIG = [
     icon: CashBillIcon,
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [
-        // "Abrir caja" siempre arriba, suelto.
-        { type: 'link', name: 'Caja Registradora', path: '/pos/cashier', icon: CashBillIcon, permission: 'pos.access' },
         { type: 'group', name: 'Ventas', icon: ListBulletIcon, children: [
             { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon, permission: 'pos.viewHistory' },
             { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon, permission: 'pos.viewHistory' },
@@ -689,6 +701,7 @@ export const APP_MODULES_CONFIG = [
 // Solo estos módulos principales pueden activarse/desactivarse desde Administración.
 // Administración y Portal Cliente quedan SIEMPRE activos.
 export const TOGGLEABLE_MODULES: AppModule[] = [
+  AppModule.CAJA,
   AppModule.TIENDA,
   AppModule.PROJECT_MANAGEMENT,
   AppModule.POS,
@@ -698,6 +711,8 @@ export const TOGGLEABLE_MODULES: AppModule[] = [
 
 // Prefijo de ruta → módulo, para saber a qué módulo pertenece una URL.
 const MODULE_PATH_PREFIX: Array<{ prefix: string; module: AppModule }> = [
+  // La caja es su propio módulo aunque conserva su ruta /pos/cashier.
+  { prefix: '/pos/cashier', module: AppModule.CAJA },
   // Overrides específicos ANTES del genérico /tienda: Proveedores y Pedidos a Proveedor
   // se movieron al módulo de Punto de Venta aunque conservan su ruta /tienda/*.
   { prefix: '/tienda/suppliers', module: AppModule.POS },

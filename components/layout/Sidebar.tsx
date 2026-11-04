@@ -83,6 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
             case AppModule.PROJECT_MANAGEMENT:
                 base = moduleConfig.subModulesProject || [];
                 break;
+            case AppModule.CAJA:
             case AppModule.POS:
                 base = moduleConfig.subModulesPOS || [];
                 break;

@@ -257,7 +257,7 @@ const AppContent: React.FC = () => {
                     if (isCashier) {
                         // Acaba de entrar con su contraseña: la caja no le vuelve a pedir PIN de acceso.
                         try { sessionStorage.setItem('pazzi_pos_fresh_login', '1'); } catch { /* noop */ }
-                        setCurrentModule(AppModule.POS);
+                        setCurrentModule(AppModule.CAJA);
                     }
                     targetPath = isCashier ? '/pos/cashier' : '/';
                     break;
