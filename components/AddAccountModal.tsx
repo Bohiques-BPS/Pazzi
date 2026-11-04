@@ -9,13 +9,15 @@ import { ExclamationTriangleIcon } from './icons';
  * queda guardada en este dispositivo y la app cambia a ella. Luego se puede alternar desde el menú.
  */
 export const AddAccountModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-    const { addAccount } = useAuth();
+    const { addAccount, completeTwoFactorAddAccount } = useAuth();
+    const [challengeToken, setChallengeToken] = useState<string | null>(null);
+    const [twoFactorCode, setTwoFactorCode] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const reset = () => { setEmail(''); setPassword(''); setError(null); setBusy(false); };
+    const reset = () => { setEmail(''); setPassword(''); setError(null); setBusy(false); setChallengeToken(null); setTwoFactorCode(''); };
     const close = () => { if (!busy) { reset(); onClose(); } };
 
     const submit = async (e: React.FormEvent) => {
@@ -24,8 +26,22 @@ export const AddAccountModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         if (!email.trim() || !password) { setError('Escribe correo y contraseña.'); return; }
         setBusy(true);
         setError(null);
-        const r = await addAccount(email.trim(), password) as { success: boolean; error?: string };
-        if (r.success) return; // En éxito, addAccount recarga la app (window.location).
+        if (challengeToken) {
+            const r = await completeTwoFactorAddAccount(challengeToken, twoFactorCode.trim());
+            if (!('error' in r)) return; // En éxito se recarga la app.
+            setError(r.error);
+            setTwoFactorCode('');
+            if (r.code === 'CHALLENGE_EXPIRED') setChallengeToken(null);
+            setBusy(false);
+            return;
+        }
+        const r = await addAccount(email.trim(), password);
+        if ('twoFactorRequired' in r) {
+            setChallengeToken(r.challengeToken);
+            setBusy(false);
+            return;
+        }
+        if (!('error' in r)) return; // En éxito, addAccount recarga la app (window.location).
         setError(r.error || 'No se pudo conectar la cuenta.');
         setBusy(false);
     };
@@ -42,6 +58,14 @@ export const AddAccountModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         {error}
                     </div>
                 )}
+                {challengeToken ? (
+                <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Código de verificación</label>
+                    <input value={twoFactorCode} onChange={e => setTwoFactorCode(e.target.value)} className={inputFormStyle} autoFocus autoComplete="one-time-code" required />
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">De tu app de autenticación, o un código de recuperación.</p>
+                </div>
+                ) : (
+                <>
                 <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Correo</label>
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputFormStyle} autoFocus autoComplete="email" placeholder="cuenta@correo.com" />
@@ -50,6 +74,8 @@ export const AddAccountModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Contraseña</label>
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} className={inputFormStyle} autoComplete="current-password" placeholder="••••••••" />
                 </div>
+                </>
+                )}
                 <div className="flex justify-end gap-2 pt-1">
                     <button type="button" onClick={close} disabled={busy} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button>
                     <button type="submit" disabled={busy} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{busy ? 'Conectando…' : 'Conectar y cambiar'}</button>

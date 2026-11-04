@@ -15,6 +15,7 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { MoneyInput } from '../../components/ui/MoneyInput';
 import { SecretInput } from '../../components/pos/SecretInput';
+import { ProfilePage } from '../ProfilePage';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, TOGGLEABLE_MODULES } from '../../constants';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -992,6 +993,7 @@ const AUDIT_LABEL: Record<string, string> = {
     'invoice.void': 'Anuló una factura',
     'manager.create': 'Creó un gerente',
     'manager.resend_invite': 'Reenvió una invitación',
+    'manager.reset_2fa': 'Quitó la verificación en dos pasos de un gerente',
     'settings.reveal_secret': 'Reveló un secreto de cobro',
 };
 
@@ -1022,6 +1024,7 @@ const TABS = [
     { key: 'settings', label: 'Prorrateo y cuentas de cobro' },
     { key: 'invoices', label: 'Facturas' },
     { key: 'audit', label: 'Auditoría' },
+    { key: 'account', label: 'Mi cuenta' },
 ] as const;
 
 /** Panel del super-administrador para gestionar los negocios y sus suscripciones. */
@@ -1060,6 +1063,7 @@ export const PlatformAdminPage: React.FC = () => {
                 {tab === 'settings' && <SettingsTab />}
                 {tab === 'invoices' && <InvoicesTab />}
                 {tab === 'audit' && <AuditTab />}
+                {tab === 'account' && <ProfilePage />}
             </div>
         </div>
     );

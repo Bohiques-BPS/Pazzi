@@ -7,6 +7,12 @@ export interface AuthResponse {
   refreshToken: string;
 }
 
+/** Respuesta del login cuando falta el segundo paso. */
+export interface TwoFactorChallenge {
+  twoFactorRequired: true;
+  challengeToken: string;
+}
+
 export interface InvitationInfo {
   email: string;
   name: string;
@@ -16,7 +22,16 @@ export interface InvitationInfo {
 
 export const authService = {
   login: (email: string, password: string) =>
-    api.post<AuthResponse>('/auth/login', { email, password }),
+    api.post<AuthResponse | TwoFactorChallenge>('/auth/login', { email, password }),
+
+  verifyTwoFactor: (challengeToken: string, code: string) =>
+    api.post<AuthResponse>('/auth/2fa/verify', { challengeToken, code }),
+
+  twoFactorStatus: () => api.get<{ enabled: boolean; recoveryCodesLeft: number }>('/auth/2fa/status'),
+  twoFactorSetup: (password: string) => api.post<{ secret: string; otpauthUri: string }>('/auth/2fa/setup', { password }),
+  twoFactorEnable: (code: string) => api.post<{ recoveryCodes: string[] }>('/auth/2fa/enable', { code }),
+  twoFactorDisable: (password: string, code: string) => api.post('/auth/2fa/disable', { password, code }),
+  twoFactorRegenerate: (password: string, code: string) => api.post<{ recoveryCodes: string[] }>('/auth/2fa/recovery-codes', { password, code }),
 
   register: (data: { email: string; password: string; name: string; lastName: string; role?: UserRole; phone?: string; companyName?: string }) =>
     api.post<AuthResponse>('/auth/register', data),
@@ -67,7 +82,8 @@ export const authService = {
     api.post<{ message: string }>('/auth/forgot-password', { email }),
 
   resetPassword: (token: string, password: string) =>
-    api.post<AuthResponse>('/auth/reset-password', { token, password }),
+    // Con verificación en dos pasos no entrega sesión: `requiresLogin` y sin tokens.
+    api.post<Partial<AuthResponse> & { requiresLogin?: boolean }>('/auth/reset-password', { token, password }),
 
   updateAlertSettings: (settings: Record<string, unknown>) =>
     api.put<{ message: string }>('/auth/alert-settings', settings),

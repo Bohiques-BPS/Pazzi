@@ -40,6 +40,8 @@ export const ResetPasswordPage: React.FC = () => {
         try {
             const result = await authService.resetPassword(token, password);
             // Persistir sesión nueva
+            // Con verificación en dos pasos no se entra directo: va al login normal.
+            if (!result.token) { navigate('/login', { replace: true }); return; }
             localStorage.setItem('pazzi_token', result.token);
             localStorage.setItem('pazzi_refresh_token', result.refreshToken);
             localStorage.setItem('pazzi_user', JSON.stringify(result.user));

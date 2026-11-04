@@ -7,6 +7,8 @@ import { inputFormStyle, BUTTON_PRIMARY_SM_CLASSES } from '../constants';
 import { LockClosedIcon, UserIcon as UserKeyIcon, ExclamationTriangleIcon } from '../components/icons';
 import { PasswordInput } from '../components/ui/PasswordInput';
 import { useTranslation } from '../contexts/GlobalSettingsContext';
+import { TwoFactorSettings } from '../components/auth/TwoFactorSettings';
+import { UserRole } from '../types';
 
 export const ProfilePage: React.FC = () => {
     const { currentUser, logout } = useAuth();
@@ -161,6 +163,9 @@ export const ProfilePage: React.FC = () => {
                 </form>
             </section>
 
+            <TwoFactorSettings />
+
+            {currentUser.role !== UserRole.SUPER_ADMIN && (
             <section id="seguridad" className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6 scroll-mt-20">
                 <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
                     <LockClosedIcon className="w-5 h-5 text-primary" />
@@ -213,6 +218,7 @@ export const ProfilePage: React.FC = () => {
                     </button>
                 </form>
             </section>
+            )}
 
             <section className="bg-white dark:bg-neutral-800 border border-red-200 dark:border-red-900/50 rounded-lg p-6">
                 <h2 className="text-lg font-semibold mb-2 text-red-600 dark:text-red-400">Cerrar sesión</h2>

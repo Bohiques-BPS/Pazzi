@@ -27,6 +27,7 @@ export const SuperAdminUsersPage: React.FC = () => {
     const [form, setForm] = useState<{ name: string; lastName: string; email: string; status: string; password: string }>({ name: '', lastName: '', email: '', status: 'ACTIVE', password: '' });
     const [saving, setSaving] = useState(false);
     const [toDelete, setToDelete] = useState<AdminUser | null>(null);
+    const [toResetTwoFactor, setToResetTwoFactor] = useState<AdminUser | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -64,6 +65,15 @@ export const SuperAdminUsersPage: React.FC = () => {
         } catch (err) { toast.error(err instanceof ApiError ? err.message : t('adminx.admins.delete_error')); }
     };
 
+    const confirmResetTwoFactor = async () => {
+        if (!toResetTwoFactor) return;
+        try {
+            await adminService.resetTwoFactor(toResetTwoFactor.id);
+            toast.success('Verificación en dos pasos quitada.');
+            setToResetTwoFactor(null); load();
+        } catch (err) { toast.error(err instanceof ApiError ? err.message : 'No se pudo quitar la verificación.'); }
+    };
+
     // Guard: solo el super-administrador.
     if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
         return <div className="p-8 text-center text-neutral-500">{t('adminx.common.no_access')}</div>;
@@ -96,6 +106,7 @@ export const SuperAdminUsersPage: React.FC = () => {
                     actions={(a) => (
                         <>
                             <button onClick={() => openEdit(a)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">{t('common.edit')}</button>
+                            {a.twoFactorEnabled && <button onClick={() => setToResetTwoFactor(a)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Quitar 2 pasos</button>}
                             <button onClick={() => setToDelete(a)} className="text-red-600 dark:text-red-400 hover:underline text-xs" disabled={a.id === currentUser?.id}>{t('adminx.admins.archive')}</button>
                         </>
                     )}
@@ -137,6 +148,15 @@ export const SuperAdminUsersPage: React.FC = () => {
                     </div>
                 </div>
             </Modal>
+
+            <ConfirmationModal
+                isOpen={!!toResetTwoFactor}
+                onClose={() => setToResetTwoFactor(null)}
+                onConfirm={confirmResetTwoFactor}
+                title="Quitar verificación en dos pasos"
+                message={`Úsalo solo si ${toResetTwoFactor?.email} perdió su teléfono y sus códigos, y confirmaste que es esa persona. Entrará solo con su contraseña hasta que la vuelva a activar.`}
+                confirmButtonText="Sí, quitar"
+            />
 
             <ConfirmationModal
                 isOpen={!!toDelete}

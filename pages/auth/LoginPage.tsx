@@ -31,7 +31,9 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem('pazzi_remembered_email'));
   const [loading, setLoading] = useState(false);
-  const { login, currentUser } = useAuth();
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const { login, completeTwoFactor, currentUser } = useAuth();
   const navigate = useNavigate();
   const appContextValue = useAppContext();
   const t = usePublicT();
@@ -83,7 +85,10 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       const result = await login(email, password);
-      if ('error' in result) {
+      if ('twoFactorRequired' in result) {
+        setChallengeToken(result.challengeToken);
+        setPassword('');
+      } else if ('error' in result) {
         setError(result.error);
       } else {
         // Persist or clear remembered email
@@ -104,6 +109,25 @@ export const LoginPage: React.FC = () => {
     }
   };
   
+  const handleTwoFactor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!challengeToken) return;
+    setError(null);
+    setLoading(true);
+    const result = await completeTwoFactor(challengeToken, twoFactorCode.trim());
+    if ('error' in result) {
+      setError(result.error);
+      setTwoFactorCode('');
+      // El paso venció: hay que volver a escribir la contraseña.
+      if (result.code === 'CHALLENGE_EXPIRED') setChallengeToken(null);
+    } else if (rememberMe) {
+      localStorage.setItem('pazzi_remembered_email', email);
+    } else {
+      localStorage.removeItem('pazzi_remembered_email');
+    }
+    setLoading(false);
+  };
+
   const handleDemoLogin = (user: typeof demoUsers[0]) => {
     setEmail(user.email);
     setPassword(user.pass);
@@ -127,6 +151,21 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
+          {challengeToken ? (
+            <form onSubmit={handleTwoFactor} className="space-y-4">
+              <div>
+                <label htmlFor="twoFactorCode" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">Código de verificación</label>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-1">Escribe el código de 6 dígitos de tu app de autenticación, o uno de tus códigos de recuperación.</p>
+                <input id="twoFactorCode" value={twoFactorCode} onChange={e => setTwoFactorCode(e.target.value)} autoComplete="one-time-code" autoFocus required className={authInputStyle} />
+              </div>
+              <button type="submit" disabled={loading} className={`${authButtonPrimary} bg-teal-500 hover:bg-teal-600 dark:bg-teal-600 dark:hover:bg-teal-700`}>
+                {loading ? t('auth.logging_in') : 'Verificar'}
+              </button>
+              <button type="button" onClick={() => { setChallengeToken(null); setTwoFactorCode(''); setError(null); }} className={`w-full text-center text-sm ${authLinkStyle}`}>
+                Volver
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-base font-medium text-neutral-700 dark:text-neutral-300">{t('common.email')}</label>
@@ -161,6 +200,7 @@ export const LoginPage: React.FC = () => {
               {loading ? t('auth.logging_in') : t('auth.login_btn')}
             </button>
           </form>
+          )}
 
 
           

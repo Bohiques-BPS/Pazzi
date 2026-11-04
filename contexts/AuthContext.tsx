@@ -7,7 +7,9 @@ import { listAccounts, upsertAccount, removeAccount, activateAccount, activeAcco
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: true } | { success: false; error: string; code?: string }>;
+  login: (email: string, password: string) => Promise<{ success: true } | { success: false; error: string; code?: string } | { success: false; twoFactorRequired: true; challengeToken: string }>;
+  completeTwoFactor: (challengeToken: string, code: string) => Promise<{ success: true } | { success: false; error: string; code?: string }>;
+  completeTwoFactorAddAccount: (challengeToken: string, code: string) => Promise<{ success: true } | { success: false; error: string; code?: string }>;
   register: (name: string, lastName: string, email: string, password: string, role: UserRole, extra?: { phone?: string; companyName?: string }) => Promise<{ success: true } | { success: false; error: string }>;
   logout: () => Promise<void>;
   getInvitation: (token: string) => Promise<InvitationInfo>;
@@ -20,7 +22,7 @@ interface AuthContextType {
   accounts: AccountInfo[];
   activeAccountId: string | null;
   /** Conecta OTRA cuenta sin cerrar la actual y cambia a ella (recarga la app). */
-  addAccount: (email: string, password: string) => Promise<{ success: true } | { success: false; error: string; code?: string }>;
+  addAccount: (email: string, password: string) => Promise<{ success: true } | { success: false; error: string; code?: string } | { success: false; twoFactorRequired: true; challengeToken: string }>;
   /** Cambia a una cuenta ya conectada (recarga la app). */
   switchAccount: (userId: string) => void;
 }
@@ -74,7 +76,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const { user, token, refreshToken } = await authService.login(email, password);
+      const r = await authService.login(email, password);
+      if ('twoFactorRequired' in r) return { success: false as const, twoFactorRequired: true as const, challengeToken: r.challengeToken };
+      const { user, token, refreshToken } = r;
       persistSession(user, token, refreshToken);
       upsertAccount(user, token, refreshToken);
       setCurrentUser(user);
@@ -88,13 +92,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [refreshAccounts]);
 
+  /** Segundo paso del inicio de sesión. */
+  const completeTwoFactor = useCallback(async (challengeToken: string, code: string) => {
+    try {
+      const { user, token, refreshToken } = await authService.verifyTwoFactor(challengeToken, code);
+      persistSession(user, token, refreshToken);
+      upsertAccount(user, token, refreshToken);
+      setCurrentUser(user);
+      refreshAccounts();
+      return { success: true as const };
+    } catch (err) {
+      if (err instanceof ApiError) return { success: false as const, error: err.message, code: err.code };
+      return { success: false as const, error: 'Error de conexión con el servidor' };
+    }
+  }, [refreshAccounts]);
+
+  /** Segundo paso al conectar otra cuenta: la deja activa y recarga la app. */
+  const completeTwoFactorAddAccount = useCallback(async (challengeToken: string, code: string) => {
+    try {
+      const { user, token, refreshToken } = await authService.verifyTwoFactor(challengeToken, code);
+      upsertAccount(user, token, refreshToken);
+      persistSession(user, token, refreshToken);
+      window.location.href = '/';
+      return { success: true as const };
+    } catch (err) {
+      if (err instanceof ApiError) return { success: false as const, error: err.message, code: err.code };
+      return { success: false as const, error: 'Error de conexión con el servidor' };
+    }
+  }, []);
+
   /**
    * Conecta OTRA cuenta sin cerrar la sesión actual: hace login, la guarda en la lista,
    * la deja activa y recarga la app para reinicializar todos los contextos con el nuevo usuario.
    */
   const addAccount = useCallback(async (email: string, password: string) => {
     try {
-      const { user, token, refreshToken } = await authService.login(email, password);
+      const r = await authService.login(email, password);
+      if ('twoFactorRequired' in r) return { success: false as const, twoFactorRequired: true as const, challengeToken: r.challengeToken };
+      const { user, token, refreshToken } = r;
       upsertAccount(user, token, refreshToken);
       // Activar la nueva cuenta y recargar limpio.
       persistSession(user, token, refreshToken);
@@ -217,7 +252,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentUser]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, login, register, logout, getInvitation, activate, updateUserPassword, updateUserEmail, toggleUserEmergencyOrderMode, updateUserAlertSettings, accounts, activeAccountId: activeAccountId(), addAccount, switchAccount }}>
+    <AuthContext.Provider value={{ currentUser, loading, login, completeTwoFactor, completeTwoFactorAddAccount, register, logout, getInvitation, activate, updateUserPassword, updateUserEmail, toggleUserEmergencyOrderMode, updateUserAlertSettings, accounts, activeAccountId: activeAccountId(), addAccount, switchAccount }}>
       {children}
     </AuthContext.Provider>
   );

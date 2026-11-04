@@ -11,7 +11,7 @@ import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES } from '../../co
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { employeesService } from '../../services/employees';
 import { authService } from '../../services/auth';
-import { ApiError } from '../../services/api';
+import { api, ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { PermissionGate } from '../../components/PermissionGate';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
@@ -58,6 +58,7 @@ export const EmployeesListPage: React.FC = () => {
     const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
     const [resending, setResending] = useState<string | null>(null);
     const [resetForEmail, setResetForEmail] = useState<string | null>(null);
+    const [resetTwoFactorFor, setResetTwoFactorFor] = useState<{ id: string; email: string } | null>(null);
     // Empleado con la invitación pendiente de confirmar (abre modal de confirmación de correo).
     const [resendFor, setResendFor] = useState<{ emp: Employee; noAccess: boolean } | null>(null);
     // Respaldo copiable del enlace de activación (por si el correo no está configurado o falló).
@@ -152,6 +153,19 @@ export const EmployeesListPage: React.FC = () => {
         catch { toast.error(t('pm2x.employee.copy_error')); }
     };
 
+    const confirmResetTwoFactor = async () => {
+        if (!resetTwoFactorFor) return;
+        try {
+            const r = await api.post<{ reset: boolean }>(`/employees/${resetTwoFactorFor.id}/reset-2fa`, {});
+            if (r.reset) toast.success('Verificación en dos pasos quitada.');
+            else toast.info('Este empleado no tenía verificación en dos pasos.');
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo quitar la verificación.');
+        } finally {
+            setResetTwoFactorFor(null);
+        }
+    };
+
     const confirmResetPassword = async () => {
         if (!resetForEmail) return;
         try {
@@ -230,6 +244,13 @@ export const EmployeesListPage: React.FC = () => {
                             title={t('pm2x.employee.reset_title')}
                         >
                             <KeyIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={() => setResetTwoFactorFor({ id: emp.id, email: emp.email })}
+                            className="text-neutral-500 dark:text-neutral-400 p-1 hover:text-neutral-800 dark:hover:text-neutral-200 text-xs whitespace-nowrap"
+                            title="Quitar verificación en dos pasos"
+                        >
+                            2 pasos
                         </button>
                     </PermissionGate>
                 )}
@@ -375,6 +396,15 @@ export const EmployeesListPage: React.FC = () => {
                         : t('confirm.delete.employee_msg');
                 })()}
                 confirmButtonText={t('confirm.delete.btn') || 'Sí, eliminar'}
+            />
+
+            <ConfirmationModal
+                isOpen={!!resetTwoFactorFor}
+                onClose={() => setResetTwoFactorFor(null)}
+                onConfirm={confirmResetTwoFactor}
+                title="Quitar verificación en dos pasos"
+                message={`Úsalo solo si ${resetTwoFactorFor?.email || ''} perdió su teléfono y sus códigos. Entrará solo con su contraseña hasta que la vuelva a activar.`}
+                confirmButtonText="Sí, quitar"
             />
 
             <ConfirmationModal
