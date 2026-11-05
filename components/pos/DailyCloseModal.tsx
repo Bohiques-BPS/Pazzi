@@ -167,8 +167,9 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                 forceWithDifference: isHighDiff,
             });
             toast.success(cashDiff === 0 ? 'Turno cerrado sin diferencia ✓' : `Turno cerrado con diferencia de ${money(Math.abs(cashDiff))}`);
-            // La hoja de cuadre sale sola al cerrar; se espera antes de salir de la pantalla (puede cerrar la sesión).
-            const sheet = cuadreData();
+            // Con "Imprimir automáticamente al finalizar" (Config. Factura), la hoja de cuadre sale sola;
+            // se espera antes de salir de la pantalla (puede cerrar la sesión).
+            const sheet = settings?.receiptConfig?.autoPrint ? cuadreData() : null;
             if (sheet) await printCuadreOnClose(sheet, m => toast.error(m));
             // Ponche de salida al cerrar turno: registra la SALIDA del cajero (best-effort).
             // Si la secuencia del día no permite salir aún (p. ej. está en almuerzo), el servidor

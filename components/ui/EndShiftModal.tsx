@@ -97,9 +97,10 @@ export const EndShiftModal: React.FC<EndShiftModalProps> = ({
                     ? t('cmpx.endshift.closed_no_diff')
                     : t('cmpx.endshift.closed_with_diff', { amount: Math.abs(difference).toFixed(2) })
             );
-            // La hoja de cuadre sale sola al cerrar; se espera antes de salir de la pantalla (puede cerrar la sesión).
+            // Con "Imprimir automáticamente al finalizar" (Config. Factura), la hoja de cuadre sale sola;
+            // se espera antes de salir de la pantalla (puede cerrar la sesión).
             const opener = (session as any).openedByUser;
-            await printCuadreOnClose({
+            if (settings?.receiptConfig?.autoPrint) await printCuadreOnClose({
                 businessName: (settings as any)?.receiptConfig?.businessName,
                 cajaName, date: new Date(), sessionId: session.id,
                 cashier: totals.cashierName || (opener ? `${opener.name} ${opener.lastName || ''}`.trim() : undefined),
