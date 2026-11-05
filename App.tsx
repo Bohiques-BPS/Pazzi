@@ -459,10 +459,15 @@ const AppContent: React.FC = () => {
         <Route path="/terms" element={<LegalPage variant="terms" />} />
         <Route path="/terminos" element={<LegalPage variant="terms" />} />
 
-        {/* Super-administrador (sección propia, sin el layout de tienda) */}
+        {/* Super-administrador: mismo layout de la app, con su propio módulo (Plataforma). */}
         <Route element={<ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]} />}>
-            <Route path="/admin/users" element={<SuperAdminUsersPage />} />
-            <Route path="/admin/platform" element={<PlatformAdminPage />} />
+            <Route element={<MainLayout />}>
+                <Route path="/admin/users" element={<SuperAdminUsersPage />} />
+                <Route path="/admin/platform" element={<PlatformAdminPage />} />
+                <Route path="/admin/platform/:section" element={<PlatformAdminPage />} />
+                <Route path="/admin/account" element={<ProfilePage />} />
+                <Route path="/admin/preferences" element={<ConfigurationPage />} />
+            </Route>
         </Route>
 
         {/* Authenticated Routes */}

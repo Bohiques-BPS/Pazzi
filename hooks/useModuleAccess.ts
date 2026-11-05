@@ -45,6 +45,9 @@ export function useModuleAccess() {
   const canAccessModule = useCallback((name: AppModule): boolean => {
     if (!isModuleEnabled(name)) return false;
     if (name === AppModule.PROJECT_CLIENT_DASHBOARD) return false;
+    // Plataforma es solo del super-administrador, y él no entra a los módulos de un negocio.
+    if (currentUser?.role === UserRole.SUPER_ADMIN) return name === AppModule.PLATAFORMA;
+    if (name === AppModule.PLATAFORMA) return false;
     if (currentUser?.role === UserRole.MANAGER) return true;
     if (currentUser?.role === UserRole.EMPLOYEE) {
       const keys = modulePermissionKeys(APP_MODULES_CONFIG.find(m => m.name === name));

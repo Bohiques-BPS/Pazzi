@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { UserRole } from '../../types';
@@ -20,7 +19,7 @@ const STATUS: Record<string, { cls: string; labelKey: string }> = {
 
 export const SuperAdminUsersPage: React.FC = () => {
     const { t } = useTranslation();
-    const { currentUser, logout } = useAuth();
+    const { currentUser } = useAuth();
     const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(false);
     const [editing, setEditing] = useState<AdminUser | null>(null);
@@ -80,16 +79,7 @@ export const SuperAdminUsersPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
-            <header className="bg-[#00897B] text-white px-6 py-3 flex items-center justify-between">
-                <span className="font-bold">{t('adminx.superadmin.brand')}</span>
-                <div className="flex items-center gap-3 text-sm">
-                    <Link to="/admin/platform" className="hover:underline">Plataforma</Link>
-                    <span className="opacity-90">{currentUser?.name} {currentUser?.lastName}</span>
-                    <button onClick={() => logout()} className="bg-black/20 hover:bg-black/30 px-3 py-1 rounded">{t('adminx.common.logout')}</button>
-                </div>
-            </header>
-            <div className="p-6 max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto">
             <h1 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100 mb-1">{t('adminx.admins.title')}</h1>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('adminx.admins.subtitle')}</p>
 
@@ -166,7 +156,6 @@ export const SuperAdminUsersPage: React.FC = () => {
                 message={t('adminx.admins.delete_confirm_message', { name: toDelete?.name, lastName: toDelete?.lastName, email: toDelete?.email })}
                 confirmButtonText={t('adminx.admins.archive')}
             />
-            </div>
         </div>
     );
 };

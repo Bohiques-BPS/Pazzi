@@ -678,7 +678,26 @@ export const APP_MODULES_CONFIG = [
       { type: 'link', name: 'WhatsApp', path: '/admin/whatsapp', icon: ChatBubbleLeftRightIcon },
     ] as SidebarItemConfig[],
   },
-  { 
+  // Solo el super-administrador (ver useModuleAccess).
+  {
+    name: AppModule.PLATAFORMA,
+    path: '/admin/platform',
+    icon: ShieldCheckIcon,
+    subModulesProject: [] as SidebarItemConfig[],
+    subModulesPOS: [] as SidebarItemConfig[],
+    subModulesEcommerce: [] as SidebarItemConfig[],
+    subModulesProjectClient: [] as SidebarItemConfig[],
+    subModulesTienda: [] as SidebarItemConfig[],
+    subModulesAdmin: [
+      { type: 'link', name: 'Negocios', path: '/admin/platform/businesses', icon: BuildingStorefrontIcon },
+      { type: 'link', name: 'Planes', path: '/admin/platform/plans', icon: ClipboardDocumentListIcon },
+      { type: 'link', name: 'Prorrateo y cuentas de cobro', path: '/admin/platform/billing', icon: Cog6ToothIcon },
+      { type: 'link', name: 'Facturas de plataforma', path: '/admin/platform/invoices', icon: DocumentArrowUpIcon },
+      { type: 'link', name: 'Auditoría', path: '/admin/platform/audit', icon: ClockIcon },
+      { type: 'link', name: 'Administradores', path: '/admin/users', icon: UserGroupIcon },
+    ] as SidebarItemConfig[],
+  },
+  {
     name: AppModule.PROJECT_CLIENT_DASHBOARD, 
     path: '/project-client', 
     icon: HomeIcon, // Example, not directly used in sidebar if client has its own layout
@@ -711,6 +730,11 @@ export const TOGGLEABLE_MODULES: AppModule[] = [
 
 // Prefijo de ruta → módulo, para saber a qué módulo pertenece una URL.
 const MODULE_PATH_PREFIX: Array<{ prefix: string; module: AppModule }> = [
+  // Secciones del super-administrador, antes del genérico /admin.
+  { prefix: '/admin/platform', module: AppModule.PLATAFORMA },
+  { prefix: '/admin/users', module: AppModule.PLATAFORMA },
+  { prefix: '/admin/account', module: AppModule.PLATAFORMA },
+  { prefix: '/admin/preferences', module: AppModule.PLATAFORMA },
   // La caja es su propio módulo aunque conserva su ruta /pos/cashier.
   { prefix: '/pos/cashier', module: AppModule.CAJA },
   // Overrides específicos ANTES del genérico /tienda: Proveedores y Pedidos a Proveedor

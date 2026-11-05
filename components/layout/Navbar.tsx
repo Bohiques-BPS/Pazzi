@@ -215,7 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
           }
 
           {/* Con el sidebar COLAPSADO: el logo y el selector de módulos aparecen aquí, en el navbar. */}
-          { sidebarCollapsed && currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT].includes(currentUser.role) && (
+          { sidebarCollapsed && currentUser && ![UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT, UserRole.SUPER_ADMIN].includes(currentUser.role) && (
             <div className="flex items-center gap-2 ml-1">
               <div className="relative">
                 <button
@@ -402,16 +402,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                     <ListBulletIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.my_orders')}
                     </Link>
                 )}
-                <Link 
-                    to="/settings" 
+                {currentUser?.role !== UserRole.SUPER_ADMIN && (
+                <Link
+                    to="/settings"
                     onClick={() => setUserDropdownOpen(false)} 
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600" 
                     role="menuitem"
                 >
                     <Cog6ToothIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.my_account')}
                 </Link>
-                <Link 
-                    to="/configuration"
+                )}
+                <Link
+                    to={currentUser?.role === UserRole.SUPER_ADMIN ? '/admin/preferences' : '/configuration'}
                     onClick={() => setUserDropdownOpen(false)}
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                     role="menuitem"
@@ -419,7 +421,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                     <WrenchScrewdriverIcon className="w-6 h-6 text-slate-600 dark:text-slate-300 mr-2" /> {t('nav.configuration')}
                 </Link>
                 <Link
-                    to="/profile"
+                    to={currentUser?.role === UserRole.SUPER_ADMIN ? '/admin/account' : '/profile'}
                     onClick={() => setUserDropdownOpen(false)}
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                     role="menuitem"

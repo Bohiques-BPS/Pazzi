@@ -14,4 +14,5 @@ export const slugForModule = (m: AppModule): string =>
   Object.keys(MODULE_SLUG).find(k => MODULE_SLUG[k] === m) || 'tienda';
 
 // La caja no tiene hub: su módulo abre directo la pantalla de cobro.
-export const hubPath = (m: AppModule): string => m === AppModule.CAJA ? '/pos/cashier' : `/inicio/${slugForModule(m)}`;
+export const hubPath = (m: AppModule): string =>
+  m === AppModule.CAJA ? '/pos/cashier' : m === AppModule.PLATAFORMA ? '/admin/platform' : `/inicio/${slugForModule(m)}`;

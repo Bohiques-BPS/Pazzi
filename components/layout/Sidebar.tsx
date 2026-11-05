@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
 
   let subModulesToDisplay: SidebarItemConfig[] = [];
 
-  if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.EMPLOYEE) {
+  if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.EMPLOYEE || currentUser?.role === UserRole.SUPER_ADMIN) {
     // Ambos roles parten de la MISMA configuración; el filtro por permisos deja pasar
     // todo al MANAGER (can()===true) y recorta para el EMPLEADO según sus permisos.
     let base: SidebarItemConfig[] = [];
@@ -94,6 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
                 base = (moduleConfig as any).subModulesLeads || [];
                 break;
             case AppModule.ADMINISTRACION:
+            case AppModule.PLATAFORMA:
                 base = (moduleConfig as any).subModulesAdmin || [];
                 break;
         }
@@ -220,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
     <aside className={`pz-sidebar bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
       {/* Encabezado: selector de módulo (ícono de cuadritos) a la IZQUIERDA del logo. */}
       <div className="flex items-center gap-2 h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
-        {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
+        {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && currentUser?.role !== UserRole.SUPER_ADMIN && (
           <div className="relative flex-shrink-0">
             <button
               type="button"
@@ -268,7 +269,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         </Link>
       )}
       <nav className="space-y-0.5">
-        {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && (
+        {currentModule && currentUser?.role !== UserRole.CLIENT_PROJECT && currentUser?.role !== UserRole.SUPER_ADMIN && (
           <Link
             to={hubPath(currentModule)}
             className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${location.pathname.startsWith('/inicio') ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}

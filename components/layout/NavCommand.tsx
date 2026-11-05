@@ -79,6 +79,8 @@ export const NavCommand: React.FC<Props> = ({ setCurrentModule }) => {
     for (const m of APP_MODULES_CONFIG) {
       const mod = m.name as AppModule;
       if (mod === AppModule.PROJECT_CLIENT_DASHBOARD) continue;
+      // Plataforma es solo del super-administrador, y él no ve los módulos de un negocio.
+      if ((currentUser?.role === UserRole.SUPER_ADMIN) !== (mod === AppModule.PLATAFORMA)) continue;
       if (!isModuleEnabled(mod)) continue;
       const lists: SidebarItemConfig[] = [
         ...((m as any).subModulesTienda || []),

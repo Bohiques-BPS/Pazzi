@@ -138,7 +138,9 @@ export interface DataContextType {
 export const DataContext = createContext<DataContextType | null>(null);
 
 export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-    const { currentUser } = useAuth();
+    const { currentUser: authUser } = useAuth();
+    // El super-administrador no pertenece a ningún negocio: no hay datos de tienda que cargar.
+    const currentUser = authUser?.role === UserRole.SUPER_ADMIN ? null : authUser;
     // En el POS no se usan los datos de Gestión de Proyectos (proyectos de gestión, tareas, visitas):
     // evitamos cargarlos mientras se esté en /pos/* para no disparar ~20 llamadas lentas en Render
     // (USO-3). Se cargan al entrar a su módulo (una vez por usuario). Las órdenes de proveedor SÍ se

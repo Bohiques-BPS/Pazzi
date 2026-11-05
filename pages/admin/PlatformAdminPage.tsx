@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
 import { ApiError } from '../../services/api';
@@ -15,7 +15,6 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { MoneyInput } from '../../components/ui/MoneyInput';
 import { SecretInput } from '../../components/pos/SecretInput';
-import { ProfilePage } from '../ProfilePage';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES, TOGGLEABLE_MODULES } from '../../constants';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -778,22 +777,22 @@ const BusinessesTab: React.FC = () => {
                         { header: 'Último acceso', sortValue: b => b.owner.lastSeenAt || b.owner.lastLoginAt || '', accessor: b => fmtDate(b.owner.lastSeenAt || b.owner.lastLoginAt) },
                     ] as TableColumn<PlatformBusiness>[]}
                     actions={b => (
-                        <>
+                        <div className="flex flex-col items-start gap-1">
                             {b.owner.status === 'INVITED' && (
-                                <button onClick={() => resend(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Reenviar invitación</button>
+                                <button onClick={() => resend(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Reenviar invitación</button>
                             )}
                             {b.subscription && b.subscription.status !== 'cancelled' && b.subscription.status !== 'expired' ? (
                                 <>
-                                    <button onClick={() => setChange(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Cambiar plan</button>
-                                    <button onClick={() => setEdit(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Ajustar</button>
+                                    <button onClick={() => setChange(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Cambiar plan</button>
+                                    <button onClick={() => setEdit(b)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Ajustar</button>
                                 </>
                             ) : (
-                                <button onClick={() => { setAssign(b); setAssignForm({ planId: activePlans[0]?.id || '', interval: 'month', customPrice: '', trialDays: '', term: 'indefinite', endsAt: '' }); }} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-3">Asignar plan</button>
+                                <button onClick={() => { setAssign(b); setAssignForm({ planId: activePlans[0]?.id || '', interval: 'month', customPrice: '', trialDays: '', term: 'indefinite', endsAt: '' }); }} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">Asignar plan</button>
                             )}
                             {b.status === 'active'
                                 ? <button onClick={() => setStatusTarget({ business: b, status: 'suspended' })} className="text-red-600 dark:text-red-400 hover:underline text-xs">Suspender</button>
                                 : <button onClick={() => setStatusTarget({ business: b, status: 'active' })} className="text-green-700 dark:text-green-400 hover:underline text-xs">Reactivar</button>}
-                        </>
+                        </div>
                     )}
                 />
             )}
@@ -1018,53 +1017,29 @@ const AuditTab: React.FC = () => {
 };
 
 // ─── Página ──────────────────────────────────────────────────────────────────
-const TABS = [
-    { key: 'businesses', label: 'Negocios' },
-    { key: 'plans', label: 'Planes' },
-    { key: 'settings', label: 'Prorrateo y cuentas de cobro' },
-    { key: 'invoices', label: 'Facturas' },
-    { key: 'audit', label: 'Auditoría' },
-    { key: 'account', label: 'Mi cuenta' },
-] as const;
+const SECTIONS: Record<string, { title: string; subtitle: string; render: () => React.ReactNode }> = {
+    businesses: { title: 'Negocios', subtitle: 'Gerentes, planes y estado de cada negocio.', render: () => <BusinessesTab /> },
+    plans: { title: 'Planes', subtitle: 'Precios, módulos y límites de cada plan.', render: () => <PlansTab /> },
+    billing: { title: 'Prorrateo y cuentas de cobro', subtitle: 'Reglas de los cambios de plan y cuentas de la plataforma.', render: () => <SettingsTab /> },
+    invoices: { title: 'Facturas de plataforma', subtitle: 'Lo que los negocios le deben a la plataforma.', render: () => <InvoicesTab /> },
+    audit: { title: 'Auditoría', subtitle: 'Acciones hechas desde este panel.', render: () => <AuditTab /> },
+};
 
 /** Panel del super-administrador para gestionar los negocios y sus suscripciones. */
 export const PlatformAdminPage: React.FC = () => {
-    const { currentUser, logout } = useAuth();
-    const [tab, setTab] = useState<(typeof TABS)[number]['key']>('businesses');
+    const { currentUser } = useAuth();
+    const { section } = useParams<{ section: string }>();
 
     if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
         return <div className="p-8 text-center text-neutral-500">No tienes acceso a esta sección.</div>;
     }
+    const current = (section && SECTIONS[section]) || SECTIONS.businesses!;
 
     return (
-        <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100">
-            <header className="bg-[#00897B] text-white px-6 py-3 flex items-center justify-between gap-3">
-                <span className="font-bold">Plataforma Pazzi</span>
-                <div className="flex items-center gap-3 text-sm">
-                    <Link to="/admin/users" className="hover:underline">Administradores</Link>
-                    <span className="opacity-90 hidden sm:inline">{currentUser?.name} {currentUser?.lastName}</span>
-                    <button onClick={() => logout()} className="bg-black/20 hover:bg-black/30 px-3 py-1 rounded">Salir</button>
-                </div>
-            </header>
-            <div className="p-6 max-w-7xl mx-auto">
-                <div className="flex gap-1 border-b border-neutral-200 dark:border-neutral-700 mb-5 overflow-x-auto">
-                    {TABS.map(t => (
-                        <button
-                            key={t.key}
-                            onClick={() => setTab(t.key)}
-                            className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t.key ? 'border-primary text-primary dark:text-teal-300' : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
-                        >
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
-                {tab === 'businesses' && <BusinessesTab />}
-                {tab === 'plans' && <PlansTab />}
-                {tab === 'settings' && <SettingsTab />}
-                {tab === 'invoices' && <InvoicesTab />}
-                {tab === 'audit' && <AuditTab />}
-                {tab === 'account' && <ProfilePage />}
-            </div>
+        <div className="max-w-7xl mx-auto text-neutral-800 dark:text-neutral-100">
+            <h1 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100 mb-1">{current.title}</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-5">{current.subtitle}</p>
+            {current.render()}
         </div>
     );
 };

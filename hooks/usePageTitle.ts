@@ -42,6 +42,8 @@ export function usePageTitle() {
             return p ? `${p.name} · ${tab}` : `Proyecto · ${tab}`;
         }
         if (pathname === '/pm/projects/new') return 'Nuevo proyecto';
+        if (pathname === '/admin/account') return 'Mi perfil';
+        if (pathname === '/admin/preferences') return 'Configuración';
         if (pathname === '/pm/reports') return params.get('tab') === 'tasks' ? 'Reportes PM · Tareas' : 'Reportes PM · Proyectos';
 
         // Enlace del menú más específico: misma ruta (y misma ?query si el enlace la tiene) o prefijo.

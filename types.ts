@@ -793,6 +793,7 @@ export enum AppModule {
     ECOMMERCE = 'E-commerce',
     LEADS = 'Leads',
     ADMINISTRACION = 'Administración',
+    PLATAFORMA = 'Plataforma',
     PROJECT_CLIENT_DASHBOARD = 'Portal Cliente',
 }
 

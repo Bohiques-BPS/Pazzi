@@ -41,7 +41,10 @@ export const LoginPage: React.FC = () => {
   useEffect(() => {
     if (currentUser && appContextValue) {
       const { setCurrentModule, currentModule: contextCurrentModule } = appContextValue;
-      if (currentUser.role === UserRole.CLIENT_ECOMMERCE) {
+      if (currentUser.role === UserRole.SUPER_ADMIN) {
+        setCurrentModule(AppModule.PLATAFORMA);
+        navigate('/admin/platform', { replace: true });
+      } else if (currentUser.role === UserRole.CLIENT_ECOMMERCE) {
         navigate('/store', { replace: true });
       } else if (currentUser.role === UserRole.CLIENT_PROJECT) {
         setCurrentModule(AppModule.PROJECT_CLIENT_DASHBOARD);
