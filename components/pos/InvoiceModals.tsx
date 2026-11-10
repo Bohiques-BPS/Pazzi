@@ -84,7 +84,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
         printInvoicePaymentReceipt({ invoiceNumber: invoice.number, clientName: invoice.clientName, payment: p, total: invoice.total || 0, paidTotal, index: i + 1 }, store);
     };
     return (
-        <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="2xl">
+        <Modal isOpen={!!invoice} onClose={onClose} title={`Pagos de la factura${invoice.number ? ` #${invoice.number}` : ''}`} size="4xl">
             <div className="space-y-4">
                 {/* Cliente de la factura */}
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
