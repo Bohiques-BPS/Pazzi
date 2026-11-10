@@ -58,6 +58,8 @@ export const InvoicesListPage: React.FC = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [showDeleted, setShowDeleted] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    // Oculta el formulario sin perder lo escrito (ni guardar ni cancelar).
+    const [formHidden, setFormHidden] = useState(false);
     const [share, setShare] = useState<Invoice | null>(null);
     const [viewPayments, setViewPayments] = useState<Invoice | null>(null);
     const [payFor, setPayFor] = useState<Invoice | null>(null);
@@ -139,7 +141,7 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); setProjectId(''); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); setProjectId(''); setFormHidden(false); };
     // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
     useEffect(() => {
         if (invSearchParams.get('new') !== '1') return;
@@ -173,6 +175,7 @@ export const InvoicesListPage: React.FC = () => {
         setProjectId(inv.projectId || '');
         setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), description: (it as any).description ?? undefined, taxRate: (it as any).taxRate ?? undefined })));
         setSendOnCreate(false);
+        setFormHidden(false);
         setShowForm(true);
     };
     const setLine = (i: number, patch: Partial<DraftItem>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
@@ -540,7 +543,17 @@ export const InvoicesListPage: React.FC = () => {
 
             {showForm && (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 mb-4 space-y-3">
-                    <h3 className="font-semibold text-primary">{editId ? t('posx.invoices.edit_invoice') : t('posx.invoices.new_invoice')}</h3>
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-semibold text-primary">
+                            {editId ? t('posx.invoices.edit_invoice') : t('posx.invoices.new_invoice')}
+                            {editId && editingInvoice?.number != null && <span> #{editingInvoice.number}</span>}
+                            {formHidden && (clientQuery || '').trim() && <span className="font-normal text-neutral-500 dark:text-neutral-400"> · {clientQuery}</span>}
+                        </h3>
+                        <button type="button" onClick={() => setFormHidden(h => !h)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                            {formHidden ? 'Mostrar' : 'Ocultar'}
+                        </button>
+                    </div>
+                    {!formHidden && (<>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.client_optional')}</label>
@@ -902,6 +915,7 @@ export const InvoicesListPage: React.FC = () => {
                         <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.invoices.creating') : editId ? t('posx.invoices.save_changes') : t('posx.invoices.create_invoice')}</button>
                     </div>
+                    </>)}
                 </div>
             )}
 
