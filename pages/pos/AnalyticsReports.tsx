@@ -89,6 +89,8 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<AnalyticsReport | null>(null);
     const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
+    // Fila elegida en la tabla: los cards muestran sus números en vez del total del período.
+    const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
     // Si cambia el ámbito y el reporte elegido no aplica (p. ej. "Por producto" en Facturas), vuelve a "Por día".
     useEffect(() => { if (!available.some(r => r.key === groupBy)) setGroupBy('day'); }, [scope]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -138,6 +140,9 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     const title = `${invoicesOnly ? 'Facturas' : 'Ventas'} — ${reportLabel}`;
 
     const s = data?.summary;
+    const selected = selectedKey ? rows.find(r => r.key === selectedKey) || null : null;
+    // Si la fila ya no está (otro período, filtro o agrupación), se vuelve al total.
+    useEffect(() => { if (selectedKey && data && !data.rows.some(r => r.key === selectedKey)) setSelectedKey(null); }, [data, selectedKey]);
     const seriesLabels = (data?.series || []).map(p => data?.seriesUnit === 'month' ? p.key : p.key.slice(5));
 
     return (
@@ -145,7 +150,7 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
             {/* Tipo de reporte */}
             <div className="flex flex-wrap gap-1.5">
                 {available.map(r => (
-                    <button key={r.key} type="button" onClick={() => { setGroupBy(r.key); setSort(null); }}
+                    <button key={r.key} type="button" onClick={() => { setGroupBy(r.key); setSort(null); setSelectedKey(null); }}
                         className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${groupBy === r.key ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}>
                         {r.label}
                     </button>
@@ -219,7 +224,27 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
 
             {loading && !data ? <LoadingSkeleton variant="cards" count={4} /> : !s ? null : (
                 <>
-                    {/* Resumen */}
+                    {/* Resumen: total del período, o de la fila elegida en la tabla */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 -mb-1">
+                        {selected ? (
+                            <>
+                                <span>Mostrando <span className="font-semibold text-primary">{dimLabel}: {selected.label}</span></span>
+                                <button type="button" onClick={() => setSelectedKey(null)} className="text-blue-600 dark:text-blue-400 hover:underline">Ver total del período</button>
+                            </>
+                        ) : (
+                            <span>Total del período. Haz clic en una fila de la tabla para ver sus números aquí.</span>
+                        )}
+                    </div>
+                    {selected ? (
+                        <div className={`grid grid-cols-2 md:grid-cols-3 ${invoicesOnly ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-3 ${loading ? 'opacity-60' : ''}`}>
+                            <Kpi title="Total vendido" value={money(selected.total)} sub={`Incluye IVU ${money(selected.tax)} · ${s.total > 0 ? ((selected.total / s.total) * 100).toFixed(1) : '0.0'}% del total`} />
+                            <Kpi title="Ventas netas" value={money(selected.net)} sub="Sin IVU, con descuentos" />
+                            {!invoicesOnly && <Kpi title="Ganancia estimada" value={money(selected.profit)} sub={`Margen ${pct(selected.margin)} · costo ${money(selected.cost)}`} tone={selected.profit >= 0 ? 'green' : 'red'} />}
+                            <Kpi title={invoicesOnly ? 'Facturas' : 'Transacciones'} value={String(selected.count)} sub={`Promedio ${money(selected.count ? selected.total / selected.count : 0)}`} />
+                            <Kpi title="Cobrado" value={money(selected.paid)} tone="green" />
+                            <Kpi title="Por cobrar" value={money(selected.pending)} tone={selected.pending > 0 ? 'red' : 'default'} />
+                        </div>
+                    ) : (
                     <div className={`grid grid-cols-2 md:grid-cols-3 ${invoicesOnly ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-3 ${loading ? 'opacity-60' : ''}`}>
                         <Kpi title="Total vendido" value={money(s.total)} sub={`Incluye IVU ${money(s.tax)}`} />
                         <Kpi title="Ventas netas" value={money(s.net)} sub="Sin IVU, con descuentos" />
@@ -228,6 +253,7 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
                         <Kpi title="Cobrado" value={money(s.paid)} tone="green" />
                         <Kpi title="Por cobrar" value={money(s.pending)} sub={s.returnsCount ? `Devoluciones ${money(s.returns)} (${s.returnsCount})` : undefined} tone={s.pending > 0 ? 'red' : 'default'} />
                     </div>
+                    )}
 
                     {/* Tendencia */}
                     {(data?.series.length || 0) > 1 && (
@@ -267,7 +293,8 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100 dark:divide-neutral-700/60 text-neutral-700 dark:text-neutral-200">
                                         {rows.map(r => (
-                                            <tr key={r.key} className="hover:bg-neutral-50 dark:hover:bg-neutral-700/30">
+                                            <tr key={r.key} onClick={() => setSelectedKey(k => k === r.key ? null : r.key)} title="Ver los números de esta fila arriba"
+                                                className={`cursor-pointer ${selectedKey === r.key ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/30'}`}>
                                                 {columns.map(c => (
                                                     <td key={c.key} className={`px-3 py-2 ${c.align === 'right' ? 'text-right tabular-nums whitespace-nowrap' : ''} ${c.key === 'profit' ? (r.profit < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400') : ''} ${c.key === 'pending' && r.pending > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
                                                         {fmtCell(r, c)}
