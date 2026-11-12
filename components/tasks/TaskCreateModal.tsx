@@ -11,6 +11,7 @@ import { uploadImage } from '../../services/upload';
 import { Task } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { toast } from 'react-hot-toast';
+import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, localDTToIso } from './TaskSchedule';
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string }[] = [
     { value: null, labelKey: 'cmpx.task.prio.none' },
@@ -48,7 +49,10 @@ interface Props {
  */
 export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSection, sections, assignSelf, onToggleAssignSelf, myAssigneeId, onClose, onCreated }) => {
     const { t } = useTranslation();
-    const { getAllEmployees, projects } = useData();
+    const { getAllEmployees, projects, setTasks } = useData();
+    const [schedStart, setSchedStart] = useState('');
+    const [schedEnd, setSchedEnd] = useState('');
+    const { guard, modal: scheduleModal } = useScheduleGuard();
     const { currentUser } = useAuth();
     const isOpen = status !== null;
 
@@ -129,9 +133,16 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
         if (!status) return;
         if (!title.trim()) { toast.error(t('cmpx.task.title_required') || 'Escribe un título para la tarea.'); return; }
         if (reminderOn && !remindAt) { toast.error('Elige la fecha y hora del recordatorio o desactívalo.'); return; }
+        if (!!schedStart !== !!schedEnd) { toast.error('Indica la hora de inicio y la de fin, o quita el horario.'); return; }
+        const startAt = localDTToIso(schedStart), endAt = localDTToIso(schedEnd);
+        if (startAt && endAt && endAt <= startAt) { toast.error('La hora de fin debe ser después de la de inicio.'); return; }
         setSaving(true);
         try {
+            // Choques de horario con lo que ya tienen los asignados: preguntar antes de crear.
+            const decision = await guard({ title: title.trim(), startAt, endAt, userIds: assignedIds });
+            if (!decision) { setSaving(false); return; }
             const saved: any = await tasksService.create({
+                startAt, endAt, shiftConflicts: decision === 'shift',
                 projectId, title: title.trim(), status: status as any,
                 description: description || undefined,
                 section: section.trim() || undefined,
@@ -156,6 +167,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                 } catch { extraErrors.push(st); }
             }
             if (extraErrors.length) toast.error(`La tarea se creó, pero no se pudo agregar: ${extraErrors.slice(0, 3).join(', ')}${extraErrors.length > 3 ? '…' : ''}`);
+            applyScheduleMoves(setTasks, saved.scheduleMoves);
             onCreated(created);
             onClose();
         } catch {
@@ -209,6 +221,13 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                         <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputFormStyle} />
                     </div>
                 </div>
+
+                {/* Horario: se revisa que no choque con lo que ya tienen los asignados. */}
+                <TaskScheduleFields labelClassName={label} start={schedStart} end={schedEnd} onChange={(s, e) => {
+                    setSchedStart(s); setSchedEnd(e);
+                    if (s && !dueDate) setDueDate(s.slice(0, 10));
+                }} />
+                {scheduleModal}
 
                 <div>
                     <label className={label}>{t('cmpx.task.section_label')}</label>

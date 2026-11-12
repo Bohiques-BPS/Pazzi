@@ -3,6 +3,7 @@ import { htmlToPlainText } from '../../utils/htmlText';
 import { Task, Employee } from '../../types';
 import { ChatBubbleLeftRightIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '../icons';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { taskScheduleLabel } from './TaskSchedule';
 
 interface ChecklistSummary { total: number; done: number; }
 
@@ -69,6 +70,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
                     {htmlToPlainText(task.description)}
                 </p>
+            )}
+
+            {/* Horario (inicio – fin) */}
+            {taskScheduleLabel(task) && (
+                <p className="text-[11px] font-medium text-primary mt-1">{taskScheduleLabel(task)}</p>
             )}
 
             {hasFooter && (

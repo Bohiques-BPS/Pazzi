@@ -25,7 +25,17 @@ export interface TaskPayload {
   remindAt?: string | null;
   /** Subtarea: id de la tarea padre. */
   parentTaskId?: string | null;
+  /** Horario opcional (ISO); ambos null lo quitan. */
+  startAt?: string | null;
+  endAt?: string | null;
+  /** Al guardar, correr en cadena las tareas siguientes que chocan (el usuario lo aceptó). */
+  shiftConflicts?: boolean;
 }
+
+/** Choques de horario de una tarea (ver /tasks/schedule-check). Fechas en ISO. */
+export interface ScheduleClash { kind: 'task' | 'visit' | 'meeting'; id: string; title: string; projectName: string | null; start: string; end: string; userNames: string[] }
+export interface ScheduleMove { taskId: string; title: string; projectName: string | null; from: { start: string; end: string }; to: { start: string; end: string } }
+export interface ScheduleCheckResult { conflicts: ScheduleClash[]; moves: ScheduleMove[]; blocked: ScheduleClash[] }
 
 export interface TaskCommentRecord {
   id: string;
@@ -99,6 +109,10 @@ export const tasksService = {
     api.get<any[]>('/tasks/mine', opts?.includeDone ? { includeDone: '1' } : undefined),
 
   create: (data: TaskPayload) => api.post<any>('/tasks', data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
+
+  /** Revisa choques de horario antes de guardar (no guarda nada). */
+  scheduleCheck: (data: { taskId?: string; title?: string; startAt: string; endAt: string; userIds: string[] }) =>
+    api.post<ScheduleCheckResult>('/tasks/schedule-check', data),
 
   /** Crea varias tareas en una sola llamada (ej. las sugeridas por la IA). */
   createBulk: (data: { projectId: string; tasks: TaskPayload[] }) =>

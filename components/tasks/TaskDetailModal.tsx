@@ -14,6 +14,7 @@ import { uploadImage } from '../../services/upload';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, isoToLocalDT, localDTToIso } from './TaskSchedule';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -56,6 +57,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [description, setDescription] = useState(task.description || '');
     const [assignedIds, setAssignedIds] = useState<string[]>(task.assignedEmployeeIds || []);
     const [dueDate, setDueDate] = useState<string>(task.dueDate ? task.dueDate.split('T')[0] : '');
+    const [schedStart, setSchedStart] = useState<string>(isoToLocalDT(task.startAt));
+    const [schedEnd, setSchedEnd] = useState<string>(isoToLocalDT(task.endAt));
+    const { guard, modal: scheduleModal } = useScheduleGuard();
     const [priority, setPriority] = useState<Task['priority']>(task.priority ?? null);
     // Recordatorio (campana + correo a los asignados).
     const isoToLocalInput = (iso?: string | null) => {
@@ -286,6 +290,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             || plain(description) !== plain(task.description || '')
             || !sameIds(assignedIds, task.assignedEmployeeIds || [])
             || dueDate !== (task.dueDate ? task.dueDate.split('T')[0] : '')
+            || schedStart !== isoToLocalDT(task.startAt) || schedEnd !== isoToLocalDT(task.endAt)
             || (priority ?? null) !== (task.priority ?? null)
             || section.trim() !== (task.section || '')
             || reminderOn !== !!task.remindAt
@@ -294,7 +299,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             // Texto escrito y aún no enviado (comentario, ítem de checklist, subtarea).
             || !!newComment.trim() || !!commentImage || !!newCheckItem.trim() || !!newSubtaskTitle.trim();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [title, description, assignedIds, dueDate, priority, section, reminderOn, remindAt, attachments, newComment, commentImage, newCheckItem, newSubtaskTitle, task]);
+    }, [title, description, assignedIds, dueDate, schedStart, schedEnd, priority, section, reminderOn, remindAt, attachments, newComment, commentImage, newCheckItem, newSubtaskTitle, task]);
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -307,10 +312,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             return;
         }
         const remindAtIso = reminderOn && remindAt ? new Date(remindAt).toISOString() : null;
+        if (!!schedStart !== !!schedEnd) { setError('Indica la hora de inicio y la de fin, o quita el horario.'); return; }
+        const startAt = localDTToIso(schedStart), endAt = localDTToIso(schedEnd);
+        if (startAt && endAt && endAt <= startAt) { setError('La hora de fin debe ser después de la de inicio.'); return; }
+        // Solo se revisa el horario si cambió (o cambiaron los asignados de una tarea con horario).
+        const sameIds = [...assignedIds].sort().join('|') === [...(task.assignedEmployeeIds || [])].sort().join('|');
+        const scheduleTouched = schedStart !== isoToLocalDT(task.startAt) || schedEnd !== isoToLocalDT(task.endAt) || (!!startAt && !sameIds);
         setSubmitting(true);
         setError(null);
         try {
-            await tasksService.update(task.id, {
+            const decision = scheduleTouched ? await guard({ taskId: task.id, title, startAt, endAt, userIds: assignedIds }) : 'keep';
+            if (!decision) { setSubmitting(false); return; }
+            const saved: any = await tasksService.update(task.id, {
+                ...(scheduleTouched ? { startAt, endAt, shiftConflicts: decision === 'shift' } : {}),
                 title,
                 description,
                 assignedEmployeeIds: assignedIds,
@@ -320,7 +334,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 remindAt: remindAtIso,
                 attachments,
             });
-            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null, remindAt: remindAtIso, attachments } as any);
+            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null, remindAt: remindAtIso, attachments, startAt, endAt } as any);
+            applyScheduleMoves(setTasks, saved?.scheduleMoves);
             toast.success(t('cmpx.task.updated_ok'));
             onClose();
         } catch (err) {
@@ -694,6 +709,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                         />
                     </div>
                 </div>
+
+                {/* Horario: se revisa que no choque con lo que ya tienen los asignados. */}
+                <TaskScheduleFields start={schedStart} end={schedEnd} onChange={(s, e) => {
+                    setSchedStart(s); setSchedEnd(e);
+                    if (s && !dueDate) setDueDate(s.slice(0, 10));
+                }} />
+                {scheduleModal}
 
                 {/* Sección / área del proyecto (ej. Diseño, Programación) */}
                 <div>

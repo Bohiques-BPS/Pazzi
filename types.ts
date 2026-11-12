@@ -986,6 +986,8 @@ export interface Task {
     order: number; // For sorting within a column
     assignedEmployeeIds?: string[];
     dueDate?: string | null;   // ISO date string (YYYY-MM-DD)
+    startAt?: string | null;   // horario opcional: inicio (ISO)
+    endAt?: string | null;     // horario opcional: fin (ISO)
     priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
     remindAt?: string | null;  // ISO datetime del recordatorio (campana + correo)
     parentTaskId?: string | null; // subtarea: id de la tarea padre (árbol de tareas)
