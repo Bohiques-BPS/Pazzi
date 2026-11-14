@@ -269,6 +269,8 @@ export interface Product {
     isService?: boolean;
     /** Se puede vender aunque no haya stock (servicios o productos sin inventario). */
     allowNoStock?: boolean;
+    /** Cargo de entrega: al venderlo en la caja, la venta se marca "para entrega". */
+    isDeliveryFee?: boolean;
     compatibility?: string;
     supplierId?: string;
     hasVariations?: boolean;

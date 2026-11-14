@@ -819,6 +819,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 relatedEstimateIds: (saleData as any).relatedEstimateIds || [],
                 // Vuelto entregado: la reimpresión lo necesita para mostrar entregado y cambio.
                 changeDue: (saleData as any).changeDue || 0,
+                // Venta "para entrega": el BE crea la entrega en Control de Entregas.
+                ...((saleData as any).delivery ? { delivery: (saleData as any).delivery } : {}),
             } as any);
 
             const newSale: Sale = {

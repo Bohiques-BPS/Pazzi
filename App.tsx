@@ -133,6 +133,8 @@ const SupplierOrdersListPage = lazyNamed(() => import('./pages/ecommerce/Supplie
 const CheckoutPage = lazyNamed(() => import('./pages/ecommerce/CheckoutPage'), 'CheckoutPage'); 
 const OrderConfirmationPage = lazyNamed(() => import('./pages/ecommerce/OrderConfirmationPage'), 'OrderConfirmationPage');
 const PublicInvoicePage = lazyNamed(() => import('./pages/pos/PublicInvoicePage'), 'PublicInvoicePage');
+const PublicDeliveryPage = lazyNamed(() => import('./pages/pos/PublicDeliveryPage'), 'PublicDeliveryPage');
+const DeliveriesPage = lazyNamed(() => import('./pages/pos/DeliveriesPage'), 'DeliveriesPage');
 const PublicEnrollPage = lazyNamed(() => import('./pages/pos/PublicEnrollPage'), 'PublicEnrollPage');
 
 // Admin Pages
@@ -451,6 +453,7 @@ const AppContent: React.FC = () => {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
         <Route path="/pay/:token" element={<PublicInvoicePage />} />
+        <Route path="/entrega/:token" element={<PublicDeliveryPage />} />
         <Route path="/enroll/:token" element={<PublicEnrollPage />} />
         <Route path="/f/:token" element={<PublicLeadFormPage />} />
         {/* Páginas legales públicas (para registro de app OAuth y pie de la tienda). */}
@@ -528,6 +531,7 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/payment-methods" element={<PaymentMethodsPage />} />
                 <Route path="/pos/recurring" element={<RecurringPaymentsPage />} />
                 <Route path="/pos/invoices" element={<InvoicesListPage />} />
+                <Route path="/pos/deliveries" element={<DeliveriesPage />} />
                 <Route path="/pos/attendance" element={<AttendancePage />} />
                 
                 <Route path="/ecommerce/dashboard" element={<ECommerceReportsPage />} />

@@ -18,6 +18,8 @@ import { leadsService } from '../../services/leads';
 import { useModules } from '../../hooks/useModules';
 import { AppModule, Lead, Pipeline } from '../../types';
 import { clientDocName } from '../../utils/clientName';
+import { deliveriesService, deliveryAddress, type Delivery } from '../../services/deliveries';
+import { DeliveryDetailModal, DeliveryStatusChip, fmtDeliveryDay } from '../pos/DeliveryDetailModal';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -179,7 +181,7 @@ function SmartTable<T>({ rows, columns, selectFilters = [], initialSortKey, init
     );
 }
 
-type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products' | 'receipts' | 'leads';
+type TabKey = 'ar' | 'sales' | 'estimates' | 'layaways' | 'projects' | 'products' | 'receipts' | 'leads' | 'deliveries';
 
 export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, onClose, client, fromPos, cajaId }) => {
     const { t } = useTranslation();
@@ -237,6 +239,16 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
     const { isModuleEnabled } = useModules();
     const showLeads = !fromPos && isModuleEnabled(AppModule.LEADS) && can('leads.view');
     const [clientLeads, setClientLeads] = useState<Lead[]>([]);
+    // Entregas del cliente (Control de Entregas). También se ven desde la caja.
+    const [clientDeliveries, setClientDeliveries] = useState<Delivery[]>([]);
+    const [deliveryOpen, setDeliveryOpen] = useState<string | null>(null);
+    const [deliveriesKey, setDeliveriesKey] = useState(0);
+    useEffect(() => {
+        if (!isOpen || !client) { setClientDeliveries([]); return; }
+        let cancelled = false;
+        deliveriesService.list({ clientId: client.id, bucket: 'all' }).then(r => { if (!cancelled) setClientDeliveries(r.rows || []); }).catch(() => {});
+        return () => { cancelled = true; };
+    }, [isOpen, client, deliveriesKey]);
     const [leadPipelines, setLeadPipelines] = useState<Pipeline[]>([]);
 
     useEffect(() => {
@@ -299,6 +311,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
         { key: 'projects', label: 'Proyectos', count: data.projects.length },
         { key: 'products', label: 'Top productos', count: data.topProducts.length },
         { key: 'receipts', label: 'Recibos de pago', count: receipts.length },
+        { key: 'deliveries', label: 'Entregas', count: clientDeliveries.length },
         ...(showLeads ? [{ key: 'leads' as TabKey, label: t('leads.common.client_tab'), count: clientLeads.length }] : []),
     ] : [];
 
@@ -515,6 +528,22 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                 ]}
                             />
                         )}
+                        {tab === 'deliveries' && (
+                            <SmartTable
+                                rows={clientDeliveries}
+                                emptyText="Sin entregas."
+                                initialSortKey="date" initialSortDir="desc"
+                                selectFilters={[{ key: 'st', label: 'Estado', get: r => r.overdue ? 'Atrasada' : ({ pending: 'Pendiente', in_route: 'En ruta', partial: 'Entrega parcial', delivered: 'Entregada', cancelled: 'Cancelada' } as Record<string, string>)[r.status] }]}
+                                columns={[
+                                    { key: 'date', label: 'Fecha', text: r => fmtDeliveryDay(r.scheduledDate), sort: r => r.scheduledDate || '', render: r => <span className={r.overdue ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>{fmtDeliveryDay(r.scheduledDate)}{r.timeWindow ? ` · ${r.timeWindow}` : ''}</span> },
+                                    { key: 'fac', label: 'Factura', text: r => r.saleNumber ? `#${r.saleNumber}` : '', sort: r => r.saleNumber || 0, render: r => <span className="font-mono text-xs">{r.saleNumber ? `#${r.saleNumber}` : '—'}</span> },
+                                    { key: 'addr', label: 'Dirección', text: r => deliveryAddress(r), render: r => <span className="text-xs">{deliveryAddress(r) || '—'}</span> },
+                                    { key: 'pend', label: 'Pendiente', text: r => r.items.filter(i => i.pending > 0).map(i => i.name).join(' '), render: r => <span className="text-xs text-neutral-500">{r.items.filter(i => i.pending > 1e-9).map(i => `${i.name} ×${Math.round(i.pending * 100) / 100}`).join(', ') || '—'}</span> },
+                                    { key: 'st', label: 'Estado', text: r => r.status, render: r => <DeliveryStatusChip d={r} /> },
+                                    { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => <button type="button" onClick={() => setDeliveryOpen(r.id)} className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20">Ver</button> },
+                                ]}
+                            />
+                        )}
                     </div>
                 </div>
             )}
@@ -570,6 +599,9 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                 </div>
             </div>
         </Modal>
+
+        {/* Detalle de una entrega del cliente */}
+        <DeliveryDetailModal deliveryId={deliveryOpen} onClose={() => { setDeliveryOpen(null); setDeliveriesKey(k => k + 1); }} />
       </>
     );
 };

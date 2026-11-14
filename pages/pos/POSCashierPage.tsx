@@ -8,6 +8,7 @@ import { getCajaDesign } from '../../utils/cajaDesigns';
 import { getEffectiveUnitPrice } from '../../utils/pricing';
 import {
     XMarkIcon,
+    TruckIcon,
     ArchiveBoxIcon,
     UserPlusIcon,
     EyeIcon,
@@ -53,6 +54,8 @@ import { HeldCartsModal } from '../../components/ui/HeldCartsModal';
 import { ClientEstimatesModal } from '../../components/ui/ClientEstimatesModal';
 import { ClientCreditPaymentModal } from '../../components/ui/ClientCreditPaymentModal';
 import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
+import { DeliverySetupModal, deliveryDefaultsFromClient } from '../../components/pos/DeliverySetupModal';
+import { deliveryAddress, type DeliveryInput } from '../../services/deliveries';
 import { CreateLayawayModal } from '../../components/forms/CreateLayawayModal';
 import { UserSwitchModal } from '../../components/ui/UserSwitchModal';
 import { POSProjectFormModal } from './POSProjectFormModal';
@@ -305,6 +308,15 @@ export const POSCashierPage: React.FC = () => {
     }, [currentSession]);
     
     const [cart, setCart] = useState<CartItem[]>([]);
+    // Venta "para entrega": datos de la entrega que se crea junto con la venta (Control de Entregas).
+    const [deliveryDraft, setDeliveryDraft] = useState<DeliveryInput | null>(null);
+    const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
+    const deliveryAskedRef = useRef(false);
+    // Al agregar un producto marcado "Cargo de entrega", se piden los datos de la entrega (una vez por venta).
+    useEffect(() => {
+        if (deliveryDraft || deliveryAskedRef.current) return;
+        if (cart.some(it => (it as any).isDeliveryFee)) { deliveryAskedRef.current = true; setDeliveryModalOpen(true); }
+    }, [cart, deliveryDraft]);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     // Cliente de mostrador por defecto: por bandera isDefault, por id conocido, o por nombre
     // "Público General" (el que crea el backend). Robusto ante datos que no traigan isDefault.
@@ -1037,6 +1049,8 @@ export const POSCashierPage: React.FC = () => {
     const clearCart = () => {
         setCart([]);
         setCartEstimateIds([]);
+        setDeliveryDraft(null);
+        deliveryAskedRef.current = false;
         const defaultClient = findDefaultClient(clients);
         setSelectedClient(defaultClient || null);
         setSelectedProjectId(null);
@@ -1172,6 +1186,7 @@ export const POSCashierPage: React.FC = () => {
                 allowOversell,
                 relatedEstimateIds: cartEstimateIds,
                 changeDue: changeDue || 0,
+                ...(deliveryDraft ? { delivery: deliveryDraft } : {}),
             } as any, selectedBranchId);
         } catch (err: any) {
             finalizingRef.current = false;
@@ -1190,6 +1205,13 @@ export const POSCashierPage: React.FC = () => {
         const involvesCash = payments.some(p => /efectivo|cash/i.test(p.method)) || (changeDue || 0) > 0;
         if (isCashDrawerEnabled() && involvesCash) {
             openCashDrawer().catch(err => toast.error(t('posx.cashier.drawer_error', { msg: err?.message || t('posx.cashier.drawer_open_failed') })));
+        }
+
+        // Venta para entrega: confirmar que quedó en Control de Entregas (o avisar si no se pudo).
+        if (deliveryDraft) {
+            const dlv = (created as any)?.delivery;
+            if (dlv) toast.success(`Entrega #${dlv.number ?? ''} registrada en Control de Entregas.`);
+            else toast.error('La venta se guardó, pero no se creó la entrega (¿solo servicios o cargos de entrega?). Puedes crearla desde el Historial de Ventas.');
         }
 
         // Mostrar la factura con el folio secuencial del negocio (Factura #N).
@@ -1487,6 +1509,8 @@ export const POSCashierPage: React.FC = () => {
         { text: t('pos.return'), icon: <ArrowUturnLeftIcon />, color: POS_BUTTON_CYAN_CLASSES, onClick: () => setActiveModal('return') },
         { text: t('pos.estimate'), icon: <ClipboardDocumentListIcon />, color: 'bg-[#00897B]', onClick: () => selectedClient && setActiveModal('clientEstimates'), disabled: !selectedClient },
         { text: t('pos.layaway'), icon: <ArchiveBoxIcon />, color: 'bg-[#00ACC1]', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || !selectedClient },
+        // Venta para entrega (Control de Entregas).
+        { text: deliveryDraft ? 'Entrega ✓' : 'Entrega', icon: <TruckIcon />, color: 'bg-[#6D4C41]', onClick: () => setDeliveryModalOpen(true), disabled: cart.length === 0 },
         // "Gaveta" (Sin venta) solo si está configurada la gaveta por QZ Tray en este dispositivo.
         ...(isCashDrawerEnabled() ? [{ text: t('posx.cashier.drawer'), icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
         { text: t('posx.cashier.cash_up'), icon: <DocumentTextIcon />, color: 'bg-[#00695C]', shortcut: 'F7', onClick: () => setActiveModal('dailyClose') },
@@ -1950,6 +1974,16 @@ export const POSCashierPage: React.FC = () => {
                     </div>
                 </div>
             </main>
+            {deliveryDraft && cart.length > 0 && (
+                <div className="flex-shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/30 border-t border-teal-200 dark:border-teal-800 text-sm text-teal-800 dark:text-teal-200">
+                    <TruckIcon className="w-4 h-4" />
+                    <span className="font-semibold">Venta para entrega</span>
+                    <span>{deliveryDraft.scheduledDate ? new Date(`${deliveryDraft.scheduledDate}T12:00:00Z`).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : 'Sin fecha'}{deliveryDraft.timeWindow ? ` · ${deliveryDraft.timeWindow}` : ''}</span>
+                    <span className="truncate max-w-[40ch]">{deliveryAddress(deliveryDraft as any)}</span>
+                    <button type="button" onClick={() => setDeliveryModalOpen(true)} className="underline">Editar</button>
+                    <button type="button" onClick={() => setDeliveryDraft(null)} className="underline text-red-700 dark:text-red-300">Quitar</button>
+                </div>
+            )}
             <footer className="bg-gray-100 dark:bg-neutral-900 p-1 sm:p-1.5 flex-shrink-0 relative">
                  {posError && (<div className="absolute bottom-full left-0 right-0 p-2 bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-400 text-center text-xs sm:text-sm font-medium" role="alert">{posError}</div>)}
                 <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 sm:gap-1.5 w-full">
@@ -1998,6 +2032,14 @@ export const POSCashierPage: React.FC = () => {
                 />
             )}
             <ClientAccountModal isOpen={activeModal === 'clientAccount'} onClose={() => setActiveModal(null)} client={selectedClient} fromPos />
+            <DeliverySetupModal
+                isOpen={deliveryModalOpen}
+                onClose={() => setDeliveryModalOpen(false)}
+                initial={deliveryDraft || deliveryDefaultsFromClient(selectedClient)}
+                saveLabel={deliveryDraft ? 'Guardar' : 'Marcar para entrega'}
+                onSave={data => { setDeliveryDraft(data); setDeliveryModalOpen(false); }}
+                onRemove={deliveryDraft ? () => { setDeliveryDraft(null); setDeliveryModalOpen(false); } : undefined}
+            />
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
             <PaymentModal

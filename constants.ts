@@ -601,6 +601,7 @@ export const APP_MODULES_CONFIG = [
             { type: 'link', name: 'Config. Terminal', path: '/pos/terminal-settings', icon: PrintIcon, permission: 'pos.access' },
             { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon, permission: 'estimates.manage' },
             { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon, permission: 'layaways.manage' },
+            { type: 'link', name: 'Control de Entregas', path: '/pos/deliveries', icon: TruckIcon, permission: ['deliveries.view', 'deliveries.manage', 'deliveries.deliver'] },
         ] },
         { type: 'group', name: 'Cuentas', icon: BanknotesIcon, children: [
             { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: DocumentArrowUpIcon, permission: 'accounts.viewReceivable' },

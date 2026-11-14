@@ -18,6 +18,10 @@ import { toast } from '../../hooks/useToast';
 import { TrashIconMini } from '../../components/icons';
 import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ClientNameLink } from '../../components/ui/EntityNameLink';
+import { TruckIcon } from '../../components/icons';
+import { DeliverySetupModal, deliveryDefaultsFromClient } from '../../components/pos/DeliverySetupModal';
+import { deliveriesService } from '../../services/deliveries';
+import { usePermissions } from '../../hooks/usePermissions';
 
 // Unified interface for the table
 interface HistoryItem {
@@ -46,6 +50,11 @@ export const POSSalesHistoryPage: React.FC = () => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  // Crear la entrega de una venta ya hecha (Control de Entregas).
+  const { can } = usePermissions();
+  const canCreateDelivery = can('deliveries.manage') || can('pos.sell');
+  const [saleForDelivery, setSaleForDelivery] = useState<Sale | null>(null);
+  const [savingDelivery, setSavingDelivery] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedSales, setDeletedSales] = useState<Sale[]>([]);
 
@@ -391,6 +400,16 @@ export const POSSalesHistoryPage: React.FC = () => {
               >
                 <PrinterIcon className="w-5 h-5" />
               </button>
+              {canCreateDelivery && !(item.rawObject as any)?.isReturn && (
+                <button
+                  onClick={() => setSaleForDelivery(item.rawObject as Sale)}
+                  className="text-neutral-500 hover:text-primary p-1"
+                  title="Crear entrega"
+                  aria-label={`Crear entrega ${item.id.substring(0,8)}`}
+                >
+                  <TruckIcon className="w-5 h-5" />
+                </button>
+              )}
               <button
                 onClick={() => setSaleToDelete(item.rawObject as Sale)}
                 className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
@@ -425,17 +444,38 @@ export const POSSalesHistoryPage: React.FC = () => {
       />
 
       {/* Modal for Sales/CxC Details */}
-      <ReceivableEditModal 
-        isOpen={isSaleModalOpen} 
-        onClose={() => setIsSaleModalOpen(false)} 
-        saleToEdit={selectedSale} 
+      <ReceivableEditModal
+        isOpen={isSaleModalOpen}
+        onClose={() => setIsSaleModalOpen(false)}
+        saleToEdit={selectedSale}
       />
 
       {/* Modal for CxP Details */}
-      <SupplierOrderFormModal 
-        isOpen={isOrderModalOpen} 
-        onClose={() => setIsOrderModalOpen(false)} 
-        orderToEdit={selectedOrder} 
+      <SupplierOrderFormModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        orderToEdit={selectedOrder}
+      />
+
+      {/* Crear entrega de una venta ya hecha */}
+      <DeliverySetupModal
+        isOpen={!!saleForDelivery}
+        onClose={() => setSaleForDelivery(null)}
+        title={`Crear entrega${(saleForDelivery as any)?.saleNumber ? ` · Factura #${(saleForDelivery as any).saleNumber}` : ''}`}
+        saveLabel="Crear entrega"
+        saving={savingDelivery}
+        initial={deliveryDefaultsFromClient(saleForDelivery?.clientId ? getClientById(saleForDelivery.clientId) : null)}
+        onSave={async data => {
+          if (!saleForDelivery) return;
+          setSavingDelivery(true);
+          try {
+            const d = await deliveriesService.createFromSale(saleForDelivery.id, data);
+            toast.success(`Entrega #${d.number ?? ''} creada en Control de Entregas.`);
+            setSaleForDelivery(null);
+          } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo crear la entrega.');
+          } finally { setSavingDelivery(false); }
+        }}
       />
     </div>
   );
