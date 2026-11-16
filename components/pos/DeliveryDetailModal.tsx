@@ -21,6 +21,15 @@ export const DeliveryStatusChip: React.FC<{ d: Pick<Delivery, 'status' | 'overdu
     </span>
 );
 
+/** Insignia de la entrega de una venta: estado + fecha; al hacer clic abre el detalle. */
+export const DeliveryBadge: React.FC<{ d: Pick<Delivery, 'status' | 'overdue' | 'scheduledDate' | 'number'>; onClick?: () => void }> = ({ d, onClick }) => (
+    <button type="button" onClick={e => { e.stopPropagation(); onClick?.(); }} title={`Entrega #${d.number ?? ''} — ver detalle`}
+        className="inline-flex items-center gap-1 flex-wrap text-left hover:opacity-80">
+        <DeliveryStatusChip d={d} />
+        {d.status !== 'delivered' && d.status !== 'cancelled' && <span className="text-[11px] text-neutral-500 dark:text-neutral-400 whitespace-nowrap">{fmtDeliveryDay(d.scheduledDate)}</span>}
+    </button>
+);
+
 const EVENT_LABEL: Record<string, string> = {
     created: 'Entrega registrada', updated: 'Actualizada', assigned: 'Repartidor', in_route: 'Salió en ruta',
     partial: 'Entrega parcial', delivered: 'Entregada', cancelled: 'Cancelada', reopened: 'Reabierta',

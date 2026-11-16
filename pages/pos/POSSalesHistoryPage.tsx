@@ -20,7 +20,8 @@ import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
 import { ClientNameLink } from '../../components/ui/EntityNameLink';
 import { TruckIcon } from '../../components/icons';
 import { DeliverySetupModal, deliveryDefaultsFromClient } from '../../components/pos/DeliverySetupModal';
-import { deliveriesService } from '../../services/deliveries';
+import { deliveriesService, type DeliverySummary } from '../../services/deliveries';
+import { DeliveryBadge, DeliveryDetailModal } from '../../components/pos/DeliveryDetailModal';
 import { usePermissions } from '../../hooks/usePermissions';
 
 // Unified interface for the table
@@ -55,6 +56,10 @@ export const POSSalesHistoryPage: React.FC = () => {
   const canCreateDelivery = can('deliveries.manage') || can('pos.sell');
   const [saleForDelivery, setSaleForDelivery] = useState<Sale | null>(null);
   const [savingDelivery, setSavingDelivery] = useState(false);
+  // Entrega de cada venta listada (columna "Entrega" y detalle).
+  const [deliveryBySale, setDeliveryBySale] = useState<Record<string, DeliverySummary>>({});
+  const [deliveryOpen, setDeliveryOpen] = useState<string | null>(null);
+  const [deliveriesKey, setDeliveriesKey] = useState(0);
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedSales, setDeletedSales] = useState<Sale[]>([]);
 
@@ -303,6 +308,18 @@ export const POSSalesHistoryPage: React.FC = () => {
     doc.save(`recibo_venta_${sale.id.slice(-6).toUpperCase()}.pdf`);
   };
 
+  // Entregas de las ventas cargadas (una sola consulta por lote de ventas).
+  const saleIdsKey = useMemo(() => sales.filter(s => !(s as any).isReturn).map(s => s.id).join(','), [sales]);
+  useEffect(() => {
+    const ids = saleIdsKey ? saleIdsKey.split(',') : [];
+    if (!ids.length) { setDeliveryBySale({}); return; }
+    let cancelled = false;
+    deliveriesService.lookup(ids.slice(0, 1000))
+      .then(list => { if (!cancelled) setDeliveryBySale(Object.fromEntries(list.map(d => [d.saleId, d]))); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [saleIdsKey, deliveriesKey]);
+
   const columns: TableColumn<HistoryItem>[] = [
     { 
         header: t('pos.sales_history.col.id'), 
@@ -365,6 +382,15 @@ export const POSSalesHistoryPage: React.FC = () => {
         )
     },
     { header: t('posx.saleshistory.col.status'), accessor: (item) => item.status },
+    {
+        header: 'Entrega',
+        sortValue: (item) => deliveryBySale[item.originalId]?.status || '',
+        accessor: (item) => {
+            if (item.type === 'CxP') return null;
+            const d = deliveryBySale[(item.rawObject as Sale).id];
+            return d ? <DeliveryBadge d={d} onClick={() => setDeliveryOpen(d.id)} /> : <span className="text-neutral-400 text-xs">—</span>;
+        }
+    },
   ];
 
   return (
@@ -400,12 +426,15 @@ export const POSSalesHistoryPage: React.FC = () => {
               >
                 <PrinterIcon className="w-5 h-5" />
               </button>
-              {canCreateDelivery && !(item.rawObject as any)?.isReturn && (
+              {!(item.rawObject as any)?.isReturn && (deliveryBySale[(item.rawObject as Sale).id] || canCreateDelivery) && (
                 <button
-                  onClick={() => setSaleForDelivery(item.rawObject as Sale)}
+                  onClick={() => {
+                    const d = deliveryBySale[(item.rawObject as Sale).id];
+                    if (d && d.status !== 'cancelled') setDeliveryOpen(d.id); else setSaleForDelivery(item.rawObject as Sale);
+                  }}
                   className="text-neutral-500 hover:text-primary p-1"
-                  title="Crear entrega"
-                  aria-label={`Crear entrega ${item.id.substring(0,8)}`}
+                  title={deliveryBySale[(item.rawObject as Sale).id] && deliveryBySale[(item.rawObject as Sale).id].status !== 'cancelled' ? 'Ver entrega' : 'Crear entrega'}
+                  aria-label={`Entrega ${item.id.substring(0,8)}`}
                 >
                   <TruckIcon className="w-5 h-5" />
                 </button>
@@ -457,6 +486,9 @@ export const POSSalesHistoryPage: React.FC = () => {
         orderToEdit={selectedOrder}
       />
 
+      {/* Detalle de la entrega de una venta */}
+      <DeliveryDetailModal deliveryId={deliveryOpen} onClose={() => { setDeliveryOpen(null); setDeliveriesKey(k => k + 1); }} />
+
       {/* Crear entrega de una venta ya hecha */}
       <DeliverySetupModal
         isOpen={!!saleForDelivery}
@@ -472,6 +504,7 @@ export const POSSalesHistoryPage: React.FC = () => {
             const d = await deliveriesService.createFromSale(saleForDelivery.id, data);
             toast.success(`Entrega #${d.number ?? ''} creada en Control de Entregas.`);
             setSaleForDelivery(null);
+            setDeliveriesKey(k => k + 1);
           } catch (err) {
             toast.error(err instanceof ApiError ? err.message : 'No se pudo crear la entrega.');
           } finally { setSavingDelivery(false); }

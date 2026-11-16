@@ -19,7 +19,7 @@ import { useModules } from '../../hooks/useModules';
 import { AppModule, Lead, Pipeline } from '../../types';
 import { clientDocName } from '../../utils/clientName';
 import { deliveriesService, deliveryAddress, type Delivery } from '../../services/deliveries';
-import { DeliveryDetailModal, DeliveryStatusChip, fmtDeliveryDay } from '../pos/DeliveryDetailModal';
+import { DeliveryDetailModal, DeliveryStatusChip, DeliveryBadge, fmtDeliveryDay } from '../pos/DeliveryDetailModal';
 
 interface ClientAccountModalProps {
     isOpen: boolean;
@@ -299,6 +299,14 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
 
     if (!isOpen || !client) return null;
 
+    // Entrega de cada venta (para la columna "Entrega" de Ventas); se prefiere la vigente sobre una cancelada.
+    const deliveryBySale = new Map<string, Delivery>();
+    for (const d of clientDeliveries) {
+        if (!d.saleId) continue;
+        const prev = deliveryBySale.get(d.saleId);
+        if (!prev || prev.status === 'cancelled') deliveryBySale.set(d.saleId, d);
+    }
+
     const s = data?.summary;
     const itemsText = (items: { quantity: number; product?: { name: string } }[]) =>
         (items || []).map(it => `${it.product?.name || 'Producto'} ×${it.quantity}`).join(', ');
@@ -416,6 +424,7 @@ export const ClientAccountModal: React.FC<ClientAccountModalProps> = ({ isOpen, 
                                     { key: 'st', label: 'Estado', text: r => r.paymentStatus || '', render: r => <span className="text-xs">{r.paymentStatus}</span> },
                                     { key: 'items', label: 'Productos', text: r => itemsText(r.items), render: r => <span className="text-xs text-neutral-500 line-clamp-1 max-w-[320px] inline-block align-bottom" title={itemsText(r.items)}>{itemsText(r.items) || '—'}</span> },
                                     { key: 'total', label: 'Total', align: 'right', text: r => String(r.totalAmount), sort: r => r.totalAmount, render: r => <span className={`font-bold ${r.isReturn ? 'text-orange-600' : 'text-primary'}`}>{r.isReturn ? '−' : ''}{money(r.totalAmount)}</span> },
+                                    { key: 'dlv', label: 'Entrega', text: r => deliveryBySale.get(r.id)?.status || '', render: r => { const d = deliveryBySale.get(r.id); return d ? <DeliveryBadge d={d} onClick={() => setDeliveryOpen(d.id)} /> : <span className="text-neutral-400 text-xs">—</span>; } },
                                     { key: 'acc', label: 'Acciones', sortable: false, align: 'center', text: () => '', render: r => (
                                         <button type="button" onClick={() => actPrintSale(r.id)} title="Recibo / Factura" className="text-xs font-semibold px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 whitespace-nowrap">🖨️ Recibo/Factura</button>
                                     ) },

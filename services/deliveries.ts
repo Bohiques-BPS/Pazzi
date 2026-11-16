@@ -56,7 +56,15 @@ export const DELIVERY_STATUS_CLS: Record<DeliveryStatus, string> = {
 export const deliveryAddress = (d: Pick<Delivery, 'street' | 'city' | 'state' | 'zip'>) =>
   [d.street, d.city, d.state, d.zip].filter(Boolean).join(', ');
 
+/** Resumen de la entrega de una venta (para listas de ventas). */
+export interface DeliverySummary {
+  saleId: string; id: string; number: number | null; status: DeliveryStatus;
+  scheduledDate: string | null; overdue: boolean; pendingUnits: number;
+}
+
 export const deliveriesService = {
+  /** Entregas de esas ventas (una por venta; la vigente si hay canceladas). */
+  lookup: (saleIds: string[]) => api.post<DeliverySummary[]>('/deliveries/lookup', { saleIds }),
   list: (params: { bucket?: string; q?: string; assignedUserId?: string; mine?: boolean; clientId?: string; saleId?: string }) =>
     api.get<DeliveryList>('/deliveries', { ...params, mine: params.mine ? '1' : undefined } as any),
   get: (id: string) => api.get<Delivery>(`/deliveries/${id}`),
