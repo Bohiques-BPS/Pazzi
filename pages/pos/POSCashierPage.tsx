@@ -63,6 +63,7 @@ import { POSProjectFormModal } from './POSProjectFormModal';
 import { BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, POS_BUTTON_CYAN_CLASSES, BUTTON_PRIMARY_SM_CLASSES, DEFAULT_CLIENT_ID } from '../../constants';
 import { PaymentModal, PaymentMethod } from '../../components/forms/PaymentModal';
 import { ModernPaymentModal } from '../../components/forms/ModernPaymentModal';
+import { ModernDiscountModal } from '../../components/forms/ModernDiscountModal';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
@@ -360,7 +361,7 @@ export function useCashierController() {
     const [showCreateCaja, setShowCreateCaja] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [posError, setPosError] = useState<string | null>(null);
-    const [generalDiscount, setGeneralDiscount] = useState<{ type: 'percentage' | 'fixed'; value: number } | null>(null);
+    const [generalDiscount, setGeneralDiscount] = useState<{ type: 'percentage' | 'fixed'; value: number; reason?: string | null; authorizedBy?: string | null } | null>(null);
 
     
     // Modal states
@@ -1041,7 +1042,7 @@ export function useCashierController() {
         setActiveModal('discountAuth');
     };
 
-    const handleApplyDiscount = (discount: { type: 'percentage' | 'fixed'; value: number }) => {
+    const handleApplyDiscount = (discount: { type: 'percentage' | 'fixed'; value: number; reason?: string | null; authorizedBy?: string | null }) => {
         if (discountTarget === 'general') {
             setGeneralDiscount(discount);
         } else if (discountTarget) {
@@ -1179,6 +1180,9 @@ export function useCashierController() {
                 taxAmount: tax,
                 ...(settings.taxBreakdownEnabled ? { taxState, taxMunicipal, taxReduced } : {}),
                 discountAmount: globalDiscountAmount,
+                // Motivo y autorizador del descuento general (solo los envía la caja moderna).
+                ...(generalDiscount?.reason ? { discountReason: generalDiscount.reason } : {}),
+                ...(generalDiscount?.authorizedBy ? { discountAuthorizedBy: generalDiscount.authorizedBy } : {}),
                 paymentMethod: paymentMethodString,
                 paymentStatus: payments.some(p => p.method === 'Crédito C.') ? 'Pendiente de Pago' : 'Pagado',
                 payments,
@@ -2448,13 +2452,37 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                     onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
                 />
             )}
-            <DiscountAuthModal 
-                isOpen={activeModal === 'discountAuth'} 
-                onClose={() => setActiveModal(null)} 
-                onApply={handleApplyDiscount} 
+            {variant === 'modern' ? (() => {
+                const line = discountTarget && discountTarget !== 'general' ? cart.find(it => it.id === discountTarget) : undefined;
+                const isGen = !selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID;
+                const n = cart.reduce((a, it) => a + it.quantity, 0);
+                return (
+                    <ModernDiscountModal
+                        isOpen={activeModal === 'discountAuth'}
+                        onClose={() => setActiveModal(null)}
+                        mode={line ? 'line' : 'order'}
+                        label={line ? line.name : `${isGen ? 'Visitante' : clientDocName(selectedClient!)} · ${n} artículo${n === 1 ? '' : 's'}`}
+                        base={line ? line.unitPrice : subtotal}
+                        quantity={line?.quantity}
+                        orderTotal={total + globalDiscountAmount * (subtotal > 0 ? total / Math.max(0.01, subtotal - globalDiscountAmount) : 1)}
+                        current={line ? (line.discount || null) : generalDiscount}
+                        onApply={handleApplyDiscount}
+                        onRemove={() => {
+                            if (line) setCart(prev => prev.map(it => it.id === line.id ? { ...it, discount: undefined } : it));
+                            else setGeneralDiscount(null);
+                            setDiscountTarget(null);
+                        }}
+                    />
+                );
+            })() : (
+            <DiscountAuthModal
+                isOpen={activeModal === 'discountAuth'}
+                onClose={() => setActiveModal(null)}
+                onApply={handleApplyDiscount}
                 currentDiscount={currentDiscountForModal}
                 baseAmount={discountTarget === 'general' ? subtotal : cart.find(c => c.id === discountTarget)?.unitPrice}
             />
+            )}
             <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} />
             <ConfirmationModal
                 isOpen={showCartReplaceConfirm}

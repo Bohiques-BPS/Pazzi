@@ -541,6 +541,9 @@ export type CartItem = Product & {
     discount?: {
         type: 'percentage' | 'fixed';
         value: number;
+        /** Motivo (opcional) y quién lo autorizó — caja moderna. */
+        reason?: string | null;
+        authorizedBy?: string | null;
     };
     /** Comentario/nota por línea (sale en el recibo). */
     note?: string;

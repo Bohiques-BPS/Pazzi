@@ -425,7 +425,7 @@ export const ModernCashierPage: React.FC = () => {
                                                     <div className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 flex-wrap mt-0.5">
                                                         {it.discount && <span className="line-through">{money(it.unitPrice)}</span>}
                                                         <span>{money(unit)} c/u</span>
-                                                        {it.discount && <span className="font-semibold text-emerald-700 dark:text-emerald-400">−{it.discount.type === 'percentage' ? `${it.discount.value}%` : money(it.discount.value)}</span>}
+                                                        {it.discount && <span className="font-semibold text-emerald-700 dark:text-emerald-400">−{it.discount.type === 'percentage' ? `${it.discount.value}%` : money(it.discount.value)}{it.discount.reason ? ` · ${it.discount.reason}` : ''}</span>}
                                                         {it.priceOverride && <span className="text-amber-600 dark:text-amber-400">precio cambiado</span>}
                                                         {it.skus?.[0] && <span>· {it.skus[0]}</span>}
                                                     </div>
@@ -463,7 +463,7 @@ export const ModernCashierPage: React.FC = () => {
                         <div className="flex justify-between"><span className="text-neutral-500 dark:text-neutral-400">Subtotal</span><span className="tabular-nums">{money(subtotal)}</span></div>
                         {generalDiscount && globalDiscountAmount > 0 ? (
                             <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
-                                <button type="button" onClick={() => handleOpenDiscountModal('general')} className="hover:underline">Descuento general {generalDiscount.type === 'percentage' ? `${generalDiscount.value}%` : ''}</button>
+                                <button type="button" onClick={() => handleOpenDiscountModal('general')} className="hover:underline text-left">Descuento general {generalDiscount.type === 'percentage' ? `${generalDiscount.value}%` : ''}{generalDiscount.reason ? <span className="text-xs text-neutral-500 dark:text-neutral-400"> · {generalDiscount.reason}</span> : null}</button>
                                 <span className="flex items-center gap-1.5 tabular-nums">−{money(globalDiscountAmount)}<button type="button" onClick={() => setGeneralDiscount(null)} aria-label="Quitar descuento general"><XMarkIcon className="w-4 h-4" /></button></span>
                             </div>
                         ) : (
