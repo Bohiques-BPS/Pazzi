@@ -106,7 +106,8 @@ const DailyPmReportPage = lazyNamed(() => import('./pages/pm/DailyPmReportPage')
 const MyTasksPage = lazyNamed(() => import('./pages/pm/MyTasksPage'), 'MyTasksPage');
 
 // POS Pages (Manager & POS Employee)
-const POSCashierPage = lazyNamed(() => import('./pages/pos/POSCashierPage'), 'POSCashierPage');
+// La Caja Registradora elige el modelo (clásica o moderna) según Administración.
+const POSCashierPage = lazyNamed(() => import('./pages/pos/CashierEntry'), 'CashierEntry');
 const POSReportsPage = lazyNamed(() => import('./pages/pos/POSReportsPage'), 'POSReportsPage');
 const ReceiptSettingsPage = lazyNamed(() => import('./pages/pos/ReceiptSettingsPage'), 'ReceiptSettingsPage');
 const TerminalSettingsPage = lazyNamed(() => import('./pages/pos/TerminalSettingsPage'), 'TerminalSettingsPage');
