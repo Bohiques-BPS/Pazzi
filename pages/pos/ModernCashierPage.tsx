@@ -501,7 +501,7 @@ export const ModernCashierPage: React.FC = () => {
                 </aside>
             </main>
 
-            <CashierModals c={c} />
+            <CashierModals c={c} variant="modern" />
             <ConfirmationModal
                 isOpen={confirmClear}
                 onClose={() => setConfirmClear(false)}

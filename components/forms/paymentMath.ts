@@ -55,3 +55,19 @@ export function coversBalance(amountInput: string | number, balance: number): bo
 
 /** ¿La venta ya está totalmente pagada? */
 export const isFullyPaid = (balance: number): boolean => balance <= 0.001;
+
+/**
+ * Billetes sugeridos para cobrar en efectivo según lo que falta (caja moderna):
+ * redondeos hacia arriba a $5, $10, $20, $50 y $100 (y $100 más), distintos y mayores que lo que
+ * falta. Ej.: falta $484 → $485, $490, $500, $600. Un toque deja el monto listo.
+ */
+export function suggestCashAmounts(pending: number, max = 4): number[] {
+    const p = round2(pending);
+    if (!(p > 0)) return [];
+    const up = (step: number) => Math.ceil((p + 0.0001) / step) * step;
+    const c100 = up(100);
+    const raw = [up(5), up(10), up(20), up(50), c100, c100 + 100];
+    const out: number[] = [];
+    for (const v of raw) { const r = round2(v); if (r > p + 0.001 && !out.includes(r)) out.push(r); }
+    return out.sort((a, b) => a - b).slice(0, max);
+}

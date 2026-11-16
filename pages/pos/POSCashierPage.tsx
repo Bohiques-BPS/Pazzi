@@ -62,6 +62,7 @@ import { UserSwitchModal } from '../../components/ui/UserSwitchModal';
 import { POSProjectFormModal } from './POSProjectFormModal';
 import { BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, POS_BUTTON_CYAN_CLASSES, BUTTON_PRIMARY_SM_CLASSES, DEFAULT_CLIENT_ID } from '../../constants';
 import { PaymentModal, PaymentMethod } from '../../components/forms/PaymentModal';
+import { ModernPaymentModal } from '../../components/forms/ModernPaymentModal';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
@@ -1987,7 +1988,7 @@ export function renderCashierGate(c: CashierController): React.ReactElement | nu
 }
 
 /** Todos los modales de la caja (pago, cliente, espera, cuadre, devolución…), comunes a todos los modelos. */
-export const CashierModals: React.FC<{ c: CashierController }> = ({ c }) => {
+export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic' | 'modern' }> = ({ c, variant = 'classic' }) => {
     const {
         navigate,
         t,
@@ -2228,6 +2229,27 @@ export const CashierModals: React.FC<{ c: CashierController }> = ({ c }) => {
             />
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
+            {variant === 'modern' ? (
+            <ModernPaymentModal
+                isOpen={activeModal === 'payment'}
+                onClose={() => { setActiveModal(null); setPaymentDone(false); }}
+                completed={paymentDone ? lastSaleSummary : null}
+                processing={finalizing}
+                totalAmount={total}
+                subtotalAmount={subtotal}
+                taxAmount={tax}
+                athItems={cart.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
+                customerName={selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined}
+                customerEmail={selectedClient?.email || undefined}
+                customerLabel={!selectedClient || selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID ? 'Visitante' : clientDocName(selectedClient)}
+                itemsCount={cart.reduce((a, it) => a + it.quantity, 0)}
+                isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
+                credit={selectedClient ? { limit: Number((selectedClient as any).creditLimit) || 0, balance: Number((selectedClient as any).outstandingBalance) || 0, terms: (selectedClient as any).paymentTerms || null } : undefined}
+                initialMethod={initialPaymentMethod}
+                methods={enabledMethods.map(m => ({ name: m.name, type: m.type, requiresReference: m.requiresReference, referenceLabel: m.referenceLabel, config: m.config }))}
+                onFinalizeSale={handleFinalizeSale}
+            />
+            ) : (
             <PaymentModal
                 isOpen={activeModal === 'payment'}
                 onClose={() => { setActiveModal(null); setPaymentDone(false); }}
@@ -2243,6 +2265,7 @@ export const CashierModals: React.FC<{ c: CashierController }> = ({ c }) => {
                 methods={enabledMethods.map(m => ({ name: m.name, type: m.type, requiresReference: m.requiresReference, referenceLabel: m.referenceLabel, config: m.config }))}
                 onFinalizeSale={handleFinalizeSale}
             />
+            )}
             <ReceiptModal isOpen={!!lastReceipt} onClose={() => { setLastReceipt(null); setReprintMode(false); }} sale={lastReceipt} config={settings.receiptConfig} forceChoose={reprintMode} />
 
             <DrawerOpenModal isOpen={showDrawerOpen} onClose={() => setShowDrawerOpen(false)} onConfirm={handleConfirmDrawerOpen} />
