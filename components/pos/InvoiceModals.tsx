@@ -96,7 +96,17 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                             </p>
                             {client?.companyName && <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">{client.companyName}</p>}
                         </div>
-                        {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>}
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {/* ¿Se le envió la factura al cliente por correo? (sentAt = último envío "a pagar") */}
+                            {(invoice as any).sentAt ? (
+                                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" title="Último envío por correo">
+                                    Enviada · {new Date((invoice as any).sentAt).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                </span>
+                            ) : (
+                                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">No enviada</span>
+                            )}
+                            {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>}
+                        </div>
                     </div>
                     {(() => {
                         const email = (invoice as any).clientEmail || client?.email;
