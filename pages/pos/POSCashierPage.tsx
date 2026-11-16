@@ -64,6 +64,9 @@ import { BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, POS_BUTTON_CYAN_CLASSES, B
 import { PaymentModal, PaymentMethod } from '../../components/forms/PaymentModal';
 import { ModernPaymentModal } from '../../components/forms/ModernPaymentModal';
 import { ModernDiscountModal } from '../../components/forms/ModernDiscountModal';
+import { ModernClientSearchModal } from '../../components/pos/modern/ModernClientSearchModal';
+import { ModernHeldCartsModal } from '../../components/pos/modern/ModernHeldCartsModal';
+import { ModernPayoutModal } from '../../components/pos/modern/ModernPayoutModal';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
@@ -2186,9 +2189,35 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
     return (
         <>
             {/* MODALS */}
+            {variant === 'modern' ? (
+            <ModernClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients}
+                recentClientIds={(() => { const seen: string[] = []; for (const sl of [...(sales || [])].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())) { const id = (sl as any).clientId; if (id && !seen.includes(id)) seen.push(id); if (seen.length >= 30) break; } return seen; })()}
+                onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }}
+                onOpenCreateClient={() => setActiveModal('createClient')} cajaId={selectedCajaId || null} />
+            ) : (
             <ClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients} onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }} onOpenCreateClient={() => setActiveModal('createClient')} fromPos cajaId={selectedCajaId || null} />
+            )}
             <ClientFormModal isOpen={activeModal === 'createClient'} onClose={(client) => {setActiveModal(null); if(client) setSelectedClient(client);}} client={null} />
             <POSProjectFormModal isOpen={activeModal === 'createProject'} onClose={() => setActiveModal(null)} clientId={selectedClient?.id || ''} onProjectCreated={(newProject) => { setClientProjects(prev => [newProject, ...prev]); setSelectedProjectId(newProject.id); setActiveModal(null); }} />
+            {variant === 'modern' ? (
+            <ModernHeldCartsModal
+                isOpen={activeModal === 'heldCarts'}
+                onClose={() => setActiveModal(null)}
+                heldCarts={heldCarts}
+                currentItems={cart.reduce((a, it) => a + it.quantity, 0)}
+                currentTotal={total}
+                isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
+                onHoldCart={(alias) => {
+                    if (cart.length === 0) return false;
+                    const name = alias?.trim() || t('posx.cashier.sale_for', { name: selectedClient?.name || t('posx.cashier.walk_in') });
+                    holdCurrentCart(cart, name, selectedClient?.id);
+                    clearCart();
+                    return true;
+                }}
+                onRecallCart={handleRecallCart}
+                onDeleteHeldCart={deleteHeldCart}
+            />
+            ) : (
             <HeldCartsModal
                 isOpen={activeModal === 'heldCarts'}
                 onClose={() => setActiveModal(null)}
@@ -2206,6 +2235,7 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                 onDeleteHeldCart={deleteHeldCart}
                 heldCarts={heldCarts}
             />
+            )}
             <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} isGeneralClient={!!selectedClient?.isDefault || selectedClient?.id === DEFAULT_CLIENT_ID} />
             {selectedClient && (
                 <ClientCreditPaymentModal
@@ -2444,6 +2474,16 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                 />
             )}
             {selectedCajaId && (
+                variant === 'modern' ? (
+                <ModernPayoutModal
+                    isOpen={activeModal === 'payout'}
+                    onClose={() => setActiveModal(null)}
+                    cajaId={selectedCajaId}
+                    cashInDrawer={shiftReportData.expectedCash}
+                    recordedBy={(operator ? operatorName : `${currentUser?.name || ''} ${(currentUser as any)?.lastName || ''}`.trim()) || 'Cajero'}
+                    onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
+                />
+                ) : (
                 <PayoutModal
                     isOpen={activeModal === 'payout'}
                     onClose={() => setActiveModal(null)}
@@ -2451,6 +2491,7 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                     currentCashInDrawer={shiftReportData.expectedCash}
                     onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
                 />
+                )
             )}
             {variant === 'modern' ? (() => {
                 const line = discountTarget && discountTarget !== 'general' ? cart.find(it => it.id === discountTarget) : undefined;

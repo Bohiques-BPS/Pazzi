@@ -69,6 +69,15 @@ export const ModernCashierPage: React.FC = () => {
 
     const [confirmClear, setConfirmClear] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
+    // Posición del menú "Más" (fijo en pantalla: la barra tiene desplazamiento y lo recortaba).
+    const moreRef = useRef<HTMLDivElement>(null);
+    const [morePos, setMorePos] = useState<{ top: number; left: number } | null>(null);
+    const toggleMore = () => {
+        if (moreOpen) { setMoreOpen(false); return; }
+        const r = moreRef.current?.getBoundingClientRect();
+        if (r) setMorePos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 256) });
+        setMoreOpen(true);
+    };
     const [userMenu, setUserMenu] = useState(false);
     const [category, setCategory] = useState<string>('top');
     const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -79,6 +88,13 @@ export const ModernCashierPage: React.FC = () => {
         window.addEventListener('online', on); window.addEventListener('offline', off);
         return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
     }, []);
+    useEffect(() => {
+        if (!moreOpen) return;
+        const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
+        const onResize = () => setMoreOpen(false);
+        window.addEventListener('keydown', close); window.addEventListener('resize', onResize);
+        return () => { window.removeEventListener('keydown', close); window.removeEventListener('resize', onResize); };
+    }, [moreOpen]);
     // Lo más reciente del ticket queda visible.
     useEffect(() => { listEndRef.current?.scrollIntoView({ block: 'nearest' }); }, [cart.length]);
 
@@ -177,7 +193,7 @@ export const ModernCashierPage: React.FC = () => {
 
     const MORE: { label: string; onClick: () => void; disabled?: boolean; hint?: string }[] = [
         { label: t('pos.client') || 'Cliente', onClick: () => setActiveModal('clientSearch'), hint: 'U' },
-        { label: 'Ver cuenta del cliente', onClick: () => setActiveModal('clientAccount'), disabled: !selectedClient },
+        { label: 'Ver cuenta del cliente', onClick: () => setActiveModal('clientAccount'), disabled: isGeneral, hint: isGeneral ? 'Requiere cliente' : undefined },
         { label: t('pos.estimate') || 'Estimado', onClick: () => setActiveModal('clientEstimates'), disabled: !selectedClient, hint: !selectedClient ? 'Requiere cliente' : undefined },
         { label: t('pos.layaway') || 'Apartado', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || isGeneral, hint: isGeneral ? 'Requiere cliente' : undefined },
         { label: deliveryDraft ? 'Entrega (marcada)' : 'Entrega', onClick: () => setDeliveryModalOpen(true), disabled: cart.length === 0 && !selectedClient },
@@ -250,12 +266,12 @@ export const ModernCashierPage: React.FC = () => {
                 <ActionBtn label="Devolución" k="Alt+R" onClick={() => setActiveModal('return')} />
                 <ActionBtn label="Desembolso" k="Alt+S" onClick={() => setActiveModal('payout')} />
                 <ActionBtn label="Reimprimir" k="F8" onClick={() => setActiveModal('reprint')} />
-                <div className="relative">
-                    <ActionBtn label="Más ▾" onClick={() => setMoreOpen(v => !v)} />
+                <div ref={moreRef}>
+                    <ActionBtn label="Más ▾" onClick={toggleMore} />
                     {moreOpen && (
                         <>
-                            <div className="fixed inset-0 z-30" onClick={() => setMoreOpen(false)} />
-                            <div className="absolute left-0 mt-1 w-60 z-40 rounded-lg shadow-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 py-1 text-sm">
+                            <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+                            <div style={{ top: morePos?.top ?? 110, left: morePos?.left ?? 16 }} className="fixed w-60 z-50 rounded-xl shadow-2xl bg-white dark:bg-neutral-800 ring-1 ring-black/5 dark:ring-white/10 py-1.5 text-sm">
                                 {MORE.map(m => (
                                     <button key={m.label} type="button" disabled={m.disabled} onClick={() => { setMoreOpen(false); m.onClick(); }}
                                         className="w-full text-left px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-between gap-2">
