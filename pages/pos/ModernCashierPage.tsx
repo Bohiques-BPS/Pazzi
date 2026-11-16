@@ -45,8 +45,10 @@ const colorFor = (s: string) => { let h = 0; for (const ch of s) h = (h * 31 + c
 const initials = (name: string) => name.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '··';
 
 const Kbd: React.FC<{ k: string; dark?: boolean }> = ({ k, dark }) => (
-    <span className={`ml-1.5 rounded px-1 py-px text-[10px] font-bold leading-none border ${dark ? 'border-white/40 text-white/80' : 'border-neutral-300 dark:border-neutral-600 text-neutral-500 dark:text-neutral-400'}`}>{k}</span>
+    <kbd className={`ml-2 inline-flex items-center h-[18px] px-1.5 rounded-[5px] font-sans text-[10px] font-semibold tracking-wide leading-none flex-shrink-0 ${dark ? 'bg-white/15 text-white/85' : 'bg-neutral-100 text-neutral-500 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-neutral-700'}`}>{k}</kbd>
 );
+/** Etiqueta corta del método para los botones de la caja (el nombre completo va en el pago). */
+const shortMethod = (m: { type?: string; name: string }) => (m.type === 'credit' ? 'Cuenta' : m.type === 'ath_movil' ? 'ATH Móvil' : m.name);
 
 export const ModernCashierPage: React.FC = () => {
     const c = useCashierController();
@@ -164,9 +166,11 @@ export const ModernCashierPage: React.FC = () => {
 
     const ActionBtn: React.FC<{ label: string; k?: string; onClick: () => void; tone?: 'danger' | 'success'; disabled?: boolean; badge?: number }> = ({ label, k, onClick, tone, disabled, badge }) => (
         <button type="button" onClick={onClick} disabled={disabled}
-            className={`relative h-11 min-w-[44px] px-3 rounded-md text-sm font-semibold flex items-center justify-center whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed
-                ${tone === 'danger' ? 'bg-red-600 hover:bg-red-700 text-white' : tone === 'success' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700'}`}>
-            {label}{k && <Kbd k={k} dark={!!tone} />}
+            className={`relative h-10 min-w-[44px] px-3.5 rounded-lg text-sm font-semibold flex items-center justify-center whitespace-nowrap transition-colors shadow-sm disabled:cursor-not-allowed
+                ${tone && !disabled
+                    ? (tone === 'danger' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white')
+                    : `bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-100 ring-1 ring-inset ring-neutral-200 dark:ring-neutral-800 ${disabled ? 'opacity-50' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'}`}`}>
+            {label}{k && <Kbd k={k} dark={!!tone && !disabled} />}
             {!!badge && <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center">{badge}</span>}
         </button>
     );
@@ -240,7 +244,7 @@ export const ModernCashierPage: React.FC = () => {
             </header>
 
             {/* Barra de acciones: neutra, con atajo en cada botón */}
-            <nav className="flex items-center gap-1.5 px-3 py-2 bg-neutral-200/70 dark:bg-neutral-900 border-b border-neutral-300 dark:border-neutral-800 flex-shrink-0 overflow-x-auto">
+            <nav className="flex items-center gap-2 px-4 py-2.5 bg-neutral-100 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <ActionBtn label="Borrar" k="Alt+B" tone="danger" onClick={() => setConfirmClear(true)} disabled={cart.length === 0} />
                 <ActionBtn label="Espera" k="Alt+P" onClick={() => setActiveModal('heldCarts')} badge={heldCarts.length} />
                 <ActionBtn label="Devolución" k="Alt+R" onClick={() => setActiveModal('return')} />
@@ -273,9 +277,9 @@ export const ModernCashierPage: React.FC = () => {
                 </div>
             )}
 
-            <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_480px]">
+            <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_clamp(360px,34vw,480px)]">
                 {/* ── Izquierda: vender ── */}
-                <section className="min-h-0 flex flex-col p-3 gap-3">
+                <section className="min-h-0 flex flex-col px-4 pt-4 gap-3">
                     <div className="flex items-center gap-2">
                         <label className="flex flex-col items-center flex-shrink-0">
                             <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-0.5">Cant.</span>
@@ -296,33 +300,37 @@ export const ModernCashierPage: React.FC = () => {
                                 onEmptyEnter={() => { if (isShiftActive && !activeModal) setShowGeneralItem(true); }}
                                 disabled={!isShiftActive}
                                 autoFocus
-                                placeholder="Buscar producto, código o SKU…  (Enter vacío = artículo general)"
+                                placeholder="Buscar producto, código o SKU"
                             />
                         </div>
                         <button type="button" onClick={() => setShowScanCamera(true)} disabled={!isShiftActive}
-                            className="self-end h-12 px-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex items-center gap-1.5 text-sm font-medium hover:border-primary hover:text-primary disabled:opacity-40">
+                            title="Escanear con la cámara" aria-label="Escanear con la cámara"
+                            className="self-end h-12 w-12 xl:w-auto xl:px-3.5 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex items-center justify-center gap-1.5 text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:border-primary hover:text-primary disabled:opacity-40">
                             <CameraIcon className="w-5 h-5" /><span className="hidden xl:inline">Escanear</span>
                         </button>
                     </div>
 
                     {/* Categorías */}
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 flex-shrink-0">
-                        {[{ id: 'top', name: 'Más vendidos' }, ...categories.slice(0, 12).map(cat => ({ id: cat.id, name: cat.name })), { id: 'all', name: 'Todos' }].map(cat => (
-                            <button key={cat.id} type="button" onClick={() => setCategory(cat.id)}
-                                className={`h-10 px-4 rounded-full text-sm font-medium whitespace-nowrap border transition-colors ${category === cat.id ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 hover:border-primary'}`}>
-                                {cat.name}
-                            </button>
-                        ))}
+                    <div className="relative flex-shrink-0">
+                        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-8">
+                            {[{ id: 'top', name: 'Más vendidos' }, ...categories.slice(0, 12).map(cat => ({ id: cat.id, name: cat.name })), { id: 'all', name: 'Todos' }].map(cat => (
+                                <button key={cat.id} type="button" onClick={() => setCategory(cat.id)}
+                                    className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${category === cat.id ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 ring-1 ring-inset ring-neutral-200 dark:ring-neutral-800 hover:text-neutral-900 dark:hover:text-white'}`}>
+                                    {cat.name}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-neutral-100 dark:from-neutral-950 to-transparent" />
                     </div>
 
                     {/* Mosaico */}
-                    <div className="flex-1 min-h-0 overflow-y-auto">
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
+                    <div className="flex-1 min-h-0 overflow-y-auto pb-4 -mx-1 px-1">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-3">
                             <button type="button" onClick={() => setShowGeneralItem(true)} disabled={!isShiftActive}
-                                className="h-[150px] rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 flex flex-col items-center justify-center gap-1 text-neutral-500 hover:border-primary hover:text-primary">
-                                <span className="text-3xl leading-none">＋</span>
+                                className="h-[176px] rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 flex flex-col items-center justify-center gap-1.5 text-neutral-500 dark:text-neutral-400 hover:border-primary hover:text-primary transition-colors">
+                                <span className="w-10 h-10 rounded-full bg-neutral-200/70 dark:bg-neutral-800 flex items-center justify-center text-2xl leading-none">+</span>
                                 <span className="text-sm font-semibold">Artículo general</span>
-                                <span className="text-[11px]">Enter</span>
+                                <Kbd k="Enter" />
                             </button>
                             {tiles.map(p => {
                                 const cat = catName(p.categoryId);
@@ -330,23 +338,23 @@ export const ModernCashierPage: React.FC = () => {
                                 const out = tracksStock(p) && st != null && st <= 0;
                                 return (
                                     <button key={p.id} type="button" onClick={() => addProductToCart(p, qty())} disabled={!isShiftActive}
-                                        className="h-[150px] rounded-xl overflow-hidden bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-primary hover:shadow-md transition text-left flex flex-col">
-                                        <div className="relative h-[84px] flex-shrink-0">
+                                        className={`group h-[176px] rounded-xl overflow-hidden bg-white dark:bg-neutral-900 ring-1 ring-inset ring-neutral-200 dark:ring-neutral-800 hover:ring-2 hover:ring-primary shadow-sm hover:shadow-md transition text-left flex flex-col ${out ? 'opacity-70' : ''}`}>
+                                        <div className="relative h-[92px] flex-shrink-0 overflow-hidden">
                                             {p.imageUrl ? (
-                                                <img src={p.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                                <img src={p.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform" loading="lazy" />
                                             ) : (
-                                                <div className="w-full h-full flex flex-col items-center justify-center text-white" style={{ backgroundColor: colorFor(cat || p.name) }}>
-                                                    <span className="text-2xl font-bold tracking-wide">{initials(p.name)}</span>
-                                                    {cat && <span className="text-[10px] opacity-90 truncate max-w-[90%]">{cat}</span>}
+                                                <div className="w-full h-full flex flex-col items-center justify-center gap-0.5" style={{ backgroundColor: `${colorFor(cat || p.name)}1F`, color: colorFor(cat || p.name) }}>
+                                                    <span className="text-[22px] font-bold tracking-wide leading-none">{initials(p.name)}</span>
+                                                    {cat && <span className="text-[10px] font-medium opacity-80 truncate max-w-[90%]">{cat}</span>}
                                                 </div>
                                             )}
                                             {tracksStock(p) && st != null && (
-                                                <span className={`absolute bottom-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${out ? 'bg-red-600 text-white' : 'bg-black/60 text-white'}`}>{out ? 'Agotado' : `Disp. ${st}`}</span>
+                                                <span className={`absolute top-1.5 right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md backdrop-blur ${out ? 'bg-red-600 text-white' : 'bg-white/90 text-neutral-700 dark:bg-neutral-900/80 dark:text-neutral-200'}`}>{out ? 'Agotado' : `Disp. ${st}`}</span>
                                             )}
                                         </div>
-                                        <div className="p-2 flex-1 flex flex-col justify-between min-h-0">
-                                            <span className="text-[13px] font-medium leading-tight line-clamp-2">{p.name}</span>
-                                            <span className="text-sm font-bold text-primary">{money(p.unitPrice)}</span>
+                                        <div className="px-2.5 pt-2 pb-2.5 flex-1 flex flex-col min-h-0">
+                                            <span className="text-[13px] font-medium leading-snug line-clamp-2 text-neutral-800 dark:text-neutral-100">{p.name}</span>
+                                            <span className="mt-auto text-[15px] font-bold tabular-nums text-neutral-900 dark:text-white">{money(p.unitPrice)}</span>
                                         </div>
                                     </button>
                                 );
@@ -399,9 +407,10 @@ export const ModernCashierPage: React.FC = () => {
                                         </div>
                                     </div>
                                 ) : null}
-                                <div>
-                                    <div className="text-lg font-semibold text-neutral-700 dark:text-neutral-200">Ticket vacío</div>
-                                    <div className="text-sm text-neutral-600 dark:text-neutral-300">Escanee o toque un producto</div>
+                                <div className="flex flex-col items-center gap-2">
+                                    <span className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400"><TagIcon className="w-6 h-6" /></span>
+                                    <div className="text-base font-semibold text-neutral-700 dark:text-neutral-200">Ticket vacío</div>
+                                    <div className="text-sm text-neutral-500 dark:text-neutral-400">Escanee o toque un producto</div>
                                 </div>
                             </div>
                         ) : (
@@ -470,29 +479,30 @@ export const ModernCashierPage: React.FC = () => {
                             <div className="flex justify-between"><span className="text-neutral-500 dark:text-neutral-400">IVU</span><span className="tabular-nums">{money(tax)}</span></div>
                         )}
                         {!isCurrentCajaApplyIVU && <div className="text-xs text-neutral-500 dark:text-neutral-400 text-right">Caja exenta de IVU</div>}
-                        <div className="flex items-end justify-between pt-2 mt-1 border-t border-neutral-200 dark:border-neutral-800">
-                            <span className="text-lg font-bold">TOTAL</span>
-                            <span className="text-5xl font-extrabold tabular-nums tracking-tight text-neutral-900 dark:text-white">{money(total)}</span>
+                        <div className="flex items-baseline justify-between pt-2.5 mt-1.5 border-t border-neutral-200 dark:border-neutral-800">
+                            <span className="text-sm font-bold tracking-widest text-neutral-500 dark:text-neutral-400">TOTAL</span>
+                            <span className="text-[44px] leading-none font-extrabold tabular-nums tracking-tight text-neutral-900 dark:text-white">{money(total)}</span>
                         </div>
                         <button type="button" onClick={() => charge()} disabled={!isShiftActive || cart.length === 0 || total <= 0}
-                            className="mt-3 w-full h-16 rounded-xl bg-primary hover:bg-secondary text-white text-xl font-bold flex items-center justify-center gap-2 shadow-md disabled:bg-neutral-300 disabled:text-neutral-500 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-600 disabled:shadow-none disabled:cursor-not-allowed">
-                            Cobrar {cart.length > 0 ? money(total) : ''}<Kbd k="F12" dark />
+                            className="mt-3 w-full h-14 rounded-xl bg-primary hover:bg-secondary text-white text-lg font-bold flex items-center justify-center shadow-md transition-colors disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-600 disabled:shadow-none disabled:cursor-not-allowed">
+                            Cobrar{cart.length > 0 ? ` ${money(total)}` : ''}<Kbd k="F12" dark={cart.length > 0 && total > 0} />
                         </button>
                         <div className="grid grid-cols-3 gap-1.5 mt-2">
                             {METHOD_KEYS.map(mk => {
                                 const m = methodByType(mk.type);
                                 if (!m) return null;
                                 return (
-                                    <button key={mk.type} type="button" onClick={() => charge(m.name)} disabled={!isShiftActive || cart.length === 0 || total <= 0}
-                                        className="h-11 px-2 rounded-lg text-sm font-semibold border border-neutral-200 dark:border-neutral-700 hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center truncate">
-                                        <span className="truncate">{methodLabel(m)}</span><Kbd k={mk.key} />
+                                    <button key={mk.type} type="button" onClick={() => charge(m.name)} disabled={!isShiftActive || cart.length === 0 || total <= 0} title={methodLabel(m)}
+                                        className="relative h-11 px-2 rounded-lg text-[13px] font-semibold ring-1 ring-inset ring-neutral-200 dark:ring-neutral-700 text-neutral-700 dark:text-neutral-200 hover:ring-primary hover:text-primary disabled:opacity-40 disabled:hover:ring-neutral-200 disabled:hover:text-neutral-700 disabled:cursor-not-allowed flex items-center justify-center min-w-0">
+                                        <span className="truncate pt-1">{shortMethod(m)}</span>
+                                        <span className="absolute top-1 left-1.5 text-[9px] font-bold leading-none text-neutral-400 dark:text-neutral-500">{mk.key}</span>
                                     </button>
                                 );
                             })}
                             {/* Métodos personalizados (sin tecla fija) */}
                             {enabledMethods.filter(m => !METHOD_KEYS.some(mk => mk.type === m.type)).map(m => (
                                 <button key={m.id} type="button" onClick={() => charge(m.name)} disabled={!isShiftActive || cart.length === 0 || total <= 0}
-                                    className="h-11 px-2 rounded-lg text-sm font-semibold border border-neutral-200 dark:border-neutral-700 hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed truncate">
+                                    className="h-11 px-2 rounded-lg text-[13px] font-semibold ring-1 ring-inset ring-neutral-200 dark:ring-neutral-700 text-neutral-700 dark:text-neutral-200 hover:ring-primary disabled:opacity-40 disabled:cursor-not-allowed truncate">
                                     {methodLabel(m)}
                                 </button>
                             ))}
