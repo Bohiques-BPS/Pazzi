@@ -37,8 +37,14 @@ export const DeliverySetupModal: React.FC<{
     saving?: boolean;
     onSave: (data: DeliveryInput) => void;
     onRemove?: () => void;
-}> = ({ isOpen, onClose, initial, title = 'Venta para entrega', saveLabel = 'Guardar', saving, onSave, onRemove }) => {
+    /** Pestaña extra (p. ej. "Entregas del cliente" en la caja). */
+    extraTab?: { label: string; content: React.ReactNode };
+    /** false: solo la pestaña extra (p. ej. carrito vacío: solo se pueden ver las entregas). */
+    allowCreate?: boolean;
+}> = ({ isOpen, onClose, initial, title = 'Venta para entrega', saveLabel = 'Guardar', saving, onSave, onRemove, extraTab, allowCreate = true }) => {
     const [f, setF] = useState<DeliveryInput>(initial);
+    const [view, setView] = useState<'new' | 'extra'>('new');
+    useEffect(() => { if (isOpen) setView(allowCreate || !extraTab ? 'new' : 'extra'); }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
     const [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
     const [error, setError] = useState<string | null>(null);
     useEffect(() => { if (isOpen) { setF(initial); setError(null); } }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -62,8 +68,10 @@ export const DeliverySetupModal: React.FC<{
             isOpen={isOpen}
             onClose={onClose}
             title={title}
-            size="lg"
-            footer={
+            size={extraTab ? "3xl" : "lg"}
+            footer={view === 'extra' ? (
+                <div className="flex justify-end"><button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>Cerrar</button></div>
+            ) : (
                 <div className="flex items-center justify-between gap-2">
                     {onRemove ? <button type="button" onClick={onRemove} className="text-sm text-red-600 dark:text-red-400 hover:underline">No es para entrega</button> : <span />}
                     <div className="flex gap-2">
@@ -71,8 +79,17 @@ export const DeliverySetupModal: React.FC<{
                         <button type="button" onClick={save} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? 'Guardando…' : saveLabel}</button>
                     </div>
                 </div>
-            }
+            )}
         >
+            {extraTab && (
+                <div className="flex gap-1 border-b border-neutral-200 dark:border-neutral-700 mb-4 -mt-1">
+                    {allowCreate && (
+                        <button type="button" onClick={() => setView('new')} className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px ${view === 'new' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>Nueva entrega</button>
+                    )}
+                    <button type="button" onClick={() => setView('extra')} className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px ${view === 'extra' ? 'border-primary text-primary' : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-200'}`}>{extraTab.label}</button>
+                </div>
+            )}
+            {view === 'extra' && extraTab ? extraTab.content : (
             <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -118,6 +135,7 @@ export const DeliverySetupModal: React.FC<{
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">El cliente recibe un correo con el enlace para seguir su entrega (si tiene correo registrado).</p>
                 {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             </div>
+            )}
         </Modal>
     );
 };

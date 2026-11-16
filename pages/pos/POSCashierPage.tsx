@@ -55,6 +55,7 @@ import { ClientEstimatesModal } from '../../components/ui/ClientEstimatesModal';
 import { ClientCreditPaymentModal } from '../../components/ui/ClientCreditPaymentModal';
 import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 import { DeliverySetupModal, deliveryDefaultsFromClient } from '../../components/pos/DeliverySetupModal';
+import { ClientDeliveriesList } from '../../components/pos/ClientDeliveriesList';
 import { deliveryAddress, type DeliveryInput } from '../../services/deliveries';
 import { CreateLayawayModal } from '../../components/forms/CreateLayawayModal';
 import { UserSwitchModal } from '../../components/ui/UserSwitchModal';
@@ -1510,7 +1511,8 @@ export const POSCashierPage: React.FC = () => {
         { text: t('pos.estimate'), icon: <ClipboardDocumentListIcon />, color: 'bg-[#00897B]', onClick: () => selectedClient && setActiveModal('clientEstimates'), disabled: !selectedClient },
         { text: t('pos.layaway'), icon: <ArchiveBoxIcon />, color: 'bg-[#00ACC1]', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || !selectedClient },
         // Venta para entrega (Control de Entregas).
-        { text: deliveryDraft ? 'Entrega ✓' : 'Entrega', icon: <TruckIcon />, color: 'bg-[#6D4C41]', onClick: () => setDeliveryModalOpen(true), disabled: cart.length === 0 },
+        // Con carrito: marcar la venta para entrega. Sin carrito: ver las entregas del cliente.
+        { text: deliveryDraft ? 'Entrega ✓' : 'Entrega', icon: <TruckIcon />, color: 'bg-[#6D4C41]', onClick: () => setDeliveryModalOpen(true), disabled: cart.length === 0 && !selectedClient },
         // "Gaveta" (Sin venta) solo si está configurada la gaveta por QZ Tray en este dispositivo.
         ...(isCashDrawerEnabled() ? [{ text: t('posx.cashier.drawer'), icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
         { text: t('posx.cashier.cash_up'), icon: <DocumentTextIcon />, color: 'bg-[#00695C]', shortcut: 'F7', onClick: () => setActiveModal('dailyClose') },
@@ -2036,7 +2038,13 @@ export const POSCashierPage: React.FC = () => {
                 isOpen={deliveryModalOpen}
                 onClose={() => setDeliveryModalOpen(false)}
                 initial={deliveryDraft || deliveryDefaultsFromClient(selectedClient)}
+                title={cart.length ? 'Venta para entrega' : 'Entregas'}
                 saveLabel={deliveryDraft ? 'Guardar' : 'Marcar para entrega'}
+                allowCreate={cart.length > 0}
+                extraTab={selectedClient ? {
+                    label: `Entregas de ${selectedClient.isDefault ? 'Público General' : clientDocName(selectedClient)}`,
+                    content: <ClientDeliveriesList clientId={selectedClient.id} />,
+                } : undefined}
                 onSave={data => { setDeliveryDraft(data); setDeliveryModalOpen(false); }}
                 onRemove={deliveryDraft ? () => { setDeliveryDraft(null); setDeliveryModalOpen(false); } : undefined}
             />
