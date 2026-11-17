@@ -21,6 +21,8 @@ interface DailyCloseModalProps {
     onClosed?: () => void;
     /** Abre el historial de turnos (para revisar/reimprimir turnos ya cerrados). */
     onOpenHistory?: () => void;
+    /** Caja moderna: un solo título, datos del turno en una línea, textos en español y confirmación al cerrar. */
+    modern?: boolean;
 }
 
 const money = (n: number | null | undefined) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -62,7 +64,10 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     differenceThreshold = 5,
     onClosed,
     onOpenHistory,
+    modern = false,
 }) => {
+    // Caja moderna: confirmación antes de cerrar el turno (no se puede deshacer).
+    const [confirmClose, setConfirmClose] = useState(false);
     const { settings } = useGlobalSettings();
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<CajaSession | null>(null);
@@ -112,9 +117,10 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         const sorted = [...others].sort((a, b) => Number(isNonCountable(a.method)) - Number(isNonCountable(b.method)));
         return [
             { key: '__cash__', label: 'Efectivo (gaveta)', expected: totals.expectedCash, cash: true, countable: true },
-            ...sorted.map(m => ({ key: m.method, label: m.method, expected: m.amount, cash: false, countable: !isNonCountable(m.method) })),
+            // En la caja moderna "Crédito C." se muestra como "Cuenta del cliente" (la clave sigue siendo el método).
+            ...sorted.map(m => ({ key: m.method, label: modern && /cr[eé]dito/i.test(m.method) ? 'Cuenta del cliente' : m.method, expected: m.amount, cash: false, countable: !isNonCountable(m.method) })),
         ];
-    }, [totals]);
+    }, [totals, modern]);
 
     const num = (v: string | undefined) => {
         const n = parseFloat(v ?? '');
@@ -155,7 +161,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         const countedByMethod: Record<string, number> = { Efectivo: cashCounted };
         for (const r of rows) {
             if (r.cash || !r.countable) continue; // crédito/factura no se cuentan
-            countedByMethod[r.label] = num(counted[r.key]);
+            countedByMethod[r.key] = num(counted[r.key]); // clave = nombre real del método (la etiqueta puede cambiar)
         }
         setSubmitting(true);
         setError(null);
@@ -187,6 +193,18 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const requestClose = () => {
+        if (!session || !totals) return;
+        setError(null);
+        if (!cashEntered || cashCounted < 0) { setError('Escriba el efectivo contado en la gaveta.'); return; }
+        if (isHighDiff && !confirmHighDiff) {
+            if (denomMode) { setDenomOpen(true); return; }
+            setError(`Hay una diferencia de efectivo de ${money(Math.abs(cashDiff))}. Marque la confirmación para cerrar de todos modos.`);
+            return;
+        }
+        setConfirmClose(true);
     };
 
     const openedAt = session ? new Date(session.openedAt) : null;
@@ -221,7 +239,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Cuadre de tienda diario (F7)" size="screen">
+        <Modal isOpen={isOpen} onClose={onClose} title={modern ? `Cuadre de caja${cajaName ? ` · ${cajaName}` : ''}` : 'Cuadre de tienda diario (F7)'} size="screen">
             {loading ? (
                 <LoadingSkeleton variant="form" rows={6} />
             ) : error && !session ? (
@@ -230,6 +248,27 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                 <p className="text-center text-neutral-500 py-8">Sin datos.</p>
             ) : (
                 <div className="text-sm">
+                    {modern && totals.salesCount === 0 && totals.returnsCount === 0 && (
+                        <div className="mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 ring-1 ring-inset ring-amber-200 dark:ring-amber-800 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                            Este turno aún no tiene ventas. Si vendió y luego cerró y abrió turno, esas ventas quedaron en el turno anterior.
+                        </div>
+                    )}
+                    {modern && (() => {
+                        const hours = openedAt ? Math.max(0, (Date.now() - openedAt.getTime()) / 3600000) : 0;
+                        return (
+                            <div className="mb-4">
+                                <p className="text-sm text-neutral-600 dark:text-neutral-300 -mt-1 mb-2">Cuente lo que hay en la caja y cierre el turno.</p>
+                                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-neutral-700 dark:text-neutral-200">
+                                    <span className="font-semibold">{(() => { const d = cuadreDate.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }); return d.charAt(0).toUpperCase() + d.slice(1); })()}</span>
+                                    {openedAt && <span>Abierto {openedAt.toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' })} · {hours < 1 ? `${Math.round(hours * 60)} min` : `${Math.floor(hours)} h`}</span>}
+                                    <span>Cajero: <b>{cajero}</b></span>
+                                    <span className="text-neutral-500">Turno #{session.id.slice(0, 6).toUpperCase()}</span>
+                                    {onOpenHistory && <button type="button" onClick={onOpenHistory} className="text-blue-600 dark:text-blue-400 hover:underline">Turnos anteriores</button>}
+                                </div>
+                            </div>
+                        );
+                    })()}
+                    {!modern && (<>
                     {/* Barra superior estilo legacy */}
                     <div className="flex items-center justify-between rounded-md bg-blue-600 text-white px-4 py-2 mb-3">
                         <span className="font-semibold">{cuadreDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
@@ -251,14 +290,15 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                         <Field label="Cajero" value={cajero} />
                         <Field label="Turno #" value={session.id.slice(0, 8)} />
                     </div>
+                    </>)}
 
                     <div className="grid grid-cols-1 lg:grid-cols-1 gap-3">
                         {/* Columnas POS vs conteo (ancho completo para que se lea mejor) */}
                         <div className="border border-neutral-200 dark:border-neutral-700 rounded-md overflow-hidden">
                             <div className="grid grid-cols-12 bg-neutral-100 dark:bg-neutral-700/50 text-sm font-semibold text-neutral-600 dark:text-neutral-300">
                                 <div className="col-span-5 px-3 py-2">Método</div>
-                                <div className="col-span-3 px-3 py-2 text-right">Datos Caja POS</div>
-                                <div className="col-span-2 px-2 py-2 text-right">Conteo</div>
+                                <div className="col-span-3 px-3 py-2 text-right">{modern ? 'Sistema' : 'Datos Caja POS'}</div>
+                                <div className="col-span-2 px-2 py-2 text-right">{modern ? 'Contado' : 'Conteo'}</div>
                                 <div className="col-span-2 px-3 py-2 text-right">Diferencia</div>
                             </div>
                             <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
@@ -310,7 +350,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                 })}
                                 {/* Totales de reconciliación de gaveta (solo métodos contables). */}
                                 <div className="grid grid-cols-12 items-center bg-neutral-50 dark:bg-neutral-800/60 font-semibold">
-                                    <div className="col-span-5 px-3 py-2">Total de Valores</div>
+                                    <div className="col-span-5 px-3 py-2">{modern ? 'Total contable' : 'Total de Valores'}</div>
                                     <div className="col-span-3 px-3 py-2 text-right tabular-nums">{money(totalExpected)}</div>
                                     <div className="col-span-2 px-2 py-2 text-right tabular-nums">{money(totalCounted)}</div>
                                     <div className={`col-span-2 px-3 py-2 text-right tabular-nums ${diffColor(Math.round((totalCounted - totalExpected) * 100) / 100)}`}>
@@ -330,7 +370,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                 <Line label="Fondo inicial" value={money(totals.openingFloat)} />
                                 <Line label="+ Ventas efectivo" value={money(totals.cashSales)} />
                                 <Line label="+ Entradas" value={money(totals.cashIn)} />
-                                <Line label="− Payouts" value={money(totals.payouts)} />
+                                <Line label={modern ? '− Desembolsos' : '− Payouts'} value={money(totals.payouts)} />
                                 <Line label="− Devoluciones" value={money(totals.cashRefunds)} />
                                 <Line label="= Efectivo esperado" value={money(totals.expectedCash)} strong />
                             </div>
@@ -338,12 +378,14 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
 
                         {/* Panel de info (1/3) */}
                         <div className="border border-neutral-200 dark:border-neutral-700 rounded-md p-3 space-y-2 text-sm">
-                            <div className="text-red-600 dark:text-red-400 font-medium">{totals.returnsCount} Devolución(es) en el turno</div>
+                            {modern
+                                ? <div className={totals.returnsCount > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-neutral-600 dark:text-neutral-300'}>{totals.salesCount} venta{totals.salesCount === 1 ? '' : 's'} · {totals.returnsCount} devolución{totals.returnsCount === 1 ? '' : 'es'}</div>
+                                : <div className="text-red-600 dark:text-red-400 font-medium">{totals.returnsCount} Devolución(es) en el turno</div>}
                             <div className="text-neutral-700 dark:text-neutral-200">Transacciones: <b>{totals.salesCount}</b></div>
                             <div className="text-neutral-700 dark:text-neutral-200">Ventas totales: <b>{money(totals.totalSales)}</b></div>
                             <div className="border-t border-neutral-200 dark:border-neutral-700 pt-2">
                                 <p className="text-xs font-semibold text-neutral-500 mb-1">Comentarios</p>
-                                <p className="text-xs text-neutral-500">open {openedAt?.toLocaleString()}</p>
+                                <p className="text-xs text-neutral-500">{modern ? `Abierto ${openedAt?.toLocaleString('es')}` : `open ${openedAt?.toLocaleString()}`}</p>
                                 {session.openingNotes && <p className="text-xs text-neutral-500 mt-1">{session.openingNotes}</p>}
                             </div>
                         </div>
@@ -356,7 +398,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                             onClick={() => setDenomOpen(true)}
                             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-base font-semibold text-white hover:opacity-90"
                         >
-                            🧮 Contar efectivo por denominación
+                            {modern ? 'Contar efectivo por billete' : '🧮 Contar efectivo por denominación'}
                         </button>
                         <span className="text-sm text-neutral-600 dark:text-neutral-300">
                             {denomMode
@@ -483,6 +525,15 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
 
                     {error && <div className="mt-2 p-2 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
 
+                    {modern ? (
+                    <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                        <button type="button" onClick={handlePrint} className="h-11 px-4 rounded-lg font-semibold bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700">Imprimir</button>
+                        <div className="flex-1" />
+                        <button type="button" onClick={onClose} className="h-11 px-5 rounded-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600">Cancelar</button>
+                        <button type="button" onClick={requestClose} disabled={submitting} className="h-11 px-6 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">{submitting ? 'Cerrando…' : 'Cerrar turno'}</button>
+                    </div>
+                    ) : (
+                    <>
                     {/* Footer */}
                     <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
                         {onOpenHistory && <button onClick={onOpenHistory} className="mr-auto px-4 py-2 rounded-md bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-100 font-semibold text-sm">📋 Turnos anteriores</button>}
@@ -492,6 +543,29 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                             {submitting ? 'Cerrando…' : 'Aceptar - Cerrar Turno'}
                         </button>
                     </div>
+                    </>
+                    )}
+
+                    {/* Confirmación de cierre (caja moderna) */}
+                    <Modal isOpen={confirmClose} onClose={() => setConfirmClose(false)} title="Cerrar turno" size="md"
+                        footer={
+                            <div className="flex justify-end gap-2">
+                                <button type="button" onClick={() => setConfirmClose(false)} className="h-11 px-5 rounded-lg font-semibold bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600">Cancelar</button>
+                                <button type="button" disabled={submitting} onClick={async () => { setConfirmClose(false); await handleClose(); }} className="h-11 px-5 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">Cerrar turno</button>
+                            </div>
+                        }>
+                        <div className="space-y-3 text-sm">
+                            <p>¿Seguro que desea cerrar el turno{cajaName ? ` de ${cajaName}` : ''}?</p>
+                            <div className={`rounded-lg px-4 py-3 flex items-center justify-between ${cashDiff === 0 ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300' : isHighDiff ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300'}`}>
+                                <div>
+                                    <div className="font-semibold">Diferencia en efectivo</div>
+                                    <div className="text-xs opacity-80">Contado {money(cashCounted)} · Esperado {money(cashExpected)}</div>
+                                </div>
+                                <span className="text-2xl font-extrabold tabular-nums">{cashDiff === 0 ? '$0.00' : `${cashDiff > 0 ? '+' : '−'}${money(Math.abs(cashDiff))}`}</span>
+                            </div>
+                            <p className="text-neutral-500 dark:text-neutral-400">Esta acción no se puede deshacer.</p>
+                        </div>
+                    </Modal>
                 </div>
             )}
         </Modal>

@@ -22,9 +22,15 @@ interface ReturnModalProps {
     isOpen: boolean;
     onClose: () => void;
     onProcessReturn: (originalSaleId: string, itemsToReturn: (CartItem & { customRefundAmount?: number; returnToStock: boolean })[], reason: string, adminPassword: string, refundMethod: string) => void;
+    /** Caja moderna: muestra las ventas recientes de esta caja para devolver con un toque. */
+    modern?: boolean;
+    /** Caja actual (para listar sus ventas recientes en la caja moderna). */
+    cajaId?: string | null;
+    /** Prefijo del nº de recibo (Config. Factura): el código de barras del recibo es prefijo + nº de venta. */
+    receiptPrefix?: string;
 }
 
-export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onProcessReturn }) => {
+export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onProcessReturn, modern = false, cajaId, receiptPrefix = '' }) => {
     const { t } = useTranslation();
     const { sales, getClientById, clients } = useData();
     const [saleIdInput, setSaleIdInput] = useState('');
@@ -75,7 +81,13 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
     
         // Buscar por número de venta o por ID (lo más específico). El usuario normalmente escribe
         // el número de venta (ej. "85" o "#85"), no el UUID.
-        const numTerm = searchTerm.replace(/^#/, '');
+        let numTerm = searchTerm.replace(/^#/, '');
+        if (modern) {
+            const pre = (receiptPrefix || '').trim();
+            if (pre && numTerm.toUpperCase().startsWith(pre.toUpperCase())) numTerm = numTerm.slice(pre.length);
+            const scanned = /^[A-Za-z-]*0*(\d+)$/.exec(numTerm); // ej. "R-00485" o "PZ485" → 485
+            if (scanned) numTerm = scanned[1];
+        }
         const saleById = sales.find(s =>
             String((s as any).saleNumber ?? '') === numTerm ||
             s.id.toLowerCase() === searchTerm.toLowerCase() ||
@@ -290,9 +302,19 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
 
     const client = foundSale ? getClientById(foundSale.clientId || '') : null;
 
+    // Caja moderna: últimas ventas de ESTA caja (no devoluciones ni devueltas por completo).
+    const recentSales = useMemo(() => {
+        if (!modern) return [];
+        return sales
+            .filter(s => !s.isReturn && s.paymentStatus !== 'Devolución Completa' && !(s as any).deletedAt && (!cajaId || (s as any).cajaId === cajaId))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 8);
+    }, [modern, sales, cajaId]);
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.return.title')} size="3xl">
+        <Modal isOpen={isOpen} onClose={onClose} title={modern ? 'Devolución' : t('cmpx.return.title')} size="3xl">
             <div className="space-y-4">
+                {modern && <p className="text-sm text-neutral-600 dark:text-neutral-300 -mt-2">Busque la venta (o escanee el recibo) y escoja qué artículos devolver.</p>}
                 <div className="flex items-end gap-2">
                     <div className="flex-grow">
                         <label className="text-sm font-medium">{t('cmpx.return.search_label')}</label>
@@ -303,6 +325,28 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                     </button>
                 </div>
                 {error && <p className="text-sm text-center text-red-500">{error}</p>}
+
+                {modern && !foundSale && foundSales.length === 0 && recentSales.length > 0 && (
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-2">Ventas recientes de esta caja</p>
+                        <ul className="divide-y divide-neutral-100 dark:divide-neutral-800 rounded-xl ring-1 ring-inset ring-neutral-200 dark:ring-neutral-800">
+                            {recentSales.map(sale => {
+                                const c = getClientById(sale.clientId || '');
+                                const who = c && !(c as any).isDefault ? `${c.name} ${c.lastName || ''}`.trim() : 'Visitante';
+                                return (
+                                    <li key={sale.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-semibold">#{(sale as any).saleNumber ?? sale.id.slice(-6).toUpperCase()}</div>
+                                            <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{who} · {new Date(sale.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · {sale.items.reduce((a, it) => a + it.quantity, 0)} art.</div>
+                                        </div>
+                                        <span className="font-bold tabular-nums">${sale.totalAmount.toFixed(2)}</span>
+                                        <button type="button" onClick={() => { setError(''); handleSelectSale(sale); }} className="h-10 px-3.5 rounded-lg text-sm font-semibold bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90">Seleccionar</button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
                 
                 {foundSales.length > 0 && (
                     <div className="mt-4 border-t pt-4 dark:border-neutral-600">

@@ -2402,7 +2402,7 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
             />
 
             {selectedCajaId && (
-                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} currentCashierName={operatorName} onClosed={() => handleEndShift()} onOpenHistory={() => setActiveModal('cajaHistory')} />
+                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} currentCashierName={operatorName} onClosed={() => handleEndShift()} onOpenHistory={() => setActiveModal('cajaHistory')} modern={variant === 'modern'} />
             )}
 
             {selectedCajaId && (
@@ -2524,7 +2524,7 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                 baseAmount={discountTarget === 'general' ? subtotal : cart.find(c => c.id === discountTarget)?.unitPrice}
             />
             )}
-            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} />
+            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} modern={variant === 'modern'} cajaId={selectedCajaId || null} receiptPrefix={(settings as any)?.receiptConfig?.receiptPrefix || ''} />
             <ConfirmationModal
                 isOpen={showCartReplaceConfirm}
                 onClose={() => { setPendingCartItems(null); setShowCartReplaceConfirm(false); }}
