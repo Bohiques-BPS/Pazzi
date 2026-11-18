@@ -57,6 +57,7 @@ import { ClientAccountModal } from '../../components/ui/ClientAccountModal';
 import { DeliverySetupModal, deliveryDefaultsFromClient } from '../../components/pos/DeliverySetupModal';
 import { ClientDeliveriesList } from '../../components/pos/ClientDeliveriesList';
 import { deliveryAddress, type DeliveryInput } from '../../services/deliveries';
+import { readDeliveryPricing } from '../../utils/deliveryPricing';
 import { CreateLayawayModal } from '../../components/forms/CreateLayawayModal';
 import { UserSwitchModal } from '../../components/ui/UserSwitchModal';
 import { POSProjectFormModal } from './POSProjectFormModal';
@@ -323,6 +324,25 @@ export function useCashierController() {
     const [deliveryDraft, setDeliveryDraft] = useState<DeliveryInput | null>(null);
     const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
     const deliveryAskedRef = useRef(false);
+    // Cobro de entregas (Administración): el cargo entra al ticket como una línea "Entrega".
+    const deliveryFeeItemRef = useRef<Product | null>(null);
+    const deliveryPricing = useMemo(() => readDeliveryPricing((settings as any)?.deliveryPricing), [(settings as any)?.deliveryPricing]); // eslint-disable-line react-hooks/exhaustive-deps
+    const isDeliveryFeeLine = (it: CartItem) => String(it.id).endsWith('::delivery');
+    /** Marca/actualiza/quita la venta "para entrega" y su línea de cargo en el ticket. */
+    const applyDeliveryDraft = async (data: DeliveryInput | null) => {
+        setDeliveryDraft(data);
+        const fee = data?.fee;
+        if (!fee || !(fee.amount > 0)) { setCart(prev => prev.filter(it => !isDeliveryFeeLine(it))); return; }
+        try {
+            if (!deliveryFeeItemRef.current) deliveryFeeItemRef.current = await productsService.deliveryFeeItem();
+            const p = deliveryFeeItemRef.current!;
+            const rate = deliveryPricing.taxable ? (Number((settings as any)?.defaultTaxRate) || 0.115) : 0;
+            const line = { ...p, id: `${p.id}::delivery`, productId: p.id, name: fee.label || 'Entrega', unitPrice: fee.amount, quantity: 1, ivaRate: rate, isManual: true, isDeliveryFee: true } as any as CartItem;
+            setCart(prev => [...prev.filter(it => !isDeliveryFeeLine(it)), line]);
+        } catch (err: any) {
+            toast.error(err?.message || 'No se pudo agregar el cargo de entrega al ticket.');
+        }
+    };
     // Al agregar un producto marcado "Cargo de entrega", se piden los datos de la entrega (una vez por venta).
     useEffect(() => {
         if (deliveryDraft || deliveryAskedRef.current) return;
@@ -1722,6 +1742,9 @@ export function useCashierController() {
         currentCajaColor,
         isCurrentCajaApplyIVU,
         actionButtons,
+        applyDeliveryDraft,
+        deliveryPricing,
+        isDeliveryFeeLine,
     };
 }
 
@@ -2255,12 +2278,15 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                 title={cart.length ? 'Venta para entrega' : 'Entregas'}
                 saveLabel={deliveryDraft ? 'Guardar' : 'Marcar para entrega'}
                 allowCreate={cart.length > 0}
+                // Si ya hay un producto propio marcado "Cargo de entrega" en el ticket, no se cobra otro cargo.
+                pricing={cart.some(it => (it as any).isDeliveryFee && !c.isDeliveryFeeLine(it)) ? null : c.deliveryPricing}
+                orderSubtotal={cart.filter(it => !c.isDeliveryFeeLine(it)).reduce((a, it) => a + it.unitPrice * it.quantity, 0)}
                 extraTab={selectedClient ? {
                     label: `Entregas de ${selectedClient.isDefault ? 'Público General' : clientDocName(selectedClient)}`,
                     content: <ClientDeliveriesList clientId={selectedClient.id} />,
                 } : undefined}
-                onSave={data => { setDeliveryDraft(data); setDeliveryModalOpen(false); }}
-                onRemove={deliveryDraft ? () => { setDeliveryDraft(null); setDeliveryModalOpen(false); } : undefined}
+                onSave={data => { c.applyDeliveryDraft(data); setDeliveryModalOpen(false); }}
+                onRemove={deliveryDraft ? () => { c.applyDeliveryDraft(null); setDeliveryModalOpen(false); } : undefined}
             />
             <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
             <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
@@ -2951,28 +2977,6 @@ export const POSCashierPage: React.FC = () => {
                     <div className="flex-grow overflow-y-auto">
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full gap-4 p-4">
-                                {lastSaleSummary && (
-                                    <div className="w-full max-w-md rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm overflow-hidden">
-                                        <div className="flex items-center justify-between px-4 py-2 bg-neutral-50 dark:bg-neutral-900/60 border-b border-neutral-200 dark:border-neutral-700">
-                                            <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">Última venta #{lastSaleSummary.saleNumber}</span>
-                                            <span className="text-xs text-neutral-400">{lastSaleSummary.methods}</span>
-                                        </div>
-                                        <div className="grid grid-cols-3 divide-x divide-neutral-200 dark:divide-neutral-700 text-center">
-                                            <div className="py-3">
-                                                <p className="text-xs uppercase tracking-wide text-neutral-500">Total</p>
-                                                <p className="text-2xl font-bold tabular-nums text-neutral-800 dark:text-neutral-100">${lastSaleSummary.total.toFixed(2)}</p>
-                                            </div>
-                                            <div className="py-3">
-                                                <p className="text-xs uppercase tracking-wide text-neutral-500">Recibido</p>
-                                                <p className="text-2xl font-bold tabular-nums text-neutral-800 dark:text-neutral-100">${lastSaleSummary.received.toFixed(2)}</p>
-                                            </div>
-                                            <div className="py-3 bg-emerald-50 dark:bg-emerald-900/20">
-                                                <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Cambio</p>
-                                                <p className="text-3xl font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">${lastSaleSummary.change.toFixed(2)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                                 <p className="text-neutral-400 dark:text-neutral-500">{t('pos.empty_cart')}</p>
                             </div>
                         ) : (
@@ -3135,7 +3139,7 @@ export const POSCashierPage: React.FC = () => {
                     <span>{deliveryDraft.scheduledDate ? new Date(`${deliveryDraft.scheduledDate}T12:00:00Z`).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : 'Sin fecha'}{deliveryDraft.timeWindow ? ` · ${deliveryDraft.timeWindow}` : ''}</span>
                     <span className="truncate max-w-[40ch]">{deliveryAddress(deliveryDraft as any)}</span>
                     <button type="button" onClick={() => setDeliveryModalOpen(true)} className="underline">Editar</button>
-                    <button type="button" onClick={() => setDeliveryDraft(null)} className="underline text-red-700 dark:text-red-300">Quitar</button>
+                    <button type="button" onClick={() => c.applyDeliveryDraft(null)} className="underline text-red-700 dark:text-red-300">Quitar</button>
                 </div>
             )}
             <footer className="bg-gray-100 dark:bg-neutral-900 p-1 sm:p-1.5 flex-shrink-0 relative">

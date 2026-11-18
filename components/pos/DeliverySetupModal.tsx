@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { deliveriesService, type DeliveryInput } from '../../services/deliveries';
+import { matchZone, suggestedFee, type DeliveryPricing } from '../../utils/deliveryPricing';
 
 /** Mañana en "YYYY-MM-DD" (hora local), fecha por defecto de una entrega nueva. */
 export const tomorrowYmd = () => {
@@ -41,8 +42,36 @@ export const DeliverySetupModal: React.FC<{
     extraTab?: { label: string; content: React.ReactNode };
     /** false: solo la pestaña extra (p. ej. carrito vacío: solo se pueden ver las entregas). */
     allowCreate?: boolean;
-}> = ({ isOpen, onClose, initial, title = 'Venta para entrega', saveLabel = 'Guardar', saving, onSave, onRemove, extraTab, allowCreate = true }) => {
+    /** Cobro de entregas (Administración). Si viene y no es "sin cargo", se pide el cargo. */
+    pricing?: DeliveryPricing | null;
+    /** Subtotal de la venta sin el cargo de entrega (para "gratis desde $X"). */
+    orderSubtotal?: number;
+}> = ({ isOpen, onClose, initial, title = 'Venta para entrega', saveLabel = 'Guardar', saving, onSave, onRemove, extraTab, allowCreate = true, pricing, orderSubtotal = 0 }) => {
     const [f, setF] = useState<DeliveryInput>(initial);
+    // Cargo de entrega: zona escogida (modo por zona) y precio (sugerido o escrito a mano).
+    const charging = !!pricing && pricing.mode !== 'none';
+    const canEditPrice = !!pricing && (pricing.mode === 'manual' || pricing.allowManual);
+    const [zoneId, setZoneId] = useState<string>('');
+    const [zoneTouched, setZoneTouched] = useState(false);
+    const [price, setPrice] = useState<string>('');
+    const [priceTouched, setPriceTouched] = useState(false);
+    useEffect(() => {
+        if (!isOpen) return;
+        setZoneId(initial.fee?.zoneId || ''); setZoneTouched(!!initial.fee?.zoneId);
+        setPrice(initial.fee ? String(initial.fee.amount) : ''); setPriceTouched(!!initial.fee);
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Por zona: si la ciudad o el zip de la dirección está en una zona, se escoge sola.
+    useEffect(() => {
+        if (!isOpen || !pricing || pricing.mode !== 'zone' || zoneTouched) return;
+        const z = matchZone(pricing, f.city, f.zip);
+        if (z && z.id !== zoneId) setZoneId(z.id);
+    }, [isOpen, f.city, f.zip, pricing, zoneTouched]); // eslint-disable-line react-hooks/exhaustive-deps
+    const suggestion = pricing ? suggestedFee(pricing, { zoneId, subtotal: orderSubtotal }) : null;
+    // Mientras el cajero no escriba un precio, se usa el sugerido.
+    useEffect(() => {
+        if (!charging || priceTouched || pricing?.mode === 'manual') return;
+        setPrice(suggestion ? String(suggestion.amount) : '0');
+    }, [charging, priceTouched, suggestion?.amount]); // eslint-disable-line react-hooks/exhaustive-deps
     const [view, setView] = useState<'new' | 'extra'>('new');
     useEffect(() => { if (isOpen) setView(allowCreate || !extraTab ? 'new' : 'extra'); }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
     const [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
@@ -56,10 +85,19 @@ export const DeliverySetupModal: React.FC<{
     const save = () => {
         if (!f.street?.trim()) { setError('Escribe la dirección de entrega.'); return; }
         if (!f.contactPhone?.trim()) { setError('Escribe un teléfono de contacto para la entrega.'); return; }
+        let fee: DeliveryInput['fee'] = null;
+        if (charging && pricing) {
+            if (pricing.mode === 'zone' && !zoneId && pricing.zones.length) { setError('Escoge la zona de la entrega.'); return; }
+            const amount = Math.round((parseFloat(price) || 0) * 100) / 100;
+            if (pricing.mode === 'manual' && price.trim() === '') { setError('Escribe el precio de la entrega.'); return; }
+            if (amount < 0) { setError('El precio de la entrega no puede ser negativo.'); return; }
+            fee = { amount, label: suggestion?.label || 'Entrega', zoneId: zoneId || null };
+        }
         onSave({
             ...f,
             scheduledDate: f.scheduledDate || null,
             assignedUserId: f.assignedUserId || null,
+            fee,
         });
     };
 
@@ -128,6 +166,35 @@ export const DeliverySetupModal: React.FC<{
                         </select>
                     </div>
                 </div>
+                {charging && pricing && (
+                    <div className="rounded-lg ring-1 ring-inset ring-primary/30 bg-primary/5 dark:bg-primary/10 p-3">
+                        <div className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-2">Cargo de entrega</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {pricing.mode === 'zone' && (
+                                <div>
+                                    <label className={label}>Zona</label>
+                                    <select value={zoneId} onChange={e => { setZoneId(e.target.value); setZoneTouched(true); setPriceTouched(false); }} className={inputFormStyle}>
+                                        <option value="">— Escoja la zona —</option>
+                                        {pricing.zones.map(z => <option key={z.id} value={z.id}>{z.name} · ${z.price.toFixed(2)}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            <div>
+                                <label className={label}>Precio de la entrega</label>
+                                {canEditPrice ? (
+                                    <div className="relative">
+                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
+                                        <input type="number" min={0} step="0.01" value={price} onChange={e => { setPrice(e.target.value); setPriceTouched(true); }} placeholder="0.00" className={`${inputFormStyle} pl-6`} />
+                                    </div>
+                                ) : (
+                                    <div className="h-10 flex items-center text-lg font-bold">${(parseFloat(price) || 0).toFixed(2)}</div>
+                                )}
+                            </div>
+                        </div>
+                        {suggestion?.free && <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mt-2">Entrega gratis: la compra pasa de ${pricing.freeOver?.toFixed(2)}.</p>}
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">Se suma al total de la venta como la línea "{suggestion?.label || 'Entrega'}"{pricing.taxable ? ' (con IVU)' : ' (sin IVU)'}.</p>
+                    </div>
+                )}
                 <div>
                     <label className={label}>Notas para la entrega <span className="text-neutral-400 font-normal">(opcional)</span></label>
                     <textarea rows={2} value={f.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Ej. llamar antes de llegar, portón azul" className={inputFormStyle} />

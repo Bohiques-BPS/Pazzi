@@ -37,6 +37,8 @@ export interface DeliveryInput {
   contactName?: string | null; contactPhone?: string | null;
   street?: string | null; city?: string | null; state?: string | null; zip?: string | null;
   notes?: string | null; assignedUserId?: string | null;
+  /** Solo en la caja: cargo de entrega que se suma al ticket (no se envía a la entrega). */
+  fee?: { amount: number; label: string; zoneId?: string | null } | null;
 }
 
 export interface DeliveryList { rows: Delivery[]; counts: Record<string, number> }

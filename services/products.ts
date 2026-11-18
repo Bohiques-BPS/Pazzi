@@ -48,6 +48,8 @@ export const normalizeProductFromApi = (p: any) => ({
 export const productsService = {
   /** "Artículo general" del POS (se crea la primera vez; no lleva inventario). */
   generalItem: () => api.post<Product>('/products/general-item', {}),
+  /** Producto interno "Cargo de entrega" (lo crea el BE la primera vez). */
+  deliveryFeeItem: () => api.post<Product>('/products/delivery-fee-item', {}),
   getAll: (filters?: ProductFilters) =>
     api.get<any[]>('/products', filters as any),
 

@@ -154,6 +154,8 @@ export interface GlobalSettings {
     posPriceChangeRequiresPin?: boolean;
     /** Modelo de caja del negocio: 'classic' (la de siempre) o 'modern'. */
     posCashierModel?: 'classic' | 'modern';
+    /** Cobro de entregas en la caja (ver utils/deliveryPricing). */
+    deliveryPricing?: any;
     /** Caja: quitar un producto de la venta pide PIN de gerente (default true). */
     posItemDeleteRequiresPin?: boolean;
     /** Recordatorios automáticos de cobro (clientes con crédito vencido). */

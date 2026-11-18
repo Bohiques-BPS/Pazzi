@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { DeliveryPricingSettings } from './DeliveryPricingSettings';
 import { UserRole, AppModule } from '../../types';
 import { TOGGLEABLE_MODULES } from '../../constants';
 import { useModules } from '../../hooks/useModules';
@@ -217,6 +218,9 @@ export const ModulesConfiguration: React.FC = () => {
                 </label>
             </div>
         </div>
+
+        {/* Cobro de entregas (precio fijo, por zona, manual o sin cargo) */}
+        <DeliveryPricingSettings />
       </div>
     );
 };

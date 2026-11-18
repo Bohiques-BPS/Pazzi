@@ -59,7 +59,7 @@ export const ModernCashierPage: React.FC = () => {
         enabledMethods, activeModal, setActiveModal, isShiftActive, shiftTooLong, shiftHoursOpen,
         addProductToCart, searchProductsRemote, setShowGeneralItem, setShowScanCamera,
         updateQuantity, handleRequestItemDelete, setEditingLineId, handleOpenDiscountModal,
-        handleOpenPaymentModal, clearCart, heldCarts, lastSaleSummary, posError, setPosError,
+        handleOpenPaymentModal, clearCart, heldCarts, posError, setPosError,
         subtotal, globalDiscountAmount, generalDiscount, setGeneralDiscount, tax, taxState, taxMunicipal, taxReduced, total,
         isCurrentCajaApplyIVU, currentCajaName, isCurrentCajaExternal, selectableBranches, selectedBranchId, chooseBranch,
         cajasInSelectedBranch, selectedCajaId, chooseCaja, getBranchById, operator, operatorName, clearOperator,
@@ -409,7 +409,7 @@ export const ModernCashierPage: React.FC = () => {
                             <TruckIcon className="w-4 h-4 flex-shrink-0" />
                             <span className="truncate flex-1">Para entrega · {deliveryDraft.scheduledDate ? new Date(`${deliveryDraft.scheduledDate}T12:00:00Z`).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : 'sin fecha'} · {deliveryAddress(deliveryDraft as any)}</span>
                             <button type="button" onClick={() => setDeliveryModalOpen(true)} className="underline">Editar</button>
-                            <button type="button" onClick={() => setDeliveryDraft(null)} aria-label="Quitar entrega"><XMarkIcon className="w-4 h-4" /></button>
+                            <button type="button" onClick={() => c.applyDeliveryDraft(null)} aria-label="Quitar entrega"><XMarkIcon className="w-4 h-4" /></button>
                         </div>
                     )}
 
@@ -417,16 +417,6 @@ export const ModernCashierPage: React.FC = () => {
                     <div className="flex-1 min-h-0 overflow-y-auto">
                         {cart.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center gap-4 p-6 text-center">
-                                {lastSaleSummary ? (
-                                    <div className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                                        <div className="px-4 py-2 text-sm font-semibold bg-neutral-50 dark:bg-neutral-800 flex justify-between"><span>Última venta #{lastSaleSummary.saleNumber}</span><span className="text-xs text-neutral-500 font-normal">{lastSaleSummary.methods}</span></div>
-                                        <div className="grid grid-cols-3 text-center divide-x divide-neutral-200 dark:divide-neutral-700">
-                                            <div className="py-3"><div className="text-[11px] uppercase text-neutral-500">Total</div><div className="text-xl font-bold tabular-nums">{money(lastSaleSummary.total)}</div></div>
-                                            <div className="py-3"><div className="text-[11px] uppercase text-neutral-500">Recibido</div><div className="text-xl font-bold tabular-nums">{money(lastSaleSummary.received)}</div></div>
-                                            <div className="py-3 bg-emerald-50 dark:bg-emerald-900/20"><div className="text-[11px] uppercase text-emerald-700 dark:text-emerald-300">Cambio</div><div className="text-2xl font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">{money(lastSaleSummary.change)}</div></div>
-                                        </div>
-                                    </div>
-                                ) : null}
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400"><TagIcon className="w-6 h-6" /></span>
                                     <div className="text-base font-semibold text-neutral-700 dark:text-neutral-200">Ticket vacío</div>
