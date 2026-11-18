@@ -67,6 +67,7 @@ import { ModernDiscountModal } from '../../components/forms/ModernDiscountModal'
 import { ModernClientSearchModal } from '../../components/pos/modern/ModernClientSearchModal';
 import { ModernHeldCartsModal } from '../../components/pos/modern/ModernHeldCartsModal';
 import { ModernPayoutModal } from '../../components/pos/modern/ModernPayoutModal';
+import { ModernPunchModal } from '../../components/pos/modern/ModernPunchModal';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
@@ -2409,7 +2410,9 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                 <CajaHistoryModal isOpen={activeModal === 'cajaHistory'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} />
             )}
 
-            <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />
+            {variant === 'modern'
+                ? <ModernPunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />
+                : <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />}
 
             {/* Selector de variación (productos con variaciones) */}
             <Modal isOpen={!!variationProduct} onClose={() => setVariationProduct(null)} title={t('posx.cashier.choose_variation_title', { name: variationProduct?.name || '' })} size="md">

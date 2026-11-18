@@ -44,6 +44,9 @@ export const timeclockService = {
     selfToday: () => api.get<TodayState>('/timeclock/self/today'),
     punch: (identifier: string, pin: string, type?: PunchType) =>
         api.post<PunchResult>('/timeclock/punch', { identifier, pin, ...(type ? { type } : {}) }),
+    /** Estado del día de un empleado por PIN, SIN ponchar (ponche de la caja moderna). */
+    state: (pin: string, identifier?: string) =>
+        api.post<TodayState & { firstName: string }>('/timeclock/state', { pin, ...(identifier ? { identifier } : {}) }),
     /** Identifica al cajero/operador por PIN (sin ponchar) para atribuir las ventas del turno. */
     identify: (pin: string, identifier?: string) =>
         api.post<IdentifyResult>('/timeclock/identify', { pin, ...(identifier ? { identifier } : {}) }),

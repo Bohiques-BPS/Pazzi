@@ -260,7 +260,7 @@ export const DailyCloseModal: React.FC<DailyCloseModalProps> = ({
                                 <p className="text-sm text-neutral-600 dark:text-neutral-300 -mt-1 mb-2">Cuente lo que hay en la caja y cierre el turno.</p>
                                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-neutral-700 dark:text-neutral-200">
                                     <span className="font-semibold">{(() => { const d = cuadreDate.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }); return d.charAt(0).toUpperCase() + d.slice(1); })()}</span>
-                                    {openedAt && <span>Abierto {openedAt.toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' })} · {hours < 1 ? `${Math.round(hours * 60)} min` : `${Math.floor(hours)} h`}</span>}
+                                    {openedAt && <span>Abierto {openedAt.toLocaleTimeString('es-PR', { hour: 'numeric', minute: '2-digit', hour12: true })} · {hours < 1 ? `${Math.round(hours * 60)} min` : `${Math.floor(hours)} h`}</span>}
                                     <span>Cajero: <b>{cajero}</b></span>
                                     <span className="text-neutral-500">Turno #{session.id.slice(0, 6).toUpperCase()}</span>
                                     {onOpenHistory && <button type="button" onClick={onOpenHistory} className="text-blue-600 dark:text-blue-400 hover:underline">Turnos anteriores</button>}
