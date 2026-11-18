@@ -136,6 +136,7 @@ const OrderConfirmationPage = lazyNamed(() => import('./pages/ecommerce/OrderCon
 const PublicInvoicePage = lazyNamed(() => import('./pages/pos/PublicInvoicePage'), 'PublicInvoicePage');
 const PublicDeliveryPage = lazyNamed(() => import('./pages/pos/PublicDeliveryPage'), 'PublicDeliveryPage');
 const DeliveriesPage = lazyNamed(() => import('./pages/pos/DeliveriesPage'), 'DeliveriesPage');
+const SupplierReturnsPage = lazyNamed(() => import('./pages/pos/SupplierReturnsPage'), 'SupplierReturnsPage');
 const PublicEnrollPage = lazyNamed(() => import('./pages/pos/PublicEnrollPage'), 'PublicEnrollPage');
 
 // Admin Pages
@@ -533,6 +534,7 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/recurring" element={<RecurringPaymentsPage />} />
                 <Route path="/pos/invoices" element={<InvoicesListPage />} />
                 <Route path="/pos/deliveries" element={<DeliveriesPage />} />
+                <Route path="/pos/supplier-returns" element={<SupplierReturnsPage />} />
                 <Route path="/pos/attendance" element={<AttendancePage />} />
                 
                 <Route path="/ecommerce/dashboard" element={<ECommerceReportsPage />} />

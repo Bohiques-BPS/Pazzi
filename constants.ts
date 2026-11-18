@@ -611,6 +611,7 @@ export const APP_MODULES_CONFIG = [
         { type: 'group', name: 'Compras y Proveedores', icon: TruckIcon, children: [
             { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon, permission: ['suppliers.view', 'suppliers.manage'] },
             { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: ['supplierOrders.view', 'supplierOrders.manage', 'supplierOrders.receive'] },
+            { type: 'link', name: 'Devoluciones a suplidor', path: '/pos/supplier-returns', icon: ArrowUturnLeftIcon, permission: ['supplierOrders.view', 'supplierOrders.manage', 'suppliers.view', 'suppliers.manage'] },
         ] },
         { type: 'group', name: 'Cajas', icon: CubeIcon, children: [
             { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
