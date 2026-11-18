@@ -337,7 +337,7 @@ export function useCashierController() {
             if (!deliveryFeeItemRef.current) deliveryFeeItemRef.current = await productsService.deliveryFeeItem();
             const p = deliveryFeeItemRef.current!;
             const rate = deliveryPricing.taxable ? (Number((settings as any)?.defaultTaxRate) || 0.115) : 0;
-            const line = { ...p, id: `${p.id}::delivery`, productId: p.id, name: fee.label || 'Entrega', unitPrice: fee.amount, quantity: 1, ivaRate: rate, isManual: true, isDeliveryFee: true } as any as CartItem;
+            const line = { ...p, id: `${p.id}::delivery`, productId: p.id, name: p.name || 'Cargo de entrega', note: fee.label?.includes('·') ? `Zona: ${fee.label.split('·').slice(1).join('·').trim()}` : undefined, unitPrice: fee.amount, quantity: 1, ivaRate: rate, isManual: true, isDeliveryFee: true } as any as CartItem;
             setCart(prev => [...prev.filter(it => !isDeliveryFeeLine(it)), line]);
         } catch (err: any) {
             toast.error(err?.message || 'No se pudo agregar el cargo de entrega al ticket.');
