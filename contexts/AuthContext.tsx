@@ -230,9 +230,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const toggleUserEmergencyOrderMode = useCallback(async (_userId: string) => {
     try {
-      const user = await authService.toggleEmergencyOrder();
-      setCurrentUser(user);
-      localStorage.setItem('pazzi_user', JSON.stringify(user));
+      const res: any = await authService.toggleEmergencyOrder();
+      if (!res || typeof res !== 'object' || typeof res.isEmergencyOrderActive !== 'boolean') return false;
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const next = { ...prev, isEmergencyOrderActive: res.isEmergencyOrderActive };
+        localStorage.setItem('pazzi_user', JSON.stringify(next));
+        return next;
+      });
       return true;
     } catch {
       return false;

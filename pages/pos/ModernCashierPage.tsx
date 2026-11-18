@@ -240,11 +240,7 @@ export const ModernCashierPage: React.FC = () => {
                                     <button type="button" onClick={() => { setUserMenu(false); setActiveModal('userSwitch'); }} className="w-full text-left px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700">Cambiar de cajero</button>
                                     {operator && <button type="button" onClick={() => { setUserMenu(false); clearOperator(); }} className="w-full text-left px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700">Volver a mi usuario</button>}
                                     {isMgr && (
-                                        <button type="button" onClick={async () => {
-                                            setUserMenu(false);
-                                            const ok = await toggleUserEmergencyOrderMode(currentUser?.id || '');
-                                            if (ok) toast.success(emergencyOn ? 'Modo Emergencia desactivado.' : 'Modo Emergencia activado.'); else toast.error('No se pudo cambiar el Modo Emergencia.');
-                                        }} className="w-full text-left px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700">
+                                        <button type="button" onClick={() => { setUserMenu(false); setActiveModal('emergencyAuth'); }} className="w-full text-left px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-neutral-700">
                                             Modo emergencia (exención de IVU): <b>{emergencyOn ? 'activo' : 'apagado'}</b>
                                         </button>
                                     )}

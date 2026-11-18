@@ -392,7 +392,7 @@ export function useCashierController() {
 
     
     // Modal states
-    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | 'clientCredit' | 'clientAccount' | 'priceAuth' | null;
+    type ActiveModal = 'auth' | 'openShift' | 'deleteItemAuth' | 'endShift' | 'payout' | 'clientSearch' | 'createClient' | 'createProject' | 'heldCarts' | 'clientEstimates' | 'layaway' | 'userSwitch' | 'payment' | 'discountAuth' | 'return' | 'dailyClose' | 'cajaHistory' | 'punch' | 'reprint' | 'clientCredit' | 'clientAccount' | 'priceAuth' | 'emergencyAuth' | null;
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     
     // Producto con variaciones pendiente de elegir (abre el selector de variación).
@@ -1015,6 +1015,21 @@ export function useCashierController() {
         setItemToDelete(item);
         setActiveModal('deleteItemAuth');
     };
+    // Modo Emergencia (exención de IVU): encenderlo o apagarlo pide el PIN del gerente en las dos cajas.
+    const handleConfirmEmergencyToggle = async (pin: string): Promise<boolean | string> => {
+        try {
+            await authService.verifySupervisorPin(pin);
+        } catch (err) {
+            return err instanceof ApiError ? err.message : false;
+        }
+        const wasOn = !!currentUser?.isEmergencyOrderActive;
+        const ok = await toggleUserEmergencyOrderMode(currentUser?.id || '');
+        if (!ok) return 'No se pudo cambiar el Modo Emergencia.';
+        setActiveModal(null);
+        toast.success(wasOn ? 'Modo Emergencia desactivado.' : 'Modo Emergencia activado.');
+        return true;
+    };
+
     const handleConfirmItemDelete = async (pin: string): Promise<boolean | string> => {
         if (!itemToDelete) return false;
         try {
@@ -1721,6 +1736,7 @@ export function useCashierController() {
         setItemToDelete,
         handleRequestItemDelete,
         handleConfirmItemDelete,
+        handleConfirmEmergencyToggle,
         priceChangeNeedsPin,
         handleRequestPriceChange,
         handleConfirmPriceChange,
@@ -2493,6 +2509,13 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                     <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title={t('posx.cashier.scan_product')} />
                 </Suspense>
             )}
+            <POSActionAuthModal
+                isOpen={activeModal === 'emergencyAuth'}
+                onClose={() => setActiveModal(null)}
+                onConfirm={c.handleConfirmEmergencyToggle}
+                title={currentUser?.isEmergencyOrderActive ? 'Apagar Modo Emergencia' : 'Activar Modo Emergencia'}
+                message={currentUser?.isEmergencyOrderActive ? 'Para apagar el Modo Emergencia (exención de IVU) se necesita el PIN del gerente.' : 'Para activar el Modo Emergencia (exención de IVU) se necesita el PIN del gerente.'}
+            />
             <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => { setActiveModal(null); setItemToDelete(null); }} onConfirm={handleConfirmItemDelete} title={t('posx.cashier.confirm_delete')} message={t('posx.cashier.confirm_delete_msg')} />
             <POSActionAuthModal
                 isOpen={activeModal === 'priceAuth'}
@@ -2849,11 +2872,7 @@ export const POSCashierPage: React.FC = () => {
                         const isMgr = currentUser?.role === UserRole.MANAGER;
                         return (
                             <button
-                                onClick={isMgr ? async () => {
-                                    const ok = await toggleUserEmergencyOrderMode(currentUser?.id || '');
-                                    if (ok) toast.success(on ? 'Modo Emergencia desactivado.' : 'Modo Emergencia activado.');
-                                    else toast.error('No se pudo cambiar el Modo Emergencia.');
-                                } : undefined}
+                                onClick={isMgr ? () => setActiveModal('emergencyAuth') : undefined}
                                 disabled={!isMgr}
                                 title={isMgr ? 'Activar/desactivar Modo Emergencia (exención de IVU)' : `Modo Emergencia ${on ? 'ACTIVO' : 'apagado'} (lo cambia el gerente)`}
                                 className={`${on ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-[#F9A825] hover:bg-amber-600'} text-white font-bold py-1 px-1.5 sm:py-2 sm:px-4 rounded-md flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-sm shadow-sm transition-all active:scale-95 ${!isMgr ? 'cursor-default' : ''}`}
