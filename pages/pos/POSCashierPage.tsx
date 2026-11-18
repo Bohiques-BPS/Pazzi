@@ -2320,20 +2320,20 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
             )}
 
             {/* Venta rechazada por el backend (stock/turno/etc.): aviso claro y persistente. */}
-            <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title={t('posx.cashier.sale_failed_title')} size="md">
+            <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title={t('posx.cashier.sale_failed_title')} size="lg">
                 <div className="space-y-4">
                     <div className="flex items-start gap-3">
                         <ExclamationTriangleIcon className="w-9 h-9 text-red-500 flex-shrink-0" />
-                        <div>
+                        <div className="flex-1 min-w-0">
                             <p className="text-base font-medium text-neutral-800 dark:text-neutral-100">{saleError?.message}</p>
                             {saleError?.code === 'INSUFFICIENT_STOCK' && (
                                 <>
                                     {Array.isArray(saleError.details) && saleError.details.length > 0 && (
                                         <ul className="mt-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 space-y-0.5">
                                             {saleError.details.map((d: any, i: number) => (
-                                                <li key={i} className="flex justify-between gap-3">
-                                                    <span className="truncate">{d.productName || d.productId}</span>
-                                                    <span className="whitespace-nowrap">pedido {d.requested} · disp. {d.available}</span>
+                                                <li key={i} className="flex items-start justify-between gap-3">
+                                                    <span className="min-w-0 break-words">{d.productName || d.productId}</span>
+                                                    <span className="flex-shrink-0 whitespace-nowrap tabular-nums">pedido {d.requested} · disp. {d.available}</span>
                                                 </li>
                                             ))}
                                         </ul>
