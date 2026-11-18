@@ -65,7 +65,7 @@ export const ResetPasswordPage: React.FC = () => {
           <div className="w-full md:w-1/2 flex flex-col items-center justify-center px-6 py-10">
             <div className="w-full max-w-sm">
               <div className="flex justify-center mb-6">
-                <img src={logo} alt="Pazzi" className="h-9" />
+                <img src={logo} alt="ppazi" className="h-9" />
               </div>
                 <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-1">{t('auth.reset.title')}</h2>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center mb-6">{t('auth.reset.subtitle')}</p>

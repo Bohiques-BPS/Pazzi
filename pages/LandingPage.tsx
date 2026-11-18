@@ -35,9 +35,9 @@ const benefitItems = [
 ];
 
 const solutionItems = [
-    { name: "Gestión de Proyectos", description: "Planifica, ejecuta y supervisa tus proyectos con herramientas colaborativas, seguimiento de tareas y gestión de recursos.", image: "https://picsum.photos/seed/project-collaboration/600/400", alt: "Equipo colaborando en la gestión de un proyecto con Pazzi." },
-    { name: "Punto de Venta (POS)", description: "Agiliza tus ventas en tienda física con un sistema POS rápido, manejo de inventario en tiempo real y reportes de ventas detallados.", image: "https://picsum.photos/seed/modern-pos/600/400", alt: "Sistema POS moderno de Pazzi agilizando una venta en tienda." },
-    { name: "E-commerce Integrado", description: "Lanza y gestiona tu tienda online, sincroniza productos, pedidos y clientes con el resto de tu operación.", image: "https://picsum.photos/seed/ecommerce-management/600/400", alt: "Gestionando una tienda e-commerce integrada con Pazzi." },
+    { name: "Gestión de Proyectos", description: "Planifica, ejecuta y supervisa tus proyectos con herramientas colaborativas, seguimiento de tareas y gestión de recursos.", image: "https://picsum.photos/seed/project-collaboration/600/400", alt: "Equipo colaborando en la gestión de un proyecto con ppazi." },
+    { name: "Punto de Venta (POS)", description: "Agiliza tus ventas en tienda física con un sistema POS rápido, manejo de inventario en tiempo real y reportes de ventas detallados.", image: "https://picsum.photos/seed/modern-pos/600/400", alt: "Sistema POS moderno de ppazi agilizando una venta en tienda." },
+    { name: "E-commerce Integrado", description: "Lanza y gestiona tu tienda online, sincroniza productos, pedidos y clientes con el resto de tu operación.", image: "https://picsum.photos/seed/ecommerce-management/600/400", alt: "Gestionando una tienda e-commerce integrada con ppazi." },
 ];
 
 
@@ -90,7 +90,7 @@ export const LandingPage: React.FC = () => {
                         <div className="flex items-center justify-between h-16">
                             <div className="flex items-center">
                                 <RouterLink to="/" className="flex items-center">
-                                    <img src={logo} alt="Pazzi Logo" className="h-8" />
+                                    <img src={logo} alt="ppazi Logo" className="h-8" />
                                 </RouterLink>
                             </div>
                             <div className="hidden md:flex items-center space-x-4">
@@ -155,9 +155,9 @@ export const LandingPage: React.FC = () => {
                 {/* Benefits Section */}
                 <section id="benefits" className="py-16 md:py-24 bg-white dark:bg-neutral-800">
                     <div className="container mx-auto px-6">
-                        <h2 className="text-4xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-4">¿Por qué Elegir Pazzi?</h2>
+                        <h2 className="text-4xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-4">¿Por qué Elegir ppazi?</h2>
                         <p className="text-center text-neutral-600 dark:text-neutral-300 mb-12 max-w-2xl mx-auto">
-                            Pazzi está diseñado para simplificar tus operaciones diarias, ofreciéndote control total y herramientas poderosas para cada aspecto de tu negocio.
+                            ppazi está diseñado para simplificar tus operaciones diarias, ofreciéndote control total y herramientas poderosas para cada aspecto de tu negocio.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                             {benefitItems.map((item, index) => (
@@ -251,7 +251,7 @@ export const LandingPage: React.FC = () => {
                     <div className="container mx-auto px-6">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                             <div>
-                                <img src={logoWhite} alt="Pazzi Logo" className="h-7 mb-3" />
+                                <img src={logoWhite} alt="ppazi Logo" className="h-7 mb-3" />
                                 <p className="text-base">Simplificando la gestión de tu negocio para que puedas enfocarte en crecer.</p>
                             </div>
                             <div>
@@ -279,7 +279,7 @@ export const LandingPage: React.FC = () => {
                             </div>
                         </div>
                         <div className="mt-10 pt-8 border-t border-neutral-700 text-center text-base">
-                            &copy; {new Date().getFullYear()} Pazzi. Todos los derechos reservados.
+                            &copy; {new Date().getFullYear()} ppazi. Todos los derechos reservados.
                         </div>
                     </div>
                 </footer>

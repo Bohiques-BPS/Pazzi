@@ -91,7 +91,7 @@ export const ActivateAccountPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 p-4">
       <div className="w-full max-w-md bg-white dark:bg-neutral-800 rounded-lg shadow-md p-6">
         <div className="flex justify-center mb-4">
-          <img src={logo} alt="Pazzi" className="h-12" />
+          <img src={logo} alt="ppazi" className="h-12" />
         </div>
         <h1 className="text-2xl font-semibold text-center mb-2">{t('auth.activate.title')}</h1>
         <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 mb-6">

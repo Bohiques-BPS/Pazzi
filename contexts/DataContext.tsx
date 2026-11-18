@@ -547,7 +547,7 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
             try { toast(`${n?.title || 'Nueva notificación'}${body ? `\n${body}` : ''}`, { icon: '🔔' }); } catch { /* noop */ }
             try {
                 if (Notif && Notif.permission === 'granted') {
-                    const dn = new Notif(n?.title || 'Pazzi', { body, tag: n?.link || undefined });
+                    const dn = new Notif(n?.title || 'ppazi', { body, tag: n?.link || undefined });
                     dn.onclick = () => { try { window.focus(); if (n?.link) window.location.href = n.link; } catch { /* noop */ } };
                 }
             } catch { /* noop */ }

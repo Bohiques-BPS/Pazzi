@@ -147,7 +147,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
             if (logoData) { try { doc.addImage(logoData, dataUrlFormat(logoData), margin, y, 34, 17); } catch { /* ignore */ } }
         }
         doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
-        doc.text(rc.businessName || storeSettings.storeName || 'Pazzi', RM, y + 4, { align: 'right' });
+        doc.text(rc.businessName || storeSettings.storeName || 'ppazi', RM, y + 4, { align: 'right' });
         doc.setFontSize(9).setFont('helvetica', 'normal'); doc.setTextColor(90);
         let hy = y + 9;
         if (dz.showBusiness !== false) {

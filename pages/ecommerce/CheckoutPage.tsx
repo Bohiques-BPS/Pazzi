@@ -272,7 +272,7 @@ export const CheckoutPage: React.FC = () => {
                                 <div className="mt-4 space-y-3 p-4 border border-neutral-200 dark:border-neutral-700 rounded-md">
                                      <h4 className="text-sm font-medium text-neutral-600 dark:text-neutral-300">{t('checkout.ath_confirm_title')}</h4>
                                     <input type="text" name="athConfirmation" placeholder={t('checkout.ath_confirm_ph')} value={athConfirmationNumber} onChange={(e) => setAthConfirmationNumber(e.target.value)} className={inputFormStyle} required />
-                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('checkout.ath_pay_to')} <span className="font-semibold">/PazziTienda</span> {t('checkout.ath_then')}</p>
+                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('checkout.ath_pay_to')} <span className="font-semibold">/ppaziTienda</span> {t('checkout.ath_then')}</p>
                                 </div>
                             )}
                             {selectedPaymentMethod === 'PayPal' && (

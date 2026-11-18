@@ -52,7 +52,7 @@ export const ClientLayout: React.FC<LayoutProps> = ({ children }) => {
                         {sidebarOpen ? <XMarkIcon /> : <MenuIcon />}
                     </button>
                     <Link to="/client-dashboard" className="flex-shrink-0">
-                        <img src={logoWhite} alt="Pazzi Logo" className="h-8" />
+                        <img src={logoWhite} alt="ppazi Logo" className="h-8" />
                     </Link>
                     <div className="flex items-center space-x-4">
                         <span className="hidden sm:inline">{currentUser?.name || currentUser?.email} {t('cmp.clientlayout.client_role')}</span>

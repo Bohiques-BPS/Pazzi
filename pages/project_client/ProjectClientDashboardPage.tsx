@@ -107,7 +107,7 @@ export const ProjectClientDashboardPage: React.FC = () => {
         ) : (
           <div className="bg-white dark:bg-neutral-800 p-6 rounded-lg shadow text-center">
             <p className="text-neutral-500 dark:text-neutral-400">No tienes proyectos asignados actualmente.</p>
-            <p className="text-sm mt-2 text-neutral-500 dark:text-neutral-400">Si crees que esto es un error, por favor contacta a Pazzi.</p>
+            <p className="text-sm mt-2 text-neutral-500 dark:text-neutral-400">Si crees que esto es un error, por favor contacta a ppazi.</p>
           </div>
         )}
       </div>

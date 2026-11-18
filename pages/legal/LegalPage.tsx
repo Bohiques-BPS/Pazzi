@@ -7,7 +7,7 @@ import logo from '../../assets/logo.png';
  * Estas páginas son públicas (sin login) y sirven para el registro
  * de la app (OAuth de Google, etc.) y para el pie de la tienda.
  * ───────────────────────────────────────────────────────────── */
-const APP_NAME = 'Pazzi';
+const APP_NAME = 'ppazi';
 const COMPANY = 'Bohiques';
 const CONTACT_EMAIL = 'soporte@ppazi.com';
 const WEBSITE = 'https://ppazi.com';

@@ -22,7 +22,7 @@ const BrandedLoader: React.FC = () => (
     `}</style>
     <div className="relative flex items-center justify-center">
       <div className="pz-halo absolute h-28 w-44 rounded-full bg-primary/20 blur-2xl" />
-      <img src={appLogo} alt="Pazzi" className="pz-logo relative h-14 w-auto" />
+      <img src={appLogo} alt="ppazi" className="pz-logo relative h-14 w-auto" />
     </div>
     <div className="mt-8 h-1 w-40 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800" role="progressbar" aria-label="Cargando">
       <div className="pz-bar h-full w-2/5 rounded-full bg-primary" />
