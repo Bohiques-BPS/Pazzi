@@ -784,6 +784,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 variationId: (item as any).variationId || undefined,
                 variationName: (item as any).variationName || undefined,
                 note: (item as any).note || undefined,
+                discountReason: (item as any).discount?.reason || undefined,
+                discountAuthorizedBy: (item as any).discount?.authorizedBy || undefined,
             }));
 
             // Desglose de pagos: si el modal envió varios, se mandan tal cual; si no, se sintetiza
@@ -803,6 +805,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 taxMunicipal: saleData.taxMunicipal,
                 taxReduced: saleData.taxReduced,
                 discountAmount: saleData.discountAmount,
+                discountReason: (saleData as any).discountReason || undefined,
+                discountAuthorizedBy: (saleData as any).discountAuthorizedBy || undefined,
                 paymentMethod: saleData.paymentMethod,
                 paymentStatus: hasCreditPayment ? 'Pendiente' : 'Pagado',
                 cajaId: saleData.cajaId,

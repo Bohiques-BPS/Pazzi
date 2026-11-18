@@ -62,6 +62,12 @@ import { UserSwitchModal } from '../../components/ui/UserSwitchModal';
 import { POSProjectFormModal } from './POSProjectFormModal';
 import { BUTTON_SECONDARY_SM_CLASSES, inputFormStyle, POS_BUTTON_CYAN_CLASSES, BUTTON_PRIMARY_SM_CLASSES, DEFAULT_CLIENT_ID } from '../../constants';
 import { PaymentModal, PaymentMethod } from '../../components/forms/PaymentModal';
+import { ModernPaymentModal } from '../../components/forms/ModernPaymentModal';
+import { ModernDiscountModal } from '../../components/forms/ModernDiscountModal';
+import { ModernClientSearchModal } from '../../components/pos/modern/ModernClientSearchModal';
+import { ModernHeldCartsModal } from '../../components/pos/modern/ModernHeldCartsModal';
+import { ModernPayoutModal } from '../../components/pos/modern/ModernPayoutModal';
+import { ModernPunchModal } from '../../components/pos/modern/ModernPunchModal';
 import { Modal, ConfirmationModal } from '../../components/Modal';
 import { EndShiftModal } from '../../components/ui/EndShiftModal';
 import { PayoutModal } from '../../components/forms/PayoutModal';
@@ -227,7 +233,11 @@ const POSActionAuthModal: React.FC<{
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
 
 // Main Component
-export const POSCashierPage: React.FC = () => {
+/**
+ * Lógica de la caja (estado, carrito, cobro, atajos, turnos, modales…), compartida por todos
+ * los modelos de caja. Cada modelo (clásica, moderna) es solo una vista encima de este hook.
+ */
+export function useCashierController() {
     const navigate = useNavigate();
     const { t } = useTranslation(); // Hook translation
     const { settings } = useGlobalSettings();
@@ -355,7 +365,7 @@ export const POSCashierPage: React.FC = () => {
     const [showCreateCaja, setShowCreateCaja] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [posError, setPosError] = useState<string | null>(null);
-    const [generalDiscount, setGeneralDiscount] = useState<{ type: 'percentage' | 'fixed'; value: number } | null>(null);
+    const [generalDiscount, setGeneralDiscount] = useState<{ type: 'percentage' | 'fixed'; value: number; reason?: string | null; authorizedBy?: string | null } | null>(null);
 
     
     // Modal states
@@ -1036,7 +1046,7 @@ export const POSCashierPage: React.FC = () => {
         setActiveModal('discountAuth');
     };
 
-    const handleApplyDiscount = (discount: { type: 'percentage' | 'fixed'; value: number }) => {
+    const handleApplyDiscount = (discount: { type: 'percentage' | 'fixed'; value: number; reason?: string | null; authorizedBy?: string | null }) => {
         if (discountTarget === 'general') {
             setGeneralDiscount(discount);
         } else if (discountTarget) {
@@ -1174,6 +1184,9 @@ export const POSCashierPage: React.FC = () => {
                 taxAmount: tax,
                 ...(settings.taxBreakdownEnabled ? { taxState, taxMunicipal, taxReduced } : {}),
                 discountAmount: globalDiscountAmount,
+                // Motivo y autorizador del descuento general (solo los envía la caja moderna).
+                ...(generalDiscount?.reason ? { discountReason: generalDiscount.reason } : {}),
+                ...(generalDiscount?.authorizedBy ? { discountAuthorizedBy: generalDiscount.authorizedBy } : {}),
                 paymentMethod: paymentMethodString,
                 paymentStatus: payments.some(p => p.method === 'Crédito C.') ? 'Pendiente de Pago' : 'Pagado',
                 payments,
@@ -1520,7 +1533,392 @@ export const POSCashierPage: React.FC = () => {
         { text: t('pos.user'), icon: <UserKeyIcon />, color: 'bg-[#3949AB]', onClick: () => setActiveModal('userSwitch') },
     ];
     
-    // UI Render
+    return {
+        navigate,
+        t,
+        settings,
+        products,
+        getProductsWithStockForBranch,
+        branches,
+        cajas,
+        clients,
+        addSale,
+        heldCarts,
+        holdCurrentCart,
+        recallCart,
+        deleteHeldCart,
+        estimates,
+        addLayaway,
+        setEstimates,
+        addEstimate,
+        sales,
+        setSales,
+        employees,
+        getBranchById,
+        cajasLoaded,
+        currentUser,
+        login,
+        logout,
+        toggleUserEmergencyOrderMode,
+        productSearchRef,
+        quantityInput,
+        setQuantityInput,
+        quantityInputRef,
+        pendingQtyRef,
+        showScanCamera,
+        setShowScanCamera,
+        lastReceipt,
+        setLastReceipt,
+        reprintMode,
+        setReprintMode,
+        changeOverlay,
+        setChangeOverlay,
+        showDrawerOpen,
+        setShowDrawerOpen,
+        saleError,
+        setSaleError,
+        pendingSaleRetry,
+        setPendingSaleRetry,
+        editingLineId,
+        setEditingLineId,
+        paymentDone,
+        setPaymentDone,
+        finalizing,
+        setFinalizing,
+        finalizingRef,
+        lastSaleSummary,
+        setLastSaleSummary,
+        showGeneralItem,
+        setShowGeneralItem,
+        addingGeneral,
+        setAddingGeneral,
+        generalItemRef,
+        cartEstimateIds,
+        setCartEstimateIds,
+        pendingEstimateIdsRef,
+        pendingPrice,
+        setPendingPrice,
+        manualPriceProduct,
+        setManualPriceProduct,
+        paymentShortcutRef,
+        operator,
+        setOperator,
+        operatorName,
+        operatorUserId,
+        isPosAuthenticated,
+        setIsPosAuthenticated,
+        currentSession,
+        setCurrentSession,
+        shiftState,
+        cart,
+        setCart,
+        deliveryDraft,
+        setDeliveryDraft,
+        deliveryModalOpen,
+        setDeliveryModalOpen,
+        deliveryAskedRef,
+        selectedClient,
+        setSelectedClient,
+        findDefaultClient,
+        selectedBranchId,
+        setSelectedBranchId,
+        selectedCajaId,
+        setSelectedCajaId,
+        enabledMethods,
+        cajaInitialized,
+        setCajaInitialized,
+        showCreateCaja,
+        setShowCreateCaja,
+        selectedProjectId,
+        setSelectedProjectId,
+        posError,
+        setPosError,
+        generalDiscount,
+        setGeneralDiscount,
+        activeModal,
+        setActiveModal,
+        variationProduct,
+        setVariationProduct,
+        initialPaymentMethod,
+        setInitialPaymentMethod,
+        pendingCartItems,
+        setPendingCartItems,
+        showCartReplaceConfirm,
+        setShowCartReplaceConfirm,
+        pendingEstimateData,
+        setPendingEstimateData,
+        showEstimateReplaceConfirm,
+        setShowEstimateReplaceConfirm,
+        discountTarget,
+        setDiscountTarget,
+        posUsers,
+        clientProjects,
+        setClientProjects,
+        currentDiscountForModal,
+        refreshCurrentSession,
+        handleInitialAuth,
+        handleShiftOpened,
+        handleSwitchUser,
+        handleSwitchUserWithPin,
+        clearOperator,
+        selectableBranches,
+        cajasInSelectedBranch,
+        chooseCaja,
+        chooseBranch,
+        subtotal,
+        globalDiscountAmount,
+        tax,
+        taxState,
+        taxMunicipal,
+        taxReduced,
+        total,
+        autoLoadedProjectRef,
+        loadingProjectResources,
+        setLoadingProjectResources,
+        selectedProject,
+        projectResourceCount,
+        loadProjectResources,
+        handleSelectProject,
+        handleAddGeneralItem,
+        addResolvedToCart,
+        addProductToCart,
+        handleAddManualPrice,
+        handleSelectVariation,
+        handleSelectBase,
+        searchProductsRemote,
+        handleCameraScan,
+        updateQuantity,
+        removeCartItem,
+        updateItemNote,
+        itemToDelete,
+        setItemToDelete,
+        handleRequestItemDelete,
+        handleConfirmItemDelete,
+        priceChangeNeedsPin,
+        handleRequestPriceChange,
+        handleConfirmPriceChange,
+        handleOpenDiscountModal,
+        handleApplyDiscount,
+        clearCart,
+        handleOpenPaymentModal,
+        creditLimitExceeded,
+        handleFinalizeSale,
+        handleOpenDrawer,
+        handleConfirmDrawerOpen,
+        handleRecallCart,
+        handleLoadEstimatesToCart,
+        confirmCartReplace,
+        confirmEstimateReplace,
+        handleCreateEstimateFromCart,
+        handleAddPayout,
+        shiftReportData,
+        handleEndShift,
+        handleProcessReturnFromModal,
+        isShiftActive,
+        shiftHoursOpen,
+        shiftTooLong,
+        currentCajaName,
+        isCurrentCajaExternal,
+        currentCajaColor,
+        isCurrentCajaApplyIVU,
+        actionButtons,
+    };
+}
+
+export type CashierController = ReturnType<typeof useCashierController>;
+
+/** Pantallas previas a la caja (acceso, sin caja, abrir turno). Devuelve null si la caja está lista. */
+export function renderCashierGate(c: CashierController): React.ReactElement | null {
+    const {
+        navigate,
+        t,
+        settings,
+        products,
+        getProductsWithStockForBranch,
+        branches,
+        cajas,
+        clients,
+        addSale,
+        heldCarts,
+        holdCurrentCart,
+        recallCart,
+        deleteHeldCart,
+        estimates,
+        addLayaway,
+        setEstimates,
+        addEstimate,
+        sales,
+        setSales,
+        employees,
+        getBranchById,
+        cajasLoaded,
+        currentUser,
+        login,
+        logout,
+        toggleUserEmergencyOrderMode,
+        productSearchRef,
+        quantityInput,
+        setQuantityInput,
+        quantityInputRef,
+        pendingQtyRef,
+        showScanCamera,
+        setShowScanCamera,
+        lastReceipt,
+        setLastReceipt,
+        reprintMode,
+        setReprintMode,
+        changeOverlay,
+        setChangeOverlay,
+        showDrawerOpen,
+        setShowDrawerOpen,
+        saleError,
+        setSaleError,
+        pendingSaleRetry,
+        setPendingSaleRetry,
+        editingLineId,
+        setEditingLineId,
+        paymentDone,
+        setPaymentDone,
+        finalizing,
+        setFinalizing,
+        finalizingRef,
+        lastSaleSummary,
+        setLastSaleSummary,
+        showGeneralItem,
+        setShowGeneralItem,
+        addingGeneral,
+        setAddingGeneral,
+        generalItemRef,
+        cartEstimateIds,
+        setCartEstimateIds,
+        pendingEstimateIdsRef,
+        pendingPrice,
+        setPendingPrice,
+        manualPriceProduct,
+        setManualPriceProduct,
+        paymentShortcutRef,
+        operator,
+        setOperator,
+        operatorName,
+        operatorUserId,
+        isPosAuthenticated,
+        setIsPosAuthenticated,
+        currentSession,
+        setCurrentSession,
+        shiftState,
+        cart,
+        setCart,
+        deliveryDraft,
+        setDeliveryDraft,
+        deliveryModalOpen,
+        setDeliveryModalOpen,
+        deliveryAskedRef,
+        selectedClient,
+        setSelectedClient,
+        findDefaultClient,
+        selectedBranchId,
+        setSelectedBranchId,
+        selectedCajaId,
+        setSelectedCajaId,
+        enabledMethods,
+        cajaInitialized,
+        setCajaInitialized,
+        showCreateCaja,
+        setShowCreateCaja,
+        selectedProjectId,
+        setSelectedProjectId,
+        posError,
+        setPosError,
+        generalDiscount,
+        setGeneralDiscount,
+        activeModal,
+        setActiveModal,
+        variationProduct,
+        setVariationProduct,
+        initialPaymentMethod,
+        setInitialPaymentMethod,
+        pendingCartItems,
+        setPendingCartItems,
+        showCartReplaceConfirm,
+        setShowCartReplaceConfirm,
+        pendingEstimateData,
+        setPendingEstimateData,
+        showEstimateReplaceConfirm,
+        setShowEstimateReplaceConfirm,
+        discountTarget,
+        setDiscountTarget,
+        posUsers,
+        clientProjects,
+        setClientProjects,
+        currentDiscountForModal,
+        refreshCurrentSession,
+        handleInitialAuth,
+        handleShiftOpened,
+        handleSwitchUser,
+        handleSwitchUserWithPin,
+        clearOperator,
+        selectableBranches,
+        cajasInSelectedBranch,
+        chooseCaja,
+        chooseBranch,
+        subtotal,
+        globalDiscountAmount,
+        tax,
+        taxState,
+        taxMunicipal,
+        taxReduced,
+        total,
+        autoLoadedProjectRef,
+        loadingProjectResources,
+        setLoadingProjectResources,
+        selectedProject,
+        projectResourceCount,
+        loadProjectResources,
+        handleSelectProject,
+        handleAddGeneralItem,
+        addResolvedToCart,
+        addProductToCart,
+        handleAddManualPrice,
+        handleSelectVariation,
+        handleSelectBase,
+        searchProductsRemote,
+        handleCameraScan,
+        updateQuantity,
+        removeCartItem,
+        updateItemNote,
+        itemToDelete,
+        setItemToDelete,
+        handleRequestItemDelete,
+        handleConfirmItemDelete,
+        priceChangeNeedsPin,
+        handleRequestPriceChange,
+        handleConfirmPriceChange,
+        handleOpenDiscountModal,
+        handleApplyDiscount,
+        clearCart,
+        handleOpenPaymentModal,
+        creditLimitExceeded,
+        handleFinalizeSale,
+        handleOpenDrawer,
+        handleConfirmDrawerOpen,
+        handleRecallCart,
+        handleLoadEstimatesToCart,
+        confirmCartReplace,
+        confirmEstimateReplace,
+        handleCreateEstimateFromCart,
+        handleAddPayout,
+        shiftReportData,
+        handleEndShift,
+        handleProcessReturnFromModal,
+        isShiftActive,
+        shiftHoursOpen,
+        shiftTooLong,
+        currentCajaName,
+        isCurrentCajaExternal,
+        currentCajaColor,
+        isCurrentCajaApplyIVU,
+        actionButtons,
+    } = c;
     if (!isPosAuthenticated) {
       return <POSActionAuthModal isOpen={true} onClose={() => navigate('/pos/cajas')} onConfirm={handleInitialAuth} title={t('posx.cashier.register_access')} message={t('posx.cashier.register_access_msg')} inputLabel={t('posx.cashier.password_or_pin')} allowText />;
     }
@@ -1594,6 +1992,760 @@ export const POSCashierPage: React.FC = () => {
         );
     }
     
+    return null;
+}
+
+/** Todos los modales de la caja (pago, cliente, espera, cuadre, devolución…), comunes a todos los modelos. */
+export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic' | 'modern' }> = ({ c, variant = 'classic' }) => {
+    const {
+        navigate,
+        t,
+        settings,
+        products,
+        getProductsWithStockForBranch,
+        branches,
+        cajas,
+        clients,
+        addSale,
+        heldCarts,
+        holdCurrentCart,
+        recallCart,
+        deleteHeldCart,
+        estimates,
+        addLayaway,
+        setEstimates,
+        addEstimate,
+        sales,
+        setSales,
+        employees,
+        getBranchById,
+        cajasLoaded,
+        currentUser,
+        login,
+        logout,
+        toggleUserEmergencyOrderMode,
+        productSearchRef,
+        quantityInput,
+        setQuantityInput,
+        quantityInputRef,
+        pendingQtyRef,
+        showScanCamera,
+        setShowScanCamera,
+        lastReceipt,
+        setLastReceipt,
+        reprintMode,
+        setReprintMode,
+        changeOverlay,
+        setChangeOverlay,
+        showDrawerOpen,
+        setShowDrawerOpen,
+        saleError,
+        setSaleError,
+        pendingSaleRetry,
+        setPendingSaleRetry,
+        editingLineId,
+        setEditingLineId,
+        paymentDone,
+        setPaymentDone,
+        finalizing,
+        setFinalizing,
+        finalizingRef,
+        lastSaleSummary,
+        setLastSaleSummary,
+        showGeneralItem,
+        setShowGeneralItem,
+        addingGeneral,
+        setAddingGeneral,
+        generalItemRef,
+        cartEstimateIds,
+        setCartEstimateIds,
+        pendingEstimateIdsRef,
+        pendingPrice,
+        setPendingPrice,
+        manualPriceProduct,
+        setManualPriceProduct,
+        paymentShortcutRef,
+        operator,
+        setOperator,
+        operatorName,
+        operatorUserId,
+        isPosAuthenticated,
+        setIsPosAuthenticated,
+        currentSession,
+        setCurrentSession,
+        shiftState,
+        cart,
+        setCart,
+        deliveryDraft,
+        setDeliveryDraft,
+        deliveryModalOpen,
+        setDeliveryModalOpen,
+        deliveryAskedRef,
+        selectedClient,
+        setSelectedClient,
+        findDefaultClient,
+        selectedBranchId,
+        setSelectedBranchId,
+        selectedCajaId,
+        setSelectedCajaId,
+        enabledMethods,
+        cajaInitialized,
+        setCajaInitialized,
+        showCreateCaja,
+        setShowCreateCaja,
+        selectedProjectId,
+        setSelectedProjectId,
+        posError,
+        setPosError,
+        generalDiscount,
+        setGeneralDiscount,
+        activeModal,
+        setActiveModal,
+        variationProduct,
+        setVariationProduct,
+        initialPaymentMethod,
+        setInitialPaymentMethod,
+        pendingCartItems,
+        setPendingCartItems,
+        showCartReplaceConfirm,
+        setShowCartReplaceConfirm,
+        pendingEstimateData,
+        setPendingEstimateData,
+        showEstimateReplaceConfirm,
+        setShowEstimateReplaceConfirm,
+        discountTarget,
+        setDiscountTarget,
+        posUsers,
+        clientProjects,
+        setClientProjects,
+        currentDiscountForModal,
+        refreshCurrentSession,
+        handleInitialAuth,
+        handleShiftOpened,
+        handleSwitchUser,
+        handleSwitchUserWithPin,
+        clearOperator,
+        selectableBranches,
+        cajasInSelectedBranch,
+        chooseCaja,
+        chooseBranch,
+        subtotal,
+        globalDiscountAmount,
+        tax,
+        taxState,
+        taxMunicipal,
+        taxReduced,
+        total,
+        autoLoadedProjectRef,
+        loadingProjectResources,
+        setLoadingProjectResources,
+        selectedProject,
+        projectResourceCount,
+        loadProjectResources,
+        handleSelectProject,
+        handleAddGeneralItem,
+        addResolvedToCart,
+        addProductToCart,
+        handleAddManualPrice,
+        handleSelectVariation,
+        handleSelectBase,
+        searchProductsRemote,
+        handleCameraScan,
+        updateQuantity,
+        removeCartItem,
+        updateItemNote,
+        itemToDelete,
+        setItemToDelete,
+        handleRequestItemDelete,
+        handleConfirmItemDelete,
+        priceChangeNeedsPin,
+        handleRequestPriceChange,
+        handleConfirmPriceChange,
+        handleOpenDiscountModal,
+        handleApplyDiscount,
+        clearCart,
+        handleOpenPaymentModal,
+        creditLimitExceeded,
+        handleFinalizeSale,
+        handleOpenDrawer,
+        handleConfirmDrawerOpen,
+        handleRecallCart,
+        handleLoadEstimatesToCart,
+        confirmCartReplace,
+        confirmEstimateReplace,
+        handleCreateEstimateFromCart,
+        handleAddPayout,
+        shiftReportData,
+        handleEndShift,
+        handleProcessReturnFromModal,
+        isShiftActive,
+        shiftHoursOpen,
+        shiftTooLong,
+        currentCajaName,
+        isCurrentCajaExternal,
+        currentCajaColor,
+        isCurrentCajaApplyIVU,
+        actionButtons,
+    } = c;
+    return (
+        <>
+            {/* MODALS */}
+            {variant === 'modern' ? (
+            <ModernClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients}
+                recentClientIds={(() => { const seen: string[] = []; for (const sl of [...(sales || [])].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())) { const id = (sl as any).clientId; if (id && !seen.includes(id)) seen.push(id); if (seen.length >= 30) break; } return seen; })()}
+                onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }}
+                onOpenCreateClient={() => setActiveModal('createClient')} cajaId={selectedCajaId || null} />
+            ) : (
+            <ClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients} onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }} onOpenCreateClient={() => setActiveModal('createClient')} fromPos cajaId={selectedCajaId || null} />
+            )}
+            <ClientFormModal isOpen={activeModal === 'createClient'} onClose={(client) => {setActiveModal(null); if(client) setSelectedClient(client);}} client={null} />
+            <POSProjectFormModal isOpen={activeModal === 'createProject'} onClose={() => setActiveModal(null)} clientId={selectedClient?.id || ''} onProjectCreated={(newProject) => { setClientProjects(prev => [newProject, ...prev]); setSelectedProjectId(newProject.id); setActiveModal(null); }} />
+            {variant === 'modern' ? (
+            <ModernHeldCartsModal
+                isOpen={activeModal === 'heldCarts'}
+                onClose={() => setActiveModal(null)}
+                heldCarts={heldCarts}
+                currentItems={cart.reduce((a, it) => a + it.quantity, 0)}
+                currentTotal={total}
+                isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
+                onHoldCart={(alias) => {
+                    if (cart.length === 0) return false;
+                    const name = alias?.trim() || t('posx.cashier.sale_for', { name: selectedClient?.name || t('posx.cashier.walk_in') });
+                    holdCurrentCart(cart, name, selectedClient?.id);
+                    clearCart();
+                    return true;
+                }}
+                onRecallCart={handleRecallCart}
+                onDeleteHeldCart={deleteHeldCart}
+            />
+            ) : (
+            <HeldCartsModal
+                isOpen={activeModal === 'heldCarts'}
+                onClose={() => setActiveModal(null)}
+                isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
+                onHoldCart={(alias) => {
+                    if (cart.length > 0) {
+                        const name = alias?.trim() || t('posx.cashier.sale_for', { name: selectedClient?.name || t('posx.cashier.walk_in') });
+                        holdCurrentCart(cart, name, selectedClient?.id);
+                        clearCart();
+                        return true;
+                    }
+                    return false;
+                }}
+                onRecallCart={handleRecallCart}
+                onDeleteHeldCart={deleteHeldCart}
+                heldCarts={heldCarts}
+            />
+            )}
+            <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} isGeneralClient={!!selectedClient?.isDefault || selectedClient?.id === DEFAULT_CLIENT_ID} />
+            {selectedClient && (
+                <ClientCreditPaymentModal
+                    isOpen={activeModal === 'clientCredit'}
+                    onClose={() => setActiveModal(null)}
+                    clientId={selectedClient.id}
+                    clientName={clientDocName(selectedClient)}
+                    onPaid={() => { setActiveModal(null); }}
+                />
+            )}
+            <ClientAccountModal isOpen={activeModal === 'clientAccount'} onClose={() => setActiveModal(null)} client={selectedClient} fromPos />
+            <DeliverySetupModal
+                isOpen={deliveryModalOpen}
+                onClose={() => setDeliveryModalOpen(false)}
+                initial={deliveryDraft || deliveryDefaultsFromClient(selectedClient)}
+                title={cart.length ? 'Venta para entrega' : 'Entregas'}
+                saveLabel={deliveryDraft ? 'Guardar' : 'Marcar para entrega'}
+                allowCreate={cart.length > 0}
+                extraTab={selectedClient ? {
+                    label: `Entregas de ${selectedClient.isDefault ? 'Público General' : clientDocName(selectedClient)}`,
+                    content: <ClientDeliveriesList clientId={selectedClient.id} />,
+                } : undefined}
+                onSave={data => { setDeliveryDraft(data); setDeliveryModalOpen(false); }}
+                onRemove={deliveryDraft ? () => { setDeliveryDraft(null); setDeliveryModalOpen(false); } : undefined}
+            />
+            <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
+            <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
+            {variant === 'modern' ? (
+            <ModernPaymentModal
+                isOpen={activeModal === 'payment'}
+                onClose={() => { setActiveModal(null); setPaymentDone(false); }}
+                completed={paymentDone ? lastSaleSummary : null}
+                processing={finalizing}
+                totalAmount={total}
+                subtotalAmount={subtotal}
+                taxAmount={tax}
+                athItems={cart.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
+                customerName={selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined}
+                customerEmail={selectedClient?.email || undefined}
+                customerLabel={!selectedClient || selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID ? 'Visitante' : clientDocName(selectedClient)}
+                itemsCount={cart.reduce((a, it) => a + it.quantity, 0)}
+                isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
+                credit={selectedClient ? { limit: Number((selectedClient as any).creditLimit) || 0, balance: Number((selectedClient as any).outstandingBalance) || 0, terms: (selectedClient as any).paymentTerms || null } : undefined}
+                initialMethod={initialPaymentMethod}
+                methods={enabledMethods.map(m => ({ name: m.name, type: m.type, requiresReference: m.requiresReference, referenceLabel: m.referenceLabel, config: m.config }))}
+                onFinalizeSale={handleFinalizeSale}
+            />
+            ) : (
+            <PaymentModal
+                isOpen={activeModal === 'payment'}
+                onClose={() => { setActiveModal(null); setPaymentDone(false); }}
+                completed={paymentDone ? lastSaleSummary : null}
+                processing={finalizing}
+                totalAmount={total}
+                subtotalAmount={subtotal}
+                taxAmount={tax}
+                athItems={cart.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
+                customerName={selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined}
+                customerEmail={selectedClient?.email || undefined}
+                initialMethod={initialPaymentMethod}
+                methods={enabledMethods.map(m => ({ name: m.name, type: m.type, requiresReference: m.requiresReference, referenceLabel: m.referenceLabel, config: m.config }))}
+                onFinalizeSale={handleFinalizeSale}
+            />
+            )}
+            <ReceiptModal isOpen={!!lastReceipt} onClose={() => { setLastReceipt(null); setReprintMode(false); }} sale={lastReceipt} config={settings.receiptConfig} forceChoose={reprintMode} />
+
+            <DrawerOpenModal isOpen={showDrawerOpen} onClose={() => setShowDrawerOpen(false)} onConfirm={handleConfirmDrawerOpen} />
+
+            {/* Overlay del CAMBIO: número enorme, permanece hasta ESC (como el POS clásico). */}
+            {changeOverlay !== null && (
+                <div
+                    className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/70 cursor-pointer"
+                    onClick={() => setChangeOverlay(null)}
+                    role="dialog"
+                    aria-label={t('posx.cashier.change_overlay_title')}
+                >
+                    <p className="text-3xl sm:text-5xl font-semibold text-white/90 mb-4">{t('posx.cashier.change_overlay_title')}</p>
+                    <p className="text-[24vw] sm:text-[16rem] leading-none font-extrabold text-green-400 tabular-nums drop-shadow-lg">${changeOverlay.toFixed(2)}</p>
+                    <p className="mt-8 text-xl sm:text-2xl text-white/80">{t('posx.cashier.change_overlay_dismiss')}</p>
+                </div>
+            )}
+
+            {/* Venta rechazada por el backend (stock/turno/etc.): aviso claro y persistente. */}
+            <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title={t('posx.cashier.sale_failed_title')} size="md">
+                <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                        <ExclamationTriangleIcon className="w-9 h-9 text-red-500 flex-shrink-0" />
+                        <div>
+                            <p className="text-base font-medium text-neutral-800 dark:text-neutral-100">{saleError?.message}</p>
+                            {saleError?.code === 'INSUFFICIENT_STOCK' && (
+                                <>
+                                    {Array.isArray(saleError.details) && saleError.details.length > 0 && (
+                                        <ul className="mt-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 space-y-0.5">
+                                            {saleError.details.map((d: any, i: number) => (
+                                                <li key={i} className="flex justify-between gap-3">
+                                                    <span className="truncate">{d.productName || d.productId}</span>
+                                                    <span className="whitespace-nowrap">pedido {d.requested} · disp. {d.available}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.oversell_prompt')}</p>
+                                </>
+                            )}
+                            {saleError?.code === 'CAJA_NOT_OPEN' && (
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.caja_not_open_hint_1')}<strong>{t('posx.cashier.shift_of_register')}</strong>{t('posx.cashier.caja_not_open_hint_2')}</p>
+                            )}
+                        </div>
+                    </div>
+                    <p className="text-xs text-neutral-400">{t('posx.cashier.cart_kept_retry')}</p>
+                    <div className="flex justify-end gap-2">
+                        {saleError?.code === 'INSUFFICIENT_STOCK' && pendingSaleRetry && (
+                            <button
+                                onClick={() => {
+                                    const retry = pendingSaleRetry;
+                                    setSaleError(null);
+                                    setPendingSaleRetry(null);
+                                    // Reintenta la MISMA venta permitiendo stock negativo (sobreventa confirmada).
+                                    if (retry) handleFinalizeSale(retry.payments, retry.changeDue, true);
+                                }}
+                                className="px-4 py-2 rounded-md text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                                {t('posx.cashier.sell_anyway')}
+                            </button>
+                        )}
+                        <button onClick={() => { setSaleError(null); setPendingSaleRetry(null); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                    </div>
+                </div>
+            </Modal>
+            {currentUser && (
+                <ReprintModal
+                    isOpen={activeModal === 'reprint'}
+                    onClose={() => setActiveModal(null)}
+                    employeeId={currentUser.id}
+                    onSelectReceipt={(rs) => { setActiveModal(null); setReprintMode(true); setLastReceipt(rs); }}
+                />
+            )}
+
+            {/* Modificar Línea: cantidad, comentario, descuento, eliminar. */}
+            <CartLineModal
+                item={editingLineId ? cart.find(c => c.id === editingLineId) || null : null}
+                onClose={() => setEditingLineId(null)}
+                onQuantity={updateQuantity}
+                onNote={updateItemNote}
+                onDiscount={handleOpenDiscountModal}
+                onDelete={(item) => { setEditingLineId(null); handleRequestItemDelete(item); }}
+                onPriceChange={handleRequestPriceChange}
+                priceNeedsPin={priceChangeNeedsPin}
+            />
+
+            {/* Precio manual: pide el precio al agregar un producto de servicio / "Solo Precio". */}
+            <ManualPriceModal
+                product={manualPriceProduct}
+                onClose={() => setManualPriceProduct(null)}
+                onConfirm={handleAddManualPrice}
+            />
+
+            {/* Artículo general: Enter con el buscador vacío. */}
+            <GeneralItemModal
+                isOpen={showGeneralItem}
+                onClose={() => { setShowGeneralItem(false); productSearchRef.current?.focus(); }}
+                onConfirm={handleAddGeneralItem}
+                loading={addingGeneral}
+            />
+
+            {selectedCajaId && (
+                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} currentCashierName={operatorName} onClosed={() => handleEndShift()} onOpenHistory={() => setActiveModal('cajaHistory')} modern={variant === 'modern'} />
+            )}
+
+            {selectedCajaId && (
+                <CajaHistoryModal isOpen={activeModal === 'cajaHistory'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} />
+            )}
+
+            {variant === 'modern'
+                ? <ModernPunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />
+                : <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />}
+
+            {/* Selector de variación (productos con variaciones) */}
+            <Modal isOpen={!!variationProduct} onClose={() => setVariationProduct(null)} title={t('posx.cashier.choose_variation_title', { name: variationProduct?.name || '' })} size="md">
+                <div className="space-y-3">
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('posx.cashier.choose_base_or_variation')}</p>
+
+                    {/* Producto base (sin variación) */}
+                    <button
+                        onClick={handleSelectBase}
+                        className="w-full flex items-center justify-between p-3 border-2 border-primary/40 bg-primary/5 rounded-md hover:bg-primary/10 hover:border-primary text-left transition-colors"
+                    >
+                        <span className="font-semibold text-neutral-800 dark:text-neutral-100">
+                            {variationProduct?.name}
+                            <span className="text-xs font-normal text-neutral-500 ml-1">{t('posx.cashier.base_product')}</span>
+                        </span>
+                        <span className="font-semibold text-primary">${(Number(variationProduct?.unitPrice) || 0).toFixed(2)}</span>
+                    </button>
+
+                    {(variationProduct?.variations?.length ?? 0) > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-neutral-400">
+                            <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
+                            {t('posx.cashier.variations')}
+                            <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[55vh] overflow-y-auto">
+                        {(variationProduct?.variations || []).map(v => (
+                            <button
+                                key={v.id}
+                                onClick={() => handleSelectVariation(v)}
+                                className="flex items-center justify-between p-3 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-primary/5 hover:border-primary text-left transition-colors"
+                            >
+                                <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                                    {v.name}{v.sku ? <span className="text-xs text-neutral-400 ml-1">({v.sku})</span> : null}
+                                </span>
+                                <span className="font-semibold text-primary">${(Number(v.unitPrice) || 0).toFixed(2)}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </Modal>
+            {showScanCamera && (
+                <Suspense fallback={null}>
+                    <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title={t('posx.cashier.scan_product')} />
+                </Suspense>
+            )}
+            <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => { setActiveModal(null); setItemToDelete(null); }} onConfirm={handleConfirmItemDelete} title={t('posx.cashier.confirm_delete')} message={t('posx.cashier.confirm_delete_msg')} />
+            <POSActionAuthModal
+                isOpen={activeModal === 'priceAuth'}
+                onClose={() => { setActiveModal(null); setPendingPrice(null); }}
+                onConfirm={handleConfirmPriceChange}
+                title="Autorizar cambio de precio"
+                message={pendingPrice ? `Para cambiar el precio a $${pendingPrice.price.toFixed(2)} se necesita el PIN del gerente.` : ''}
+            />
+            {selectedCajaId && (
+                <EndShiftModal
+                    isOpen={activeModal === 'endShift'}
+                    onClose={() => setActiveModal(null)}
+                    cajaId={selectedCajaId}
+                    onClosed={() => handleEndShift()}
+                />
+            )}
+            {selectedCajaId && (
+                variant === 'modern' ? (
+                <ModernPayoutModal
+                    isOpen={activeModal === 'payout'}
+                    onClose={() => setActiveModal(null)}
+                    cajaId={selectedCajaId}
+                    cashInDrawer={shiftReportData.expectedCash}
+                    recordedBy={(operator ? operatorName : `${currentUser?.name || ''} ${(currentUser as any)?.lastName || ''}`.trim()) || 'Cajero'}
+                    onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
+                />
+                ) : (
+                <PayoutModal
+                    isOpen={activeModal === 'payout'}
+                    onClose={() => setActiveModal(null)}
+                    cajaId={selectedCajaId}
+                    currentCashInDrawer={shiftReportData.expectedCash}
+                    onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
+                />
+                )
+            )}
+            {variant === 'modern' ? (() => {
+                const line = discountTarget && discountTarget !== 'general' ? cart.find(it => it.id === discountTarget) : undefined;
+                const isGen = !selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID;
+                const n = cart.reduce((a, it) => a + it.quantity, 0);
+                return (
+                    <ModernDiscountModal
+                        isOpen={activeModal === 'discountAuth'}
+                        onClose={() => setActiveModal(null)}
+                        mode={line ? 'line' : 'order'}
+                        label={line ? line.name : `${isGen ? 'Visitante' : clientDocName(selectedClient!)} · ${n} artículo${n === 1 ? '' : 's'}`}
+                        base={line ? line.unitPrice : subtotal}
+                        quantity={line?.quantity}
+                        orderTotal={total + globalDiscountAmount * (subtotal > 0 ? total / Math.max(0.01, subtotal - globalDiscountAmount) : 1)}
+                        current={line ? (line.discount || null) : generalDiscount}
+                        onApply={handleApplyDiscount}
+                        onRemove={() => {
+                            if (line) setCart(prev => prev.map(it => it.id === line.id ? { ...it, discount: undefined } : it));
+                            else setGeneralDiscount(null);
+                            setDiscountTarget(null);
+                        }}
+                    />
+                );
+            })() : (
+            <DiscountAuthModal
+                isOpen={activeModal === 'discountAuth'}
+                onClose={() => setActiveModal(null)}
+                onApply={handleApplyDiscount}
+                currentDiscount={currentDiscountForModal}
+                baseAmount={discountTarget === 'general' ? subtotal : cart.find(c => c.id === discountTarget)?.unitPrice}
+            />
+            )}
+            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} modern={variant === 'modern'} cajaId={selectedCajaId || null} receiptPrefix={(settings as any)?.receiptConfig?.receiptPrefix || ''} />
+            <ConfirmationModal
+                isOpen={showCartReplaceConfirm}
+                onClose={() => { setPendingCartItems(null); setShowCartReplaceConfirm(false); }}
+                onConfirm={confirmCartReplace}
+                title={t('posx.cashier.replace_cart_title')}
+                message={t('posx.cashier.replace_cart_estimates_msg')}
+                confirmButtonText={t('posx.cashier.yes_replace')}
+            />
+            <ConfirmationModal
+                isOpen={showEstimateReplaceConfirm}
+                onClose={() => { setPendingEstimateData(null); setShowEstimateReplaceConfirm(false); }}
+                onConfirm={confirmEstimateReplace}
+                title={t('posx.cashier.replace_cart_title')}
+                message={t('posx.cashier.replace_cart_estimate_items_msg')}
+                confirmButtonText={t('posx.cashier.yes_replace')}
+            />
+        </>
+    );
+};
+
+/** Caja clásica (el modelo de siempre). */
+export const POSCashierPage: React.FC = () => {
+    const c = useCashierController();
+    const {
+        navigate,
+        t,
+        settings,
+        products,
+        getProductsWithStockForBranch,
+        branches,
+        cajas,
+        clients,
+        addSale,
+        heldCarts,
+        holdCurrentCart,
+        recallCart,
+        deleteHeldCart,
+        estimates,
+        addLayaway,
+        setEstimates,
+        addEstimate,
+        sales,
+        setSales,
+        employees,
+        getBranchById,
+        cajasLoaded,
+        currentUser,
+        login,
+        logout,
+        toggleUserEmergencyOrderMode,
+        productSearchRef,
+        quantityInput,
+        setQuantityInput,
+        quantityInputRef,
+        pendingQtyRef,
+        showScanCamera,
+        setShowScanCamera,
+        lastReceipt,
+        setLastReceipt,
+        reprintMode,
+        setReprintMode,
+        changeOverlay,
+        setChangeOverlay,
+        showDrawerOpen,
+        setShowDrawerOpen,
+        saleError,
+        setSaleError,
+        pendingSaleRetry,
+        setPendingSaleRetry,
+        editingLineId,
+        setEditingLineId,
+        paymentDone,
+        setPaymentDone,
+        finalizing,
+        setFinalizing,
+        finalizingRef,
+        lastSaleSummary,
+        setLastSaleSummary,
+        showGeneralItem,
+        setShowGeneralItem,
+        addingGeneral,
+        setAddingGeneral,
+        generalItemRef,
+        cartEstimateIds,
+        setCartEstimateIds,
+        pendingEstimateIdsRef,
+        pendingPrice,
+        setPendingPrice,
+        manualPriceProduct,
+        setManualPriceProduct,
+        paymentShortcutRef,
+        operator,
+        setOperator,
+        operatorName,
+        operatorUserId,
+        isPosAuthenticated,
+        setIsPosAuthenticated,
+        currentSession,
+        setCurrentSession,
+        shiftState,
+        cart,
+        setCart,
+        deliveryDraft,
+        setDeliveryDraft,
+        deliveryModalOpen,
+        setDeliveryModalOpen,
+        deliveryAskedRef,
+        selectedClient,
+        setSelectedClient,
+        findDefaultClient,
+        selectedBranchId,
+        setSelectedBranchId,
+        selectedCajaId,
+        setSelectedCajaId,
+        enabledMethods,
+        cajaInitialized,
+        setCajaInitialized,
+        showCreateCaja,
+        setShowCreateCaja,
+        selectedProjectId,
+        setSelectedProjectId,
+        posError,
+        setPosError,
+        generalDiscount,
+        setGeneralDiscount,
+        activeModal,
+        setActiveModal,
+        variationProduct,
+        setVariationProduct,
+        initialPaymentMethod,
+        setInitialPaymentMethod,
+        pendingCartItems,
+        setPendingCartItems,
+        showCartReplaceConfirm,
+        setShowCartReplaceConfirm,
+        pendingEstimateData,
+        setPendingEstimateData,
+        showEstimateReplaceConfirm,
+        setShowEstimateReplaceConfirm,
+        discountTarget,
+        setDiscountTarget,
+        posUsers,
+        clientProjects,
+        setClientProjects,
+        currentDiscountForModal,
+        refreshCurrentSession,
+        handleInitialAuth,
+        handleShiftOpened,
+        handleSwitchUser,
+        handleSwitchUserWithPin,
+        clearOperator,
+        selectableBranches,
+        cajasInSelectedBranch,
+        chooseCaja,
+        chooseBranch,
+        subtotal,
+        globalDiscountAmount,
+        tax,
+        taxState,
+        taxMunicipal,
+        taxReduced,
+        total,
+        autoLoadedProjectRef,
+        loadingProjectResources,
+        setLoadingProjectResources,
+        selectedProject,
+        projectResourceCount,
+        loadProjectResources,
+        handleSelectProject,
+        handleAddGeneralItem,
+        addResolvedToCart,
+        addProductToCart,
+        handleAddManualPrice,
+        handleSelectVariation,
+        handleSelectBase,
+        searchProductsRemote,
+        handleCameraScan,
+        updateQuantity,
+        removeCartItem,
+        updateItemNote,
+        itemToDelete,
+        setItemToDelete,
+        handleRequestItemDelete,
+        handleConfirmItemDelete,
+        priceChangeNeedsPin,
+        handleRequestPriceChange,
+        handleConfirmPriceChange,
+        handleOpenDiscountModal,
+        handleApplyDiscount,
+        clearCart,
+        handleOpenPaymentModal,
+        creditLimitExceeded,
+        handleFinalizeSale,
+        handleOpenDrawer,
+        handleConfirmDrawerOpen,
+        handleRecallCart,
+        handleLoadEstimatesToCart,
+        confirmCartReplace,
+        confirmEstimateReplace,
+        handleCreateEstimateFromCart,
+        handleAddPayout,
+        shiftReportData,
+        handleEndShift,
+        handleProcessReturnFromModal,
+        isShiftActive,
+        shiftHoursOpen,
+        shiftTooLong,
+        currentCajaName,
+        isCurrentCajaExternal,
+        currentCajaColor,
+        isCurrentCajaApplyIVU,
+        actionButtons,
+    } = c;
+
+    // Pantallas previas (acceso / abrir turno), comunes a todos los modelos de caja.
+    const gate = renderCashierGate(c);
+    if (gate) return gate;
+
     return (
         <div className="flex flex-col h-screen bg-gray-100 dark:bg-neutral-900 font-sans">
             <header className="flex items-center justify-between px-2 sm:px-4 py-1 flex-shrink-0 shadow-md" style={{ backgroundColor: isCurrentCajaExternal ? '#D97706' : currentCajaColor }}>
@@ -2002,275 +3154,7 @@ export const POSCashierPage: React.FC = () => {
                 </div>
             </footer>
             
-            {/* MODALS */}
-            <ClientSearchModal isOpen={activeModal === 'clientSearch'} onClose={() => setActiveModal(null)} clients={clients} onClientSelect={(client) => { setSelectedClient(client); setActiveModal(null); setSelectedProjectId(null); setPosError(null); }} onOpenCreateClient={() => setActiveModal('createClient')} fromPos cajaId={selectedCajaId || null} />
-            <ClientFormModal isOpen={activeModal === 'createClient'} onClose={(client) => {setActiveModal(null); if(client) setSelectedClient(client);}} client={null} />
-            <POSProjectFormModal isOpen={activeModal === 'createProject'} onClose={() => setActiveModal(null)} clientId={selectedClient?.id || ''} onProjectCreated={(newProject) => { setClientProjects(prev => [newProject, ...prev]); setSelectedProjectId(newProject.id); setActiveModal(null); }} />
-            <HeldCartsModal
-                isOpen={activeModal === 'heldCarts'}
-                onClose={() => setActiveModal(null)}
-                isGeneralClient={!selectedClient || !!selectedClient.isDefault || selectedClient.id === DEFAULT_CLIENT_ID}
-                onHoldCart={(alias) => {
-                    if (cart.length > 0) {
-                        const name = alias?.trim() || t('posx.cashier.sale_for', { name: selectedClient?.name || t('posx.cashier.walk_in') });
-                        holdCurrentCart(cart, name, selectedClient?.id);
-                        clearCart();
-                        return true;
-                    }
-                    return false;
-                }}
-                onRecallCart={handleRecallCart}
-                onDeleteHeldCart={deleteHeldCart}
-                heldCarts={heldCarts}
-            />
-            <ClientEstimatesModal isOpen={activeModal === 'clientEstimates'} onClose={() => setActiveModal(null)} client={selectedClient} onLoadItems={handleLoadEstimatesToCart} onCreateFromCart={handleCreateEstimateFromCart} isCartEmpty={cart.length === 0} isGeneralClient={!!selectedClient?.isDefault || selectedClient?.id === DEFAULT_CLIENT_ID} />
-            {selectedClient && (
-                <ClientCreditPaymentModal
-                    isOpen={activeModal === 'clientCredit'}
-                    onClose={() => setActiveModal(null)}
-                    clientId={selectedClient.id}
-                    clientName={clientDocName(selectedClient)}
-                    onPaid={() => { setActiveModal(null); }}
-                />
-            )}
-            <ClientAccountModal isOpen={activeModal === 'clientAccount'} onClose={() => setActiveModal(null)} client={selectedClient} fromPos />
-            <DeliverySetupModal
-                isOpen={deliveryModalOpen}
-                onClose={() => setDeliveryModalOpen(false)}
-                initial={deliveryDraft || deliveryDefaultsFromClient(selectedClient)}
-                title={cart.length ? 'Venta para entrega' : 'Entregas'}
-                saveLabel={deliveryDraft ? 'Guardar' : 'Marcar para entrega'}
-                allowCreate={cart.length > 0}
-                extraTab={selectedClient ? {
-                    label: `Entregas de ${selectedClient.isDefault ? 'Público General' : clientDocName(selectedClient)}`,
-                    content: <ClientDeliveriesList clientId={selectedClient.id} />,
-                } : undefined}
-                onSave={data => { setDeliveryDraft(data); setDeliveryModalOpen(false); }}
-                onRemove={deliveryDraft ? () => { setDeliveryDraft(null); setDeliveryModalOpen(false); } : undefined}
-            />
-            <CreateLayawayModal isOpen={activeModal === 'layaway'} onClose={() => setActiveModal(null)} cart={cart} total={total} selectedClient={selectedClient} onOpenClientSearch={() => setActiveModal('clientSearch')} onCreateLayaway={(payment, notes) => { if (!currentUser) return; addLayaway({ items: cart, totalAmount: total, clientId: selectedClient!.id, status: LayawayStatus.ACTIVO, branchId: selectedBranchId, employeeId: currentUser.id, notes }, payment); clearCart(); setActiveModal(null); }} />
-            <UserSwitchModal isOpen={activeModal === 'userSwitch'} onClose={() => setActiveModal(null)} employees={posUsers} onSwitchUser={handleSwitchUser} onSwitchUserWithPin={handleSwitchUserWithPin} />
-            <PaymentModal
-                isOpen={activeModal === 'payment'}
-                onClose={() => { setActiveModal(null); setPaymentDone(false); }}
-                completed={paymentDone ? lastSaleSummary : null}
-                processing={finalizing}
-                totalAmount={total}
-                subtotalAmount={subtotal}
-                taxAmount={tax}
-                athItems={cart.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice }))}
-                customerName={selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined}
-                customerEmail={selectedClient?.email || undefined}
-                initialMethod={initialPaymentMethod}
-                methods={enabledMethods.map(m => ({ name: m.name, type: m.type, requiresReference: m.requiresReference, referenceLabel: m.referenceLabel, config: m.config }))}
-                onFinalizeSale={handleFinalizeSale}
-            />
-            <ReceiptModal isOpen={!!lastReceipt} onClose={() => { setLastReceipt(null); setReprintMode(false); }} sale={lastReceipt} config={settings.receiptConfig} forceChoose={reprintMode} />
-
-            <DrawerOpenModal isOpen={showDrawerOpen} onClose={() => setShowDrawerOpen(false)} onConfirm={handleConfirmDrawerOpen} />
-
-            {/* Overlay del CAMBIO: número enorme, permanece hasta ESC (como el POS clásico). */}
-            {changeOverlay !== null && (
-                <div
-                    className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/70 cursor-pointer"
-                    onClick={() => setChangeOverlay(null)}
-                    role="dialog"
-                    aria-label={t('posx.cashier.change_overlay_title')}
-                >
-                    <p className="text-3xl sm:text-5xl font-semibold text-white/90 mb-4">{t('posx.cashier.change_overlay_title')}</p>
-                    <p className="text-[24vw] sm:text-[16rem] leading-none font-extrabold text-green-400 tabular-nums drop-shadow-lg">${changeOverlay.toFixed(2)}</p>
-                    <p className="mt-8 text-xl sm:text-2xl text-white/80">{t('posx.cashier.change_overlay_dismiss')}</p>
-                </div>
-            )}
-
-            {/* Venta rechazada por el backend (stock/turno/etc.): aviso claro y persistente. */}
-            <Modal isOpen={!!saleError} onClose={() => setSaleError(null)} title={t('posx.cashier.sale_failed_title')} size="md">
-                <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                        <ExclamationTriangleIcon className="w-9 h-9 text-red-500 flex-shrink-0" />
-                        <div>
-                            <p className="text-base font-medium text-neutral-800 dark:text-neutral-100">{saleError?.message}</p>
-                            {saleError?.code === 'INSUFFICIENT_STOCK' && (
-                                <>
-                                    {Array.isArray(saleError.details) && saleError.details.length > 0 && (
-                                        <ul className="mt-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 space-y-0.5">
-                                            {saleError.details.map((d: any, i: number) => (
-                                                <li key={i} className="flex justify-between gap-3">
-                                                    <span className="truncate">{d.productName || d.productId}</span>
-                                                    <span className="whitespace-nowrap">pedido {d.requested} · disp. {d.available}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.oversell_prompt')}</p>
-                                </>
-                            )}
-                            {saleError?.code === 'CAJA_NOT_OPEN' && (
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.cashier.caja_not_open_hint_1')}<strong>{t('posx.cashier.shift_of_register')}</strong>{t('posx.cashier.caja_not_open_hint_2')}</p>
-                            )}
-                        </div>
-                    </div>
-                    <p className="text-xs text-neutral-400">{t('posx.cashier.cart_kept_retry')}</p>
-                    <div className="flex justify-end gap-2">
-                        {saleError?.code === 'INSUFFICIENT_STOCK' && pendingSaleRetry && (
-                            <button
-                                onClick={() => {
-                                    const retry = pendingSaleRetry;
-                                    setSaleError(null);
-                                    setPendingSaleRetry(null);
-                                    // Reintenta la MISMA venta permitiendo stock negativo (sobreventa confirmada).
-                                    if (retry) handleFinalizeSale(retry.payments, retry.changeDue, true);
-                                }}
-                                className="px-4 py-2 rounded-md text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white"
-                            >
-                                {t('posx.cashier.sell_anyway')}
-                            </button>
-                        )}
-                        <button onClick={() => { setSaleError(null); setPendingSaleRetry(null); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                    </div>
-                </div>
-            </Modal>
-            {currentUser && (
-                <ReprintModal
-                    isOpen={activeModal === 'reprint'}
-                    onClose={() => setActiveModal(null)}
-                    employeeId={currentUser.id}
-                    onSelectReceipt={(rs) => { setActiveModal(null); setReprintMode(true); setLastReceipt(rs); }}
-                />
-            )}
-
-            {/* Modificar Línea: cantidad, comentario, descuento, eliminar. */}
-            <CartLineModal
-                item={editingLineId ? cart.find(c => c.id === editingLineId) || null : null}
-                onClose={() => setEditingLineId(null)}
-                onQuantity={updateQuantity}
-                onNote={updateItemNote}
-                onDiscount={handleOpenDiscountModal}
-                onDelete={(item) => { setEditingLineId(null); handleRequestItemDelete(item); }}
-                onPriceChange={handleRequestPriceChange}
-                priceNeedsPin={priceChangeNeedsPin}
-            />
-
-            {/* Precio manual: pide el precio al agregar un producto de servicio / "Solo Precio". */}
-            <ManualPriceModal
-                product={manualPriceProduct}
-                onClose={() => setManualPriceProduct(null)}
-                onConfirm={handleAddManualPrice}
-            />
-
-            {/* Artículo general: Enter con el buscador vacío. */}
-            <GeneralItemModal
-                isOpen={showGeneralItem}
-                onClose={() => { setShowGeneralItem(false); productSearchRef.current?.focus(); }}
-                onConfirm={handleAddGeneralItem}
-                loading={addingGeneral}
-            />
-
-            {selectedCajaId && (
-                <DailyCloseModal isOpen={activeModal === 'dailyClose'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} currentCashierName={operatorName} onClosed={() => handleEndShift()} onOpenHistory={() => setActiveModal('cajaHistory')} />
-            )}
-
-            {selectedCajaId && (
-                <CajaHistoryModal isOpen={activeModal === 'cajaHistory'} onClose={() => setActiveModal(null)} cajaId={selectedCajaId} cajaName={currentCajaName} />
-            )}
-
-            <PunchModal isOpen={activeModal === 'punch'} onClose={() => setActiveModal(null)} />
-
-            {/* Selector de variación (productos con variaciones) */}
-            <Modal isOpen={!!variationProduct} onClose={() => setVariationProduct(null)} title={t('posx.cashier.choose_variation_title', { name: variationProduct?.name || '' })} size="md">
-                <div className="space-y-3">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('posx.cashier.choose_base_or_variation')}</p>
-
-                    {/* Producto base (sin variación) */}
-                    <button
-                        onClick={handleSelectBase}
-                        className="w-full flex items-center justify-between p-3 border-2 border-primary/40 bg-primary/5 rounded-md hover:bg-primary/10 hover:border-primary text-left transition-colors"
-                    >
-                        <span className="font-semibold text-neutral-800 dark:text-neutral-100">
-                            {variationProduct?.name}
-                            <span className="text-xs font-normal text-neutral-500 ml-1">{t('posx.cashier.base_product')}</span>
-                        </span>
-                        <span className="font-semibold text-primary">${(Number(variationProduct?.unitPrice) || 0).toFixed(2)}</span>
-                    </button>
-
-                    {(variationProduct?.variations?.length ?? 0) > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-neutral-400">
-                            <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-                            {t('posx.cashier.variations')}
-                            <span className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[55vh] overflow-y-auto">
-                        {(variationProduct?.variations || []).map(v => (
-                            <button
-                                key={v.id}
-                                onClick={() => handleSelectVariation(v)}
-                                className="flex items-center justify-between p-3 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-primary/5 hover:border-primary text-left transition-colors"
-                            >
-                                <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                                    {v.name}{v.sku ? <span className="text-xs text-neutral-400 ml-1">({v.sku})</span> : null}
-                                </span>
-                                <span className="font-semibold text-primary">${(Number(v.unitPrice) || 0).toFixed(2)}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </Modal>
-            {showScanCamera && (
-                <Suspense fallback={null}>
-                    <CameraScanModal isOpen={showScanCamera} onClose={() => setShowScanCamera(false)} onDetected={handleCameraScan} title={t('posx.cashier.scan_product')} />
-                </Suspense>
-            )}
-            <POSActionAuthModal isOpen={activeModal === 'deleteItemAuth'} onClose={() => { setActiveModal(null); setItemToDelete(null); }} onConfirm={handleConfirmItemDelete} title={t('posx.cashier.confirm_delete')} message={t('posx.cashier.confirm_delete_msg')} />
-            <POSActionAuthModal
-                isOpen={activeModal === 'priceAuth'}
-                onClose={() => { setActiveModal(null); setPendingPrice(null); }}
-                onConfirm={handleConfirmPriceChange}
-                title="Autorizar cambio de precio"
-                message={pendingPrice ? `Para cambiar el precio a $${pendingPrice.price.toFixed(2)} se necesita el PIN del gerente.` : ''}
-            />
-            {selectedCajaId && (
-                <EndShiftModal
-                    isOpen={activeModal === 'endShift'}
-                    onClose={() => setActiveModal(null)}
-                    cajaId={selectedCajaId}
-                    onClosed={() => handleEndShift()}
-                />
-            )}
-            {selectedCajaId && (
-                <PayoutModal
-                    isOpen={activeModal === 'payout'}
-                    onClose={() => setActiveModal(null)}
-                    cajaId={selectedCajaId}
-                    currentCashInDrawer={shiftReportData.expectedCash}
-                    onRecorded={(mov) => handleAddPayout(mov.amount, mov.reason)}
-                />
-            )}
-            <DiscountAuthModal 
-                isOpen={activeModal === 'discountAuth'} 
-                onClose={() => setActiveModal(null)} 
-                onApply={handleApplyDiscount} 
-                currentDiscount={currentDiscountForModal}
-                baseAmount={discountTarget === 'general' ? subtotal : cart.find(c => c.id === discountTarget)?.unitPrice}
-            />
-            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} />
-            <ConfirmationModal
-                isOpen={showCartReplaceConfirm}
-                onClose={() => { setPendingCartItems(null); setShowCartReplaceConfirm(false); }}
-                onConfirm={confirmCartReplace}
-                title={t('posx.cashier.replace_cart_title')}
-                message={t('posx.cashier.replace_cart_estimates_msg')}
-                confirmButtonText={t('posx.cashier.yes_replace')}
-            />
-            <ConfirmationModal
-                isOpen={showEstimateReplaceConfirm}
-                onClose={() => { setPendingEstimateData(null); setShowEstimateReplaceConfirm(false); }}
-                onConfirm={confirmEstimateReplace}
-                title={t('posx.cashier.replace_cart_title')}
-                message={t('posx.cashier.replace_cart_estimate_items_msg')}
-                confirmButtonText={t('posx.cashier.yes_replace')}
-            />
+            <CashierModals c={c} />
         </div>
     );
 };

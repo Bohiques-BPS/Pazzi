@@ -153,6 +153,31 @@ export const ModulesConfiguration: React.FC = () => {
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
                 Controles del cajero en el punto de venta.
             </p>
+            {/* Modelo de caja: misma lógica y datos; cambia solo la pantalla del cajero. */}
+            <div className="mb-5 pb-5 border-b border-neutral-200 dark:border-neutral-700">
+                <h4 className="font-medium text-neutral-800 dark:text-neutral-100">Modelo de caja</h4>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-3">
+                    Escoja la pantalla que usan los cajeros. Las dos hacen lo mismo (ventas, pagos, espera, devoluciones, cuadre…); solo cambia el diseño. Se aplica a todas las cajas del negocio.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {([
+                        { id: 'classic', title: 'Clásica', desc: 'La caja de siempre: botones de colores arriba y métodos de pago abajo.' },
+                        { id: 'modern', title: 'Moderna', desc: 'Pantalla dividida (productos y ticket), TOTAL grande, botón Cobrar (F12), tecla fija por método de pago y menos colores.' },
+                    ] as const).map(opt => {
+                        const active = (settings.posCashierModel || 'classic') === opt.id;
+                        return (
+                            <button key={opt.id} type="button" onClick={() => updateSettings({ posCashierModel: opt.id })}
+                                className={`text-left rounded-lg border-2 p-3 transition-colors ${active ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'}`}>
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${active ? 'border-primary' : 'border-neutral-400'}`}>{active && <span className="w-2 h-2 rounded-full bg-primary" />}</span>
+                                    <span className="font-semibold text-neutral-800 dark:text-neutral-100">{opt.title}</span>
+                                </div>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-6">{opt.desc}</p>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                     <h4 className="font-medium text-neutral-800 dark:text-neutral-100">Pedir PIN de gerente para cambiar el precio</h4>
