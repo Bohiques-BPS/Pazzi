@@ -19,7 +19,11 @@ export function toReceiptSale(sale: any): ReceiptSale {
     const realRef = (n?: string | null) => (n && !/^pago desde pos$/i.test(n.trim()) ? n : undefined);
     const change = Number(sale.changeDue) || 0;
     let pendingChange = change;
-    const payments = (Array.isArray(sale.payments) && sale.payments.length
+    const payments = (sale.isReturn
+        ? (Array.isArray(sale.refundBreakdown) && sale.refundBreakdown.length
+            ? sale.refundBreakdown.map((p: any) => ({ method: p.method, amount: Number(p.amount) || 0 }))
+            : [{ method: sale.paymentMethod || 'Efectivo', amount: Math.abs(sale.totalAmount) }])
+        : Array.isArray(sale.payments) && sale.payments.length
         ? sale.payments.map((p: any) => ({ method: p.paymentMethodUsed, amount: p.amountPaid, reference: realRef(p.notes) }))
         : [{ method: sale.paymentMethod || 'Pago', amount: sale.totalAmount }])
         // Igual que el recibo original: el efectivo muestra lo ENTREGADO (aplicado + cambio).
@@ -46,6 +50,11 @@ export function toReceiptSale(sale: any): ReceiptSale {
         changeDue: change,
         clientName: sale.client ? clientDocName(sale.client) : undefined,
         cashierName: sale.employee ? `${sale.employee.name} ${sale.employee.lastName || ''}`.trim() : undefined,
+        ...(sale.isReturn ? {
+            total: Math.abs(sale.totalAmount),
+            docLabel: 'DEVOLUCIÓN',
+            returnInfo: { originalNumber: sale.originalSaleNumber != null ? String(sale.originalSaleNumber) : undefined, originalDate: sale.originalSale?.date, reason: sale.receivableNotes || undefined },
+        } : {}),
     };
 }
 

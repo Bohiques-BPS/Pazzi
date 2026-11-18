@@ -11,6 +11,10 @@ import { PasswordInput } from '../ui/PasswordInput';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
 type ReturnItemPayload = CartItem & { customRefundAmount?: number; returnToStock: boolean };
+export type RefundPart = { method: string; amount: number };
+const CASH_DENOMINATIONS = [100, 50, 20, 10, 5, 1];
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const isCashName = (m: string) => /efectivo|cash/i.test(m || '');
 
 interface ReturnItemDetails {
     quantity: number;
@@ -21,7 +25,9 @@ interface ReturnItemDetails {
 interface ReturnModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onProcessReturn: (originalSaleId: string, itemsToReturn: (CartItem & { customRefundAmount?: number; returnToStock: boolean })[], reason: string, adminPassword: string, refundMethod: string) => void;
+    onProcessReturn: (originalSaleId: string, itemsToReturn: (CartItem & { customRefundAmount?: number; returnToStock: boolean })[], reason: string, adminPassword: string, refundMethod: string, refunds: RefundPart[]) => void;
+    /** Métodos de pago activos en esta caja (para reembolsar). */
+    methods?: string[];
     /** Caja moderna: muestra las ventas recientes de esta caja para devolver con un toque. */
     modern?: boolean;
     /** Caja actual (para listar sus ventas recientes en la caja moderna). */
@@ -30,7 +36,7 @@ interface ReturnModalProps {
     receiptPrefix?: string;
 }
 
-export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onProcessReturn, modern = false, cajaId, receiptPrefix = '' }) => {
+export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onProcessReturn, modern = false, cajaId, receiptPrefix = '', methods = [] }) => {
     const { t } = useTranslation();
     const { sales, getClientById, clients } = useData();
     const [saleIdInput, setSaleIdInput] = useState('');
@@ -40,6 +46,9 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
     const [reason, setReason] = useState('');
     const [adminPassword, setAdminPassword] = useState('');
     const [refundMethod, setRefundMethod] = useState('Efectivo'); // Caja 4: reembolso según pago original
+    // Reembolso como el cobro: se escoge método y monto y se agrega; se puede dividir entre métodos.
+    const [refunds, setRefunds] = useState<RefundPart[]>([]);
+    const [amountInput, setAmountInput] = useState('');
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -51,6 +60,8 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
             setReason('');
             setAdminPassword('');
             setRefundMethod('Efectivo');
+            setRefunds([]);
+            setAmountInput('');
             setError('');
         }
     }, [isOpen]);
@@ -61,11 +72,16 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
         if (foundSale?.paymentMethod) setRefundMethod(foundSale.paymentMethod);
     }, [foundSale]);
 
-    // Opciones de reembolso: el método original + Efectivo/Tarjeta (sin duplicar).
+    // Opciones de reembolso: todos los métodos activos de la caja (si no llegan, Efectivo/Tarjeta).
+    // El método original va primero si sigue activo. Una venta "Mixto" no es un método.
     const refundOptions = useMemo(() => {
-        const opts = [foundSale?.paymentMethod, 'Efectivo', 'Tarjeta'].filter(Boolean) as string[];
-        return Array.from(new Set(opts));
-    }, [foundSale]);
+        const base = methods.length ? methods : ['Efectivo', 'Tarjeta'];
+        const orig = foundSale?.paymentMethod && base.includes(foundSale.paymentMethod) ? [foundSale.paymentMethod] : [];
+        return Array.from(new Set([...orig, ...base]));
+    }, [foundSale, methods]);
+    useEffect(() => {
+        if (refundOptions.length && !refundOptions.includes(refundMethod)) setRefundMethod(refundOptions[0]);
+    }, [refundOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleFindSale = () => {
         setError('');
@@ -263,9 +279,46 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
 
     const [authorizing, setAuthorizing] = useState(false);
 
+    // Reembolso por métodos: lo agregado + lo que falta.
+    const refunded = r2(refunds.reduce((a, r) => a + r.amount, 0));
+    const pending = r2(Math.max(0, totalRefundAmount - refunded));
+    const typed = parseFloat(amountInput.replace(/[^0-9.]/g, '')) || 0;
+    const isCashSel = isCashName(refundMethod);
+    // En efectivo se pueden contar billetes de más: el cliente devuelve la diferencia.
+    const customerChange = isCashSel && typed > pending + 0.004 ? r2(typed - pending) : 0;
+    // Si cambian los artículos y lo agregado se pasa del total, se reinicia el desglose.
+    useEffect(() => { if (refunded > totalRefundAmount + 0.004) setRefunds([]); }, [totalRefundAmount]); // eslint-disable-line react-hooks/exhaustive-deps
+    const addRefund = () => {
+        const amt = r2(Math.min(typed, pending));
+        if (!(amt > 0)) return;
+        setRefunds(prev => {
+            const i = prev.findIndex(r => r.method === refundMethod);
+            if (i >= 0) { const n = [...prev]; n[i] = { ...n[i], amount: r2(n[i].amount + amt) }; return n; }
+            return [...prev, { method: refundMethod, amount: amt }];
+        });
+        setAmountInput('');
+    };
+    /** Desglose final: lo agregado + lo tecleado sin agregar; si no se agregó nada, todo al método escogido. */
+    const finalRefunds = (): RefundPart[] => {
+        let list = [...refunds];
+        const extra = r2(Math.min(typed, pending));
+        if (extra > 0) {
+            const i = list.findIndex(r => r.method === refundMethod);
+            if (i >= 0) list[i] = { ...list[i], amount: r2(list[i].amount + extra) }; else list.push({ method: refundMethod, amount: extra });
+        }
+        if (!list.length) list = [{ method: refundMethod, amount: totalRefundAmount }];
+        return list;
+    };
+
     const handleSubmit = async () => {
         if (!foundSale || itemsToReturnDetails.size === 0 || !adminPassword) {
             setError(t('cmpx.return.err_incomplete'));
+            return;
+        }
+        const parts = finalRefunds();
+        const partsSum = r2(parts.reduce((a, r) => a + r.amount, 0));
+        if (Math.abs(partsSum - totalRefundAmount) > 0.01) {
+            setError(`Falta asignar $${r2(totalRefundAmount - partsSum).toFixed(2)} del reembolso a un método.`);
             return;
         }
 
@@ -297,7 +350,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
 
         setAuthorizing(false);
         // Pasamos el PIN ya verificado al callback (que llamará al endpoint /sales/:id/return)
-        onProcessReturn(foundSale.id, itemsForProcessing, reason, adminPassword, refundMethod);
+        onProcessReturn(foundSale.id, itemsForProcessing, reason, adminPassword, parts.length === 1 ? parts[0].method : parts.map(p => p.method).join(' + '), parts);
     };
 
     const client = foundSale ? getClientById(foundSale.clientId || '') : null;
@@ -429,14 +482,7 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap items-end justify-between gap-3">
-                            <div>
-                                <label className="block text-sm font-medium">{t('cmpx.return.refund_method')}</label>
-                                <select value={refundMethod} onChange={e => setRefundMethod(e.target.value)} className={`${inputFormStyle} !text-sm`}>
-                                    {refundOptions.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                                <p className="text-xs text-neutral-500 mt-1">{t('cmpx.return.refund_method_hint')}</p>
-                            </div>
+                        <div className="flex flex-wrap items-end justify-end gap-3">
                             <div className="text-right">
                                 {refundTax > 0 && (
                                     <div className="text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">
@@ -447,6 +493,65 @@ export const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, onPro
                                     {t('cmpx.return.total_refund', { amount: totalRefundAmount.toFixed(2) })}
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Reembolso: igual que el cobro (método + monto + agregar; billetes en efectivo) */}
+                        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="text-sm font-semibold">{t('cmpx.return.refund_method')}</div>
+                                {foundSale?.paymentMethod && <div className="text-xs text-neutral-500">Pagada con: <span className="font-medium">{foundSale.paymentMethod}</span></div>}
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                {refundOptions.map(m => (
+                                    <button key={m} type="button" onClick={() => setRefundMethod(m)}
+                                        className={`h-11 px-2 rounded-md border text-sm font-semibold truncate ${refundMethod === m ? 'border-teal-400 ring-2 ring-teal-400/40 bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200' : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}>
+                                        {m}
+                                    </button>
+                                ))}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Monto a devolver en {refundMethod}</label>
+                                <div className="flex items-stretch gap-2">
+                                    <input type="text" inputMode="decimal" value={amountInput} onChange={e => setAmountInput(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRefund(); } }}
+                                        placeholder={pending.toFixed(2)}
+                                        className="w-full text-3xl font-bold px-4 py-3 border-2 border-teal-400 rounded-md focus:ring-teal-500 focus:border-teal-500 dark:bg-neutral-900 placeholder:text-neutral-300 dark:placeholder:text-neutral-600 tabular-nums" autoComplete="off" />
+                                    <button type="button" onClick={addRefund} disabled={!(typed > 0) || pending <= 0}
+                                        className="px-5 whitespace-nowrap bg-neutral-200 dark:bg-neutral-600 rounded-md font-semibold hover:bg-neutral-300 dark:hover:bg-neutral-500 disabled:opacity-50">
+                                        Agregar
+                                    </button>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    <button type="button" onClick={() => setAmountInput(pending.toFixed(2))}
+                                        className="px-3 py-1.5 text-sm font-semibold rounded-md border border-teal-400 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/40">Exacto</button>
+                                    {isCashSel && CASH_DENOMINATIONS.map(amt => (
+                                        <button key={amt} type="button" onClick={() => setAmountInput(prev => r2((parseFloat(prev) || 0) + amt).toFixed(2))}
+                                            className="px-3 py-1.5 text-sm font-semibold rounded-md border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700">+${amt}</button>
+                                    ))}
+                                    <button type="button" onClick={() => setAmountInput('')}
+                                        className="px-3 py-1.5 text-sm font-semibold rounded-md border border-red-300 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">Limpiar</button>
+                                </div>
+                                {customerChange > 0 && (
+                                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mt-2">Entrega ${typed.toFixed(2)} en billetes: el cliente le devuelve ${customerChange.toFixed(2)} de cambio.</p>
+                                )}
+                            </div>
+                            {refunds.length > 0 && (
+                                <ul className="divide-y divide-neutral-200 dark:divide-neutral-700 text-sm">
+                                    {refunds.map(r => (
+                                        <li key={r.method} className="flex items-center justify-between py-1.5">
+                                            <span className="font-medium">{r.method}</span>
+                                            <span className="flex items-center gap-3 tabular-nums">${r.amount.toFixed(2)}
+                                                <button type="button" onClick={() => setRefunds(prev => prev.filter(x => x.method !== r.method))} className="text-red-500 hover:text-red-700" aria-label={`Quitar ${r.method}`}><TrashIconMini className="w-4 h-4" /></button>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div className="rounded-md bg-neutral-50 dark:bg-neutral-900 px-3 py-2 flex justify-between"><span>Asignado</span><span className="font-bold tabular-nums">${refunded.toFixed(2)}</span></div>
+                                <div className={`rounded-md px-3 py-2 flex justify-between ${pending > 0 ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'}`}><span>Por asignar</span><span className="font-bold tabular-nums">${pending.toFixed(2)}</span></div>
+                            </div>
+                            {refunds.length === 0 && <p className="text-xs text-neutral-500">Si no agrega nada, todo el reembolso va a {refundMethod}. Para dividirlo, escriba el monto de cada método y pulse Agregar.</p>}
                         </div>
 
                         <div>

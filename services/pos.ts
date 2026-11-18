@@ -35,6 +35,8 @@ export const posService = {
       items: { productId: string; quantity: number; customRefundAmount?: number; returnToStock?: boolean }[];
       reason: string;
       refundMethod?: string;
+      /** Reembolso dividido entre varios métodos (como el cobro). */
+      refunds?: { method: string; amount: number }[];
       /** Caja donde se hace la devolución (cuenta en el cuadre de esa caja). */
       cajaId?: string | null;
     }

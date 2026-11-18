@@ -1475,6 +1475,7 @@ export function useCashierController() {
         reason: string,
         _supervisorPin: string,
         refundMethod: string,
+        refunds?: { method: string; amount: number }[],
     ) => {
         // La autorización del supervisor se hace ahora dentro del propio ReturnModal
         // (o un POSActionAuthModal previo). Aquí sólo procesamos la devolución contra el BE.
@@ -1488,7 +1489,8 @@ export function useCashierController() {
                 })),
                 reason,
                 // Caja 4: método de reembolso elegido según el pago original (ya no fijo a 'Efectivo').
-                refundMethod: refundMethod || 'Efectivo',
+                refundMethod: refunds?.length === 1 ? refunds[0].method : (refundMethod || 'Efectivo'),
+                ...(refunds && refunds.length > 1 ? { refunds } : {}),
                 // La devolución cuenta en el cuadre de ESTA caja (no en la de la venta original).
                 cajaId: selectedCajaId || null,
             });
@@ -1506,10 +1508,12 @@ export function useCashierController() {
                 const origNum = (result.sale as any).originalSaleNumber ?? (orig as any)?.saleNumber;
                 setLastReceipt({
                     ...rs,
-                    payments: [{ method: refundMethod || 'Efectivo', amount: result.refundAmount }],
-                    clientName: rs.clientName || (selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined),
+                    payments: (result as any).refunds?.length ? (result as any).refunds : [{ method: refundMethod || 'Efectivo', amount: result.refundAmount }],
+                    changeDue: 0,
+                    clientName: rs.clientName || (orig ? undefined : (selectedClient ? `${selectedClient.name} ${selectedClient.lastName || ''}`.trim() : undefined)),
                     cashierName: operatorName || rs.cashierName,
-                    docLabel: `DEVOLUCIÓN${origNum != null ? ` · Factura original #${origNum}` : ''}`,
+                    docLabel: 'DEVOLUCIÓN',
+                    returnInfo: { originalNumber: origNum != null ? String(origNum) : undefined, originalDate: (orig as any)?.date, reason },
                 });
             }
             // Refrescar ventas para que el estado/saldo de la venta original y la nota de devolución
@@ -2553,7 +2557,7 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                 baseAmount={discountTarget === 'general' ? subtotal : cart.find(c => c.id === discountTarget)?.unitPrice}
             />
             )}
-            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} modern={variant === 'modern'} cajaId={selectedCajaId || null} receiptPrefix={(settings as any)?.receiptConfig?.receiptPrefix || ''} />
+            <ReturnModal isOpen={activeModal === 'return'} onClose={() => setActiveModal(null)} onProcessReturn={handleProcessReturnFromModal} methods={enabledMethods.map(m => m.name)} modern={variant === 'modern'} cajaId={selectedCajaId || null} receiptPrefix={(settings as any)?.receiptConfig?.receiptPrefix || ''} />
             <ConfirmationModal
                 isOpen={showCartReplaceConfirm}
                 onClose={() => { setPendingCartItems(null); setShowCartReplaceConfirm(false); }}

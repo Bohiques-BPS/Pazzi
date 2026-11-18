@@ -29,6 +29,8 @@ export interface ReceiptSale {
     isReprint?: boolean;
     /** Etiqueta del documento arriba de los datos (p. ej. "DEVOLUCIÓN · Factura original #85"). */
     docLabel?: string;
+    /** Recibo de DEVOLUCIÓN: factura devuelta, su fecha y motivo. Los pagos son el reembolso por método. */
+    returnInfo?: { originalNumber?: string; originalDate?: string; reason?: string };
 }
 
 interface ReceiptModalProps {
@@ -190,8 +192,10 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
                     ${cfg.showRnc && cfg.rnc ? `<div>${esc(cfg.rnc)}</div>` : ''}
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-top:6px;"><span>${esc(d.toLocaleDateString())}</span><span>${esc(d.toLocaleTimeString())}</span></div>
-                <div style="text-align:center;font-weight:700;margin:4px 0;font-size:${is80 ? '13px' : '15px'};">Recibo : ${esc(num)}</div>
-                ${sale.docLabel ? `<div style="text-align:center;font-weight:700;">${esc(sale.docLabel)}</div>` : ''}
+                ${sale.returnInfo
+                    ? `<div style="text-align:center;font-weight:700;margin:4px 0;font-size:${is80 ? '14px' : '16px'};">Devolución - Void</div><div style="text-align:center;">Recibo : ${esc(num)}</div>${sale.cashierName ? `<div>CAJERO: ${esc(sale.cashierName)}</div>` : ''}`
+                    : `<div style="text-align:center;font-weight:700;margin:4px 0;font-size:${is80 ? '13px' : '15px'};">Recibo : ${esc(num)}</div>
+                ${sale.docLabel ? `<div style="text-align:center;font-weight:700;">${esc(sale.docLabel)}</div>` : ''}`}
                 ${reprint}
                 ${dash}
                 ${sale.items.map(it => `
@@ -200,16 +204,17 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
                     ${it.note ? `<div style="font-style:italic;padding-left:10px;">* ${esc(it.note)}</div>` : ''}
                 `).join('')}
                 ${dash}
+                ${sale.returnInfo ? `${sale.returnInfo.originalNumber ? row('Factura', `${cfg.receiptPrefix || ''}${sale.returnInfo.originalNumber}`) : ''}${sale.returnInfo.originalDate ? row('Fecha', new Date(sale.returnInfo.originalDate).toLocaleDateString()) : ''}${sale.returnInfo.reason ? `<div>Motivo: ${esc(sale.returnInfo.reason)}</div>` : ''}${dash}` : ''}
                 ${row(`${itemCount}  Artículos      SUBTOTAL`, money(sale.subtotal), true)}
                 ${sale.discount > 0 ? row('Descuento', `-${money(sale.discount)}`) : ''}
                 ${taxRows}
-                <div style="font-size:${is80 ? '14px' : '16px'};margin-top:2px;">${row('TOTAL', money(sale.total), true)}</div>
-                ${sale.payments.map(p => row(p.method, money(p.amount))).join('')}
+                <div style="font-size:${is80 ? '14px' : '16px'};margin-top:2px;">${row(sale.returnInfo ? 'TOTAL DEVUELTO' : 'TOTAL', money(sale.total), true)}</div>
+                ${sale.payments.map(p => row(sale.returnInfo ? `Reembolso ${p.method}` : p.method, money(p.amount))).join('')}
                 ${sale.changeDue && sale.changeDue > 0 ? row('Cambio', money(sale.changeDue), true) : ''}
                 ${dash}
-                ${legal}
+                ${sale.returnInfo ? `<div style="margin-top:14px;">Firma cliente: ____________________</div>` : legal}
                 ${reprint}
-                ${barcode}
+                ${sale.returnInfo ? '' : barcode}
             </div>`;
     }
 
@@ -228,8 +233,11 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
 
     const meta = `
         <div style="border-top:1px dashed #999;border-bottom:1px dashed #999;padding:6px 0;margin-bottom:6px;">
-            ${line('Factura #', sale.saleNumber)}
+            ${line(sale.returnInfo ? 'Devolución #' : 'Factura #', sale.saleNumber)}
             ${line('Fecha', new Date(sale.date).toLocaleString())}
+            ${sale.returnInfo?.originalNumber ? line('Factura devuelta', `${cfg.receiptPrefix || ''}${sale.returnInfo.originalNumber}`) : ''}
+            ${sale.returnInfo?.originalDate ? line('Fecha factura', new Date(sale.returnInfo.originalDate).toLocaleDateString()) : ''}
+            ${sale.returnInfo?.reason ? line('Motivo', sale.returnInfo.reason) : ''}
             ${cfg.showClient && sale.clientName ? line('Cliente', sale.clientName) : ''}
             ${cfg.showCashier && sale.cashierName ? line('Cajero', sale.cashierName) : ''}
         </div>`;
@@ -247,13 +255,13 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
             ${!((sale.tax || 0) > 0) ? '' : (sale.taxState || sale.taxMunicipal || sale.taxReduced)
                 ? `${sale.taxState ? line('IVU Estatal', money(sale.taxState)) : ''}${sale.taxMunicipal ? line('IVU Municipal', money(sale.taxMunicipal)) : ''}${sale.taxReduced ? line('IVU Reducido', money(sale.taxReduced)) : ''}`
                 : (cfg.showTaxBreakdown ? line('IVU', money(sale.tax)) : '')}
-            <div style="font-size:${is80 ? '14px' : '16px'};margin-top:4px;">${line('TOTAL', money(sale.total), true)}</div>
+            <div style="font-size:${is80 ? '14px' : '16px'};margin-top:4px;">${line(sale.returnInfo ? 'TOTAL DEVUELTO' : 'TOTAL', money(sale.total), true)}</div>
         </div>`;
 
     const pays = `
         <div style="border-top:1px dashed #999;padding-top:6px;margin-top:6px;">
             ${sale.payments.map(p => `
-                ${line(p.method, money(p.amount))}
+                ${line(sale.returnInfo ? `Reembolso ${p.method}` : p.method, money(p.amount))}
                 ${p.reference ? `<div style="color:#555;font-size:${is80 ? '10px' : '11px'};margin-left:8px;">Ref: ${esc(p.reference)}</div>` : ''}
             `).join('')}
             ${sale.changeDue && sale.changeDue > 0 ? line('Cambio', money(sale.changeDue), true) : ''}

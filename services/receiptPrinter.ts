@@ -125,8 +125,14 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
         if (cfg.showPhone && cfg.phone) c += center(`Tel: ${cfg.phone}`, w);
         if (cfg.showRnc && cfg.rnc) c += center(cfg.rnc, w);
         c += ALIGN_L + two(d.toLocaleDateString(), d.toLocaleTimeString(), w);
-        c += ALIGN_C + BOLD_ON + center(`Recibo : ${num}`, w) + BOLD_OFF;
-        if (sale.docLabel) c += BOLD_ON + center(sale.docLabel, w) + BOLD_OFF;
+        if (sale.returnInfo) {
+            c += ALIGN_C + BOLD_ON + TALL_ON + center('Devolucion - Void', w) + DBL_OFF + BOLD_OFF;
+            c += center(`Recibo : ${num}`, w) + ALIGN_L;
+            if (sale.cashierName) c += leftLine(`CAJERO: ${sale.cashierName}`.slice(0, w));
+        } else {
+            c += ALIGN_C + BOLD_ON + center(`Recibo : ${num}`, w) + BOLD_OFF;
+            if (sale.docLabel) c += BOLD_ON + center(sale.docLabel, w) + BOLD_OFF;
+        }
         if (sale.isReprint && cfg.reprintLabel) c += center(cfg.reprintLabel, w);
         c += ALIGN_L + rule(w);
         for (const it of sale.items) {
@@ -135,6 +141,13 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
             if (it.note) c += leftLine(`  * ${it.note}`.slice(0, w));
         }
         c += rule(w);
+        if (sale.returnInfo) {
+            const ri = sale.returnInfo;
+            if (ri.originalNumber) c += two('Factura', `${cfg.receiptPrefix || ''}${ri.originalNumber}`, w);
+            if (ri.originalDate) c += two('Fecha', new Date(ri.originalDate).toLocaleDateString(), w);
+            if (ri.reason) for (const ln of wrapWords(deburr(`Motivo: ${ri.reason}`), w)) c += leftLine(ln);
+            c += rule(w);
+        }
         const count = sale.items.reduce((s, i) => s + i.quantity, 0);
         c += BOLD_ON + two(`${count} Articulos   SUBTOTAL`, money(sale.subtotal), w) + BOLD_OFF;
         if (sale.discount > 0) c += two('Descuento', `-${money(sale.discount)}`, w);
@@ -143,12 +156,16 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
             c += two('+ Reducido', money(sale.taxReduced || 0), w);
             c += two('+ Municipal', money(sale.taxMunicipal || 0), w);
         } else if (cfg.showTaxBreakdown) c += two('+ IVU', money(sale.tax), w);
-        c += BOLD_ON + two('TOTAL', money(sale.total), w) + BOLD_OFF;
-        for (const p of sale.payments) c += two(p.method, money(p.amount), w);
+        c += BOLD_ON + two(sale.returnInfo ? 'TOTAL DEVUELTO' : 'TOTAL', money(sale.total), w) + BOLD_OFF;
+        for (const p of sale.payments) c += two(sale.returnInfo ? `Reembolso ${p.method}` : p.method, money(p.amount), w);
         if (sale.changeDue && sale.changeDue > 0) c += two('Cambio', money(sale.changeDue), w);
         c += rule(w) + ALIGN_C;
-        for (const txt of [cfg.returnPolicyText, cfg.thankYouText, cfg.paymentTermsText]) if (txt) c += center(txt, w);
-        if (cfg.showBarcode) c += '\n' + barcode128(num);
+        if (sale.returnInfo) {
+            c += ALIGN_L + '\n\n' + leftLine('Firma cliente: ' + '_'.repeat(Math.max(10, w - 16)));
+        } else {
+            for (const txt of [cfg.returnPolicyText, cfg.thankYouText, cfg.paymentTermsText]) if (txt) c += center(txt, w);
+            if (cfg.showBarcode) c += '\n' + barcode128(num);
+        }
         c += ALIGN_L + CUT;
         return c;
     }
@@ -163,8 +180,11 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     if (cfg.headerNote) { o += '\n'; for (const ln of String(cfg.headerNote).split('\n')) o += center(ln, w); }
     if (sale.docLabel) o += '\n' + BOLD_ON + center(sale.docLabel, w) + BOLD_OFF;
     o += ALIGN_L + rule(w);
-    o += two('Factura #', String(sale.saleNumber), w);
+    o += two(sale.returnInfo ? 'Devolucion #' : 'Factura #', String(sale.saleNumber), w);
     o += two('Fecha', new Date(sale.date).toLocaleString(), w);
+    if (sale.returnInfo?.originalNumber) o += two('Factura devuelta', `${cfg.receiptPrefix || ''}${sale.returnInfo.originalNumber}`, w);
+    if (sale.returnInfo?.originalDate) o += two('Fecha factura', new Date(sale.returnInfo.originalDate).toLocaleDateString(), w);
+    if (sale.returnInfo?.reason) for (const ln of wrapWords(deburr(`Motivo: ${sale.returnInfo.reason}`), w)) o += leftLine(ln);
     if (cfg.showClient && sale.clientName) o += two('Cliente', sale.clientName, w);
     if (cfg.showCashier && sale.cashierName) o += two('Cajero', sale.cashierName, w);
     o += rule(w);
@@ -189,10 +209,10 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     }
     // TOTAL en doble alto Y doble ancho: proporcional (solo doble alto se veía estirado). En doble
     // ancho caben w/2 caracteres, de sobra para "TOTAL" y el monto.
-    o += BOLD_ON + DBL_ON + two('TOTAL', money(sale.total), Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
+    o += BOLD_ON + DBL_ON + two(sale.returnInfo ? 'DEVUELTO' : 'TOTAL', money(sale.total), Math.floor(w / 2)) + DBL_OFF + BOLD_OFF;
     o += rule(w);
     for (const p of sale.payments) {
-        o += two(p.method, money(p.amount), w);
+        o += two(sale.returnInfo ? `Reembolso ${p.method}` : p.method, money(p.amount), w);
         if (p.reference) o += leftLine(`  Ref: ${p.reference}`);
     }
     if (sale.changeDue && sale.changeDue > 0) o += BOLD_ON + two('Cambio', money(sale.changeDue), w) + BOLD_OFF;
