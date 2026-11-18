@@ -438,6 +438,7 @@ export const ModernCashierPage: React.FC = () => {
                                                         {it.discount && <span className="font-semibold text-emerald-700 dark:text-emerald-400">−{it.discount.type === 'percentage' ? `${it.discount.value}%` : money(it.discount.value)}{it.discount.reason ? ` · ${it.discount.reason}` : ''}</span>}
                                                         {it.priceOverride && <span className="text-amber-600 dark:text-amber-400">precio cambiado</span>}
                                                         {it.skus?.[0] && <span>· {it.skus[0]}</span>}
+                                                        {tracksStock(it) && !(it as any).isDeliveryFee && (() => { const st = stockHere(it) ?? (it as any).stockAtBranch; return typeof st === "number" ? <span className={st - it.quantity < 0 ? "font-semibold text-red-600 dark:text-red-400" : ""}>· Disp. {st}</span> : null; })()}
                                                     </div>
                                                     {it.note && <div className="text-xs text-primary italic truncate">{it.note}</div>}
                                                 </button>

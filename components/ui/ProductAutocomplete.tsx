@@ -336,6 +336,17 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                         SKU: {product.skus?.[0] || 'N/A'}
                                     </p>
                                 </div>
+                                {/* Existencia en la sucursal (solo productos que llevan inventario y si la búsqueda la trae). */}
+                                {(() => {
+                                    const st = (product as any).stockAtBranch;
+                                    if (typeof st !== 'number' || (product as any).isService || (product as any).allowNoStock) return null;
+                                    const cls = st <= 0
+                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                        : st <= 5
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                        : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200';
+                                    return <span className={`text-xs font-semibold px-2 py-0.5 rounded-md whitespace-nowrap flex-shrink-0 tabular-nums ${cls}`}>{st <= 0 ? 'Agotado' : `Disp. ${st}`}</span>;
+                                })()}
                                 <p className="text-sm font-semibold text-primary dark:text-accent flex-shrink-0">${product.unitPrice.toFixed(2)}</p>
                             </li>
                         ))

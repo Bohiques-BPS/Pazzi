@@ -345,7 +345,10 @@ export function useCashierController() {
     };
     // Al agregar un producto marcado "Cargo de entrega", se piden los datos de la entrega (una vez por venta).
     useEffect(() => {
-        if (deliveryDraft || deliveryAskedRef.current) return;
+        if (deliveryDraft) return;
+        // Línea de cargo automática sin entrega marcada (p. ej. ticket restaurado al recargar): se quita.
+        if (cart.some(isDeliveryFeeLine)) { setCart(prev => prev.filter(it => !isDeliveryFeeLine(it))); return; }
+        if (deliveryAskedRef.current) return;
         if (cart.some(it => (it as any).isDeliveryFee)) { deliveryAskedRef.current = true; setDeliveryModalOpen(true); }
     }, [cart, deliveryDraft]);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
