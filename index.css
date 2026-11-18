@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Íconos dentro de botones: en la misma línea que el texto (a la izquierda), nunca arriba.
+   El preflight de Tailwind pone `svg { display:block }`, y en un botón que no es flex eso
+   empujaba el texto a la línea de abajo. En botones flex no cambia nada (los hijos de un flex
+   se tratan como bloque igual), y una clase explícita (`hidden`, `block`…) sigue mandando. */
+@layer base {
+  button svg,
+  [role="button"] svg {
+    display: inline-block;
+    vertical-align: middle;
+  }
+}
+
 /* ── Paleta de colores (canales RGB, ver tailwind.config.js) ──
    Modo claro: exactamente los colores originales de Tailwind.
    Modo oscuro: fondos casi negros, tarjetas carbón, bordes sutiles y acento verde menta. */
