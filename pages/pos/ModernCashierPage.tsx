@@ -382,11 +382,15 @@ export const ModernCashierPage: React.FC = () => {
 
                 {/* ── Derecha: el ticket ── */}
                 <aside className="min-h-0 flex flex-col bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800">
-                    {/* Cliente */}
-                    <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2">
+                    {/* Cliente: bien visible (inicial, etiqueta, nombre grande); con cliente real, fondo de color. */}
+                    <div className={`px-4 py-3 border-b flex items-center gap-3 ${isGeneral ? 'border-neutral-200 dark:border-neutral-800' : 'bg-primary/10 dark:bg-primary/15 border-primary/30 border-l-4 border-l-primary'}`}>
+                        <div className={`w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-base font-bold ${isGeneral ? 'bg-neutral-200 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400' : 'bg-primary text-white'}`} aria-hidden>
+                            {isGeneral ? 'V' : initials(clientLabel)}
+                        </div>
                         <div className="min-w-0 flex-1">
-                            <div className="font-semibold truncate">{clientLabel}</div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400">{itemsCount ? `${itemsCount} artículo${itemsCount === 1 ? '' : 's'}` : 'Ticket vacío'}{!isGeneral && selectedClient?.phone ? ` · ${selectedClient.phone}` : ''}</div>
+                            <div className={`text-[10px] font-bold uppercase tracking-widest ${isGeneral ? 'text-neutral-400' : 'text-primary'}`}>Cliente</div>
+                            <div className={`text-lg font-bold leading-tight truncate ${isGeneral ? 'text-neutral-600 dark:text-neutral-300' : 'text-neutral-900 dark:text-white'}`} title={clientLabel}>{clientLabel}</div>
+                            <div className="text-xs text-neutral-600 dark:text-neutral-300 truncate">{itemsCount ? `${itemsCount} artículo${itemsCount === 1 ? '' : 's'}` : 'Ticket vacío'}{!isGeneral && selectedClient?.phone ? ` · ${selectedClient.phone}` : ''}</div>
                         </div>
                         {!isGeneral && <button type="button" onClick={() => setActiveModal('clientAccount')} className="h-10 px-3 rounded-md text-sm font-medium border border-neutral-200 dark:border-neutral-700 hover:border-primary">Ver</button>}
                         <button type="button" onClick={() => setActiveModal('clientSearch')} className="h-10 px-3 rounded-md text-sm font-semibold border border-neutral-200 dark:border-neutral-700 hover:border-primary">Cambiar<Kbd k="U" /></button>
