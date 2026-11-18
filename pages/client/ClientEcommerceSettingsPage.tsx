@@ -32,10 +32,10 @@ export const ClientEcommerceSettingsPage: React.FC = () => {
     
     const handleResetToDefaults = () => {
         if (currentUser) {
-            const defaultClientSettings = getDefaultSettings(); // Get Pazzi's global defaults
+            const defaultClientSettings = getDefaultSettings(); // Get ppazi's global defaults
             setFormData(defaultClientSettings); 
             // updateSettingsForClient(currentUser.id, defaultClientSettings); // Optionally persist reset immediately
-            setMessage("Configuración restaurada a los valores por defecto de Pazzi. Guarde para aplicar.");
+            setMessage("Configuración restaurada a los valores por defecto de ppazi. Guarde para aplicar.");
             setTimeout(() => setMessage(null), 4000);
         }
     };

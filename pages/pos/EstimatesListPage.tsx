@@ -42,7 +42,7 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
     const dz = rc.invoiceDesign || {};
     const accent = pdfHexToRgb(dz.accentColor || storeSettings.primaryColor || '#7E57C2');
     const headerRgb = pdfHexToRgb(dz.headerColor || '#4CAF50');
-    const bizName = rc.businessName || storeSettings.storeName || 'Pazzi';
+    const bizName = rc.businessName || storeSettings.storeName || 'ppazi';
     const RM = pageWidth - margin;
 
     // Header: logo (data URI o URL remota descargada) + datos reales del negocio
@@ -138,7 +138,7 @@ const generateEstimatePDF = async (estimate: Estimate, client: Client | undefine
 
     y += 5;
     
-    const qrText = `Estimado Pazzi\nID: ${estimate.id.slice(-6)}\nCliente: ${client?.name || 'N/A'}\nTotal: $${(subtotal + iva).toFixed(2)}`;
+    const qrText = `Estimado ppazi\nID: ${estimate.id.slice(-6)}\nCliente: ${client?.name || 'N/A'}\nTotal: $${(subtotal + iva).toFixed(2)}`;
     let qrCodeDataUrl = '';
     if ((window as any).QRCode) {
         try {
@@ -425,7 +425,7 @@ export const EstimatesListPage: React.FC = () => {
             if (logoData) { try { doc.addImage(logoData, dataUrlFormat(logoData), margin, y, 34, 17); } catch { /* ignore */ } }
         }
         doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
-        doc.text(rc.businessName || storeSettings.storeName || 'Pazzi', RM, y + 4, { align: 'right' });
+        doc.text(rc.businessName || storeSettings.storeName || 'ppazi', RM, y + 4, { align: 'right' });
         doc.setFontSize(9).setFont('helvetica', 'normal'); doc.setTextColor(90);
         let hy = y + 9;
         if (dz.showBusiness !== false) {
@@ -500,7 +500,7 @@ export const EstimatesListPage: React.FC = () => {
         doc.setFont("helvetica", "italic");
         doc.text("¡Esperamos poder servirle!", pageWidth / 2, y, { align: 'center' });
     
-        const qrText = `Estimado Combinado Pazzi\nCliente: ${client.name} ${client.lastName}\nTotal: $${totalAmount.toFixed(2)}`;
+        const qrText = `Estimado Combinado ppazi\nCliente: ${client.name} ${client.lastName}\nTotal: $${totalAmount.toFixed(2)}`;
         let qrCodeDataUrl = '';
         if ((window as any).QRCode) {
             try {

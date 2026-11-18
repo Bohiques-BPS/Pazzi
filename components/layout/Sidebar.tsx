@@ -140,8 +140,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
       return (
         <aside className={`pz-sidebar bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 w-72 px-3 pb-5 fixed left-0 top-0 bottom-0 h-screen overflow-y-auto transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopTransform} transition-transform duration-200 ease-in-out z-30 shadow-lg border-r border-neutral-200 dark:border-neutral-700`}>
             <Link to="/" className="flex items-center h-[65px] px-1 mb-2 border-b border-neutral-200 dark:border-neutral-700">
-                <img src={logo} alt="Pazzi" className="h-7 sm:h-9 dark:hidden" />
-                <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
+                <img src={logo} alt="ppazi" className="h-7 sm:h-9 dark:hidden" />
+                <img src={logoWhite} alt="ppazi" className="h-7 sm:h-9 hidden dark:block" />
             </Link>
             <p className="px-2 py-2 text-lg text-neutral-500 dark:text-neutral-400">{t('cmp.sidebar.no_options')}</p>
         </aside>
@@ -254,8 +254,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
           </div>
         )}
         <Link to="/" className="flex items-center min-w-0">
-          <img src={logo}      alt="Pazzi" className="h-7 sm:h-9 dark:hidden" />
-          <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-9 hidden dark:block" />
+          <img src={logo}      alt="ppazi" className="h-7 sm:h-9 dark:hidden" />
+          <img src={logoWhite} alt="ppazi" className="h-7 sm:h-9 hidden dark:block" />
         </Link>
         {/* Móvil: cerrar el menú sin tener que elegir una opción. */}
         <button type="button" onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto p-2 rounded-md text-neutral-500 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700" aria-label="Cerrar menú" title="Cerrar menú">

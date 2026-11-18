@@ -248,8 +248,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                 )}
               </div>
               <Link to="/" className="flex items-center flex-shrink-0">
-                <img src={logo}      alt="Pazzi" className="h-7 sm:h-8 dark:hidden" />
-                <img src={logoWhite} alt="Pazzi" className="h-7 sm:h-8 hidden dark:block" />
+                <img src={logo}      alt="ppazi" className="h-7 sm:h-8 dark:hidden" />
+                <img src={logoWhite} alt="ppazi" className="h-7 sm:h-8 hidden dark:block" />
               </Link>
             </div>
           )}

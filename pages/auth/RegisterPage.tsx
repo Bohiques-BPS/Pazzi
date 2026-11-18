@@ -63,7 +63,7 @@ export const RegisterPage: React.FC = () => {
 
           {/* Logo + heading */}
           <div className="flex flex-col items-center mb-4">
-            <img src={logo} alt="Pazzi" className="h-8 mb-3" />
+            <img src={logo} alt="ppazi" className="h-8 mb-3" />
             <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Crear cuenta</h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">Completa los datos para registrarte</p>
           </div>
@@ -174,7 +174,7 @@ export const RegisterPage: React.FC = () => {
         <img src={banner} alt="" className="w-full h-full object-cover opacity-80 dark:opacity-50" />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/60 to-secondary/60 dark:from-neutral-900/80 dark:to-neutral-800/80" />
         <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center text-white">
-          <h3 className="text-3xl font-bold mb-3 drop-shadow">Bienvenido a Pazzi</h3>
+          <h3 className="text-3xl font-bold mb-3 drop-shadow">Bienvenido a ppazi</h3>
           <p className="text-base opacity-90 max-w-xs drop-shadow">La plataforma todo-en-uno para gestionar tu negocio, proyectos y tienda en línea.</p>
         </div>
       </div>

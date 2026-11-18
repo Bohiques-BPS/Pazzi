@@ -23,8 +23,8 @@ export const ECommerceSettingsProvider: React.FC<{ children: React.ReactNode }> 
         }
         // Initialize with default settings for admin and predefined client for demo purposes
         return {
-            [DEFAULT_SETTINGS_KEY]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Pazzi Tienda Por Defecto" },
-            [ADMIN_USER_ID]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Tienda Oficial Pazzi Admin", logoUrl: "https://picsum.photos/seed/pazziadminlogo/150/50", primaryColor: "#D97706" },
+            [DEFAULT_SETTINGS_KEY]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "ppazi Tienda Por Defecto" },
+            [ADMIN_USER_ID]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Tienda Oficial ppazi Admin", logoUrl: "https://picsum.photos/seed/pazziadminlogo/150/50", primaryColor: "#D97706" },
             [ECOMMERCE_CLIENT_ID]: { ...DEFAULT_ECOMMERCE_SETTINGS, storeName: "Ferretería Cliente Demo", logoUrl: "https://picsum.photos/seed/clientdemologo/150/50", primaryColor: "#2563EB" }, // Changed PREDEFINED_CLIENT_ID to ECOMMERCE_CLIENT_ID
         };
     });

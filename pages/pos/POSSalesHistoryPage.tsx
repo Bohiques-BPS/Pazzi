@@ -189,20 +189,20 @@ export const POSSalesHistoryPage: React.FC = () => {
 
     if (currentStoreSettings.logoUrl && !currentStoreSettings.logoUrl.startsWith('https://picsum.photos')) {
          doc.setFontSize(10);
-         doc.text("Logo Pazzi (URL)", margin, currentY + 5);
+         doc.text("Logo ppazi (URL)", margin, currentY + 5);
          currentY += 10;
     } else {
         doc.setFontSize(18);
         doc.setTextColor(6, 182, 161);
         doc.setFont("helvetica", "bold");
-        doc.text("Pazzi", margin, currentY + 5);
+        doc.text("ppazi", margin, currentY + 5);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0,0,0);
         currentY += 10;
     }
     
     doc.setFontSize(10);
-    doc.text(currentStoreSettings.storeName || "Pazzi Tienda", pageWidth - margin, currentY, { align: 'right' });
+    doc.text(currentStoreSettings.storeName || "ppazi Tienda", pageWidth - margin, currentY, { align: 'right' });
     currentY += 10;
     doc.setLineWidth(0.5);
     doc.line(margin, currentY, pageWidth - margin, currentY);
@@ -273,7 +273,7 @@ export const POSSalesHistoryPage: React.FC = () => {
     }
     currentY += 15;
     
-    const qrText = `Recibo de Venta Pazzi\nID: VTA-${sale.id.slice(-6).toUpperCase()}\nTotal: $${sale.totalAmount.toFixed(2)}\nFecha: ${new Date(sale.date).toLocaleDateString('es-ES')}`;
+    const qrText = `Recibo de Venta ppazi\nID: VTA-${sale.id.slice(-6).toUpperCase()}\nTotal: $${sale.totalAmount.toFixed(2)}\nFecha: ${new Date(sale.date).toLocaleDateString('es-ES')}`;
     let qrCodeDataUrl = '';
     if ((window as any).QRCode) {
         try {

@@ -40,7 +40,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
           {/* Logo */}
           <div className="flex justify-center mb-6">
-            <img src={logo} alt="Pazzi" className="h-9" />
+            <img src={logo} alt="ppazi" className="h-9" />
           </div>
 
           <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-1">

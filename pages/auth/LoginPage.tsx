@@ -142,7 +142,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-md">
           <div className="flex justify-center mb-6">
-            <img src={logo} alt="Pazzi Logo" className="h-10" />
+            <img src={logo} alt="ppazi Logo" className="h-10" />
           </div>
           <h2 className="text-3xl font-bold text-center text-neutral-800 dark:text-neutral-100 mb-6">
             {t('auth.login.title')}
@@ -228,7 +228,7 @@ export const LoginPage: React.FC = () => {
         {/* dark overlay so text stays readable */}
         <div className="absolute inset-0 bg-black/40" />
         <div className="relative z-10 flex flex-col items-center">
-          <img src={logoWhite} alt="Pazzi Logo" className="max-w-[180px] lg:max-w-[220px] mb-8 drop-shadow-lg" />
+          <img src={logoWhite} alt="ppazi Logo" className="max-w-[180px] lg:max-w-[220px] mb-8 drop-shadow-lg" />
           <p className="text-2xl lg:text-3xl text-white text-center font-semibold leading-relaxed max-w-md drop-shadow">
             {t('auth.tagline')}
           </p>

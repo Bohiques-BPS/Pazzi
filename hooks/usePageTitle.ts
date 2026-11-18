@@ -4,7 +4,7 @@ import { APP_MODULES_CONFIG, type SubModuleLink } from '../constants';
 import { useData } from '../contexts/DataContext';
 import { useTranslation } from '../contexts/GlobalSettingsContext';
 
-const APP_NAME = 'Pazzi';
+const APP_NAME = 'ppazi';
 
 /** Pestañas del detalle de proyecto (?tab=…). */
 const PROJECT_TABS: Record<string, string> = {

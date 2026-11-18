@@ -195,7 +195,7 @@ export const DashboardHomePage: React.FC = () => {
     const tourSteps: TourStep[] = [
         {
             id: 'step1-welcome',
-            title: 'Bienvenido a Pazzi',
+            title: 'Bienvenido a ppazi',
             content: 'Este es un breve recorrido por los módulos principales. Usa el selector de módulos (icono de cuadrados) o el menú lateral para navegar.',
             targetElementId: 'navbar-module-selector-button-desktop',
             placement: 'bottom',
@@ -228,7 +228,7 @@ export const DashboardHomePage: React.FC = () => {
         {
             id: 'step5-end',
             title: '¡Todo Listo!',
-            content: 'Has completado el tour. ¡Explora Pazzi y descubre todo lo que puede hacer por tu negocio!',
+            content: 'Has completado el tour. ¡Explora ppazi y descubre todo lo que puede hacer por tu negocio!',
             targetElementId: 'dashboard-home-title',
             placement: 'bottom',
             headerColorClass: 'bg-primary',
@@ -256,7 +256,7 @@ export const DashboardHomePage: React.FC = () => {
                 id="dashboard-home-title"
                 className="text-[38.5px] font-semibold text-neutral-700 dark:text-neutral-200"
             >
-                Bienvenido a Pazzi
+                Bienvenido a ppazi
             </h1>
             <p className="mt-2 text-[17px] text-neutral-600 dark:text-neutral-300">
                 Selecciona un módulo para comenzar a trabajar.
