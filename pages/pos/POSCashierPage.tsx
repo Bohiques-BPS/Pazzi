@@ -1567,7 +1567,7 @@ export function useCashierController() {
         { text: t('pos.layaway'), icon: <ArchiveBoxIcon />, color: 'bg-[#00ACC1]', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || !selectedClient },
         // Venta para entrega (Control de Entregas).
         // Con carrito: marcar la venta para entrega. Sin carrito: ver las entregas del cliente.
-        { text: deliveryDraft ? 'Entrega ✓' : 'Entrega', icon: <TruckIcon />, color: 'bg-[#6D4C41]', onClick: () => setDeliveryModalOpen(true), disabled: cart.length === 0 && !selectedClient },
+        { text: deliveryDraft ? 'Entrega ✓' : 'Entrega', icon: <TruckIcon />, color: 'bg-[#6D4C41]', onClick: () => setDeliveryModalOpen(true) },
         // "Gaveta" (Sin venta) solo si está configurada la gaveta por QZ Tray en este dispositivo.
         ...(isCashDrawerEnabled() ? [{ text: t('posx.cashier.drawer'), icon: <BanknotesIcon />, color: 'bg-[#5D4037]', onClick: handleOpenDrawer }] : []),
         { text: t('posx.cashier.cash_up'), icon: <DocumentTextIcon />, color: 'bg-[#00695C]', shortcut: 'F7', onClick: () => setActiveModal('dailyClose') },
@@ -2304,10 +2304,10 @@ export const CashierModals: React.FC<{ c: CashierController; variant?: 'classic'
                 // Si ya hay un producto propio marcado "Cargo de entrega" en el ticket, no se cobra otro cargo.
                 pricing={cart.some(it => (it as any).isDeliveryFee && !c.isDeliveryFeeLine(it)) ? null : c.deliveryPricing}
                 orderSubtotal={cart.filter(it => !c.isDeliveryFeeLine(it)).reduce((a, it) => a + it.unitPrice * it.quantity, 0)}
-                extraTab={selectedClient ? {
-                    label: `Entregas de ${selectedClient.isDefault ? 'Público General' : clientDocName(selectedClient)}`,
-                    content: <ClientDeliveriesList clientId={selectedClient.id} />,
-                } : undefined}
+                extraTab={{
+                    label: 'Entregas',
+                    content: <ClientDeliveriesList allClients clientId={selectedClient?.id} clientLabel={selectedClient ? (selectedClient.isDefault ? 'Público General' : clientDocName(selectedClient)) : undefined} />,
+                }}
                 onSave={data => { c.applyDeliveryDraft(data); setDeliveryModalOpen(false); }}
                 onRemove={deliveryDraft ? () => { c.applyDeliveryDraft(null); setDeliveryModalOpen(false); } : undefined}
             />

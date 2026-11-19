@@ -16,8 +16,9 @@ import { toast } from '../../hooks/useToast';
  * Atrasadas (día programado ya pasado y sin completar) siempre visibles hasta que se entreguen.
  */
 
-type Tab = 'open' | 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'unscheduled' | 'done' | 'cancelled';
+type Tab = 'all' | 'open' | 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'unscheduled' | 'done' | 'cancelled';
 const TABS: { key: Tab; label: string; tone?: 'red' }[] = [
+    { key: 'all', label: 'Todas' },
     { key: 'open', label: 'Todas pendientes' },
     { key: 'overdue', label: 'Atrasadas', tone: 'red' },
     { key: 'today', label: 'Hoy' },
@@ -36,7 +37,7 @@ export const DeliveriesPage: React.FC = () => {
     const canDeliver = can('deliveries.deliver') || canManage;
     const [params, setParams] = useSearchParams();
 
-    const [tab, setTab] = useState<Tab>('open');
+    const [tab, setTab] = useState<Tab>('all');
     const [q, setQ] = useState('');
     const [debouncedQ, setDebouncedQ] = useState('');
     const [assignee, setAssignee] = useState('');

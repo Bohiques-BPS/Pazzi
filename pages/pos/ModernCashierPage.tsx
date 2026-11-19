@@ -196,7 +196,7 @@ export const ModernCashierPage: React.FC = () => {
         { label: 'Ver cuenta del cliente', onClick: () => setActiveModal('clientAccount'), disabled: isGeneral, hint: isGeneral ? 'Requiere cliente' : undefined },
         { label: t('pos.estimate') || 'Estimado', onClick: () => setActiveModal('clientEstimates'), disabled: !selectedClient, hint: !selectedClient ? 'Requiere cliente' : undefined },
         { label: t('pos.layaway') || 'Apartado', onClick: () => setActiveModal('layaway'), disabled: cart.length === 0 || isGeneral, hint: isGeneral ? 'Requiere cliente' : undefined },
-        { label: deliveryDraft ? 'Entrega (marcada)' : 'Entrega', onClick: () => setDeliveryModalOpen(true), disabled: cart.length === 0 && !selectedClient },
+        { label: deliveryDraft ? 'Entrega (marcada)' : 'Entrega', onClick: () => setDeliveryModalOpen(true) },
         ...(isCashDrawerEnabled() ? [{ label: t('posx.cashier.drawer') || 'Gaveta', onClick: handleOpenDrawer }] : []),
         { label: t('pos.user') || 'Usuario', onClick: () => setActiveModal('userSwitch') },
     ];

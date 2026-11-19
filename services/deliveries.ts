@@ -67,7 +67,7 @@ export interface DeliverySummary {
 export const deliveriesService = {
   /** Entregas de esas ventas (una por venta; la vigente si hay canceladas). */
   lookup: (saleIds: string[]) => api.post<DeliverySummary[]>('/deliveries/lookup', { saleIds }),
-  list: (params: { bucket?: string; q?: string; assignedUserId?: string; mine?: boolean; clientId?: string; saleId?: string }) =>
+  list: (params: { bucket?: string; q?: string; assignedUserId?: string; mine?: boolean; clientId?: string; saleId?: string; scope?: 'pos' }) =>
     api.get<DeliveryList>('/deliveries', { ...params, mine: params.mine ? '1' : undefined } as any),
   get: (id: string) => api.get<Delivery>(`/deliveries/${id}`),
   staff: () => api.get<{ id: string; name: string }[]>('/deliveries/staff'),
