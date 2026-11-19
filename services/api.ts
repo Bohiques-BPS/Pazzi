@@ -120,7 +120,8 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
     try {
       errorData = await res.json();
     } catch {
-      errorData = { error: `Error ${res.status}: ${res.statusText}` };
+      // Respuesta no JSON (p. ej. ruta inexistente mientras el servidor se actualiza): mensaje claro, no "Error 404:".
+      errorData = { error: res.status === 404 ? 'Esta función todavía no está disponible en el servidor (puede estar actualizándose). Intente de nuevo en unos minutos.' : `Error ${res.status}${res.statusText ? ': ' + res.statusText : ''}` };
     }
 
     const message =
