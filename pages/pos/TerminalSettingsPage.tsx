@@ -56,7 +56,26 @@ export const TerminalSettingsPage: React.FC = () => {
     const [drawer, setDrawer] = useState<DrawerConfig>(getDrawerConfig());
     const [printers, setPrinters] = useState<string[]>([]);
     const updateDrawer = (patch: Partial<DrawerConfig>) => { const next = { ...drawer, ...patch }; setDrawer(next); setDrawerConfig(next); };
-    const detectPrinters = () => listPrinters().then(setPrinters).catch(err => toast.error(`QZ Tray: ${err?.message || t('posx.receipt.toast.qzUnavailable')}`));
+    // Detectar impresoras: con "Buscando…", aviso del resultado y tope de tiempo (si QZ Tray espera un
+    // permiso en una ventana escondida, antes el botón no hacía nada visible).
+    const [detecting, setDetecting] = useState(false);
+    const detectPrinters = async () => {
+        if (detecting) return;
+        setDetecting(true);
+        try {
+            const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error(
+                'QZ Tray no respondió en 20 segundos. Revise si hay una ventana de permiso de QZ Tray abierta (puede estar detrás del navegador) y pulse «Permitir»; si no, cierre y vuelva a abrir QZ Tray.'
+            )), 20000));
+            const list = await Promise.race([listPrinters(), timeout]);
+            setPrinters(list);
+            if (list.length) toast.success(`Se encontraron ${list.length} ${list.length === 1 ? 'impresora' : 'impresoras'}: ${list.slice(0, 4).join(', ')}${list.length > 4 ? '…' : ''}`);
+            else toast.warning('QZ Tray no encontró impresoras. Revise que la impresora esté instalada en Windows y encendida.');
+        } catch (err: any) {
+            toast.error(`QZ Tray: ${err?.message || t('posx.receipt.toast.qzUnavailable')}`);
+        } finally {
+            setDetecting(false);
+        }
+    };
     const testDrawer = () => openCashDrawer().then(() => toast.success(t('posx.receipt.toast.drawerOpened'))).catch(err => toast.error(`${t('posx.receipt.drawer.short')}: ${err?.message || t('posx.receipt.toast.drawerFailed')}`));
     // Impresora de códigos de barras (etiquetas) — POR DISPOSITIVO.
     const [label, setLabel] = useState<LabelConfig>(getLabelConfig());
@@ -301,7 +320,7 @@ export const TerminalSettingsPage: React.FC = () => {
                             </details>
 
                             <div className="flex justify-end">
-                                <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detectPrinters')}</button>
+                                <button type="button" onClick={detectPrinters} disabled={detecting} className={BUTTON_SECONDARY_SM_CLASSES}>{detecting ? 'Buscando…' : t('posx.receipt.detectPrinters')}</button>
                             </div>
                             <div>
                                 <label className="block text-xs text-neutral-500 mb-1">{t('posx.receipt.qz.receiptPrinter.pre')} <strong>{t('posx.receipt.receipt.word')}</strong> {t('posx.receipt.qz.receiptPrinter.post')}</label>
@@ -355,7 +374,7 @@ export const TerminalSettingsPage: React.FC = () => {
                                         <option value="">{t('posx.receipt.defaultPrinter')}</option>
                                         {printers.map(p => <option key={p} value={p}>{p}</option>)}
                                     </select>
-                                    <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detect')}</button>
+                                    <button type="button" onClick={detectPrinters} disabled={detecting} className={BUTTON_SECONDARY_SM_CLASSES}>{detecting ? 'Buscando…' : t('posx.receipt.detect')}</button>
                                 </div>
                                 <input type="text" value={drawer.printerName} onChange={e => updateDrawer({ printerName: e.target.value })} placeholder={t('posx.receipt.drawer.devicePh')} className={`${INPUT_SM_CLASSES} w-full mt-1`} />
                             </div>
@@ -387,7 +406,7 @@ export const TerminalSettingsPage: React.FC = () => {
                                     <option value="">{t('posx.receipt.defaultShort')}</option>
                                     {printers.map(p => <option key={p} value={p}>{p}</option>)}
                                 </select>
-                                <button type="button" onClick={detectPrinters} className={BUTTON_SECONDARY_SM_CLASSES}>{t('posx.receipt.detect')}</button>
+                                <button type="button" onClick={detectPrinters} disabled={detecting} className={BUTTON_SECONDARY_SM_CLASSES}>{detecting ? 'Buscando…' : t('posx.receipt.detect')}</button>
                             </div>
                         </div>
                     )}
