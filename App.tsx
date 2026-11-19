@@ -135,6 +135,7 @@ const CheckoutPage = lazyNamed(() => import('./pages/ecommerce/CheckoutPage'), '
 const OrderConfirmationPage = lazyNamed(() => import('./pages/ecommerce/OrderConfirmationPage'), 'OrderConfirmationPage');
 const PublicInvoicePage = lazyNamed(() => import('./pages/pos/PublicInvoicePage'), 'PublicInvoicePage');
 const PublicDeliveryPage = lazyNamed(() => import('./pages/pos/PublicDeliveryPage'), 'PublicDeliveryPage');
+const DriverDeliveryPage = lazyNamed(() => import('./pages/pos/DriverDeliveryPage'), 'DriverDeliveryPage');
 const DeliveriesPage = lazyNamed(() => import('./pages/pos/DeliveriesPage'), 'DeliveriesPage');
 const SupplierReturnsPage = lazyNamed(() => import('./pages/pos/SupplierReturnsPage'), 'SupplierReturnsPage');
 const PublicEnrollPage = lazyNamed(() => import('./pages/pos/PublicEnrollPage'), 'PublicEnrollPage');
@@ -456,6 +457,7 @@ const AppContent: React.FC = () => {
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
         <Route path="/pay/:token" element={<PublicInvoicePage />} />
         <Route path="/entrega/:token" element={<PublicDeliveryPage />} />
+        <Route path="/repartidor/:token" element={<DriverDeliveryPage />} />
         <Route path="/enroll/:token" element={<PublicEnrollPage />} />
         <Route path="/f/:token" element={<PublicLeadFormPage />} />
         {/* Páginas legales públicas (para registro de app OAuth y pie de la tienda). */}

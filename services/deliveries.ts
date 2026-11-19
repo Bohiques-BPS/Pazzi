@@ -13,6 +13,8 @@ export interface DeliveryEvent {
   id: string; type: string; userId?: string | null; userName?: string | null;
   receivedBy?: string | null; quantities?: { itemId: string; name: string; quantity: number }[] | null;
   note?: string | null; createdAt: string;
+  /** Foto de la entrega (enlace del repartidor). */
+  photoUrl?: string | null;
 }
 export interface Delivery {
   id: string; number: number | null; saleId: string | null; saleNumber: number | null;
@@ -78,4 +80,17 @@ export const deliveriesService = {
   confirm: (id: string, data: { items: { id: string; quantity: number }[]; receivedBy?: string; note?: string; rescheduleDate?: string | null }) =>
     api.post<Delivery>(`/deliveries/${id}/confirm`, data),
   getPublic: (token: string) => api.get<any>(`/public/deliveries/${token}`),
+  /** Enlace secreto del repartidor (se crea la primera vez). */
+  driverLink: (id: string) => api.post<{ token: string }>(`/deliveries/${id}/driver-link`, {}),
+  // Página del repartidor (sin login).
+  getDriver: (token: string) => api.get<any>(`/public/deliveries/driver/${token}`),
+  driverInRoute: (token: string) => api.post<any>(`/public/deliveries/driver/${token}/in-route`, {}),
+  driverConfirm: (token: string, data: { items: { id: string; quantity: number }[]; receivedBy: string; note?: string }, photo?: Blob | null) => {
+    const fd = new FormData();
+    fd.append('data', JSON.stringify(data));
+    if (photo) fd.append('photo', photo, 'entrega.jpg');
+    return api.upload<any>(`/public/deliveries/driver/${token}/confirm`, fd);
+  },
 };
+
+export const deliveryDriverLink = (token: string) => `${window.location.origin}/repartidor/${token}`;

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, ConfirmationModal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
-import { deliveriesService, deliveryAddress, DELIVERY_STATUS_CLS, DELIVERY_STATUS_LABEL, type Delivery, type DeliveryInput } from '../../services/deliveries';
+import { deliveriesService, deliveryAddress, deliveryDriverLink, DELIVERY_STATUS_CLS, DELIVERY_STATUS_LABEL, type Delivery, type DeliveryInput } from '../../services/deliveries';
 import { DeliverySetupModal } from './DeliverySetupModal';
 import { printDeliveryNote } from '../../utils/deliveryPdf';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -63,7 +63,7 @@ export const DeliveryDetailModal: React.FC<{
     useEffect(() => {
         if (!deliveryId) { setD(null); return; }
         setLoading(true); setConfirming(false);
-        deliveriesService.get(deliveryId).then(setD).catch(err => toast.error(err instanceof ApiError ? err.message : 'No se pudo cargar la entrega.')).finally(() => setLoading(false));
+        deliveriesService.get(deliveryId).then(r => { if (!r || !Array.isArray((r as any).items)) throw new Error('bad'); setD(r); }).catch(err => toast.error(err instanceof ApiError ? err.message : 'No se pudo cargar la entrega.')).finally(() => setLoading(false));
     }, [deliveryId]);
 
     const apply = (next: Delivery, msg?: string) => { setD(next); onChanged?.(next); if (msg) toast.success(msg); };
@@ -91,6 +91,20 @@ export const DeliveryDetailModal: React.FC<{
         if (ok) setConfirming(false);
     };
 
+    // Enlace del repartidor: para confirmar la entrega desde el celular sin entrar al sistema.
+    const [driverUrl, setDriverUrl] = useState<string | null>(null);
+    useEffect(() => { setDriverUrl(null); }, [deliveryId]);
+    const getDriverLink = async () => {
+        if (!d) return;
+        try {
+            const { token } = await deliveriesService.driverLink(d.id);
+            const url = deliveryDriverLink(token);
+            setDriverUrl(url);
+            try { await navigator.clipboard.writeText(url); toast.success('Enlace del repartidor copiado.'); } catch { /* se muestra abajo para copiarlo a mano */ }
+        } catch (err: any) {
+            toast.error(err?.message || 'No se pudo crear el enlace del repartidor.');
+        }
+    };
     const copyLink = async () => {
         if (!d) return;
         try { await navigator.clipboard.writeText(deliveryPublicLink(d.publicToken)); toast.success('Enlace de seguimiento copiado.'); }
@@ -108,6 +122,7 @@ export const DeliveryDetailModal: React.FC<{
             <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={print} className={BUTTON_SECONDARY_SM_CLASSES}>Imprimir conduce</button>
                 <button type="button" onClick={copyLink} className={BUTTON_SECONDARY_SM_CLASSES}>Copiar enlace del cliente</button>
+                {open && <button type="button" onClick={getDriverLink} className={BUTTON_SECONDARY_SM_CLASSES}>Enlace del repartidor</button>}
             </div>
             <div className="flex flex-wrap gap-2">
                 {canManage && open && <button type="button" onClick={() => setConfirmCancel(true)} disabled={busy} className="text-sm text-red-600 dark:text-red-400 hover:underline px-2">Cancelar entrega</button>}
@@ -126,6 +141,17 @@ export const DeliveryDetailModal: React.FC<{
                     <p className="text-sm text-neutral-500 py-6 text-center">Cargando…</p>
                 ) : (
                     <div className="space-y-5 text-neutral-700 dark:text-neutral-200">
+                        {driverUrl && (
+                            <div className="rounded-lg ring-1 ring-inset ring-primary/30 bg-primary/5 dark:bg-primary/10 p-3 text-sm space-y-2">
+                                <div className="font-semibold">Enlace del repartidor</div>
+                                <p className="text-xs text-neutral-600 dark:text-neutral-300">Envíeselo al chofer: lo abre en el celular, sin usuario, y desde ahí marca "En ruta" y confirma la entrega (quién recibió y foto opcional). Cuando la entrega se completa o se cancela, el enlace ya no permite cambios.</p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input readOnly value={driverUrl} onFocus={e => e.currentTarget.select()} className="flex-1 min-w-[200px] rounded-md border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono" />
+                                    <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(driverUrl); toast.success('Copiado.'); } catch { toast.error('No se pudo copiar.'); } }} className={BUTTON_SECONDARY_SM_CLASSES}>Copiar</button>
+                                    <a href={`https://wa.me/?text=${encodeURIComponent(`Entrega #${d.number ?? ''} · ${d.clientName}${addr ? ` · ${addr}` : ''}\n${driverUrl}`)}`} target="_blank" rel="noreferrer" className={BUTTON_SECONDARY_SM_CLASSES}>Enviar por WhatsApp</a>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex flex-wrap items-center gap-3">
                             <DeliveryStatusChip d={d} />
                             {d.status === 'delivered' && d.deliveredAt && (
@@ -227,6 +253,7 @@ export const DeliveryDetailModal: React.FC<{
                                             </div>
                                             {e.note && <div className="text-neutral-600 dark:text-neutral-300">{e.note}</div>}
                                             {e.receivedBy && <div className="text-neutral-600 dark:text-neutral-300">Recibió: {e.receivedBy}</div>}
+                                            {e.photoUrl && <a href={e.photoUrl} target="_blank" rel="noreferrer" className="inline-block mt-1"><img src={e.photoUrl} alt="Foto de la entrega" className="h-24 rounded-md border border-neutral-200 dark:border-neutral-700 object-cover" /></a>}
                                             {!!e.quantities?.length && <div className="text-xs text-neutral-500 dark:text-neutral-400">{e.quantities.map(q => `${q.name} ×${fmtQty(q.quantity)}`).join(', ')}</div>}
                                         </li>
                                     ))}
