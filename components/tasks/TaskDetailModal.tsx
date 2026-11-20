@@ -15,6 +15,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, isoToLocalDT, localDTToIso } from './TaskSchedule';
+import { TaskCreateModal, type TaskPrefill } from './TaskCreateModal';
 
 interface TaskDetailModalProps {
     task: Task;
@@ -98,8 +99,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
     const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     // Duplicar (p. ej. el calendario de RRSS de cada mes): título, fecha, columna y qué copiar.
-    const [dup, setDup] = useState<null | { title: string; dueDate: string; status: string; assignees: boolean; checklist: boolean; subtasks: boolean }>(null);
-    const [duplicating, setDuplicating] = useState(false);
+    // Duplicar: abre el formulario completo de "Añadir tarea" lleno con esta tarea (lo que se ve ahora).
+    const [dupPrefill, setDupPrefill] = useState<TaskPrefill | null>(null);
     const [checklists, setChecklists] = useState<ChecklistItem[]>(((task as any).checklists as ChecklistItem[]) || []);
     const [newCheckItem, setNewCheckItem] = useState('');
     // IA: "¿cómo resuelvo esta tarea?"
@@ -117,33 +118,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         const cols = (projects.find(p => p.id === (task as any).projectId) as any)?.taskColumns as string[] | undefined;
         return cols && cols.length ? cols : ['Tareas por realizar', 'En progreso', 'Para aprobar', 'Hecho'];
     }, [projects, task]);
-    const shiftDate = (ymd: string, unit: 'week' | 'month') => {
-        if (!ymd) return ymd;
-        const d = new Date(ymd + 'T12:00:00');
-        if (unit === 'week') d.setDate(d.getDate() + 7); else d.setMonth(d.getMonth() + 1);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    };
-    const openDuplicate = () => setDup({
-        title: `${title} (copia)`, dueDate, status: projectColumns[0],
-        assignees: true, checklist: true, subtasks: true,
+    const openDuplicate = () => setDupPrefill({
+        title: `${title} (copia)`, description, priority, dueDate, section,
+        assignedIds, images: attachments, subtasks: subtasks.map(x => x.title), checklist: checklists.map(c => c.text),
     });
-    const submitDuplicate = async () => {
-        if (!dup) return;
-        setDuplicating(true);
-        try {
-            const r = await tasksService.duplicate(task.id, {
-                title: dup.title.trim(), dueDate: dup.dueDate ? new Date(dup.dueDate + 'T12:00:00').toISOString() : null, status: dup.status,
-                includeAssignees: dup.assignees, includeChecklist: dup.checklist, includeSubtasks: dup.subtasks,
-            });
-            setTasks(prev => [...prev, r.task as any, ...(r.subtasks as any[])]);
-            toast.success(r.subtasks.length ? `Tarea duplicada con ${r.subtasks.length} subtarea(s).` : 'Tarea duplicada.');
-            setDup(null);
-            // Abre la copia para ajustar lo que cambie (mes, enlaces…).
-            if (onOpenTask) onOpenTask(r.task as any);
-        } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : 'No se pudo duplicar la tarea.');
-        } finally { setDuplicating(false); }
-    };
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [addingSubtask, setAddingSubtask] = useState(false);
     const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
@@ -1153,53 +1131,22 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             message={t('cmpx.task.archive_confirm_msg')}
             confirmButtonText={t('cmpx.task.archive')}
         />
-        <Modal isOpen={!!dup} onClose={() => !duplicating && setDup(null)} title="Duplicar tarea" size="md">
-            {dup && (
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Título de la copia</label>
-                        <input value={dup.title} onChange={e => setDup({ ...dup, title: e.target.value })} className={inputFormStyle} autoFocus />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Fecha límite</label>
-                            <input type="date" value={dup.dueDate} onChange={e => setDup({ ...dup, dueDate: e.target.value })} className={inputFormStyle} />
-                            {dup.dueDate && (
-                                <div className="flex gap-3 mt-1.5">
-                                    <button type="button" onClick={() => setDup({ ...dup, dueDate: shiftDate(dup.dueDate, 'week') })} className="text-xs text-primary hover:underline">+1 semana</button>
-                                    <button type="button" onClick={() => setDup({ ...dup, dueDate: shiftDate(dup.dueDate, 'month') })} className="text-xs text-primary hover:underline">+1 mes</button>
-                                </div>
-                            )}
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-1">Columna</label>
-                            <select value={dup.status} onChange={e => setDup({ ...dup, status: e.target.value })} className={inputFormStyle}>
-                                {projectColumns.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div className="space-y-2 rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Copiar también</p>
-                        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-                            <input type="checkbox" checked={dup.assignees} onChange={e => setDup({ ...dup, assignees: e.target.checked })} /> Colaboradores asignados
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-                            <input type="checkbox" checked={dup.checklist} onChange={e => setDup({ ...dup, checklist: e.target.checked })} /> Lista de verificación (sin marcar)
-                        </label>
-                        {subtasks.length > 0 && (
-                            <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-                                <input type="checkbox" checked={dup.subtasks} onChange={e => setDup({ ...dup, subtasks: e.target.checked })} /> Subtareas ({subtasks.length})
-                            </label>
-                        )}
-                        <p className="text-xs text-neutral-500">Se copian la descripción, sección, prioridad e imágenes. Los comentarios no se copian.</p>
-                    </div>
-                    <div className="flex justify-end gap-2 pt-1">
-                        <button type="button" onClick={() => setDup(null)} disabled={duplicating} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
-                        <button type="button" onClick={submitDuplicate} disabled={duplicating || !dup.title.trim()} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{duplicating ? 'Duplicando…' : 'Duplicar'}</button>
-                    </div>
-                </div>
-            )}
-        </Modal>
+        <TaskCreateModal
+            status={dupPrefill ? projectColumns[0] : null}
+            columns={projectColumns}
+            prefill={dupPrefill}
+            projectId={(task as any).projectId}
+            sections={sections}
+            assignSelf={false}
+            onToggleAssignSelf={() => {}}
+            onClose={() => setDupPrefill(null)}
+            onCreated={(created) => {
+                setTasks(prev => [...prev, ...(created as any[])]);
+                toast.success(created.length > 1 ? `Tarea duplicada con ${created.length - 1} subtarea(s).` : 'Tarea duplicada.');
+                // Abre la copia para seguir ajustándola.
+                if (onOpenTask) onOpenTask(created[0] as any);
+            }}
+        />
         <ConfirmationModal
             isOpen={showDeleteConfirm}
             onClose={() => setShowDeleteConfirm(false)}

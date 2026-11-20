@@ -40,6 +40,15 @@ interface Props {
     onClose: () => void;
     /** La tarea creada (y sus subtareas) para agregarlas al tablero. */
     onCreated: (tasks: any[]) => void;
+    /** Duplicar: el formulario completo se abre lleno con los datos de la tarea original. */
+    prefill?: TaskPrefill | null;
+    /** Columnas del proyecto: si viene, se puede escoger en qué columna crear. */
+    columns?: string[];
+}
+
+export interface TaskPrefill {
+    title: string; description?: string; priority?: Task['priority']; dueDate?: string; section?: string;
+    assignedIds?: string[]; images?: TaskAttachment[]; subtasks?: string[]; checklist?: string[];
 }
 
 /**
@@ -47,7 +56,7 @@ interface Props {
  * recordatorio, descripción, imágenes, colaboradores, subtareas y checklist), en una columna como
  * el editor y con los botones en un pie fijo (no hace falta bajar para guardar). Comentarios/aprobación quedan para después de crearla.
  */
-export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSection, sections, assignSelf, onToggleAssignSelf, myAssigneeId, onClose, onCreated }) => {
+export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSection, sections, assignSelf, onToggleAssignSelf, myAssigneeId, onClose, onCreated, prefill, columns }) => {
     const { t } = useTranslation();
     const { getAllEmployees, projects, setTasks } = useData();
     const [schedStart, setSchedStart] = useState('');
@@ -73,15 +82,28 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
     const [saving, setSaving] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false); // arrastrar imágenes sobre la zona
+    // Columna donde se crea (escogible cuando vienen las columnas, p. ej. al duplicar).
+    const [col, setCol] = useState<string | null>(status);
 
-    // Reinicia el formulario cada vez que se abre.
+    // Reinicia el formulario cada vez que se abre (o lo llena con la tarea a duplicar).
     useEffect(() => {
         if (!isOpen) return;
-        setTitle(''); setDescription(''); setPriority(null); setDueDate(''); setSection(defaultSection || '');
-        setReminderOn(false); setRemindAt(''); setImages([]); setSubtasks([]); setNewSubtask(''); setChecklist([]); setNewCheck('');
-        setAssignedIds(assignSelf && myAssigneeId ? [myAssigneeId] : []);
+        const p = prefill;
+        setCol(status);
+        setTitle(p?.title || ''); setDescription(p?.description || ''); setPriority(p?.priority ?? null); setDueDate(p?.dueDate || '');
+        setSection(p ? (p.section || '') : (defaultSection || ''));
+        setReminderOn(false); setRemindAt(''); setImages(p?.images ? [...p.images] : []);
+        setSubtasks(p?.subtasks ? [...p.subtasks] : []); setNewSubtask(''); setChecklist(p?.checklist ? [...p.checklist] : []); setNewCheck('');
+        setSchedStart(''); setSchedEnd('');
+        setAssignedIds(p ? [...(p.assignedIds || [])] : (assignSelf && myAssigneeId ? [myAssigneeId] : []));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
+    const shiftDue = (unit: 'week' | 'month') => {
+        if (!dueDate) return;
+        const d = new Date(dueDate + 'T12:00:00');
+        if (unit === 'week') d.setDate(d.getDate() + 7); else d.setMonth(d.getMonth() + 1);
+        setDueDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    };
 
     // Solo personas asignadas al proyecto (+ el usuario conectado), igual que en "Detalles de la tarea".
     const employees = useMemo(() => {
@@ -131,6 +153,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
 
     const create = async () => {
         if (!status) return;
+        const targetStatus = col || status;
         if (!title.trim()) { toast.error(t('cmpx.task.title_required') || 'Escribe un título para la tarea.'); return; }
         if (reminderOn && !remindAt) { toast.error('Elige la fecha y hora del recordatorio o desactívalo.'); return; }
         if (!!schedStart !== !!schedEnd) { toast.error('Indica la hora de inicio y la de fin, o quita el horario.'); return; }
@@ -143,7 +166,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
             if (!decision) { setSaving(false); return; }
             const saved: any = await tasksService.create({
                 startAt, endAt, shiftConflicts: decision === 'shift',
-                projectId, title: title.trim(), status: status as any,
+                projectId, title: title.trim(), status: targetStatus as any,
                 description: description || undefined,
                 section: section.trim() || undefined,
                 priority: priority || null,
@@ -162,7 +185,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
             if (items.length) created[0] = { ...created[0], checklists: items };
             for (const st of subtasks) {
                 try {
-                    const sub: any = await tasksService.create({ projectId, title: st, status: status as any, section: section.trim() || undefined, parentTaskId: saved.id } as any);
+                    const sub: any = await tasksService.create({ projectId, title: st, status: targetStatus as any, section: section.trim() || undefined, parentTaskId: saved.id } as any);
                     created.push({ ...sub, assignedEmployeeIds: sub.assignedEmployeeIds || [] });
                 } catch { extraErrors.push(st); }
             }
@@ -184,14 +207,14 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
             <div className="flex gap-2 ml-auto">
                 <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel') || 'Cancelar'}</button>
                 <button type="button" onClick={create} disabled={uploading || saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>
-                    {uploading ? 'Subiendo imagen…' : saving ? (t('common.saving') || 'Guardando…') : (t('cmpx.task.add_task_btn') || 'Añadir tarea')}
+                    {uploading ? 'Subiendo imagen…' : saving ? (t('common.saving') || 'Guardando…') : prefill ? 'Crear copia' : (t('cmpx.task.add_task_btn') || 'Añadir tarea')}
                 </button>
             </div>
         </div>
     );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`${t('cmpx.task.add_task') || 'Añadir tarea'}${status ? ` · ${status}` : ''}`} size="2xl" isDirty={isDirty && !saving} footer={footer}>
+        <Modal isOpen={isOpen} onClose={onClose} title={prefill ? 'Duplicar tarea' : `${t('cmpx.task.add_task') || 'Añadir tarea'}${status ? ` · ${status}` : ''}`} size="2xl" isDirty={isDirty && !saving} footer={footer}>
             {/* Mismo orden y estilo que "Detalles de la tarea", en una columna. */}
             <div className="space-y-4" onPaste={onPaste}>
                 <div>
@@ -219,8 +242,22 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                     <div>
                         <label className={label}>{t('cmpx.task.due_date')}</label>
                         <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputFormStyle} />
+                        {prefill && dueDate && (
+                            <div className="flex gap-3 mt-1.5">
+                                <button type="button" onClick={() => shiftDue('week')} className="text-xs text-primary hover:underline">+1 semana</button>
+                                <button type="button" onClick={() => shiftDue('month')} className="text-xs text-primary hover:underline">+1 mes</button>
+                            </div>
+                        )}
                     </div>
                 </div>
+                {columns && columns.length > 0 && (
+                    <div>
+                        <label className={label}>Columna</label>
+                        <select value={col || ''} onChange={e => setCol(e.target.value)} className={inputFormStyle}>
+                            {columns.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+                )}
 
                 {/* Horario: se revisa que no choque con lo que ya tienen los asignados. */}
                 <TaskScheduleFields labelClassName={label} start={schedStart} end={schedEnd} onChange={(s, e) => {
@@ -288,10 +325,12 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                             </label>
                         ))}
                     </div>
+                    {!prefill && (
                     <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 cursor-pointer select-none mt-2">
                         <input type="checkbox" checked={assignSelf} onChange={e => onToggleAssignSelf(e.target.checked)} className="h-4 w-4 rounded accent-primary" />
                         Asignármelas a mí automáticamente
                     </label>
+                    )}
                 </fieldset>
 
                 {/* Subtareas y checklist: se crean junto con la tarea. */}
