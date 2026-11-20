@@ -1000,7 +1000,8 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     const getUpcomingVisits = useCallback((count: number = 5): Visit[] => {
         const today = new Date().toISOString().split('T')[0];
-        const nowTime = new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
+        const _n = new Date();
+        const nowTime = `${String(_n.getHours()).padStart(2, '0')}:${String(_n.getMinutes()).padStart(2, '0')}`; // HH:mm interno
         return visits.filter(v => v.date >= today).sort((a, b) => a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date)).filter(v => v.date === today ? v.startTime >= nowTime : true).slice(0, count);
     }, [visits]);
 

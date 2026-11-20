@@ -125,6 +125,8 @@ export interface GlobalSettings {
     numberFormat: 'comma_decimal' | 'dot_decimal'; // comma_decimal = 1,000.00; dot_decimal = 1.000,00
     /** Formato de fecha de toda la web (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, …). Lo elige el gerente. */
     dateFormat?: string;
+    /** Formato de hora de toda la web: '12h' (am/pm) o '24h' (militar), sin importar el idioma del navegador. */
+    timeFormat?: '12h' | '24h';
     language: 'es' | 'en';
     fontSize: 'sm' | 'md' | 'lg';
     defaultTaxRate: number; // Universal IVU

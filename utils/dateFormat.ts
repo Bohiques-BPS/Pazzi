@@ -20,11 +20,16 @@ export type DateFormatKey = typeof DATE_FORMATS[number]['key'];
 
 let current: DateFormatKey = 'DD/MM/YYYY';
 let monthLocale = 'es';
+// Formato de hora del negocio: 12 h (am/pm) o 24 h (militar). Antes dependía del idioma del
+// navegador (un navegador en "Español (España)" mostraba 16:00 y otro 4:00 p. m.).
+let hour12 = true;
 
-export function setDateFormat(fmt?: string | null, language?: string | null) {
+export function setDateFormat(fmt?: string | null, language?: string | null, timeFormat?: string | null) {
     if (fmt && DATE_FORMATS.some(f => f.key === fmt)) current = fmt as DateFormatKey;
     monthLocale = language === 'en' ? 'en-US' : 'es';
+    hour12 = timeFormat !== '24h';
 }
+const timeLocale = () => (monthLocale === 'en-US' ? 'en-US' : 'es-PR');
 
 const nativeDate = Date.prototype.toLocaleDateString;
 const nativeTime = Date.prototype.toLocaleTimeString;
@@ -47,11 +52,31 @@ export function formatDate(d: Date | string | number, fmt: DateFormatKey = curre
     }
 }
 
-/** Fecha y hora con el formato elegido (la hora como la muestra el navegador). */
+/** Hora con el formato del negocio (12 h / 24 h). */
+export function formatTime(d: Date | string | number, withSeconds = true): string {
+    const x = d instanceof Date ? d : new Date(d);
+    if (isNaN(x.getTime())) return '';
+    return nativeTime.call(x, timeLocale(), { hour: hour12 ? 'numeric' : '2-digit', minute: '2-digit', ...(withSeconds ? { second: '2-digit' } : {}), hour12 });
+}
+
+/** Fecha y hora con el formato elegido (fecha y hora del negocio). */
 export function formatDateTime(d: Date | string | number): string {
     const x = d instanceof Date ? d : new Date(d);
     if (isNaN(x.getTime())) return '';
-    return `${formatDate(x)}, ${nativeTime.call(x)}`;
+    return `${formatDate(x)}, ${formatTime(x)}`;
+}
+
+/** Opciones con la hora forzada al formato del negocio (si el formato pide hora). */
+// timeCall: toLocaleTimeString (siempre lleva hora). En toLocaleString: sin opciones lleva fecha+hora;
+// con opciones, solo si piden hora (hour/timeStyle).
+function withHourCycle(opts: any, timeCall: boolean): any {
+    if (opts && opts.hourCycle != null) return opts; // pidió un ciclo exacto: se respeta
+    const hasTime = timeCall || !opts || opts.hour != null || opts.timeStyle != null;
+    if (!hasTime) return opts;
+    const o = { ...(opts || {}) };
+    delete o.hour12;
+    if (hour12 && o.hour === '2-digit') o.hour = 'numeric'; // 4:30 p. m. (no 04:30 p. m.)
+    return { ...o, hour12 };
 }
 
 let installed = false;
@@ -64,6 +89,12 @@ export function installDateFormat() {
         return args.length === 0 ? formatDate(this) : nativeDate.apply(this, args as any);
     } as typeof Date.prototype.toLocaleDateString;
     Date.prototype.toLocaleString = function (this: Date, ...args: any[]) {
-        return args.length === 0 ? formatDateTime(this) : nativeString.apply(this, args as any);
+        if (args.length === 0) return formatDateTime(this);
+        // toLocaleString(locale) sin opciones también lleva hora; con opciones, solo si piden hora.
+        return nativeString.call(this, args[0], withHourCycle(args[1], false));
     } as typeof Date.prototype.toLocaleString;
+    Date.prototype.toLocaleTimeString = function (this: Date, ...args: any[]) {
+        if (args.length === 0) return formatTime(this);
+        return nativeTime.call(this, args[0], withHourCycle(args[1], true));
+    } as typeof Date.prototype.toLocaleTimeString;
 }

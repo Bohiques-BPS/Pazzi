@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     numberFormat: 'comma_decimal',
     dateFormat: 'DD/MM/YYYY',
+    timeFormat: '12h',
     language: 'es',
     fontSize: 'md',
     defaultTaxRate: 0.115, // Default IVU in PR is 11.5%
@@ -7330,7 +7331,7 @@ export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     useEffect(() => { setDefaultTaxRates(settings.taxStateRate, settings.taxMunicipalRate); }, [settings.taxStateRate, settings.taxMunicipalRate]);
     // Formato de fecha de toda la web. setDateFormat corre ANTES de pintar (en el render) para que la
     // primera pantalla ya salga con el formato correcto.
-    setDateFormat(settings.dateFormat, settings.language);
+    setDateFormat(settings.dateFormat, settings.language, (settings as any).timeFormat);
 
     const loadSettings = useCallback(async () => {
         try {

@@ -96,6 +96,28 @@ export const AdminSettingsPage: React.FC = () => {
                         </div>
 
                         <div>
+                            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Formato de Hora</label>
+                            <div className="flex space-x-3">
+                                {([['12h', '4:30 p. m.', '12 horas (am/pm)'], ['24h', '16:30', '24 horas (militar)']] as const).map(([key, example, desc]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => updateSettings({ timeFormat: key } as any)}
+                                        className={`flex-1 py-2 px-4 rounded-md border text-sm transition-all ${
+                                            ((settings as any).timeFormat || '12h') === key
+                                                ? 'bg-primary text-white border-primary ring-2 ring-offset-1 ring-primary dark:ring-offset-neutral-800'
+                                                : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600'
+                                        }`}
+                                    >
+                                        <span className="block font-semibold tabular-nums">{example}</span>
+                                        <span className="block text-[11px] opacity-75">{desc}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Se aplica en toda la web para todos los usuarios, sin importar el idioma del navegador. Los campos para escoger hora usan el formato del navegador.</p>
+                        </div>
+
+                        <div>
                              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('config.number_format')}</label>
                              <div className="flex space-x-3">
                                 <button
