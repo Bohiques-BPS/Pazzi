@@ -9,6 +9,8 @@ import { EmptyState } from '../ui/EmptyState';
 import type { ReceiptSale } from './ReceiptModal';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
 import { printPaymentReceipt } from '../../utils/printPaymentReceipt';
+import { printPayoutVoucher, payoutFolio } from '../../utils/printPayoutVoucher';
+import { cajasService } from '../../services/cajas';
 import { clientDocName } from '../../utils/clientName';
 
 const money = (n: number) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -91,6 +93,14 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
         if (!isOpen) return;
         setQ('');
         let cancelled = false;
+        if (tab === 'desembolsos') {
+            setLoading(true);
+            cajasService.recentPayouts(150)
+                .then(data => { if (!cancelled) setRows(Array.isArray(data) ? data : []); })
+                .catch(err => { if (!cancelled && err instanceof ApiError) toast.error(err.message); })
+                .finally(() => { if (!cancelled) setLoading(false); });
+            return () => { cancelled = true; };
+        }
         if (tab === 'pagos') {
             setLoading(true);
             salesService.paymentReceipts(200)
@@ -117,9 +127,14 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
     useEffect(() => { if (isOpen) { setTab('facturas'); setLastTx(null); } }, [isOpen]);
 
     const isPagos = tab === 'pagos';
+    const isPayouts = tab === 'desembolsos';
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         if (!term) return rows;
+        if (isPayouts) return rows.filter(r =>
+            payoutFolio(r.id).toLowerCase().includes(term) ||
+            `${r.reason || ''} ${r.invoiceNumber || ''} ${r.createdBy || ''} ${r.cajaName || ''}`.toLowerCase().includes(term)
+        );
         if (isPagos) return rows.filter(r =>
             String(r.receiptNumber ?? '').includes(term) ||
             String(r.clientName || '').toLowerCase().includes(term)
@@ -128,11 +143,18 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
             String(s.saleNumber ?? '').includes(term) ||
             (s.client && `${s.client.name} ${s.client.lastName || ''}`.toLowerCase().includes(term))
         );
-    }, [rows, q, isPagos]);
+    }, [rows, q, isPagos, isPayouts]);
 
     const reprint = (sale: any) => { if (sale) onSelectReceipt(toReceiptSale(sale)); };
 
-    const listable = tab === 'facturas' || tab === 'devoluciones' || isPagos;
+    const listable = tab === 'facturas' || tab === 'devoluciones' || isPagos || isPayouts;
+    const reprintPayout = (r: any) => {
+        printPayoutVoucher({
+            movementId: r.id, cajaName: r.cajaName || undefined, amount: r.amount, reason: r.reason,
+            receiptCount: r.receiptCount ?? undefined, invoiceNumber: r.invoiceNumber, recordedBy: r.createdBy,
+            authorizedBy: r.authorizedBy, date: r.createdAt, reprint: true,
+        }, storeInfo).catch(() => toast.error('No se pudo imprimir el comprobante.'));
+    };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('cmpx.reprint.title')} size="2xl">
@@ -181,7 +203,31 @@ export const ReprintModal: React.FC<ReprintModalProps> = ({ isOpen, onClose, emp
                     {loading ? (
                         <LoadingSkeleton variant="list" rows={5} />
                     ) : filtered.length === 0 ? (
-                        <EmptyState title={t('cmpx.reprint.no_results')} description={isPagos ? t('cmpx.reprint.no_payments') : tab === 'devoluciones' ? t('cmpx.reprint.no_returns') : t('cmpx.reprint.no_invoices')} />
+                        <EmptyState title={t('cmpx.reprint.no_results')} description={isPayouts ? 'No hay desembolsos registrados.' : isPagos ? t('cmpx.reprint.no_payments') : tab === 'devoluciones' ? t('cmpx.reprint.no_returns') : t('cmpx.reprint.no_invoices')} />
+                    ) : isPayouts ? (
+                        <div className="max-h-[45vh] overflow-y-auto border rounded-md divide-y divide-neutral-100 dark:divide-neutral-700 dark:border-neutral-700">
+                            {filtered.map(r => (
+                                <button
+                                    key={r.id}
+                                    onClick={() => reprintPayout(r)}
+                                    className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 dark:hover:bg-neutral-700/40 text-left transition-colors"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-neutral-800 dark:text-neutral-100">
+                                            Folio {payoutFolio(r.id)}
+                                            <span className="ml-2 text-xs font-normal text-neutral-400">{new Date(r.createdAt).toLocaleString()}</span>
+                                        </p>
+                                        <p className="text-xs text-neutral-500 truncate">
+                                            {r.reason}{r.cajaName ? ` · ${r.cajaName}` : ''} · {r.createdBy}{r.authorizedBy ? ` (autorizó ${r.authorizedBy})` : ''}
+                                        </p>
+                                    </div>
+                                    <div className="text-right flex-shrink-0 ml-3">
+                                        <p className="font-bold text-red-600 dark:text-red-400">-{money(r.amount)}</p>
+                                        <span className="text-xs text-primary">🖨️ {t('cmpx.reprint.reprint_btn')}</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     ) : isPagos ? (
                         <div className="max-h-[45vh] overflow-y-auto border rounded-md divide-y divide-neutral-100 dark:divide-neutral-700 dark:border-neutral-700">
                             {filtered.map(r => (

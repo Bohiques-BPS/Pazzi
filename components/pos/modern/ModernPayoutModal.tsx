@@ -6,7 +6,8 @@ import { ApiError } from '../../../services/api';
 import { toast } from '../../../hooks/useToast';
 import { PasswordInput } from '../../ui/PasswordInput';
 import { useGlobalSettings } from '../../../contexts/GlobalSettingsContext';
-import { printPayoutVoucher } from '../../../utils/printPayoutVoucher';
+import { printPayoutOnRecord } from '../../../utils/printPayoutVoucher';
+import { useData } from '../../../contexts/DataContext';
 
 /**
  * Desembolso de efectivo (caja MODERNA). Mismo registro que la clásica (movimiento PAYOUT con PIN
@@ -30,6 +31,7 @@ export const ModernPayoutModal: React.FC<{
     onRecorded?: (m: CashMovement) => void;
 }> = ({ isOpen, onClose, cajaId, cashInDrawer, recordedBy, onRecorded }) => {
     const { settings } = useGlobalSettings();
+    const { getCajaById } = useData();
     const [amount, setAmount] = useState('');
     const [reason, setReason] = useState<string | null>(null);
     const [other, setOther] = useState('');
@@ -77,10 +79,11 @@ export const ModernPayoutModal: React.FC<{
             });
             try {
                 const rc: any = (settings as any)?.receiptConfig || {};
-                printPayoutVoucher({
+                printPayoutOnRecord({
+                    movementId: movement?.id, cajaName: (getCajaById(cajaId) as any)?.name,
                     amount: value, reason: finalReason, receiptCount: attachment ? '1' : '0', invoiceNumber: invoiceNumber.trim(),
-                    recordedBy, authorizedBy: manager ? `${manager.name || ''} ${(manager as any).lastName || ''}`.trim() : undefined, date: new Date(),
-                }, { businessName: rc.businessName, address: rc.address, phone: rc.phone });
+                    recordedBy, authorizedBy: manager ? `${manager.name || ''} ${(manager as any).lastName || ''}`.trim() : undefined, date: movement?.createdAt || new Date(),
+                }, { businessName: rc.businessName, address: rc.address, phone: rc.phone }, msg => toast.error(msg));
             } catch { /* la impresión no bloquea */ }
             toast.success(`Desembolso de ${money(value)} registrado.`);
             onRecorded?.(movement);

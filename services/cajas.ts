@@ -54,6 +54,18 @@ export interface CajaSession {
   movements?: CashMovement[];
 }
 
+export interface RecentPayout {
+  id: string;
+  amount: number;
+  reason: string;
+  receiptCount?: number | null;
+  invoiceNumber?: string | null;
+  createdAt: string;
+  cajaName?: string | null;
+  createdBy: string;
+  authorizedBy?: string | null;
+}
+
 export interface CashMovement {
   id: string;
   cajaSessionId: string;
@@ -148,6 +160,9 @@ export const cajasService = {
       `/cajas/reports/session/${sessionId}`
     ),
 
+  /** Últimos desembolsos del negocio (Reimprimir › Desembolsos). */
+  recentPayouts: (limit = 100) =>
+    api.get<RecentPayout[]>(`/cajas/payouts/recent?limit=${limit}`),
   recordCashMovement: (cajaId: string, data: CashMovementPayload) =>
     api.post<CashMovement>(`/cajas/${cajaId}/movements`, data),
 
