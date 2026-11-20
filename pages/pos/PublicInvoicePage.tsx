@@ -25,14 +25,16 @@ function configFrom(inv: PublicInvoice): ReceiptConfig {
         showClient: false, showCashier: false, showTaxBreakdown: true,
         paperSize: 'letter', autoPrint: false,
         footerNote: 'Gracias por su preferencia.',
-    };
+        // Mismo diseño que la factura del negocio (descripción por línea, colores, títulos…).
+        ...(b.design ? { invoiceDesign: b.design } : {}),
+    } as ReceiptConfig;
 }
 
 function saleFrom(inv: PublicInvoice): ReceiptSale {
     return {
         saleNumber: inv.number ? String(inv.number) : inv.id.slice(0, 8),
         date: inv.createdAt,
-        items: inv.items.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })),
+        items: inv.items.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice, description: (it as any).description || undefined })),
         subtotal: inv.subtotal,
         tax: inv.tax,
         ...(() => {
@@ -195,6 +197,10 @@ export const PublicInvoicePage: React.FC = () => {
                                 <tr key={i} className="border-b border-neutral-100 dark:border-neutral-700/50">
                                     <td className="py-2">
                                         <div className="text-neutral-800 dark:text-neutral-100">{it.name}</div>
+                                        {/* Descripción por línea: si está activada en Config. Factura › Diseño de la factura. */}
+                                        {inv.business?.design?.showLineDescription && (it as any).description && (
+                                            <div className="text-xs text-neutral-600 dark:text-neutral-300 whitespace-pre-line mt-0.5">{(it as any).description}</div>
+                                        )}
                                         <div className="text-xs text-neutral-500">{it.quantity} × {money(it.unitPrice)}</div>
                                     </td>
                                     <td className="py-2 text-right text-neutral-800 dark:text-neutral-100">{money(it.quantity * it.unitPrice)}</td>

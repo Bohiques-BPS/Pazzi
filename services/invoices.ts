@@ -102,6 +102,8 @@ export interface BusinessTerms {
 }
 
 export interface PublicInvoiceBusiness extends BusinessTerms {
+    /** Diseño de la factura (Config. Factura + personalización de esta factura). */
+    design?: { showLineDescription?: boolean; [k: string]: any } | null;
     businessName: string;
     rnc: string;
     address: string;
