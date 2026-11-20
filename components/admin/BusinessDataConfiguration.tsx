@@ -49,7 +49,7 @@ export const BusinessDataConfiguration: React.FC = () => {
         if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { toast.error(t('admin.business.err_email')); return; }
         setSaving(true);
         try {
-            await updateSettings({
+            const ok = await updateSettings({
                 receiptConfig: {
                     ...settings.receiptConfig,
                     businessName: name.trim(),
@@ -60,6 +60,7 @@ export const BusinessDataConfiguration: React.FC = () => {
                     showLogo: !!logoUrl,
                 },
             });
+            if (!ok) throw new Error('save');
             toast.success(t('admin.business.saved'));
         } catch {
             toast.error(t('admin.business.save_error'));

@@ -11,7 +11,8 @@ import { LEADS_I18N } from '../i18n/leads';
 
 export interface GlobalSettingsContextType {
   settings: GlobalSettings;
-  updateSettings: (newSettings: Partial<GlobalSettings>) => void;
+  /** Guarda en la BD (optimista). Resuelve true si el servidor lo guardó, false si falló. */
+  updateSettings: (newSettings: Partial<GlobalSettings>) => Promise<boolean>;
   /** Carga la configuración del negocio desde la base de datos (llamar tras login). */
   loadSettings: () => Promise<void>;
   t: (key: string, params?: Record<string, string | number>) => string;
@@ -7356,7 +7357,7 @@ export const GlobalSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     const updateSettings = useCallback((newSettings: Partial<GlobalSettings>) => {
         // Actualización optimista + persistencia en la BD.
         setSettings(prev => ({ ...prev, ...newSettings }));
-        api.put('/settings', newSettings).catch(() => { /* el error global lo maneja useApiErrorToasts */ });
+        return api.put('/settings', newSettings).then(() => true).catch(() => false /* el error global lo maneja useApiErrorToasts */);
     }, []);
 
     const t = (key: string, params?: Record<string, string | number>) => {

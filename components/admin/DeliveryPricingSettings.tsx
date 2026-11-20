@@ -23,7 +23,8 @@ export const DeliveryPricingSettings: React.FC = () => {
             zones: p.zones.filter(z => z.name.trim()).map(z => ({ ...z, name: z.name.trim(), price: Math.max(0, Number(z.price) || 0), towns: z.towns.trim() })),
             freeOver: p.freeOver != null && Number(p.freeOver) > 0 ? Number(p.freeOver) : null,
         };
-        await updateSettings({ deliveryPricing: clean } as any);
+        const ok = await updateSettings({ deliveryPricing: clean } as any);
+        if (!ok) { toast.error('No se pudo guardar el cobro de entregas. Intente de nuevo.'); return; }
         setP(clean); setDirty(false);
         toast.success('Cobro de entregas guardado.');
     };

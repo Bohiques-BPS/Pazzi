@@ -49,8 +49,15 @@ const SAMPLE: ReceiptSale = {
 export const ReceiptSettingsPage: React.FC = () => {
     const { t } = useTranslation();
     const { settings, updateSettings } = useGlobalSettings();
-    const [cfg, setCfg] = useState<ReceiptConfig>({ ...DEFAULT_RECEIPT_CONFIG, ...settings.receiptConfig });
+    const [cfg, setCfgState] = useState<ReceiptConfig>({ ...DEFAULT_RECEIPT_CONFIG, ...settings.receiptConfig });
     const [saving, setSaving] = useState(false);
+    // Cambios sin guardar. Mientras no haya, el formulario sigue a lo guardado en la BD: al recargar
+    // en esta página la configuración llega DESPUÉS de montar y antes se quedaba con los valores por defecto.
+    const [dirty, setDirty] = useState(false);
+    useEffect(() => {
+        if (!dirty) setCfgState({ ...DEFAULT_RECEIPT_CONFIG, ...settings.receiptConfig });
+    }, [settings.receiptConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+    const setCfg: typeof setCfgState = v => { setDirty(true); setCfgState(v); };
     const set = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>
         setCfg(prev => ({ ...prev, [key]: value }));
 
@@ -74,10 +81,12 @@ export const ReceiptSettingsPage: React.FC = () => {
         reader.readAsDataURL(file);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setSaving(true);
-        updateSettings({ receiptConfig: cfg });
-        setTimeout(() => { setSaving(false); toast.success(t('posx.receipt.toast.saved')); }, 300);
+        const ok = await updateSettings({ receiptConfig: cfg });
+        setSaving(false);
+        if (ok) { setDirty(false); toast.success(t('posx.receipt.toast.saved')); }
+        else toast.error('No se pudo guardar la configuración de la factura. Revise la conexión e intente de nuevo.');
     };
 
     return (
