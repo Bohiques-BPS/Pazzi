@@ -120,7 +120,7 @@ export const ReceiptSettingsPage: React.FC = () => {
                             <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.receipt.logo')}</label>
                             <div className="flex items-center gap-3">
                                 {cfg.logoUrl ? <img src={cfg.logoUrl} alt="logo" className="w-16 h-16 object-contain border rounded bg-white" /> : <div className="w-16 h-16 border rounded flex items-center justify-center text-xs text-neutral-400">{t('posx.receipt.noLogo')}</div>}
-                                <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleLogo(e.target.files[0])} className="text-sm" />
+                                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) handleLogo(f); }} className="text-sm" />
                                 {cfg.logoUrl && <button onClick={() => set('logoUrl', '')} className="text-red-500 text-xs hover:underline">{t('posx.receipt.remove')}</button>}
                             </div>
                         </div>

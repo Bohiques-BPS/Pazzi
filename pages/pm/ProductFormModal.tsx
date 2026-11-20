@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { imageFileError, uploadErrorMessage } from '../../utils/imageFile';
 import { Product, ProductFormData, CustomSpecification, ProductPriceLevel, ProductVariation } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
@@ -274,6 +275,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
+        // Imagen no aceptada: no entra a la vista previa.
+        const bad = file ? imageFileError(file) : null;
+        if (bad) { toast.error(bad); return; }
         if (file) {
             setImageFile(file);
             const reader = new FileReader();
@@ -478,7 +483,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     const uploadResult = await uploadResponse.json();
                     finalImageUrl = uploadResult.url; 
                 } else {
-                    throw new Error("Error al subir la imagen al servidor");
+                    // El servidor no aceptó la imagen: se quita de la vista previa (vuelve la anterior).
+                    const msg = await uploadErrorMessage(uploadResponse);
+                    setImageFile(null);
+                    setFormData(prev => ({ ...prev, imageUrl: productToEdit?.imageUrl || '' }));
+                    toast.error(msg);
+                    throw new Error(msg);
                 }
             }
 

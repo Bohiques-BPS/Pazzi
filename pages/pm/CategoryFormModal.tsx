@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { imageFileError, uploadErrorMessage } from '../../utils/imageFile';
 import { Category, CategoryFormData } from '../../types'; // Adjusted path
 import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
@@ -46,6 +47,9 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
+        const bad = file ? imageFileError(file) : null;
+        if (bad) { toast.error(bad); return; }
         if (file) {
             setImageFile(file);
             const reader = new FileReader();
@@ -82,7 +86,11 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                     const uploadResult = await uploadResponse.json();
                     finalImageUrl = uploadResult.url; // Obtenemos la URL del servidor
                 } else {
-                    throw new Error("Error al subir la imagen al servidor");
+                    const msg = await uploadErrorMessage(uploadResponse);
+                    setImageFile(null);
+                    setImagePreview(category?.imageUrl || null);
+                    toast.error(msg);
+                    return;
                 }
             }
 

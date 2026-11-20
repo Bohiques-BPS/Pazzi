@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { imageFileError, uploadErrorMessage } from '../../utils/imageFile';
 import { toast } from 'react-hot-toast';
 import { Employee, EmployeeFormData, UserStatus, PermissionCategory, EmployeePermissions } from '../../types';
 import { useData } from '../../contexts/DataContext';
@@ -289,6 +290,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
+        const bad = file ? imageFileError(file) : null;
+        if (bad) { toast.error(bad); return; }
         if (file) {
             setImageFile(file);
             const reader = new FileReader();
@@ -352,7 +356,13 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({ isOpen, on
                     headers: { Authorization: `Bearer ${token}` },
                     body: uploadFormData,
                 });
-                if (!uploadResponse.ok) throw new Error('Error al subir la imagen al servidor');
+                if (!uploadResponse.ok) {
+                    const msg = await uploadErrorMessage(uploadResponse);
+                    setImageFile(null);
+                    setFormData(prev => ({ ...prev, profilePictureUrl: (employee as any)?.profilePictureUrl || '' }));
+                    toast.error(msg);
+                    return;
+                }
                 const uploadResult = await uploadResponse.json();
                 finalImageUrl = uploadResult.url;
             }
