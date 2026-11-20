@@ -34,6 +34,7 @@ export const visitsService = {
     api.get<VisitRecord[]>('/visits', filters as any),
 
   create: (data: VisitPayload) => api.post<VisitRecord>('/visits', data),
+  remove: (id: string) => api.delete<{ message: string }>(`/visits/${id}`),
 
   update: (id: string, data: Partial<VisitPayload>) =>
     api.put<VisitRecord>(`/visits/${id}`, data),

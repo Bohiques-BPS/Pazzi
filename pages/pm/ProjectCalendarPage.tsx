@@ -6,7 +6,10 @@ import { useData } from '../../contexts/DataContext';
 import { ScheduleVisitModal } from './ScheduleVisitModal';
 import { VisitDetailModal } from './VisitDetailModal';
 import { ProjectFormModal } from './ProjectFormModal';
-import { Modal } from '../../components/Modal';
+import { Modal, ConfirmationModal } from '../../components/Modal';
+import { visitsService } from '../../services/visits';
+import { toast } from '../../hooks/useToast';
+import { ApiError } from '../../services/api';
 import { ScheduleMeetingModal } from '../../components/pm/ScheduleMeetingModal';
 import { projectMeetingsService, type ProjectMeeting } from '../../services/projectMeetings';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon as CreateVisitIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CalendarDaysIcon, UserGroupIcon } from '../../components/icons';
@@ -257,6 +260,35 @@ export const ProjectCalendarPage: React.FC = () => {
         }
     };
 
+    // Editar / eliminar directo desde la lista del día (Visitas y Seguimientos). Un PROYECTO no se
+    // elimina aquí: borrarlo quita también sus tareas y su chat; se hace desde Proyectos.
+    const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
+    const [deletingEvent, setDeletingEvent] = useState(false);
+    const editEvent = (event: CalendarEvent) => {
+        if (event.type === 'visit') openScheduleVisitModal(event.originalData as Visit);
+        else if (event.type === 'meeting') { const m = event.originalData as ProjectMeeting; navigate(`/pm/projects/${m.projectId}?tab=seguimiento`); }
+        else { setProjectToEdit(event.originalData as Project); setIsProjectFormModalOpen(true); }
+    };
+    const confirmDeleteEvent = async () => {
+        const ev = eventToDelete;
+        if (!ev) return;
+        setDeletingEvent(true);
+        try {
+            if (ev.type === 'visit') {
+                await visitsService.remove((ev.originalData as Visit).id);
+                setVisits(prev => prev.filter(v => v.id !== (ev.originalData as Visit).id));
+                toast.success('Visita eliminada.');
+            } else if (ev.type === 'meeting') {
+                await projectMeetingsService.delete((ev.originalData as ProjectMeeting).id);
+                await loadMeetings();
+                toast.success('Seguimiento eliminado.');
+            }
+            setEventToDelete(null);
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo eliminar.');
+        } finally { setDeletingEvent(false); }
+    };
+
     const empName = (id: string) => { const e = employees.find(x => x.id === id); return e ? `${e.name} ${e.lastName || ''}`.trim() : id; };
 
     // Un solo día (para la vista "Día") con sus eventos.
@@ -404,6 +436,12 @@ export const ProjectCalendarPage: React.FC = () => {
                                 </div>
                                 {!event.isAllDay && <p className="text-xs text-neutral-500 dark:text-neutral-400">{event.start.toLocaleTimeString(locale, {hour: '2-digit', minute:'2-digit'})} - {event.end.toLocaleTimeString(locale, {hour: '2-digit', minute:'2-digit'})}</p>}
                                 {event.type === 'project' && <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('pm2x.calendar.all_day')}</p>}
+                                <div className="flex gap-3 mt-1.5 text-xs font-medium">
+                                    <button type="button" onClick={e => { e.stopPropagation(); editEvent(event); }} className="text-primary hover:underline">Editar</button>
+                                    {event.type === 'project'
+                                        ? <button type="button" onClick={e => { e.stopPropagation(); navigate(`/pm/projects/${(event.originalData as Project).id}`); }} className="text-neutral-500 dark:text-neutral-400 hover:underline">Ver proyecto</button>
+                                        : <button type="button" onClick={e => { e.stopPropagation(); setEventToDelete(event); }} className="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>}
+                                </div>
                             </li>
                         ))}
                     </ul>
@@ -448,6 +486,15 @@ export const ProjectCalendarPage: React.FC = () => {
                     </div>
                 )}
             </Modal>
+
+            <ConfirmationModal
+                isOpen={!!eventToDelete}
+                onClose={() => !deletingEvent && setEventToDelete(null)}
+                onConfirm={confirmDeleteEvent}
+                title={eventToDelete?.type === 'meeting' ? 'Eliminar seguimiento' : 'Eliminar visita'}
+                message={eventToDelete ? `¿Eliminar "${eventToDelete.title}" del ${eventToDelete.start.toLocaleDateString()}? Esta acción no se puede deshacer.` : ''}
+                confirmButtonText={deletingEvent ? 'Eliminando…' : 'Sí, eliminar'}
+            />
 
             {/* Detalle de reunión (Seguimiento) */}
             <Modal isOpen={!!meetingToView} onClose={() => setMeetingToView(null)} title={meetingToView?.title || 'Reunión'} size="md">
