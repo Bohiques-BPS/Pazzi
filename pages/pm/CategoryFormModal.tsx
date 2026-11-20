@@ -6,6 +6,7 @@ import { useData } from '../../contexts/DataContext'; // Adjusted path
 import { Modal } from '../../components/Modal'; // Adjusted path
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants'; // Adjusted path
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { TaxClassSelect } from '../../components/TaxClassSelect';
 import { CameraIcon, TrashIconMini } from '../../components/icons';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
@@ -19,7 +20,7 @@ interface CategoryFormModalProps {
 export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, onClose, category }) => {
     const { t } = useTranslation();
     const { setCategories, categories, departments } = useData();
-    const [formData, setFormData] = useState<CategoryFormData & { reducedTax?: boolean }>({ name: '', description: '', departmentId: '', reducedTax: false });
+    const [formData, setFormData] = useState<CategoryFormData & { reducedTax?: boolean; taxClassId?: string | null }>({ name: '', description: '', departmentId: '', reducedTax: false, taxClassId: null });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -31,10 +32,11 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                 description: category.description || '',
                 departmentId: category.departmentId || '',
                 reducedTax: !!category.reducedTax,
+                taxClassId: category.taxClassId ?? (category.reducedTax ? 'reducido' : null),
             });
             setImagePreview(category.imageUrl || null);
         } else {
-            setFormData({ name: '', description: '', departmentId: '', reducedTax: false });
+            setFormData({ name: '', description: '', departmentId: '', reducedTax: false, taxClassId: null });
             setImagePreview(null);
         }
         setImageFile(null);
@@ -161,10 +163,11 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ isOpen, on
                     </select>
                     <p className="mt-1 text-xs text-neutral-500">{t('pmx.category.dept_hierarchy_hint')}</p>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-                    <input type="checkbox" checked={!!formData.reducedTax} onChange={e => setFormData(prev => ({ ...prev, reducedTax: e.target.checked }))} className="h-4 w-4" />
-                    {t('pmx.common.reduced_tax_label')}
-                </label>
+                <TaxClassSelect
+                    value={formData.taxClassId ?? null}
+                    emptyLabel="Ninguna (usa la del departamento)"
+                    onChange={(id, reduced) => setFormData(prev => ({ ...prev, taxClassId: id, reducedTax: reduced }))}
+                />
                 <div>
                     <label htmlFor="categoryDescription" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('product.field.description')}</label>
                     <textarea

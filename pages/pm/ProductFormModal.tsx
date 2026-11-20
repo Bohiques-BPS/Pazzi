@@ -8,6 +8,7 @@ import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES 
 import { PlusIcon, TrashIconMini, CameraIcon, ExclamationTriangleIcon } from '../../components/icons';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettingsContext';
+import { AUTO_TAX_CLASS, classRate, findTaxClass, getTaxClasses, inheritedTaxClass, pct } from '../../utils/taxClasses';
 import { CategoryFormModal } from './CategoryFormModal';
 import { SupplierFormModal } from '../ecommerce/SupplierFormModal';
 import { MoneyInput } from '../../components/ui/MoneyInput';
@@ -92,6 +93,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
     const { settings } = useGlobalSettings();
     const { categories, departments, suppliers, setProducts, branches } = useData();
     
+    const legacyTaxClass = (p: any): string | null => {
+        const rate = Number(p?.ivaRate ?? p?.ivuRate);
+        if (rate === 0) return 'cero';
+        if (p?.reducedTax || p?.category?.reducedTax || p?.department?.reducedTax || !Number.isFinite(rate)) return null;
+        return getTaxClasses(settings).find(c => Math.abs(classRate(c) - rate) < 1e-6)?.id ?? null;
+    };
+
     const initialFormData: ProductFormData = {
         name: '',
         unitPrice: 0,
@@ -100,6 +108,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
         skus: [],
         category: '',
         ivuRate: settings.defaultTaxRate || 0.115,
+        taxClassId: AUTO_TAX_CLASS, // nuevo: toma la clase de su categoría/departamento (o Estándar)
         storeOwnerId: storeOwnerIdForNewProduct,
         isEmergencyTaxExempt: false,
         salePrice: null,
@@ -228,6 +237,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
                     // El backend usa `ivaRate`; el formulario usa `ivuRate`. Sin este mapeo, al reabrir
                     // el producto la tasa volvía al default (0.115) y "No cobra IVU" salía desmarcado.
                     ivuRate: (productToEdit as any).ivaRate != null ? Number((productToEdit as any).ivaRate) : ((productToEdit as any).ivuRate ?? initialFormData.ivuRate),
+                    // Producto de antes de las clases: se preselecciona la clase con su misma tasa (exento → Cero),
+                    // así al guardar cobra exactamente lo mismo. Si su depto/categoría era "tasa reducida" o
+                    // ninguna clase coincide, se queda con su tasa propia.
+                    taxClassId: (productToEdit as any).taxClassId ?? legacyTaxClass(productToEdit),
                     // Explicitly handle arrays and objects to avoid undefined references if checking properties
                     skus: Array.isArray(productToEdit.skus) 
                         ? productToEdit.skus.map((s: any) => typeof s === 'string' ? s : s.sku) 
@@ -770,29 +783,35 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onCl
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium">{t('product.tax_rate')}</label>
-                                    <input
-                                        type="number"
-                                        name="ivuRate"
-                                        value={formData.ivuRate ?? ''}
-                                        onChange={handleChange}
-                                        className={inputFormStyle}
-                                        step="0.001"
-                                        min="0"
-                                        disabled={Number(formData.ivuRate) === 0}
-                                    />
-                                    <label className="flex items-center gap-2 mt-2 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={Number(formData.ivuRate) === 0}
-                                            onChange={e => setFormData(prev => ({
-                                                ...prev,
-                                                ivuRate: e.target.checked ? 0 : (Number(settings.defaultTaxRate) || 0.115),
-                                            }))}
-                                            className="h-4 w-4"
-                                        />
-                                        {t('product.tax_exempt')}
-                                    </label>
+                                    {/* Clase de impuesto (Administración › Configuración › Impuestos). */}
+                                    <label className="block text-sm font-medium">Clase de impuesto (IVU)</label>
+                                    {(() => {
+                                        const classes = getTaxClasses(settings);
+                                        const cat = categories.find(c => c.id === formData.category);
+                                        const dep = departments.find(d => d.id === formData.departmentId);
+                                        const inh = inheritedTaxClass(settings, cat, dep);
+                                        const cur = (formData as any).taxClassId ?? '';
+                                        return (
+                                            <>
+                                                <select
+                                                    value={cur}
+                                                    onChange={e => {
+                                                        const v = e.target.value || null;
+                                                        const c = v === AUTO_TAX_CLASS ? inh : findTaxClass(settings, v);
+                                                        setFormData(prev => ({ ...prev, taxClassId: v, ...(c ? { ivuRate: classRate(c) } : {}) }) as any);
+                                                    }}
+                                                    className={inputFormStyle}
+                                                >
+                                                    <option value={AUTO_TAX_CLASS}>Según categoría/departamento ({inh ? `${inh.name} ${pct(classRate(inh))}` : '—'})</option>
+                                                    {classes.map(c => <option key={c.id} value={c.id}>{c.name} — {pct(classRate(c))}</option>)}
+                                                    {!cur && <option value="">Tasa propia anterior ({pct(Number(formData.ivuRate) || 0)})</option>}
+                                                </select>
+                                                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                                                    {cur ? 'Las tasas de cada clase se editan en Administración › Configuración › Impuestos.' : 'Este producto tiene su propia tasa (de antes de las clases). Escoja una clase para que siga los cambios de tasa.'}
+                                                </p>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                                 <div>
                                     <label className="flex items-start gap-2 text-sm cursor-pointer select-none">

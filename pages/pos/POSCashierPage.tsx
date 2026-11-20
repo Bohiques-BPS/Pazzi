@@ -6,6 +6,7 @@ import { useGlobalSettings, useTranslation } from '../../contexts/GlobalSettings
 import { Product, CartItem, Client, Branch, Caja, HeldCart, Estimate, LayawayStatus, User, UserRole, Employee, Project, EstimateStatus, Sale, ProductVariation } from '../../types';
 import { getCajaDesign } from '../../utils/cajaDesigns';
 import { getEffectiveUnitPrice } from '../../utils/pricing';
+import { classTaxParts } from '../../utils/taxClasses';
 import {
     XMarkIcon,
     TruckIcon,
@@ -780,7 +781,13 @@ export function useCashierController() {
                 if (prodRateFrac === 0) return; // producto exento (No cobra IVU)
 
                 if (breakdown) {
-                    if ((item as any).reducedTax) {
+                    // Producto con clase de impuesto: Estatal/Municipal/Reducido según su clase.
+                    const parts = classTaxParts(settings, item, exemptState, !!exemptMunicipal);
+                    if (parts) {
+                        txState += taxableAmount * parts.state;
+                        txMunicipal += taxableAmount * parts.municipal;
+                        txReduced += taxableAmount * parts.reduced;
+                    } else if ((item as any).reducedTax) {
                         txReduced += taxableAmount * reducedRate;
                     } else {
                         txState += taxableAmount * stateRate;
@@ -802,7 +809,7 @@ export function useCashierController() {
         const [rState, rMunicipal, rReduced] = [c(txState), c(txMunicipal), c(txReduced)];
         const rTax = breakdown ? c(rState + rMunicipal + rReduced) : c(tx);
         return { subtotal: c(sub), globalDiscountAmount: c(discountAmt), tax: rTax, taxState: rState, taxMunicipal: rMunicipal, taxReduced: rReduced, total: c(c(netSubtotal) + rTax) };
-    }, [cart, selectedClient, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate, settings.taxBreakdownEnabled, settings.taxStateRate, settings.taxMunicipalRate, settings.taxReducedRate]);
+    }, [cart, selectedClient, selectedCajaId, cajas, currentUser?.isEmergencyOrderActive, generalDiscount, settings.defaultTaxRate, settings.taxBreakdownEnabled, settings.taxStateRate, settings.taxMunicipalRate, settings.taxReducedRate, (settings as any).taxClasses]);
 
     // Agrega al carrito una línea ya resuelta (producto simple o una variación específica).
     // ── Recursos del proyecto → carrito ──

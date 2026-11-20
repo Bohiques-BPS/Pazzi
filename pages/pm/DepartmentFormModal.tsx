@@ -5,6 +5,7 @@ import { useData } from '../../contexts/DataContext';
 import { Modal } from '../../components/Modal';
 import { inputFormStyle, BUTTON_SECONDARY_SM_CLASSES, BUTTON_PRIMARY_SM_CLASSES } from '../../constants';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { TaxClassSelect } from '../../components/TaxClassSelect';
 import { API_URL } from '../../services/api';
 import { toast } from 'react-hot-toast';
 
@@ -17,14 +18,14 @@ interface DepartmentFormModalProps {
 export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen, onClose, department }) => {
     const { t } = useTranslation();
     const { setDepartments, departments } = useData();
-    const [formData, setFormData] = useState<{ name: string; reducedTax: boolean }>({ name: '', reducedTax: false });
+    const [formData, setFormData] = useState<{ name: string; reducedTax: boolean; taxClassId: string | null }>({ name: '', reducedTax: false, taxClassId: null });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (department) {
-            setFormData({ name: department.name, reducedTax: !!department.reducedTax });
+            setFormData({ name: department.name, reducedTax: !!department.reducedTax, taxClassId: department.taxClassId ?? (department.reducedTax ? 'reducido' : null) });
         } else {
-            setFormData({ name: '', reducedTax: false });
+            setFormData({ name: '', reducedTax: false, taxClassId: null });
         }
     }, [department, isOpen]);
 
@@ -54,7 +55,7 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ name: formData.name, reducedTax: formData.reducedTax })
+                body: JSON.stringify({ name: formData.name, reducedTax: formData.reducedTax, taxClassId: formData.taxClassId })
             });
 
             const result = await response.json();
@@ -92,10 +93,11 @@ export const DepartmentFormModal: React.FC<DepartmentFormModalProps> = ({ isOpen
                         required
                     />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-                    <input type="checkbox" checked={formData.reducedTax} onChange={e => setFormData(prev => ({ ...prev, reducedTax: e.target.checked }))} className="h-4 w-4" />
-                    {t('pmx.common.reduced_tax_label')}
-                </label>
+                <TaxClassSelect
+                    value={formData.taxClassId}
+                    emptyLabel="Ninguna (Estándar)"
+                    onChange={(id, reduced) => setFormData(prev => ({ ...prev, taxClassId: id, reducedTax: reduced }))}
+                />
                 <div className="flex justify-end space-x-3 pt-4">
                     <button type="button" onClick={onClose} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                     <button type="submit" className={BUTTON_PRIMARY_SM_CLASSES} disabled={isSubmitting}>

@@ -7,6 +7,7 @@ import { ClockIcon, Cog6ToothIcon, ExclamationTriangleIcon } from '../../compone
 import { toast } from '../../hooks/useToast';
 import { timezoneOptions } from '../../utils/timezones';
 import { DATE_FORMATS } from '../../utils/dateFormat';
+import { TaxClassesSettings } from '../../components/admin/TaxClassesSettings';
 
 /**
  * Administración › Configuración: ajustes del NEGOCIO que heredan el gerente y todos sus empleados
@@ -232,41 +233,12 @@ export const AdminSettingsPage: React.FC = () => {
                         />
                         Desglosar IVU en <strong>Estatal / Municipal / Reducido</strong> (Puerto Rico)
                     </label>
-                    {settings.taxBreakdownEnabled && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Estatal (%)</label>
-                                <input type="number" min="0" step="0.1" value={((settings.taxStateRate ?? 0.105) * 100)}
-                                    onChange={(e) => updateSettings({ taxStateRate: Math.max(0, (parseFloat(e.target.value) || 0) / 100) })}
-                                    className={inputFormStyle} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Municipal (%)</label>
-                                <input type="number" min="0" step="0.1" value={((settings.taxMunicipalRate ?? 0.01) * 100)}
-                                    onChange={(e) => updateSettings({ taxMunicipalRate: Math.max(0, (parseFloat(e.target.value) || 0) / 100) })}
-                                    className={inputFormStyle} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Reducida (%)</label>
-                                <input type="number" min="0" step="0.1" value={((settings.taxReducedRate ?? 0.06) * 100)}
-                                    onChange={(e) => updateSettings({ taxReducedRate: Math.max(0, (parseFloat(e.target.value) || 0) / 100) })}
-                                    className={inputFormStyle} />
-                            </div>
-                            <div className="sm:col-span-3 flex justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => updateSettings({ taxStateRate: 0.105, taxMunicipalRate: 0.01, taxReducedRate: 0.06 })}
-                                    className="text-xs text-primary hover:underline"
-                                    title="Restablecer a las tasas estándar de Puerto Rico (10.5% / 1% / 6%)"
-                                >
-                                    ↺ Volver al default (PR: 10.5% / 1% / 6%)
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    <p className="text-xs text-neutral-500 mt-2">
-                        Con el desglose activo, los productos normales pagan Estatal + Municipal; los de <strong>departamentos o categorías marcados como "tasa reducida"</strong> pagan la tasa Reducida en su propia línea. Sin el desglose, se usa el IVU por producto/global de siempre.
+                    <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 mt-2 mb-2">Clases de impuesto</h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
+                        Como en WooCommerce: cada clase tiene su tasa (Estatal + Municipal) y cada producto escoge la suya. Las tres básicas siempre existen; puede agregar las que necesite.
+                        {settings.taxBreakdownEnabled ? ' Con el desglose activo, el recibo muestra IVU Estatal, Municipal y Reducido según la clase de cada producto.' : ' Sin el desglose, el recibo muestra un solo IVU con la tasa total de cada producto.'}
                     </p>
+                    <TaxClassesSettings />
                 </section>
 
                 {/* Recordatorios de cobro (clientes con crédito vencido) */}

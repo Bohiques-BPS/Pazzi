@@ -9,6 +9,8 @@
  *  - Clásico → cliente exento total = 0; si no, tasa del producto o el default del negocio.
  */
 
+import { classTaxParts } from './taxClasses';
+
 /** Tasa de IVU de un producto (el BE la llama ivaRate; el público la renombra a ivuRate). */
 export const productTaxRate = (p: any): number | undefined => (p?.ivaRate != null ? p.ivaRate : p?.ivuRate);
 
@@ -37,6 +39,8 @@ export function buildInvoiceTaxContext(settings: any, client: any, products: any
         const explicit = l.taxRate != null ? l.taxRate : (prod ? productTaxRate(prod) : undefined);
         if (explicit === 0) return 0;
         if (bd) {
+            const parts = prod ? classTaxParts(settings, prod, exemptState, exemptMunicipal) : null;
+            if (parts) return parts.state + parts.municipal + parts.reduced;
             const reduced = prod ? !!prod.reducedTax : false;
             return reduced ? reducedR : (stateR + municipalR);
         }

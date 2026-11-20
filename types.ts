@@ -150,6 +150,8 @@ export interface GlobalSettings {
     taxStateRate?: number;      // estatal (ej. 0.105)
     taxMunicipalRate?: number;  // municipal (ej. 0.01)
     taxReducedRate?: number;    // reducida (ej. 0.06)
+    /** Clases de impuesto (Estándar / Reducida / Cero / propias). El BE siempre manda la lista completa. */
+    taxClasses?: TaxClass[];
     /** Permite editar facturas ya pagadas desde el módulo Facturas (default false). */
     allowEditPaidInvoices?: boolean;
     /** Caja: cambiar el precio de una línea pide PIN de gerente (default true). */
@@ -260,6 +262,10 @@ export interface Product {
     ivuRate?: number;
     storeOwnerId: string;
     isEmergencyTaxExempt: boolean;
+    /** Clase de impuesto: null = tasa propia (viejo) | 'auto' = según categoría/depto | id de la clase. */
+    taxClassId?: string | null;
+    /** Clase efectiva (propia o heredada), calculada por el BE. null = tasa propia. */
+    effectiveTaxClassId?: string | null;
     /** Precio especial / oferta. Si está vigente, se usa en lugar de unitPrice. */
     salePrice?: number | null;
     /** Inicio de la oferta (opcional). Vacío = desde ya. */
@@ -338,6 +344,7 @@ export interface Category {
     department?: { id: string; name: string } | null;
     storeOwnerId: string;
     reducedTax?: boolean;                        // sus productos usan la tasa de IVU reducida
+    taxClassId?: string | null;                  // clase de impuesto por defecto de sus productos
     _count?: { products: number };
 }
 
@@ -346,7 +353,20 @@ export interface Department {
     name: string;
     storeOwnerId: string;
     reducedTax?: boolean;                        // sus productos usan la tasa de IVU reducida
+    taxClassId?: string | null;                  // clase de impuesto por defecto de sus productos
     _count?: { products: number };
+}
+
+/** Clase de impuesto (IVU). Tasas en fracción (0.105 = 10.5%). */
+export interface TaxClass {
+    id: string;
+    name: string;
+    stateRate: number;
+    municipalRate: number;
+    /** En el recibo con desglose, la parte estatal sale como "IVU Reducido". */
+    reduced?: boolean;
+    /** Estándar / Reducida / Cero: no se pueden quitar. */
+    builtin?: boolean;
 }
 
 export interface Client {
