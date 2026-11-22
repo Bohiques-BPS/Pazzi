@@ -81,6 +81,9 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
         if (onRemoteSearch) {
             if (pendingNowTermRef.current === term) return; // ya lo está resolviendo el Enter
+            // Una sola letra coincide con miles de productos: no se consulta al servidor hasta la
+            // segunda (Enter sigue buscando lo que haya escrito).
+            if (term.length < 2) { searchIdRef.current++; setSuggestions([]); setIsDropdownOpen(false); setLoading(false); return; }
             const requestId = ++searchIdRef.current;
             setLoading(true);
             setIsDropdownOpen(true);
@@ -93,7 +96,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     const hit = exactCodeMatch(results, term);
                     if (hit) { handleSelectProductRef.current(hit); return; }
                 }
-                const MAX = 100;
+                const MAX = 30;
                 setSuggestions(results.slice(0, MAX));
                 setCapped(results.length >= MAX); // pudo haber más coincidencias
                 setActiveIndex(-1);
@@ -202,8 +205,8 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             lastSearchedRef.current = term;
             const pick = exactCodeMatch(results, term) || (results.length === 1 ? results[0] : null);
             if (pick) { handleSelectProduct(pick); return; }
-            setSuggestions(results.slice(0, 100));
-            setCapped(results.length >= 100);
+            setSuggestions(results.slice(0, 30));
+            setCapped(results.length >= 30);
             setActiveIndex(-1);
         } catch {
             if (requestId === searchIdRef.current) setSuggestions([]);
