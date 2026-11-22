@@ -96,7 +96,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     const hit = exactCodeMatch(results, term);
                     if (hit) { handleSelectProductRef.current(hit); return; }
                 }
-                const MAX = 30;
+                const MAX = 10;
                 setSuggestions(results.slice(0, MAX));
                 setCapped(results.length >= MAX); // pudo haber más coincidencias
                 setActiveIndex(-1);
@@ -205,8 +205,8 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             lastSearchedRef.current = term;
             const pick = exactCodeMatch(results, term) || (results.length === 1 ? results[0] : null);
             if (pick) { handleSelectProduct(pick); return; }
-            setSuggestions(results.slice(0, 30));
-            setCapped(results.length >= 30);
+            setSuggestions(results.slice(0, 10));
+            setCapped(results.length >= 10);
             setActiveIndex(-1);
         } catch {
             if (requestId === searchIdRef.current) setSuggestions([]);

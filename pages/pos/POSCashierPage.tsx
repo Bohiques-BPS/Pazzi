@@ -946,9 +946,9 @@ export function useCashierController() {
     // recién creados) y busca por nombre, código de barras, SKU, categoría, etc.
     const searchProductsRemote = useCallback(async (term: string): Promise<Product[]> => {
         try {
-            // slim=true → respuesta liviana. 30 resultados ordenados por relevancia: con miles de
-            // productos, traer 100 hacía lenta cada búsqueda; si hay más, se afina el término.
-            const data = await productsService.getAll({ search: term, limit: 30, slim: true });
+            // slim=true → respuesta liviana. 10 resultados ordenados por relevancia (la lista muestra
+            // unos 5 a la vez): con miles de productos, traer 100 hacía lenta cada búsqueda.
+            const data = await productsService.getAll({ search: term, limit: 10, slim: true });
             if (!Array.isArray(data)) return [];
             return data.map((p: any) => {
                 const stockByBranch = Array.isArray(p.stockByBranch)
