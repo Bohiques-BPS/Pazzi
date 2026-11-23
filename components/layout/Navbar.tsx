@@ -413,7 +413,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollaps
                 </Link>
                 )}
                 <Link
-                    to={currentUser?.role === UserRole.SUPER_ADMIN ? '/admin/preferences' : '/configuration'}
+                    to={currentUser?.role === UserRole.SUPER_ADMIN ? '/admin/preferences'
+                        : (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.EMPLOYEE) ? '/ajustes' : '/configuration'}
                     onClick={() => setUserDropdownOpen(false)}
                     className="flex items-center w-full text-left px-4 py-2 text-lg text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-600"
                     role="menuitem"

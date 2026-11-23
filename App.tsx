@@ -68,7 +68,9 @@ const ProfilePage = lazyNamed(() => import('./pages/ProfilePage'), 'ProfilePage'
 // General Pages
 import { LandingPage } from './pages/LandingPage';
 const DashboardHomePage = lazyNamed(() => import('./pages/DashboardHomePage'), 'DashboardHomePage'); 
-const ConfigurationPage = lazyNamed(() => import('./pages/ConfigurationPage'), 'ConfigurationPage'); // Imported
+const ConfigurationPage = lazyNamed(() => import('./pages/ConfigurationPage'), 'ConfigurationPage');
+// Centro de configuración: todas las configuraciones en pestañas por módulo, con asistente.
+const SettingsHubPage = lazyNamed(() => import('./pages/SettingsHubPage'), 'SettingsHubPage'); // Imported
 
 // PM Client Pages
 const ProjectClientDashboardPage = lazyNamed(() => import('./pages/project_client/ProjectClientDashboardPage'), 'ProjectClientDashboardPage');
@@ -481,6 +483,9 @@ const AppContent: React.FC = () => {
         <Route element={<ProtectedRoute allowedRoles={[UserRole.MANAGER, UserRole.EMPLOYEE, UserRole.CLIENT_ECOMMERCE, UserRole.CLIENT_PROJECT]} />}>
             <Route element={<MainLayout />}>
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/ajustes" element={<SettingsHubPage />} />
+                <Route path="/ajustes/:tab" element={<SettingsHubPage />} />
+                <Route path="/ajustes/:tab/:section" element={<SettingsHubPage />} />
                 <Route path="/configuration" element={<ConfigurationPage />} /> {/* New Route */}
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />

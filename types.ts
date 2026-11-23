@@ -152,6 +152,8 @@ export interface GlobalSettings {
     taxReducedRate?: number;    // reducida (ej. 0.06)
     /** Clases de impuesto (Estándar / Reducida / Cero / propias). El BE siempre manda la lista completa. */
     taxClasses?: TaxClass[];
+    /** Asistente del Centro de configuración: { "<pestaña>.<sección>": "done" | "skipped" }. */
+    setupProgress?: Record<string, 'done' | 'skipped'>;
     /** Permite editar facturas ya pagadas desde el módulo Facturas (default false). */
     allowEditPaidInvoices?: boolean;
     /** Caja: cambiar el precio de una línea pide PIN de gerente (default true). */
