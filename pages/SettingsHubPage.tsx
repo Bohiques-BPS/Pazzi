@@ -141,7 +141,7 @@ export const SettingsHubPage: React.FC = () => {
                     <p className="text-neutral-500 dark:text-neutral-400 mt-1">{tab.intro}</p>
                 </div>
                 {!tab.noWizard && !wizard && total > 1 && (
-                    <button type="button" onClick={startWizard} className={`${BUTTON_SECONDARY_SM_CLASSES} inline-flex items-center`} title="Recorre cada configuración de este módulo, una por una">
+                    <button type="button" onClick={startWizard} className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-primary to-teal-500 shadow-md shadow-primary/30 hover:shadow-lg hover:shadow-primary/40 hover:brightness-110 transition" title="Recorre cada configuración de este módulo, una por una">
                         <SparklesIcon className="w-4 h-4 mr-1.5" />Asistente paso a paso
                     </button>
                 )}
