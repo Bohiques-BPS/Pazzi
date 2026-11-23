@@ -14,6 +14,7 @@ import { uploadImage } from '../../services/upload';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
+import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, isoToLocalDT, resolveSchedule } from './TaskSchedule';
 import { TaskCreateModal, type TaskPrefill } from './TaskCreateModal';
 
@@ -23,6 +24,8 @@ interface TaskDetailModalProps {
     onSave: (taskId: string, updates: Partial<Omit<Task, 'id'>>) => void;
     onArchive: (taskId: string) => void;
     onDelete?: (taskId: string) => void;
+    /** Devuelve la tarea a la lista si se pulsa "Deshacer" tras eliminarla (o si el borrado falla). */
+    onRestore?: (task: Task) => void;
     /** Abrir otra tarea (subtarea) en el mismo modal. */
     onOpenTask?: (task: Task) => void;
     /** Secciones existentes del proyecto para autocompletar el campo Sección. */
@@ -49,7 +52,7 @@ const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string; cls: string
     { value: 'urgent', labelKey: 'cmpx.task.prio.urgent', cls: 'text-red-600' },
 ];
 
-export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onOpenTask, sections = [], highlightCommentId}) => {
+export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose, onSave, onArchive, onDelete, onRestore, onOpenTask, sections = [], highlightCommentId}) => {
     const { t } = useTranslation();
     const { currentUser } = useAuth();
     const { can } = usePermissions();
@@ -377,6 +380,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
 
     const confirmDelete = async () => {
         setShowDeleteConfirm(false);
+        // Con "Deshacer": la tarea sale de la lista ya, pero se borra de verdad a los 6 segundos.
+        if (onDelete && onRestore) {
+            deleteWithUndo({
+                label: 'Tarea', message: `Tarea "${task.title}" eliminada`, seconds: 6,
+                optimisticRemove: () => onDelete(task.id),
+                restore: () => onRestore(task),
+                apiDelete: () => tasksService.delete(task.id),
+                errorMessage: t('cmpx.task.delete_error'),
+            });
+            onClose();
+            return;
+        }
         try {
             await tasksService.delete(task.id);
             if (onDelete) onDelete(task.id);

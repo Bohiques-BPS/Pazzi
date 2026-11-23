@@ -96,6 +96,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const [sectionMenuFor, setSectionMenuFor] = useState<string | null>(null);
     const [sectionRename, setSectionRename] = useState<string | null>(null);
     const [sectionDelete, setSectionDelete] = useState<string | null>(null);
+    const deletedSpotRef = useRef<Record<string, { index: number; archivedIndex: number }>>({});
     // Búsqueda por nombre de tarea (aplica al tablero y a la vista de archivadas).
     const [search, setSearch] = useState('');
     // Vista de tareas archivadas: mismas columnas que el tablero, con filtro por columna.
@@ -627,7 +628,18 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                     onClose={() => { setSelectedTask(null); setHighlightCommentId(null); openedFromUrlRef.current = null; }}
                     onSave={(taskId, updates) => { updateTask(taskId, updates); setArchivedTasks(prev => prev.map(x => x.id === taskId ? { ...x, ...updates } as Task : x)); setSelectedTask(null); }}
                     onArchive={(taskId) => { updateTask(taskId, { archived: true }); setSelectedTask(null); }}
-                    onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setArchivedTasks(prev => prev.filter(x => x.id !== taskId)); setSelectedTask(null); }}
+                    onDelete={(taskId) => {
+                        // Se guarda dónde estaba para poder devolverla al mismo lugar con "Deshacer".
+                        deletedSpotRef.current[taskId] = { index: tasks.findIndex(t => t.id === taskId), archivedIndex: archivedTasks.findIndex(x => x.id === taskId) };
+                        setTasks(prev => prev.filter(t => t.id !== taskId)); setArchivedTasks(prev => prev.filter(x => x.id !== taskId)); setSelectedTask(null);
+                    }}
+                    onRestore={(tk) => {
+                        const spot = deletedSpotRef.current[tk.id] || { index: 0, archivedIndex: -1 };
+                        delete deletedSpotRef.current[tk.id];
+                        const putBack = (list: Task[], at: number) => list.some(x => x.id === tk.id) ? list : [...list.slice(0, Math.max(0, at)), tk, ...list.slice(Math.max(0, at))];
+                        if (spot.index >= 0) setTasks(prev => putBack(prev, spot.index));
+                        if (spot.archivedIndex >= 0) setArchivedTasks(prev => putBack(prev, spot.archivedIndex));
+                    }}
                     onOpenTask={(tk) => setSelectedTask(tk)}
                 />
             )}

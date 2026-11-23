@@ -3,6 +3,8 @@ import { toast } from '../hooks/useToast';
 interface DeleteWithUndoOpts {
     /** Etiqueta para el toast, p.ej. "Cliente", "Producto". */
     label: string;
+    /** Texto completo del aviso (para femeninos: "Tarea eliminada"). Por defecto "<label> eliminado". */
+    message?: string;
     /** Quita el ítem de la UI de inmediato (optimista). */
     optimisticRemove: () => void;
     /** Restaura el ítem en la UI si se pulsa "Deshacer" o si la API falla. */
@@ -25,7 +27,7 @@ interface DeleteWithUndoOpts {
  * 3) Si no, al expirar se ejecuta el borrado real en el backend.
  */
 export function deleteWithUndo(opts: DeleteWithUndoOpts): void {
-    const { label, optimisticRemove, restore, apiDelete, onDeleted, errorMessage, seconds = 5 } = opts;
+    const { label, message, optimisticRemove, restore, apiDelete, onDeleted, errorMessage, seconds = 5 } = opts;
 
     optimisticRemove();
     let undone = false;
@@ -43,7 +45,7 @@ export function deleteWithUndo(opts: DeleteWithUndoOpts): void {
 
     const timer = setTimeout(commit, seconds * 1000);
 
-    toast.undo(`${label} eliminado`, () => {
+    toast.undo(message || `${label} eliminado`, () => {
         undone = true;
         clearTimeout(timer);
         restore();

@@ -184,7 +184,8 @@ export const MyTasksPage: React.FC = () => {
                     onClose={() => setSelected(null)}
                     onSave={(taskId, updates) => { updateTask(taskId, updates); setSelected(null); load(); }}
                     onArchive={(taskId) => { updateTask(taskId, { archived: true } as any); setSelected(null); load(); }}
-                    onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setSelected(null); load(); }}
+                    onDelete={(taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); setSelected(null); }}
+                    onRestore={() => { load(); }}
                 />
             )}
         </div>
