@@ -560,6 +560,7 @@ export const APP_MODULES_CONFIG = [
       { type: 'group', name: 'Usuarios y Permisos', icon: UserGroupIcon, children: [
         { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon, permission: 'clients.view' },
         { type: 'link', name: 'Empleados', path: '/tienda/employees', icon: IdentificationIcon, permission: 'employees.view' },
+        { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon, permission: 'pos.access' },
       ] },
       // Configuración del módulo en una ventana: Sucursales, Roles y permisos.
       { type: 'link', name: 'Configuración', path: '/ajustes/tienda', icon: Cog6ToothIcon, permission: ['branches.view', 'employees.manage'] },
@@ -592,29 +593,32 @@ export const APP_MODULES_CONFIG = [
     icon: CashBillIcon,
     subModulesProject: [] as SidebarItemConfig[],
     subModulesPOS: [
+        // Orden por momento y por hacia dónde va el dinero: lo vendido, lo que está por venderse,
+        // lo que te deben (Cobros) y lo que debes (Compras), y el cuadre de las cajas.
         { type: 'group', name: 'Ventas', icon: ListBulletIcon, children: [
-            { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon, permission: 'pos.viewHistory' },
-            { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon, permission: 'pos.viewHistory' },
+            { type: 'link', name: 'Ventas realizadas', path: '/pos/sales-history', icon: ListBulletIcon, permission: 'pos.viewHistory' },
+            { type: 'link', name: 'Entregas', path: '/pos/deliveries', icon: TruckIcon, permission: ['deliveries.view', 'deliveries.manage', 'deliveries.deliver'] },
+        ] },
+        { type: 'group', name: 'Antes de vender', icon: ClipboardDocumentListIcon, children: [
             { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon, permission: 'estimates.manage' },
-            { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon, permission: 'layaways.manage' },
-            { type: 'link', name: 'Control de Entregas', path: '/pos/deliveries', icon: TruckIcon, permission: ['deliveries.view', 'deliveries.manage', 'deliveries.deliver'] },
+            { type: 'link', name: 'Apartados', path: '/pos/layaways', icon: ArchiveBoxIcon, permission: 'layaways.manage' },
         ] },
-        { type: 'group', name: 'Cuentas', icon: BanknotesIcon, children: [
-            { type: 'link', name: 'Cuentas por Cobrar', path: '/pos/accounts-receivable', icon: DocumentArrowUpIcon, permission: 'accounts.viewReceivable' },
-            { type: 'link', name: 'Cuentas por Pagar', path: '/pos/accounts-payable', icon: BanknotesIcon, permission: 'accounts.viewPayable' },
-            { type: 'link', name: 'Pagos Recurrentes', path: '/pos/recurring', icon: ArrowPathIcon, permission: 'accounts.viewReceivable' },
+        { type: 'group', name: 'Cobros', icon: BanknotesIcon, children: [
+            { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon, permission: 'pos.viewHistory' },
+            { type: 'link', name: 'Cuentas por cobrar', path: '/pos/accounts-receivable', icon: DocumentArrowUpIcon, permission: 'accounts.viewReceivable' },
+            { type: 'link', name: 'Cobros recurrentes', path: '/pos/recurring', icon: ArrowPathIcon, permission: 'accounts.viewReceivable' },
         ] },
-        { type: 'group', name: 'Compras y Proveedores', icon: TruckIcon, children: [
+        { type: 'group', name: 'Compras', icon: TruckIcon, children: [
             { type: 'link', name: 'Proveedores', path: '/tienda/suppliers', icon: TruckIcon, permission: ['suppliers.view', 'suppliers.manage'] },
-            { type: 'link', name: 'Pedidos a Proveedor', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: ['supplierOrders.view', 'supplierOrders.manage', 'supplierOrders.receive'] },
-            { type: 'link', name: 'Devoluciones a suplidor', path: '/pos/supplier-returns', icon: ArrowUturnLeftIcon, permission: ['supplierOrders.view', 'supplierOrders.manage', 'suppliers.view', 'suppliers.manage'] },
+            { type: 'link', name: 'Órdenes de compra', path: '/tienda/supplier-orders', icon: DocumentArrowUpIcon, permission: ['supplierOrders.view', 'supplierOrders.manage', 'supplierOrders.receive'] },
+            { type: 'link', name: 'Cuentas por pagar', path: '/pos/accounts-payable', icon: BanknotesIcon, permission: 'accounts.viewPayable' },
+            { type: 'link', name: 'Devoluciones a proveedor', path: '/pos/supplier-returns', icon: ArrowUturnLeftIcon, permission: ['supplierOrders.view', 'supplierOrders.manage', 'suppliers.view', 'suppliers.manage'] },
         ] },
         { type: 'group', name: 'Cajas', icon: CubeIcon, children: [
-            { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
             // Cuadres guardados de cada día (todas las cajas): la pestaña "Cortes" de Reportes de Caja.
-            { type: 'link', name: 'Cuadres diarios', path: '/pos/reports?tab=cortes', icon: ClipboardDocumentListIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
+            { type: 'link', name: 'Cuadres y turnos', path: '/pos/reports?tab=cortes', icon: ClipboardDocumentListIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
+            { type: 'link', name: 'Reportes de caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
         ] },
-        { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon, permission: 'pos.access' },
         // Toda la configuración del módulo en una ventana: Cajas, Métodos de pago, Factura y recibo, Terminal.
         { type: 'link', name: 'Configuración', path: '/ajustes/ventas', icon: Cog6ToothIcon, permission: ['caja.open', 'settings.viewCompany', 'pos.access'] },
     ] as SidebarItemConfig[],
@@ -741,6 +745,8 @@ const MODULE_PATH_PREFIX: Array<{ prefix: string; module: AppModule }> = [
   { prefix: '/tienda/supplier-orders', module: AppModule.POS },
   { prefix: '/tienda', module: AppModule.TIENDA },
   { prefix: '/pm', module: AppModule.PROJECT_MANAGEMENT },
+  // Horarios / Asistencia se movió a Tienda (junto a Empleados) aunque conserva su ruta /pos/*.
+  { prefix: '/pos/attendance', module: AppModule.TIENDA },
   { prefix: '/pos', module: AppModule.POS },
   { prefix: '/ecommerce', module: AppModule.ECOMMERCE },
   { prefix: '/leads', module: AppModule.LEADS },
