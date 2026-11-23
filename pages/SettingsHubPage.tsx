@@ -66,10 +66,9 @@ const TABS: Tab[] = [
     },
     {
         id: 'tienda', label: 'Tienda', module: AppModule.TIENDA,
-        intro: 'Sucursales del negocio y lo que puede hacer cada colaborador.',
+        intro: 'Los locales del negocio: el inventario y las cajas se manejan por sucursal.',
         sections: [
             { id: 'sucursales', title: 'Sucursales', desc: 'Locales del negocio; cada caja pertenece a una sucursal.', guide: 'Crea una sucursal por cada local. El inventario y las cajas se manejan por sucursal.', Component: named(() => import('./admin/BranchesListPage'), 'BranchesListPage'), permission: 'branches.view' },
-            { id: 'roles', title: 'Roles y permisos', desc: 'Qué puede ver y hacer cada tipo de colaborador.', guide: 'Crea los roles (cajero, supervisor, almacén…) y marca sus permisos. Después se asigna el rol a cada colaborador.', Component: named(() => import('./pm/RolesListPage'), 'RolesListPage'), permission: 'employees.manage' },
         ],
     },
     {

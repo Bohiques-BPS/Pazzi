@@ -551,19 +551,22 @@ export const APP_MODULES_CONFIG = [
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
     subModulesTienda: [
-      { type: 'group', name: 'Catálogo y Productos', icon: Squares2X2Icon, children: [
+      // Catálogo (lo que vendes), Inventario (cuánto hay), Clientes (a quién le vendes) y Personal
+      // (quién trabaja y qué puede hacer). Configuración: sucursales.
+      { type: 'group', name: 'Catálogo', icon: Squares2X2Icon, children: [
         { type: 'link', name: 'Productos', path: '/tienda/products', icon: Squares2X2Icon, permission: 'products.view' },
-        { type: 'link', name: 'Inventario', path: '/tienda/inventory', icon: CubeIcon, permission: 'inventory.view' },
         { type: 'link', name: 'Categorías', path: '/tienda/categories', icon: ListBulletIcon, permission: 'categories.manage' },
         { type: 'link', name: 'Departamentos', path: '/tienda/departments', icon: FolderIcon, permission: 'departments.manage' },
       ] },
-      { type: 'group', name: 'Usuarios y Permisos', icon: UserGroupIcon, children: [
-        { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon, permission: 'clients.view' },
+      { type: 'link', name: 'Inventario', path: '/tienda/inventory', icon: CubeIcon, permission: 'inventory.view' },
+      { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon, permission: 'clients.view' },
+      { type: 'group', name: 'Personal', icon: IdentificationIcon, children: [
         { type: 'link', name: 'Empleados', path: '/tienda/employees', icon: IdentificationIcon, permission: 'employees.view' },
+        { type: 'link', name: 'Roles y permisos', path: '/tienda/roles', icon: LoginKeyIcon, permission: 'employees.manage' },
         { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon, permission: 'pos.access' },
       ] },
-      // Configuración del módulo en una ventana: Sucursales, Roles y permisos.
-      { type: 'link', name: 'Configuración', path: '/ajustes/tienda', icon: Cog6ToothIcon, permission: ['branches.view', 'employees.manage'] },
+      // Configuración del módulo: Sucursales.
+      { type: 'link', name: 'Configuración', path: '/ajustes/tienda', icon: Cog6ToothIcon, permission: 'branches.view' },
     ] as SidebarItemConfig[],
     subModulesAdmin: [] as SidebarItemConfig[],
   },
