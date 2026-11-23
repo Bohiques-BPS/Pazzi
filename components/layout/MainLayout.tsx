@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useRef, useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar'; // Adjusted path
 import { Sidebar } from './Sidebar'; // Adjusted path
@@ -84,9 +84,22 @@ export const MainLayout: React.FC = () => {
 
     if (resolvedModule && resolvedModule !== currentModule) {
         setCurrentModule(resolvedModule);
+        return;
+    }
+    // "Caja Registradora" es solo la pantalla de cobro: fuera de ella no tiene vista propia (su menú
+    // sería un único enlace). Al salir de la caja se vuelve al módulo en que se estaba antes, o al
+    // primero disponible. Un cajero que solo tiene la caja se queda como está.
+    if (!resolvedModule && currentModule === AppModule.CAJA) {
+        const options = [lastModuleRef.current, AppModule.POS, AppModule.TIENDA, AppModule.PROJECT_MANAGEMENT, AppModule.ECOMMERCE, AppModule.LEADS, AppModule.ADMINISTRACION];
+        const next = options.find((m): m is AppModule => !!m && m !== AppModule.CAJA && canAccessModule(m));
+        if (next) setCurrentModule(next);
     }
     // If no resolvedModule (e.g. /settings), currentModule remains as is, which is fine.
-  }, [location.pathname, currentModule, setCurrentModule]);
+  }, [location.pathname, currentModule, setCurrentModule, canAccessModule]);
+
+  // Último módulo distinto de la caja (para volver a él al salir de la pantalla de cobro).
+  const lastModuleRef = useRef<AppModule | null>(null);
+  useEffect(() => { if (currentModule !== AppModule.CAJA) lastModuleRef.current = currentModule; }, [currentModule]);
 
 
   useEffect(() => {
