@@ -131,13 +131,13 @@ export const SettingsHubPage: React.FC = () => {
     const Active = section.Component;
 
     return (
-        <div className="p-4 sm:p-6 max-w-[1500px] mx-auto">
+        <div>
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800 dark:text-neutral-100 flex items-center">
-                        <Cog6ToothIcon className="w-7 h-7 sm:w-8 sm:h-8 mr-2 sm:mr-3 text-primary flex-shrink-0" />Configuración{tab.noWizard ? '' : ` · ${tab.label}`}
+                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200 flex items-center">
+                        <Cog6ToothIcon className="w-6 h-6 mr-2 text-primary flex-shrink-0" />Configuración{tab.noWizard ? '' : ` · ${tab.label}`}
                     </h1>
-                    <p className="text-neutral-500 dark:text-neutral-400 mt-1">{tab.intro}</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">{tab.intro}</p>
                 </div>
                 {!tab.noWizard && !wizard && total > 1 && (
                     <button type="button" onClick={startWizard} className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-primary to-teal-500 shadow-md shadow-primary/30 hover:shadow-lg hover:shadow-primary/40 hover:brightness-110 transition" title="Recorre cada configuración de este módulo, una por una">
