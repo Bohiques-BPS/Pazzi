@@ -16,7 +16,7 @@ import { salesService } from '../../services/sales';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { TrashIconMini } from '../../components/icons';
-import { BUTTON_SECONDARY_SM_CLASSES } from '../../constants';
+import { BUTTON_SECONDARY_SM_CLASSES, INPUT_SM_CLASSES } from '../../constants';
 import { ClientNameLink } from '../../components/ui/EntityNameLink';
 import { TruckIcon } from '../../components/icons';
 import { DeliverySetupModal, deliveryDefaultsFromClient } from '../../components/pos/DeliverySetupModal';
@@ -97,6 +97,52 @@ export const POSSalesHistoryPage: React.FC = () => {
     return () => { alive = false; };
   }, [showDeleted]);
 
+  // ── Filtros: fecha (o rango), tipo, método de pago, estado y monto ──
+  type DatePreset = '' | 'hoy' | 'ayer' | '7d' | 'mes' | 'mes_pasado' | 'dia' | 'rango';
+  const [fDate, setFDate] = useState<DatePreset>('');
+  const [fDay, setFDay] = useState('');
+  const [fFrom, setFFrom] = useState('');
+  const [fTo, setFTo] = useState('');
+  const [fType, setFType] = useState('');
+  const [fMethod, setFMethod] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [fMin, setFMin] = useState('');
+  const [fMax, setFMax] = useState('');
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // Rango [desde, hasta] (fechas locales YYYY-MM-DD) del filtro de fecha; null = sin filtro.
+  const dateRange = useMemo((): [string, string] | null => {
+      const now = new Date();
+      const day = (offset: number) => { const d = new Date(now); d.setDate(d.getDate() + offset); return ymd(d); };
+      switch (fDate) {
+          case 'hoy': return [day(0), day(0)];
+          case 'ayer': return [day(-1), day(-1)];
+          case '7d': return [day(-6), day(0)];
+          case 'mes': return [ymd(new Date(now.getFullYear(), now.getMonth(), 1)), day(0)];
+          case 'mes_pasado': return [ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)), ymd(new Date(now.getFullYear(), now.getMonth(), 0))];
+          case 'dia': return fDay ? [fDay, fDay] : null;
+          case 'rango': return (fFrom || fTo) ? [fFrom || '2000-01-01', fTo || day(0)] : null;
+          default: return null;
+      }
+  }, [fDate, fDay, fFrom, fTo]);
+  // La app trae solo las últimas 200 ventas: con un filtro de fecha se piden al servidor las de ese
+  // rango, para no dejar fuera ventas más viejas.
+  const [rangeSales, setRangeSales] = useState<Sale[] | null>(null);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const RANGE_LIMIT = 500;
+  useEffect(() => {
+      if (!dateRange || showDeleted) { setRangeSales(null); return; }
+      let alive = true;
+      setRangeLoading(true);
+      const [from, to] = dateRange;
+      salesService.getAll({ startDate: new Date(`${from}T00:00:00`).toISOString(), endDate: new Date(`${to}T23:59:59.999`).toISOString(), limit: RANGE_LIMIT } as any)
+          .then(d => { if (alive) setRangeSales(Array.isArray(d) ? d as Sale[] : []); })
+          .catch(err => { if (alive) { setRangeSales(null); if (err instanceof ApiError) toast.error(err.message); } })
+          .finally(() => { if (alive) setRangeLoading(false); });
+      return () => { alive = false; };
+  }, [dateRange, showDeleted]);
+  const clearFilters = () => { setFDate(''); setFDay(''); setFFrom(''); setFTo(''); setFType(''); setFMethod(''); setFStatus(''); setFMin(''); setFMax(''); };
+  const activeFilters = [fDate, fType, fMethod, fStatus, fMin, fMax].filter(Boolean).length;
+
   const combinedHistory: HistoryItem[] = useMemo(() => {
       // Vista "Ver eliminados": solo ventas con borrado lógico.
       if (showDeleted) {
@@ -112,7 +158,7 @@ export const POSSalesHistoryPage: React.FC = () => {
           }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       }
       // Process Sales (Ventas & CxC)
-      const salesItems: HistoryItem[] = sales.map(sale => {
+      const salesItems: HistoryItem[] = (rangeSales ?? sales).map(sale => {
           const client = sale.clientId ? getClientById(sale.clientId) : null;
           const isCxC = sale.paymentMethod === 'Crédito C.' || sale.paymentStatus === 'Pendiente de Pago';
           
@@ -149,7 +195,7 @@ export const POSSalesHistoryPage: React.FC = () => {
       });
 
       return [...salesItems, ...supplierItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sales, supplierOrders, getClientById, getSupplierById, showDeleted, deletedSales]);
+  }, [sales, rangeSales, supplierOrders, getClientById, getSupplierById, showDeleted, deletedSales]);
 
   // Filtro de período leído de la URL (?periodo=hoy|mes), enlazado desde el panel de administración.
   const [periodParams, setPeriodParams] = useSearchParams();
@@ -159,15 +205,26 @@ export const POSSalesHistoryPage: React.FC = () => {
       : '';
   const clearPeriod = () => { const n = new URLSearchParams(periodParams); n.delete('periodo'); setPeriodParams(n, { replace: true }); };
   const filteredHistory: HistoryItem[] = useMemo(() => {
-      if (periodo !== 'hoy' && periodo !== 'mes') return combinedHistory;
       const now = new Date();
+      const min = fMin !== '' ? Number(fMin) : null, max = fMax !== '' ? Number(fMax) : null;
       return combinedHistory.filter(item => {
           const d = new Date(item.date);
-          if (isNaN(d.getTime())) return true;
-          if (periodo === 'hoy') return d.toDateString() === now.toDateString();
-          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+          const valid = !isNaN(d.getTime());
+          if (periodo === 'hoy' && valid && d.toDateString() !== now.toDateString()) return false;
+          if (periodo === 'mes' && valid && !(d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth())) return false;
+          if (dateRange && valid) { const k = ymd(d); if (k < dateRange[0] || k > dateRange[1]) return false; }
+          if (fType && item.type !== fType) return false;
+          if (fMethod && item.paymentMethod !== fMethod) return false;
+          if (fStatus && item.status !== fStatus) return false;
+          const amt = Math.abs(Number(item.total) || 0);
+          if (min != null && Number.isFinite(min) && amt < min) return false;
+          if (max != null && Number.isFinite(max) && amt > max) return false;
+          return true;
       });
-  }, [combinedHistory, periodo]);
+  }, [combinedHistory, periodo, dateRange, fType, fMethod, fStatus, fMin, fMax]);
+  // Opciones de los selects, tomadas de lo que hay en la lista.
+  const methodOptions = useMemo(() => [...new Set(combinedHistory.map(i => i.paymentMethod).filter(m => m && m !== 'N/A'))].sort(), [combinedHistory]);
+  const statusOptions = useMemo(() => [...new Set(combinedHistory.map(i => i.status).filter(Boolean))].sort(), [combinedHistory]);
 
   const handleTypeClick = (item: HistoryItem) => {
       if (item.type === 'CxC' || item.type === 'Venta') {
@@ -407,6 +464,81 @@ export const POSSalesHistoryPage: React.FC = () => {
             {periodLabel}
             <button onClick={clearPeriod} className="font-bold hover:text-primary/70" aria-label={t('common.clear') || 'Quitar filtro'}>×</button>
           </span>
+        </div>
+      )}
+      {!showDeleted && (
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-3 mb-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="text-xs text-neutral-600 dark:text-neutral-300">
+              <span className="block mb-1 font-medium">Fecha</span>
+              <select value={fDate} onChange={e => setFDate(e.target.value as DatePreset)} className={`${INPUT_SM_CLASSES} min-w-[9.5rem]`}>
+                <option value="">Todas</option>
+                <option value="hoy">Hoy</option>
+                <option value="ayer">Ayer</option>
+                <option value="7d">Últimos 7 días</option>
+                <option value="mes">Este mes</option>
+                <option value="mes_pasado">Mes pasado</option>
+                <option value="dia">Un día…</option>
+                <option value="rango">Rango de fechas…</option>
+              </select>
+            </label>
+            {fDate === 'dia' && (
+              <label className="text-xs text-neutral-600 dark:text-neutral-300">
+                <span className="block mb-1 font-medium">Día</span>
+                <input type="date" value={fDay} onChange={e => setFDay(e.target.value)} className={INPUT_SM_CLASSES} />
+              </label>
+            )}
+            {fDate === 'rango' && (<>
+              <label className="text-xs text-neutral-600 dark:text-neutral-300">
+                <span className="block mb-1 font-medium">Desde</span>
+                <input type="date" value={fFrom} max={fTo || undefined} onChange={e => setFFrom(e.target.value)} className={INPUT_SM_CLASSES} />
+              </label>
+              <label className="text-xs text-neutral-600 dark:text-neutral-300">
+                <span className="block mb-1 font-medium">Hasta</span>
+                <input type="date" value={fTo} min={fFrom || undefined} onChange={e => setFTo(e.target.value)} className={INPUT_SM_CLASSES} />
+              </label>
+            </>)}
+            <label className="text-xs text-neutral-600 dark:text-neutral-300">
+              <span className="block mb-1 font-medium">Tipo</span>
+              <select value={fType} onChange={e => setFType(e.target.value)} className={INPUT_SM_CLASSES}>
+                <option value="">Todos</option>
+                <option value="Venta">Venta</option>
+                <option value="CxC">Cuenta por cobrar</option>
+                <option value="CxP">Cuenta por pagar</option>
+              </select>
+            </label>
+            <label className="text-xs text-neutral-600 dark:text-neutral-300">
+              <span className="block mb-1 font-medium">Método de pago</span>
+              <select value={fMethod} onChange={e => setFMethod(e.target.value)} className={`${INPUT_SM_CLASSES} min-w-[9rem]`}>
+                <option value="">Todos</option>
+                {methodOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </label>
+            <label className="text-xs text-neutral-600 dark:text-neutral-300">
+              <span className="block mb-1 font-medium">Estado</span>
+              <select value={fStatus} onChange={e => setFStatus(e.target.value)} className={`${INPUT_SM_CLASSES} min-w-[8rem]`}>
+                <option value="">Todos</option>
+                {statusOptions.map(st => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </label>
+            <label className="text-xs text-neutral-600 dark:text-neutral-300">
+              <span className="block mb-1 font-medium">Monto</span>
+              <span className="flex items-center gap-1">
+                <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="Mín." value={fMin} onChange={e => setFMin(e.target.value)} className={`${INPUT_SM_CLASSES} w-24`} />
+                <span className="text-neutral-400">–</span>
+                <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="Máx." value={fMax} onChange={e => setFMax(e.target.value)} className={`${INPUT_SM_CLASSES} w-24`} />
+              </span>
+            </label>
+            {activeFilters > 0 && (
+              <button type="button" onClick={clearFilters} className="text-sm text-primary hover:underline pb-1.5">Limpiar filtros</button>
+            )}
+          </div>
+          <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+            {rangeLoading ? 'Buscando ventas de ese período…'
+              : `${filteredHistory.length} resultado(s) · Total ${filteredHistory.reduce((a, i) => a + (i.type === 'CxP' ? 0 : (Number(i.total) || 0)), 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`}
+            {!rangeLoading && rangeSales && rangeSales.length >= RANGE_LIMIT && ` · Se muestran las ${RANGE_LIMIT} ventas más recientes del período; acorte el rango para ver todas.`}
+            {!dateRange && !periodo && ' · Sin filtro de fecha se muestran las últimas 200 ventas.'}
+          </div>
         </div>
       )}
       <DataTable<HistoryItem> onRowClick={showDeleted ? undefined : handleTypeClick}
