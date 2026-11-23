@@ -1,3 +1,4 @@
+import { shortRef } from './shortRef';
 interface StoreInfo { businessName?: string; address?: string; phone?: string; }
 
 export interface InvoicePaymentReceiptData {
@@ -38,7 +39,7 @@ export function printInvoicePaymentReceipt(data: InvoicePaymentReceiptData, stor
         <div style="font-size:12px;margin-top:4px;">${esc(data.clientName || 'Cliente')}</div>
         <hr/>
         <div class="row"><span>Método</span><span>${esc(p.method || '—')}</span></div>
-        ${p.reference ? `<div class="row"><span>Ref</span><span>${esc(p.reference)}</span></div>` : ''}
+        ${p.reference ? `<div class="row"><span>Ref</span><span>${esc(shortRef(p.reference))}</span></div>` : ''}
         <div class="row b big"><span>Abono</span><span>${money(p.amount)}</span></div>
         <hr/>
         <div class="row"><span>Total factura</span><span>${money(data.total)}</span></div>

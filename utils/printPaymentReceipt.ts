@@ -1,4 +1,5 @@
 import type { PaymentReceipt } from '../services/clients';
+import { shortRef } from './shortRef';
 
 interface StoreInfo { businessName?: string; address?: string; phone?: string; }
 
@@ -36,7 +37,7 @@ export function printPaymentReceipt(receipt: PaymentReceipt, store: StoreInfo = 
         <div class="center b">Recibo de Pago: ${esc(receipt.receiptNumber)}</div>
         <div class="center" style="font-size:11px;">Fecha: ${new Date(receipt.date).toLocaleString()}</div>
         <div style="font-size:12px;margin-top:4px;">${esc(receipt.clientName || 'Cliente')}</div>
-        ${receipt.reference ? `<div style="font-size:11px;">Ref: ${esc(receipt.reference)}</div>` : ''}
+        ${receipt.reference ? `<div style="font-size:11px;">Ref: ${esc(shortRef(receipt.reference))}</div>` : ''}
         <hr/>
         <div class="b center">Facturas Pagadas</div>
         <table>

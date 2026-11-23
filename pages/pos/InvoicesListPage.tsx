@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { shortRef } from '../../utils/shortRef';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -848,7 +849,7 @@ export const InvoicesListPage: React.FC = () => {
                                             <div key={p.id} className="flex gap-2 items-center text-sm">
                                                 <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums w-24 text-right">{money(p.amount)}</span>
                                                 <span className="text-neutral-500 dark:text-neutral-400 w-32 truncate">{p.method || '—'}</span>
-                                                <span className="text-neutral-400 dark:text-neutral-500 flex-1 truncate">{p.reference || ''}</span>
+                                                <span className="text-neutral-400 dark:text-neutral-500 flex-1 truncate" title={p.reference || ''}>{shortRef(p.reference)}</span>
                                                 <span className="text-xs text-neutral-400 dark:text-neutral-500">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ''}</span>
                                                 <button onClick={() => startEditPay(p)} className="text-blue-600 dark:text-blue-400 hover:underline px-1">{t('common.edit')}</button>
                                                 <button onClick={() => requestDeletePay(p)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>

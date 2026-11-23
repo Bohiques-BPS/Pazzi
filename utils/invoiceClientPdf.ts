@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { shortRef } from './shortRef';
 import autoTable from 'jspdf-autotable';
 import type { Invoice } from '../services/invoices';
 import { loadImageAsDataUrl, dataUrlFormat } from './imageData';
@@ -163,7 +164,7 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     // Detalle de pago(s): cómo se pagó, fecha, referencia y abonos. Solo si hubo pago.
     const fmtDate = (v: any) => v ? new Date(v).toLocaleDateString('es-PR') : '';
     const payRows = paysArr.length > 0
-        ? paysArr.map((p: any) => ({ date: fmtDate(p.paidAt), method: p.method || inv.paidMethod || '—', reference: p.reference || '', amount: Number(p.amount) || 0 }))
+        ? paysArr.map((p: any) => ({ date: fmtDate(p.paidAt), method: p.method || inv.paidMethod || '—', reference: shortRef(p.reference), amount: Number(p.amount) || 0 }))
         : (paid || paidEff > 0 ? [{ date: fmtDate(inv.paidAt || inv.createdAt), method: inv.paidMethod || '—', reference: inv.paidReference || '', amount: paidEff }] : []);
     if (payRows.length > 0) {
         y += 16;

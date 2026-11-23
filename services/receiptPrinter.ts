@@ -6,6 +6,7 @@
  * y sin hoja en blanco. Config POR DISPOSITIVO (localStorage). Reutiliza la conexión de cashDrawer.
  */
 import { ensureConnected, listPrinters } from './cashDrawer';
+import { shortRef } from '../utils/shortRef';
 import type { ReceiptConfig } from '../types';
 import type { ReceiptSale } from '../components/pos/ReceiptModal';
 import { logoRaster, bytesToBinary, bytesToBase64 } from './escposImage';
@@ -213,7 +214,7 @@ export function buildReceiptEscPos(sale: ReceiptSale, cfg: ReceiptConfig, width 
     o += rule(w);
     for (const p of sale.payments) {
         o += two(sale.returnInfo ? `Reembolso ${p.method}` : p.method, money(p.amount), w);
-        if (p.reference) o += leftLine(`  Ref: ${p.reference}`);
+        if (p.reference) o += leftLine(`  Ref: ${shortRef(p.reference)}`);
     }
     if (sale.changeDue && sale.changeDue > 0) o += BOLD_ON + two('Cambio', money(sale.changeDue), w) + BOLD_OFF;
     if (cfg.showFooter && cfg.footerNote) {

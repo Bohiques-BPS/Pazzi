@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
+import { shortRef } from '../../utils/shortRef';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants';
 import type { ReceiptConfig } from '../../types';
@@ -262,7 +263,7 @@ export function buildReceiptHTML(sale: ReceiptSale, cfg: ReceiptConfig, barcodeS
         <div style="border-top:1px dashed #999;padding-top:6px;margin-top:6px;">
             ${sale.payments.map(p => `
                 ${line(sale.returnInfo ? `Reembolso ${p.method}` : p.method, money(p.amount))}
-                ${p.reference ? `<div style="color:#555;font-size:${is80 ? '10px' : '11px'};margin-left:8px;">Ref: ${esc(p.reference)}</div>` : ''}
+                ${p.reference ? `<div style="color:#555;font-size:${is80 ? '10px' : '11px'};margin-left:8px;">Ref: ${esc(shortRef(p.reference))}</div>` : ''}
             `).join('')}
             ${sale.changeDue && sale.changeDue > 0 ? line('Cambio', money(sale.changeDue), true) : ''}
         </div>`;
@@ -447,7 +448,7 @@ export async function generatePDF(sale: ReceiptSale, cfg: ReceiptConfig, opts?: 
     if (cfg.showTaxBreakdown) for (const l of taxLines(sale.tax || 0, sale)) row(l.label, money(l.amount));
     row('TOTAL', money(sale.total), true);
     y += 1; doc.line(M, y, W - M, y); y += 4;
-    sale.payments.forEach(p => row(p.method + (p.reference ? ` (${p.reference})` : ''), money(p.amount)));
+    sale.payments.forEach(p => row(p.method + (p.reference ? ` (${shortRef(p.reference)})` : ''), money(p.amount)));
     if (sale.changeDue && sale.changeDue > 0) row('Cambio', money(sale.changeDue), true);
     if (cfg.showFooter && cfg.footerNote) { y += 4; center(cfg.footerNote, 8); }
     if (opts?.returnBlob) return doc.output('blob');

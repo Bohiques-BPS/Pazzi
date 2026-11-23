@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { shortRef } from '../../utils/shortRef';
 import { useData } from '../../contexts/DataContext';
 import { invoicesService, type Invoice } from '../../services/invoices';
 import { ApiError } from '../../services/api';
@@ -191,7 +192,7 @@ export const PaymentsModal: React.FC<{ invoice: Invoice | null; onClose: () => v
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-3 py-2 text-neutral-400 dark:text-neutral-500 truncate max-w-[180px]">{p.reference || ''}</td>
+                                        <td className="px-3 py-2 text-neutral-400 dark:text-neutral-500 truncate max-w-[180px]" title={p.reference || ''}>{shortRef(p.reference)}</td>
                                         <td className="px-3 py-2 text-right font-semibold text-green-600 dark:text-green-400 tabular-nums">{money(p.amount)}</td>
                                         <td className="px-3 py-2 text-right whitespace-nowrap">
                                             <button
