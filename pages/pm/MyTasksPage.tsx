@@ -104,6 +104,19 @@ export const MyTasksPage: React.FC = () => {
     const [sortBy, setSortBy] = useState<SortBy>(prefs.sortBy || 'due');
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
     const [movingId, setMovingId] = useState<string | null>(null);
+    const [openingId, setOpeningId] = useState<string | null>(null);
+    // La lista trae un resumen de la descripción: al abrir, se pide la tarea completa (si no, al
+    // guardar se perdería la descripción original).
+    const openTask = async (r: any) => {
+        if (openingId) return;
+        setOpeningId(r.id);
+        try {
+            const full = await tasksService.getById(r.id);
+            setSelected(full);
+        } catch (err) {
+            toast.error(err instanceof ApiError ? err.message : 'No se pudo abrir la tarea.');
+        } finally { setOpeningId(null); }
+    };
 
     useEffect(() => {
         try { localStorage.setItem(PREFS_KEY, JSON.stringify({ includeDone, project: fProject, priority: fPriority, status: fStatus, groupBy, sortBy })); } catch { /* sin almacenamiento */ }
@@ -131,7 +144,7 @@ export const MyTasksPage: React.FC = () => {
     const baseFiltered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter(r =>
-            (!term || `${r.title} ${r.project?.name || ''} ${r.description || ''}`.toLowerCase().includes(term)) &&
+            (!term || `${r.title} ${r.project?.name || ''} ${r.descriptionPreview || ''}`.toLowerCase().includes(term)) &&
             (!fProject || r.projectId === fProject) &&
             (!fPriority || (fPriority === 'none' ? !r.priority : r.priority === fPriority)) &&
             (!fStatus || r.status === fStatus));
@@ -209,9 +222,9 @@ export const MyTasksPage: React.FC = () => {
                 key={r.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => setSelected(r)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setSelected(r); } }}
-                className={`group relative flex items-center gap-3 pl-4 pr-3 py-3 bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-primary/40 hover:shadow-sm transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${isDone ? 'opacity-70' : ''}`}
+                onClick={() => openTask(r)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); openTask(r); } }}
+                className={`group relative flex items-center gap-3 pl-4 pr-3 py-3 bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-primary/40 hover:shadow-sm transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 ${isDone ? 'opacity-70' : ''} ${openingId === r.id ? 'animate-pulse' : ''}`}
             >
                 <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-r ${prio ? prio.bar : 'bg-neutral-200 dark:bg-neutral-700'}`} aria-hidden />
                 <div className="flex-1 min-w-0">

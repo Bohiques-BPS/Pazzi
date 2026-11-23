@@ -108,6 +108,9 @@ export const tasksService = {
   getMine: (opts?: { includeDone?: boolean }) =>
     api.get<any[]>('/tasks/mine', opts?.includeDone ? { includeDone: '1' } : undefined),
 
+  /** Una tarea completa, con su descripción entera (la lista de "Mis tareas" trae solo un resumen). */
+  getById: (id: string) => api.get<any>(`/tasks/${id}`),
+
   create: (data: TaskPayload) => api.post<any>('/tasks', data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
   /** Revisa choques de horario antes de guardar (no guarda nada). */
