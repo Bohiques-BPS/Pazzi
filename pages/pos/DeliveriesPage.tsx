@@ -98,7 +98,7 @@ export const DeliveriesPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Control de Entregas</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Entregas</h1>
                 <div className="flex gap-2">
                     <button type="button" onClick={printRoute} className={BUTTON_SECONDARY_SM_CLASSES}>Hoja de ruta</button>
                     <button type="button" onClick={load} className={BUTTON_SECONDARY_SM_CLASSES}>Actualizar</button>

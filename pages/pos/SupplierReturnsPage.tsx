@@ -11,7 +11,7 @@ import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 
 /**
- * Devoluciones a suplidor: hojas de mercancía dañada para pedir crédito. Muestra cuánto falta por
+ * Devoluciones a proveedor: hojas de mercancía dañada para pedir crédito. Muestra cuánto falta por
  * cobrar en créditos, lo ya acreditado y el estado de cada hoja. Solo constancia (no toca inventario).
  */
 
@@ -74,16 +74,16 @@ export const SupplierReturnsPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
-                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Devoluciones a suplidor</h1>
+                <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">Devoluciones a proveedor</h1>
                 {canManage && <button type="button" onClick={() => open('new')} className={BUTTON_PRIMARY_SM_CLASSES}>+ Nueva hoja de devolución</button>}
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-                Constancia de la mercancía dañada o defectuosa que se le devuelve a cada suplidor para pedir crédito. No cambia el inventario ni las cuentas por pagar.
+                Constancia de la mercancía dañada o defectuosa que se le devuelve a cada proveedor para pedir crédito. No cambia el inventario ni las cuentas por pagar.
             </p>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 <Kpi title="Por cobrar en créditos" value={money(kpi.pendingAmount)} sub={`${kpi.pendingCount} hoja${kpi.pendingCount === 1 ? '' : 's'} abierta${kpi.pendingCount === 1 ? '' : 's'}`} tone="amber" />
-                <Kpi title="Por enviar al suplidor" value={String(kpi.toSend)} sub="Hojas sin enviar" />
+                <Kpi title="Por enviar al proveedor" value={String(kpi.toSend)} sub="Hojas sin enviar" />
                 <Kpi title="Créditos recibidos" value={money(kpi.credited)} tone="green" />
                 <Kpi title="Hojas en total" value={String(rows.length)} />
             </div>
@@ -98,9 +98,9 @@ export const SupplierReturnsPage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 mb-3 flex flex-wrap items-center gap-2">
-                <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por #, suplidor, factura, autorización o artículo…" className={`${INPUT_SM_CLASSES} flex-1 min-w-[220px]`} />
+                <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por #, proveedor, factura, autorización o artículo…" className={`${INPUT_SM_CLASSES} flex-1 min-w-[220px]`} />
                 <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className={INPUT_SM_CLASSES}>
-                    <option value="">Todos los suplidores</option>
+                    <option value="">Todos los proveedores</option>
                     {[...suppliers].sort((a, b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 <button type="button" onClick={load} className={BUTTON_SECONDARY_SM_CLASSES}>Actualizar</button>
@@ -108,7 +108,7 @@ export const SupplierReturnsPage: React.FC = () => {
 
             {loading && !rows.length ? <LoadingSkeleton variant="table" rows={6} /> : shown.length === 0 ? (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6">
-                    <EmptyState title="No hay hojas de devolución aquí" description={canManage ? 'Cree una hoja cuando le devuelvan mercancía dañada para pedirle crédito al suplidor.' : 'Todavía no hay hojas de devolución.'} />
+                    <EmptyState title="No hay hojas de devolución aquí" description={canManage ? 'Cree una hoja cuando le devuelvan mercancía dañada para pedirle crédito al proveedor.' : 'Todavía no hay hojas de devolución.'} />
                 </div>
             ) : (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-x-auto">
@@ -117,7 +117,7 @@ export const SupplierReturnsPage: React.FC = () => {
                             <tr>
                                 <th className="px-3 py-2 text-left font-medium">#</th>
                                 <th className="px-3 py-2 text-left font-medium">Fecha</th>
-                                <th className="px-3 py-2 text-left font-medium">Suplidor</th>
+                                <th className="px-3 py-2 text-left font-medium">Proveedor</th>
                                 <th className="px-3 py-2 text-left font-medium">Artículos</th>
                                 <th className="px-3 py-2 text-right font-medium">A reclamar</th>
                                 <th className="px-3 py-2 text-right font-medium">Crédito</th>

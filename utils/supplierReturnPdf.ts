@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { SR_REASON_LABEL, SR_STATUS_LABEL, type SupplierReturn } from '../services/supplierReturns';
 
-/** Hoja de devolución a suplidor (PDF): datos del negocio y del suplidor, artículos, total y firmas. */
+/** Hoja de devolución a proveedor (PDF): datos del negocio y del proveedor, artículos, total y firmas. */
 export function printSupplierReturn(r: SupplierReturn, biz: { businessName?: string; address?: string; phone?: string }, supplier?: { contactName?: string | null; phone?: string | null; email?: string | null } | null) {
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const M = 40;
@@ -11,7 +11,7 @@ export function printSupplierReturn(r: SupplierReturn, biz: { businessName?: str
     let y = M;
 
     doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
-    doc.text('Hoja de devolución a suplidor', M, y);
+    doc.text('Hoja de devolución a proveedor', M, y);
     doc.setFontSize(11);
     doc.text(`#${r.number ?? ''}`, W - M, y, { align: 'right' });
     y += 16;
@@ -22,9 +22,9 @@ export function printSupplierReturn(r: SupplierReturn, biz: { businessName?: str
     y += 20;
 
     const info: [string, string][] = [
-        ['Suplidor', r.supplierName],
+        ['Proveedor', r.supplierName],
         ...(supplier?.contactName || supplier?.phone || supplier?.email ? [['Contacto', [supplier?.contactName, supplier?.phone, supplier?.email].filter(Boolean).join(' · ')] as [string, string]] : []),
-        ...(r.supplierInvoiceNumber ? [['Factura del suplidor', r.supplierInvoiceNumber] as [string, string]] : []),
+        ...(r.supplierInvoiceNumber ? [['Factura del proveedor', r.supplierInvoiceNumber] as [string, string]] : []),
         ...(r.authorizationNumber ? [['Nº de autorización', r.authorizationNumber] as [string, string]] : []),
         ...(r.creditNoteNumber ? [['Nota de crédito', r.creditNoteNumber] as [string, string]] : []),
     ];
@@ -65,7 +65,7 @@ export function printSupplierReturn(r: SupplierReturn, biz: { businessName?: str
     const col = (W - M * 2 - 30) / 2;
     doc.setFontSize(9);
     doc.line(M, y, M + col, y); doc.text('Entregado por (negocio)', M, y + 12);
-    doc.line(M + col + 30, y, W - M, y); doc.text('Recibido por (suplidor) · nombre, firma y fecha', M + col + 30, y + 12);
+    doc.line(M + col + 30, y, W - M, y); doc.text('Recibido por (proveedor) · nombre, firma y fecha', M + col + 30, y + 12);
 
     window.open(doc.output('bloburl'), '_blank');
 }

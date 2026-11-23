@@ -17,7 +17,7 @@ import type { Product } from '../../types';
 import { XMarkIcon } from '../icons';
 
 /**
- * Hoja de devolución a suplidor: crear/editar (suplidor, factura, autorización, artículos con motivo y
+ * Hoja de devolución a proveedor: crear/editar (proveedor, factura, autorización, artículos con motivo y
  * costo) y seguimiento (enviada, crédito recibido/parcial, rechazada, anulada). Imprime la hoja en PDF.
  * Solo constancia: no mueve inventario ni cuentas por pagar.
  */
@@ -89,7 +89,7 @@ export const SupplierReturnModal: React.FC<{
             key: newKey(), productId: p.id, name: p.name, sku: typeof sku === 'string' ? sku : null,
             quantity: 1, unitCost: Number((p as any).costPrice) || 0, reason: 'damaged',
         }]);
-        // Si aún no hay suplidor, se propone el del producto.
+        // Si aún no hay proveedor, se propone el del producto.
         if (!supplierId && !supplierName && (p as any).supplierId) setSupplierId((p as any).supplierId);
     };
     const addManual = () => setLines(prev => [...prev, { key: newKey(), name: '', quantity: 1, unitCost: 0, reason: 'damaged' }]);
@@ -98,7 +98,7 @@ export const SupplierReturnModal: React.FC<{
 
     const save = async () => {
         setError(null);
-        if (!supplierId && !supplierName.trim()) { setError('Escoja o escriba el suplidor.'); return; }
+        if (!supplierId && !supplierName.trim()) { setError('Escoja o escriba el proveedor.'); return; }
         if (!lines.length) { setError('Agregue al menos un artículo.'); return; }
         const bad = lines.find(l => !l.name.trim() || !(Number(l.quantity) > 0));
         if (bad) { setError('Cada artículo necesita nombre y cantidad mayor que 0.'); return; }
@@ -145,7 +145,7 @@ export const SupplierReturnModal: React.FC<{
     };
 
     const isOpen = !!target;
-    const title = current ? `Devolución a suplidor #${current.number ?? ''}` : 'Nueva hoja de devolución a suplidor';
+    const title = current ? `Devolución a proveedor #${current.number ?? ''}` : 'Nueva hoja de devolución a proveedor';
     const label = 'block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1';
     const st = current?.status;
     const open = st === 'pending' || st === 'sent';
@@ -179,23 +179,23 @@ export const SupplierReturnModal: React.FC<{
                     <p className="text-sm text-neutral-500 py-8 text-center">Cargando…</p>
                 ) : editing ? (
                     <div className="space-y-4">
-                        <p className="text-sm text-neutral-600 dark:text-neutral-300 -mt-2">Anote la mercancía dañada o defectuosa que se le devuelve al suplidor para pedir crédito. Es solo constancia: no cambia el inventario.</p>
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300 -mt-2">Anote la mercancía dañada o defectuosa que se le devuelve al proveedor para pedir crédito. Es solo constancia: no cambia el inventario.</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
-                                <label className={label}>Suplidor</label>
+                                <label className={label}>Proveedor</label>
                                 <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className={inputFormStyle}>
-                                    <option value="">{suppliers.length ? '— Escoja o escriba abajo —' : 'Escriba el suplidor abajo'}</option>
+                                    <option value="">{suppliers.length ? '— Escoja o escriba abajo —' : 'Escriba el proveedor abajo'}</option>
                                     {[...suppliers].sort((a, b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
-                                {!supplierId && <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Nombre del suplidor (si no está registrado)" className={`${inputFormStyle} mt-2`} />}
+                                {!supplierId && <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Nombre del proveedor (si no está registrado)" className={`${inputFormStyle} mt-2`} />}
                             </div>
                             <div>
-                                <label className={label}>Factura del suplidor <span className="text-neutral-400 font-normal">(opcional)</span></label>
+                                <label className={label}>Factura del proveedor <span className="text-neutral-400 font-normal">(opcional)</span></label>
                                 <input value={invoice} onChange={e => setInvoice(e.target.value)} placeholder="Nº de la factura de compra" className={inputFormStyle} />
                             </div>
                             <div>
                                 <label className={label}>Nº de autorización <span className="text-neutral-400 font-normal">(opcional)</span></label>
-                                <input value={auth} onChange={e => setAuth(e.target.value)} placeholder="RMA / autorización del suplidor" className={inputFormStyle} />
+                                <input value={auth} onChange={e => setAuth(e.target.value)} placeholder="RMA / autorización del proveedor" className={inputFormStyle} />
                             </div>
                         </div>
 
@@ -251,7 +251,7 @@ export const SupplierReturnModal: React.FC<{
 
                         <div>
                             <label className={label}>Notas <span className="text-neutral-400 font-normal">(opcional)</span></label>
-                            <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ej. el suplidor recoge el viernes; llamar a Juan" className={inputFormStyle} />
+                            <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ej. el proveedor recoge el viernes; llamar a Juan" className={inputFormStyle} />
                         </div>
                         {error && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>}
                     </div>
@@ -262,8 +262,8 @@ export const SupplierReturnModal: React.FC<{
                             <span className="text-sm text-neutral-500">Creada {fmtDate(current.createdAt)}{current.createdByName ? ` por ${current.createdByName}` : ''}{current.sentAt ? ` · Enviada ${fmtDate(current.sentAt)}` : ''}</span>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                            <Info label="Suplidor">{current.supplierName}</Info>
-                            <Info label="Factura del suplidor">{current.supplierInvoiceNumber || '—'}</Info>
+                            <Info label="Proveedor">{current.supplierName}</Info>
+                            <Info label="Factura del proveedor">{current.supplierInvoiceNumber || '—'}</Info>
                             <Info label="Nº de autorización">{current.authorizationNumber || '—'}</Info>
                             <Info label="Crédito">{current.creditAmount != null ? `${money(current.creditAmount)}${current.creditNoteNumber ? ` · NC ${current.creditNoteNumber}` : ''}` : 'Pendiente'}</Info>
                         </div>
@@ -309,7 +309,7 @@ export const SupplierReturnModal: React.FC<{
             </Modal>
 
             {/* Registrar crédito recibido */}
-            <Modal isOpen={creditOpen} onClose={() => setCreditOpen(false)} title="Registrar crédito del suplidor" size="md"
+            <Modal isOpen={creditOpen} onClose={() => setCreditOpen(false)} title="Registrar crédito del proveedor" size="md"
                 footer={<div className="flex justify-end gap-2"><button type="button" onClick={() => setCreditOpen(false)} className={BUTTON_SECONDARY_SM_CLASSES}>Cancelar</button><button type="button" onClick={saveCredit} disabled={busy} className={BUTTON_PRIMARY_SM_CLASSES}>Guardar crédito</button></div>}>
                 <div className="space-y-3">
                     <p className="text-sm text-neutral-600 dark:text-neutral-300">Total reclamado: <b>{money(current?.totalCost || 0)}</b>. Si el crédito es menor, queda como <b>crédito parcial</b>.</p>

@@ -502,7 +502,7 @@ export const POSSalesHistoryPage: React.FC = () => {
           setSavingDelivery(true);
           try {
             const d = await deliveriesService.createFromSale(saleForDelivery.id, data);
-            toast.success(`Entrega #${d.number ?? ''} creada en Control de Entregas.`);
+            toast.success(`Entrega #${d.number ?? ''} creada en Entregas.`);
             setSaleForDelivery(null);
             setDeliveriesKey(k => k + 1);
           } catch (err) {

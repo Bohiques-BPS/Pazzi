@@ -1269,7 +1269,7 @@ export function useCashierController() {
         // Venta para entrega: confirmar que quedó en Control de Entregas (o avisar si no se pudo).
         if (deliveryDraft) {
             const dlv = (created as any)?.delivery;
-            if (dlv) toast.success(`Entrega #${dlv.number ?? ''} registrada en Control de Entregas.`);
+            if (dlv) toast.success(`Entrega #${dlv.number ?? ''} registrada en Entregas.`);
             else toast.error('La venta se guardó, pero no se creó la entrega (¿solo servicios o cargos de entrega?). Puedes crearla desde el Historial de Ventas.');
         }
 
