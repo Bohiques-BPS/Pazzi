@@ -22,6 +22,19 @@ export const isoToLocalDT = (iso?: string | null): string => {
 };
 export const localDTToIso = (v: string): string | null => (v ? new Date(v).toISOString() : null);
 
+/**
+ * Horario que se guarda a partir de lo escrito en "Empieza"/"Termina". El horario es OPCIONAL y nunca
+ * bloquea el guardado por estar a medias: sin inicio no hay horario (aunque quede un fin escrito);
+ * con inicio y sin fin, dura una hora.
+ */
+export const resolveSchedule = (start: string, end: string): { startAt: string | null; endAt: string | null } => {
+    if (!start) return { startAt: null, endAt: null };
+    const startAt = localDTToIso(start);
+    if (end) return { startAt, endAt: localDTToIso(end) };
+    const e = new Date(start); e.setHours(e.getHours() + 1);
+    return { startAt, endAt: e.toISOString() };
+};
+
 /** Campos "Empieza" / "Termina". Al poner el inicio sin fin, propone una hora de duración. */
 export const TaskScheduleFields: React.FC<{
     start: string; end: string;
@@ -30,7 +43,9 @@ export const TaskScheduleFields: React.FC<{
 }> = ({ start, end, onChange, labelClassName = 'block text-sm font-medium text-neutral-700 dark:text-neutral-300' }) => {
     const invalid = !!start && !!end && new Date(end) <= new Date(start);
     const setStart = (v: string) => {
-        if (!v) return onChange('', end);
+        // Borrar el inicio quita el horario completo: un "Termina" suelto no significa nada y antes
+        // obligaba a volver a llenar los dos campos para poder guardar.
+        if (!v) return onChange('', '');
         if (!end && v) {
             const e = new Date(v); e.setHours(e.getHours() + 1);
             return onChange(v, isoToLocalDT(e.toISOString()));

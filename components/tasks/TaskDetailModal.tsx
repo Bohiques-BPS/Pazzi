@@ -14,7 +14,7 @@ import { uploadImage } from '../../services/upload';
 import { ApiError } from '../../services/api';
 import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
-import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, isoToLocalDT, localDTToIso } from './TaskSchedule';
+import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, isoToLocalDT, resolveSchedule } from './TaskSchedule';
 import { TaskCreateModal, type TaskPrefill } from './TaskCreateModal';
 
 interface TaskDetailModalProps {
@@ -290,8 +290,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             return;
         }
         const remindAtIso = reminderOn && remindAt ? new Date(remindAt).toISOString() : null;
-        if (!!schedStart !== !!schedEnd) { setError('Indica la hora de inicio y la de fin, o quita el horario.'); return; }
-        const startAt = localDTToIso(schedStart), endAt = localDTToIso(schedEnd);
+        const { startAt, endAt } = resolveSchedule(schedStart, schedEnd); // horario opcional: a medias no bloquea
         if (startAt && endAt && endAt <= startAt) { setError('La hora de fin debe ser después de la de inicio.'); return; }
         // Solo se revisa el horario si cambió (o cambiaron los asignados de una tarea con horario).
         const sameIds = [...assignedIds].sort().join('|') === [...(task.assignedEmployeeIds || [])].sort().join('|');

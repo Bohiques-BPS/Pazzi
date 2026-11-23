@@ -11,7 +11,7 @@ import { uploadImage } from '../../services/upload';
 import { Task } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { toast } from 'react-hot-toast';
-import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, localDTToIso } from './TaskSchedule';
+import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, resolveSchedule } from './TaskSchedule';
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string }[] = [
     { value: null, labelKey: 'cmpx.task.prio.none' },
@@ -156,8 +156,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
         const targetStatus = col || status;
         if (!title.trim()) { toast.error(t('cmpx.task.title_required') || 'Escribe un título para la tarea.'); return; }
         if (reminderOn && !remindAt) { toast.error('Elige la fecha y hora del recordatorio o desactívalo.'); return; }
-        if (!!schedStart !== !!schedEnd) { toast.error('Indica la hora de inicio y la de fin, o quita el horario.'); return; }
-        const startAt = localDTToIso(schedStart), endAt = localDTToIso(schedEnd);
+        const { startAt, endAt } = resolveSchedule(schedStart, schedEnd); // horario opcional: a medias no bloquea
         if (startAt && endAt && endAt <= startAt) { toast.error('La hora de fin debe ser después de la de inicio.'); return; }
         setSaving(true);
         try {
