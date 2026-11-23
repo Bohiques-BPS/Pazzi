@@ -560,11 +560,9 @@ export const APP_MODULES_CONFIG = [
       { type: 'group', name: 'Usuarios y Permisos', icon: UserGroupIcon, children: [
         { type: 'link', name: 'Clientes', path: '/tienda/clients', icon: UserGroupIcon, permission: 'clients.view' },
         { type: 'link', name: 'Empleados', path: '/tienda/employees', icon: IdentificationIcon, permission: 'employees.view' },
-        { type: 'link', name: 'Roles y permisos', path: '/tienda/roles', icon: LoginKeyIcon, permission: 'employees.manage' },
       ] },
-      { type: 'group', name: 'Configuración', icon: Cog6ToothIcon, children: [
-        { type: 'link', name: 'Sucursales', path: '/tienda/branches', icon: BuildingStorefrontIcon, permission: 'branches.view' },
-      ] },
+      // Configuración del módulo en una ventana: Sucursales, Roles y permisos.
+      { type: 'link', name: 'Configuración', path: '/ajustes/tienda', icon: Cog6ToothIcon, permission: ['branches.view', 'employees.manage'] },
     ] as SidebarItemConfig[],
     subModulesAdmin: [] as SidebarItemConfig[],
   },
@@ -597,8 +595,6 @@ export const APP_MODULES_CONFIG = [
         { type: 'group', name: 'Ventas', icon: ListBulletIcon, children: [
             { type: 'link', name: 'Historial de Ventas', path: '/pos/sales-history', icon: ListBulletIcon, permission: 'pos.viewHistory' },
             { type: 'link', name: 'Facturas', path: '/pos/invoices', icon: DocumentArrowUpIcon, permission: 'pos.viewHistory' },
-            { type: 'link', name: 'Config. Factura', path: '/pos/receipt-settings', icon: ClipboardDocumentListIcon, permission: 'settings.viewCompany' },
-            { type: 'link', name: 'Config. Terminal', path: '/pos/terminal-settings', icon: PrintIcon, permission: 'pos.access' },
             { type: 'link', name: 'Estimados', path: '/pos/estimates', icon: ClipboardDocumentListIcon, permission: 'estimates.manage' },
             { type: 'link', name: 'Apartados (Layaway)', path: '/pos/layaways', icon: ArchiveBoxIcon, permission: 'layaways.manage' },
             { type: 'link', name: 'Control de Entregas', path: '/pos/deliveries', icon: TruckIcon, permission: ['deliveries.view', 'deliveries.manage', 'deliveries.deliver'] },
@@ -617,10 +613,10 @@ export const APP_MODULES_CONFIG = [
             { type: 'link', name: 'Reportes de Caja', path: '/pos/reports', icon: ChartPieIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
             // Cuadres guardados de cada día (todas las cajas): la pestaña "Cortes" de Reportes de Caja.
             { type: 'link', name: 'Cuadres diarios', path: '/pos/reports?tab=cortes', icon: ClipboardDocumentListIcon, permission: ['reports.viewSales', 'caja.viewDiscrepancies'] },
-            { type: 'link', name: 'Config. Cajas', path: '/pos/cajas', icon: CubeIcon, permission: 'caja.open' },
-            { type: 'link', name: 'Métodos de Pago', path: '/pos/payment-methods', icon: BanknotesIcon, permission: 'settings.viewCompany' },
         ] },
         { type: 'link', name: 'Horarios / Asistencia', path: '/pos/attendance', icon: IdentificationIcon, permission: 'pos.access' },
+        // Toda la configuración del módulo en una ventana: Cajas, Métodos de pago, Factura y recibo, Terminal.
+        { type: 'link', name: 'Configuración', path: '/ajustes/ventas', icon: Cog6ToothIcon, permission: ['caja.open', 'settings.viewCompany', 'pos.access'] },
     ] as SidebarItemConfig[],
     subModulesEcommerce: [] as SidebarItemConfig[],
     subModulesProjectClient: [] as SidebarItemConfig[],
@@ -671,13 +667,9 @@ export const APP_MODULES_CONFIG = [
     subModulesTienda: [] as SidebarItemConfig[],
     subModulesAdmin: [
       { type: 'link', name: 'Dashboard Admin', path: '/admin/dashboard', icon: HomeIcon },
-      { type: 'link', name: 'Datos del Negocio', path: '/admin/business', icon: BuildingStorefrontIcon },
-      { type: 'link', name: 'Módulos del Sistema', path: '/admin/modules', icon: Squares2X2Icon },
-      // Ajustes del negocio que heredan todos los empleados (zona horaria, formatos, IVU, lealtad…).
-      { type: 'link', name: 'Configuración', path: '/admin/settings', icon: Cog6ToothIcon },
-      { type: 'link', name: 'Alertas por Correo', path: '/admin/alerts', icon: BellIcon },
-      { type: 'link', name: 'Bitácora de accesos', path: '/admin/access-log', icon: ClockIcon },
-      { type: 'link', name: 'WhatsApp', path: '/admin/whatsapp', icon: ChatBubbleLeftRightIcon },
+      // Toda la configuración del negocio en una ventana: Datos, Preferencias (zona horaria, formatos,
+      // IVU, lealtad…), Módulos, Alertas, WhatsApp y Bitácora de accesos.
+      { type: 'link', name: 'Configuración', path: '/ajustes/negocio', icon: Cog6ToothIcon },
     ] as SidebarItemConfig[],
   },
   // Solo el super-administrador (ver useModuleAccess).
@@ -739,6 +731,10 @@ const MODULE_PATH_PREFIX: Array<{ prefix: string; module: AppModule }> = [
   { prefix: '/admin/preferences', module: AppModule.PLATAFORMA },
   // La caja es su propio módulo aunque conserva su ruta /pos/cashier.
   { prefix: '/pos/cashier', module: AppModule.CAJA },
+  // Ventana de configuración de cada módulo.
+  { prefix: '/ajustes/ventas', module: AppModule.POS },
+  { prefix: '/ajustes/tienda', module: AppModule.TIENDA },
+  { prefix: '/ajustes/negocio', module: AppModule.ADMINISTRACION },
   // Overrides específicos ANTES del genérico /tienda: Proveedores y Pedidos a Proveedor
   // se movieron al módulo de Punto de Venta aunque conservan su ruta /tienda/*.
   { prefix: '/tienda/suppliers', module: AppModule.POS },

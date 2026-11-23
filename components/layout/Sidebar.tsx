@@ -9,7 +9,7 @@ import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { useTranslation } from '../../contexts/GlobalSettingsContext'; // Import translation hook
 import { useChatUnread } from '../../hooks/useChatUnread';
 import { hubPath } from '../../utils/moduleNav';
-import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon, HomeIcon, XMarkIcon, Cog6ToothIcon } from '../icons';
+import { ChevronDownIcon, BriefcaseIcon, ChatBubbleLeftRightIcon, CashBillIcon, BuildingStorefrontIcon as StoreIcon, Squares2X2Icon, ListBulletIcon, UserGroupIcon, UsersIcon, HomeIcon, XMarkIcon } from '../icons';
 import logo from '../../assets/logo.png';
 import logoWhite from '../../assets/logo_white.png';
 
@@ -279,23 +279,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
           </Link>
         )}
         {subModulesToDisplay.map((item, index) => renderSidebarItem(item, index))}
-        {/* Centro de configuración: abre la pestaña del módulo en el que se está. */}
-        {currentModule && (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.EMPLOYEE) && (() => {
-          const tab = currentModule === AppModule.POS || currentModule === AppModule.CAJA ? 'ventas'
-            : currentModule === AppModule.ECOMMERCE ? 'ecommerce'
-            : currentModule === AppModule.LEADS ? 'leads' : 'negocio';
-          const active = location.pathname.startsWith('/ajustes');
-          return (<>
-            <div className="my-2 border-t border-neutral-200 dark:border-neutral-700" />
-            <Link
-              to={`/ajustes/${tab}`}
-              className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${active ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium' : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
-            >
-              <Cog6ToothIcon className={`w-[18px] h-[18px] flex-shrink-0 ${active ? '' : 'text-primary/80 dark:text-teal-300/90'}`} />
-              <span>Configuración</span>
-            </Link>
-          </>);
-        })()}
       </nav>
     </aside>
     </>
