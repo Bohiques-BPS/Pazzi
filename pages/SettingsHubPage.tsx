@@ -135,8 +135,8 @@ export const SettingsHubPage: React.FC = () => {
         <div className="p-4 sm:p-6 max-w-[1500px] mx-auto">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 flex items-center">
-                        <Cog6ToothIcon className="w-8 h-8 mr-3 text-primary" />Configuración{tab.noWizard ? '' : ` · ${tab.label}`}
+                    <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800 dark:text-neutral-100 flex items-center">
+                        <Cog6ToothIcon className="w-7 h-7 sm:w-8 sm:h-8 mr-2 sm:mr-3 text-primary flex-shrink-0" />Configuración{tab.noWizard ? '' : ` · ${tab.label}`}
                     </h1>
                     <p className="text-neutral-500 dark:text-neutral-400 mt-1">{tab.intro}</p>
                 </div>
@@ -165,29 +165,31 @@ export const SettingsHubPage: React.FC = () => {
                 </div>
             )}
 
-            <div className={`grid grid-cols-1 gap-4 items-start ${total > 1 ? 'lg:grid-cols-[17rem_minmax(0,1fr)]' : ''}`}>
-                {/* Secciones de la pestaña */}
-                {total > 1 && <nav className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-2 lg:sticky lg:top-4">
-                    {tab.sections.map(s => {
-                        const active = s.id === section.id;
-                        return (
-                            <button key={s.id} type="button" onClick={() => go(tab, s)}
-                                className={`w-full text-left flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${active ? 'bg-primary/10' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'}`}>
-                                <span className="min-w-0">
-                                    <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-neutral-800 dark:text-neutral-100'}`}>{s.title}</span>
-                                    <span className="block text-xs text-neutral-500 dark:text-neutral-400 leading-snug">{s.desc}</span>
-                                </span>
-                            </button>
-                        );
-                    })}
-                </nav>}
-
-                {/* La pantalla de configuración de siempre, mostrada aquí dentro. */}
-                <div className="min-w-0">
-                    <Suspense fallback={<div className="p-8 text-center text-neutral-400">Cargando…</div>}>
-                        <Active key={`${tab.id}.${section.id}`} />
-                    </Suspense>
+            {/* Secciones del módulo como pestañas arriba: caben en pantallas angostas y en el celular
+                (se desplazan de lado si no caben). La descripción de la sección va debajo. */}
+            {total > 1 && (
+                <div className="relative border-b border-neutral-200 dark:border-neutral-700 mb-2">
+                    <nav className="flex gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
+                        {tab.sections.map(s => {
+                            const active = s.id === section.id;
+                            return (
+                                <button key={s.id} type="button" role="tab" aria-selected={active} onClick={() => go(tab, s)}
+                                    ref={active ? (el => el?.scrollIntoView({ block: 'nearest', inline: 'center' })) : undefined}
+                                    className={`flex-shrink-0 px-3 sm:px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${active ? 'border-primary text-primary' : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100'}`}>
+                                    {s.title}
+                                </button>
+                            );
+                        })}
+                    </nav>
                 </div>
+            )}
+            {total > 1 && <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{section.desc}</p>}
+
+            <div className="min-w-0">
+                {/* La pantalla de configuración de siempre, mostrada aquí dentro. */}
+                <Suspense fallback={<div className="p-8 text-center text-neutral-400">Cargando…</div>}>
+                    <Active key={`${tab.id}.${section.id}`} />
+                </Suspense>
             </div>
         </div>
     );
