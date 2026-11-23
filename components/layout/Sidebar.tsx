@@ -200,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentModule, setSide
         className={`flex items-center gap-2.5 py-2 px-3 rounded-lg transition-colors text-[15px] ${isActive
             ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-300 font-medium'
             : nested
-              ? 'text-neutral-500 dark:text-neutral-400 font-normal hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'
+              ? 'text-neutral-700 dark:text-neutral-200 font-normal hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'
               : 'text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700/50 hover:text-neutral-800 dark:hover:text-neutral-100'}`}
       >
         {Icon && <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive || nested ? '' : 'text-primary/80 dark:text-teal-300/90'}`} />}
