@@ -294,6 +294,22 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
     // Puede editar si es MANAGER o si el empleado tiene el permiso correspondiente
     // (projects.edit para editar, projects.create para uno nuevo). NO se bloquea por ser empleado.
     const canEditDetails = project ? can('projects.edit') : can('projects.create');
+    // Asignar al gerente (como recurso) y elegir encargados: gerente o permiso 'projects.assignManagers'.
+    const canAssignLeads = currentUser?.role === UserRole.MANAGER || can('projects.assignManagers');
+    // El gerente (dueño) no está en la lista de empleados: se pide aparte.
+    const [storeOwner, setStoreOwner] = useState<{ userId: string; name?: string; lastName?: string } | null>(null);
+    useEffect(() => {
+        if (!currentUser) return;
+        if (currentUser.role === UserRole.MANAGER) {
+            setStoreOwner({ userId: currentUser.id, name: currentUser.name, lastName: currentUser.lastName });
+            return;
+        }
+        let alive = true;
+        fetch(`${API_URL}/employees/owner`, { headers: { Authorization: `Bearer ${localStorage.getItem('pazzi_token')}` } })
+            .then(r => r.ok ? r.json() : null).then(o => { if (alive && o?.userId) setStoreOwner(o); }).catch(() => {});
+        return () => { alive = false; };
+    }, [currentUser]);
+    const ownerLabel = storeOwner ? `${storeOwner.name || 'Gerente'} ${storeOwner.lastName || ''}`.trim() + ' (Gerente)' : '';
 
     const selectedClientDetails = useMemo(() => getClientById(formData.clientId), [formData.clientId, getClientById]);
 
@@ -368,14 +384,14 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
             .forEach(emp => {
                 opts.push({ uid: (emp as any).userId as string, label: `${emp.name} ${emp.lastName || ''}`.trim() });
             });
-        if (currentUser?.role === UserRole.MANAGER && !opts.some(o => o.uid === currentUser.id)) {
-            opts.unshift({ uid: currentUser.id, label: `${currentUser.name || 'Gerente'} ${currentUser.lastName || ''} (Gerente)`.trim() });
+        if (storeOwner && !opts.some(o => o.uid === storeOwner.userId)) {
+            opts.unshift({ uid: storeOwner.userId, label: ownerLabel });
         }
         return opts;
-    }, [allEmployeesHook, currentUser]);
+    }, [allEmployeesHook, storeOwner, ownerLabel]);
 
     const handleManagerToggle = (uid: string) => {
-        if (!canEditDetails) return;
+        if (!canEditDetails || !canAssignLeads) return;
         setFormData(p => {
             const cur = p.managerUserIds || [];
             return { ...p, managerUserIds: cur.includes(uid) ? cur.filter(id => id !== uid) : [...cur, uid] };
@@ -728,7 +744,12 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
 
                     <div>
                         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('project.resources.assign_employees')}</label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{allEmployeesHook.filter(emp => (emp as any).userId && canAccessProjects(emp)).map(emp => { const uid = (emp as any).userId as string; return (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(uid)} onChange={() => handleEmployeeToggle(uid)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>); })}</div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-24 overflow-y-auto bg-neutral-50 dark:bg-neutral-700/50 p-1.5 rounded scrollbar-thin">{storeOwner && (canAssignLeads || formData.assignedEmployeeIds.includes(storeOwner.userId)) && !allEmployeesHook.some(emp => (emp as any).userId === storeOwner.userId) && (
+                            <label className={`flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded ${canAssignLeads ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`} title={canAssignLeads ? undefined : 'Necesitas el permiso "Asignar al gerente y a los encargados del proyecto".'}>
+                                <input type="checkbox" checked={formData.assignedEmployeeIds.includes(storeOwner.userId)} disabled={!canAssignLeads} onChange={() => handleEmployeeToggle(storeOwner.userId)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" />
+                                <span>{ownerLabel}</span>
+                            </label>
+                        )}{allEmployeesHook.filter(emp => (emp as any).userId && canAccessProjects(emp)).map(emp => { const uid = (emp as any).userId as string; return (<label key={emp.id} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer"><input type="checkbox" checked={formData.assignedEmployeeIds.includes(uid)} onChange={() => handleEmployeeToggle(uid)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" /><span>{emp.name} {emp.lastName}</span></label>); })}</div>
                     </div>
 
                     {/* Encargado(s) del proyecto: reciben la notificación cuando una tarea "necesita aprobación". */}
@@ -738,12 +759,13 @@ const ProjectForm: React.FC<{ project: Project | null, onSuccess: (newProject: P
                             {managerOptions.length === 0
                                 ? <span className="text-xs text-neutral-400 col-span-full">No hay colaboradores con permiso de "ver todos los proyectos".</span>
                                 : managerOptions.map(opt => (
-                                    <label key={opt.uid} className="flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded cursor-pointer">
-                                        <input type="checkbox" checked={(formData.managerUserIds || []).includes(opt.uid)} onChange={() => handleManagerToggle(opt.uid)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" />
+                                    <label key={opt.uid} className={`flex items-center space-x-2 text-xs p-1 bg-white dark:bg-neutral-700 rounded ${canAssignLeads ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}>
+                                        <input type="checkbox" checked={(formData.managerUserIds || []).includes(opt.uid)} disabled={!canAssignLeads} onChange={() => handleManagerToggle(opt.uid)} className="form-checkbox text-primary focus:ring-primary dark:bg-neutral-600 dark:border-neutral-500" />
                                         <span>{opt.label}</span>
                                     </label>
                                 ))}
                         </div>
+                        {!canAssignLeads && <p className="text-[11px] text-neutral-400 mt-1">Para cambiar los encargados o asignar al gerente necesitas el permiso "Asignar al gerente y a los encargados del proyecto".</p>}
                     </div>
                  </fieldset>
                  {project && <fieldset className={activeDetailsTab === 'Facturación' ? 'space-y-4' : 'hidden'}>
