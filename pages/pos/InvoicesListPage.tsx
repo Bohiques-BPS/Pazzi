@@ -676,6 +676,10 @@ export const InvoicesListPage: React.FC = () => {
                                                 <option value="classic">Clásico</option>
                                             </select>
                                         </div>
+                                        <div>
+                                            <label className="block text-xs text-neutral-500 mb-1">Tamaño del logo: <span className="font-semibold">{design.logoScale ?? gDesign.logoScale ?? 100}%</span></label>
+                                            <input type="range" min={50} max={250} step={10} value={design.logoScale ?? gDesign.logoScale ?? 100} onChange={e => setD('logoScale', Number(e.target.value))} className="w-full accent-primary" />
+                                        </div>
                                         <div className="flex gap-3">
                                             <div>
                                                 <label className="block text-xs text-neutral-500 mb-1">{t('posx.invoices.adv_header_color')}</label>

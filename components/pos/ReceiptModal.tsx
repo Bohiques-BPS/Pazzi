@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
+import { logoScaleOf } from '../../utils/logoScale';
 import { shortRef } from '../../utils/shortRef';
 import { Modal } from '../Modal';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, BUTTON_CLOSE_SM_CLASSES } from '../../constants';
@@ -71,10 +72,11 @@ function buildInvoiceLetterHTML(sale: ReceiptSale, cfg: ReceiptConfig): string {
         showBusiness && cfg.showEmail && cfg.email ? esc(cfg.email) : '',
         showBusiness && cfg.showRnc && cfg.rnc ? `RNC/Reg: ${esc(cfg.rnc)}` : '',
     ].filter(Boolean).join('<br/>');
-    const logoImg = showLogo && cfg.logoUrl ? `<img src="${esc(cfg.logoUrl)}" style="max-width:150px;max-height:70px;object-fit:contain;"/>` : '';
+    const ls = logoScaleOf(d);
+    const logoImg = showLogo && cfg.logoUrl ? `<img src="${esc(cfg.logoUrl)}" style="max-width:${Math.round(150 * ls)}px;max-height:${Math.round(70 * ls)}px;object-fit:contain;"/>` : '';
     const headerBlock = template === 'banner'
         ? `<div style="background:${headerColor};color:#fff;margin:-16mm -14mm 14px;padding:14mm 14mm 10px;display:flex;justify-content:space-between;align-items:flex-start;">
-                <div>${logoImg ? `<img src="${esc(cfg.logoUrl)}" style="max-width:140px;max-height:60px;object-fit:contain;"/>` : ''}</div>
+                <div>${logoImg ? `<img src="${esc(cfg.logoUrl)}" style="max-width:${Math.round(140 * ls)}px;max-height:${Math.round(60 * ls)}px;object-fit:contain;"/>` : ''}</div>
                 <div style="text-align:right;">
                     ${cfg.businessName ? `<div style="font-size:17px;font-weight:800;">${esc(cfg.businessName)}</div>` : ''}
                     <div style="font-size:12px;line-height:1.5;opacity:.92;">${bizLines}</div>

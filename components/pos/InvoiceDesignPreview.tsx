@@ -1,5 +1,6 @@
 import React from 'react';
 import { taxLines } from '../../utils/taxBreakdown';
+import { logoScaleOf } from '../../utils/logoScale';
 
 interface DesignLike {
     template?: string;
@@ -9,6 +10,7 @@ interface DesignLike {
     footerText?: string;
     labels?: Record<string, string>;
     showLogo?: boolean;
+    logoScale?: number;
     showBusiness?: boolean;
     showAddress?: boolean;
     showPhone?: boolean;
@@ -49,7 +51,7 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
     const isClassic = template === 'classic';
 
     const Logo = () => (d.showLogo !== false && business.logoUrl)
-        ? <img src={business.logoUrl} alt="logo" className="h-12 w-12 object-contain rounded bg-white/20" />
+        ? <img src={business.logoUrl} alt="logo" className="object-contain rounded bg-white/20 shrink-0" style={{ height: 48 * logoScaleOf(d), maxWidth: 96 * logoScaleOf(d) }} />
         : null;
 
     return (

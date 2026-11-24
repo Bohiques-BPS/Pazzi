@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { logoScaleOf } from '../../utils/logoScale';
 import { Client, Estimate, CartItem, EstimateStatus, Product } from '../../types';
 import { useData } from '../../contexts/DataContext';
 import { Modal } from '../Modal';
@@ -144,7 +145,7 @@ export const ClientEstimatesModal: React.FC<ClientEstimatesModalProps> = ({ isOp
         const RM = pageWidth - margin;
         if (dz.showLogo !== false && rc.logoUrl) {
             const logoData = await loadImageAsDataUrl(rc.logoUrl);
-            if (logoData) { try { doc.addImage(logoData, dataUrlFormat(logoData), margin, y, 34, 17); } catch { /* ignore */ } }
+            if (logoData) { try { const ls = logoScaleOf(dz); const p = doc.getImageProperties(logoData); const r = (p.width && p.height) ? p.width / p.height : 2; let w = 34 * ls, h = w / r; if (h > 17 * ls) { h = 17 * ls; w = h * r; } doc.addImage(logoData, dataUrlFormat(logoData), margin, y, w, h); } catch { /* ignore */ } }
         }
         doc.setFontSize(14).setFont('helvetica', 'bold'); doc.setTextColor(20);
         doc.text(rc.businessName || storeSettings.storeName || 'ppazi', RM, y + 4, { align: 'right' });

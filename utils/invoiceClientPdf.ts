@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import type { Invoice } from '../services/invoices';
 import { loadImageAsDataUrl, dataUrlFormat } from './imageData';
 import { splitTax } from './taxBreakdown';
+import { logoScaleOf } from './logoScale';
 
 /** Datos del negocio para el encabezado (de settings.receiptConfig). */
 export interface InvoicePdfBusiness {
@@ -19,6 +20,8 @@ export interface InvoicePdfBusiness {
     /** Qué mostrar en la factura (de Config. Factura). Por defecto todo visible. */
     design?: {
         showLogo?: boolean;
+        /** Tamaño del logo en % (50–250, default 100). */
+        logoScale?: number;
         showBusiness?: boolean;   // nombre del negocio
         showAddress?: boolean;
         showPhone?: boolean;
@@ -50,7 +53,8 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     let logoBottom = y;
     if (logoDataUrl && d.showLogo !== false) {
         try {
-            const maxW = 120, maxH = 60;
+            const ls = logoScaleOf(d);
+            const maxW = 120 * ls, maxH = 60 * ls;
             const props = doc.getImageProperties(logoDataUrl);
             const ratio = (props.width && props.height) ? props.width / props.height : maxW / maxH;
             let w = maxW, h = maxW / ratio;

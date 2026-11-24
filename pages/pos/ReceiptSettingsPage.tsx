@@ -260,6 +260,15 @@ export const ReceiptSettingsPage: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
+                                {dz.showLogo !== false && (
+                                    <div>
+                                        <label className="block text-xs text-neutral-500 mb-1">Tamaño del logo: <span className="font-semibold text-neutral-700 dark:text-neutral-200">{dz.logoScale ?? 100}%</span></label>
+                                        <div className="flex items-center gap-3">
+                                            <input type="range" min={50} max={250} step={10} value={dz.logoScale ?? 100} onChange={e => setDz({ logoScale: Number(e.target.value) })} className="w-full sm:w-72 accent-primary" />
+                                            {(dz.logoScale ?? 100) !== 100 && <button type="button" onClick={() => setDz({ logoScale: 100 })} className="text-xs text-primary hover:underline whitespace-nowrap">Normal</button>}
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
                                     {boolField('showLogo', 'Mostrar logo')}
                                     {boolField('showBusiness', 'Nombre del negocio')}

@@ -328,7 +328,7 @@ export function invoicePdfBusinessFromSettings(settings: any): InvoicePdfBusines
     // Qué datos del negocio salen en la factura (Config. Factura). showBusiness/showLogo/showClient
     // vienen del diseño de factura; dirección/teléfono/correo/RNC usan los toggles del recibo.
     const design = {
-        showLogo: id.showLogo, showBusiness: id.showBusiness, showClient: id.showClient,
+        showLogo: id.showLogo, logoScale: id.logoScale, showBusiness: id.showBusiness, showClient: id.showClient,
         // Granulares: usa el toggle del diseño de factura; si no está definido, cae al del recibo.
         showAddress: id.showAddress ?? rc.showAddress, showPhone: id.showPhone ?? rc.showPhone,
         showEmail: id.showEmail ?? rc.showEmail, showRnc: id.showRnc ?? rc.showRnc,
