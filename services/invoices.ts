@@ -120,6 +120,8 @@ export interface InvoicePaymentRow {
 }
 
 export interface PublicInvoice {
+    /** Factura de un plan recurrente: el cliente puede pedir cancelar el plan. */
+    recurringPlan?: { description?: string | null; canRequestCancel: boolean; cancelRequest: { status: 'pending'; requestedAt: string } | null } | null;
     id: string;
     number?: number | null;
     clientName?: string | null;
@@ -168,6 +170,8 @@ export const invoicesService = {
 
     // ── Público (sin auth, por publicToken) ──
     getPublic: (token: string) => api.get<PublicInvoice>(`/public/invoices/${token}`),
+    /** Desde una factura del plan: el cliente pide cancelar el plan recurrente. */
+    requestPlanCancel: (token: string, reason: string) => api.post<{ ok: boolean }>(`/public/invoices/${token}/cancel-plan`, { reason }),
     payPublicAgilPay: (token: string, card: AgilPayCardData, amount?: number) =>
         api.post<{ success: boolean; reference: string; amountPaid: number; balance: number; fullyPaid: boolean }>(
             `/public/invoices/${token}/pay-agilpay`, { ...card, ...(amount != null ? { amount } : {}) }),

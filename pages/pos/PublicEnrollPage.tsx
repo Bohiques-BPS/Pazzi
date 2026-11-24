@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { recurringPublic, type PublicEnroll } from '../../services/recurring';
 import { AgilPayCardForm } from '../../components/pos/AgilPayCardForm';
 import { TermsAcceptance } from '../../components/pos/TermsAcceptance';
+import { PlanCancelRequest } from '../../components/pos/PlanCancelRequest';
 import { usePublicT } from '../../hooks/usePublicTranslation';
 import { ApiError } from '../../services/api';
 
@@ -85,6 +86,15 @@ export const PublicEnrollPage: React.FC = () => {
                             </div>
                             <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{t('enroll.done_title')}</h3>
                             <p className="text-sm text-neutral-500">{t('enroll.done_desc')}</p>
+                            {/* El cliente puede pedir cancelar su plan (el negocio decide). */}
+                            <div className="pt-4 text-left">
+                                <PlanCancelRequest
+                                    canRequest={!!data.canRequestCancel}
+                                    pendingSince={data.cancelRequest?.requestedAt || null}
+                                    onSubmit={async (reason) => { await recurringPublic.requestCancel(token!, reason); }}
+                                    t={t}
+                                />
+                            </div>
                         </div>
                     ) : !data.agilpayEnabled ? (
                         <p className="text-sm text-center text-neutral-500">{t('pay.card_unavailable')}</p>

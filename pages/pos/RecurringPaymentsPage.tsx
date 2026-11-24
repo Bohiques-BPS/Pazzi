@@ -358,6 +358,20 @@ export const RecurringPaymentsPage: React.FC = () => {
         } finally { setSaving(false); }
     };
 
+    // Desvincular tarjeta (borra el token de cobro y pausa el plan) y solicitudes de cancelación.
+    const [toUnlink, setToUnlink] = useState<RecurringPayment | null>(null);
+    const confirmUnlink = async () => {
+        if (!toUnlink) return;
+        try { await recurringService.unlinkCard(toUnlink.id); toast.success('Tarjeta desvinculada. El plan quedó en pausa.'); load(); }
+        catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
+        finally { setToUnlink(null); }
+    };
+    const decideRequest = async (id: string, decision: 'resolved' | 'dismissed') => {
+        try { await recurringService.decideCancelRequest(id, decision); load(); }
+        catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
+    };
+    const [onlyRequests, setOnlyRequests] = useState(false);
+
     const doAction = async (id: string, action: 'pause' | 'resume' | 'cancel') => {
         try { await recurringService.setStatus(id, action); load(); }
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.recurring.toast.error')); }
@@ -417,6 +431,7 @@ export const RecurringPaymentsPage: React.FC = () => {
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         return items.filter(rp => {
+            if (onlyRequests && rp.cancelRequestStatus !== 'pending') return false;
             if (statusF !== 'all' && rp.status !== statusF) return false;
             if (modeF === 'invoice_link' && rp.mode !== 'invoice_link') return false;
             if (modeF === 'auto' && rp.mode === 'invoice_link') return false;
@@ -431,7 +446,8 @@ export const RecurringPaymentsPage: React.FC = () => {
             }
             return true;
         });
-    }, [items, search, statusF, modeF, payF]);
+    }, [items, search, statusF, modeF, payF, onlyRequests]);
+    const pendingRequests = useMemo(() => items.filter(rp => rp.cancelRequestStatus === 'pending').length, [items]);
     const pg = usePagination(filtered, 25);
     const hasActiveFilters = statusF !== 'all' || modeF !== 'all' || payF !== 'all';
     // Plantilla del correo de autorización (enrolamiento): la edita el gerente.
@@ -747,6 +763,13 @@ export const RecurringPaymentsPage: React.FC = () => {
                 </div>
             )}
 
+            {pendingRequests > 0 && (
+                <button type="button" onClick={() => setOnlyRequests(v => !v)}
+                    className={`w-full text-left mb-3 rounded-lg border p-3 text-sm flex items-center gap-2 ${onlyRequests ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : 'border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
+                    <span className="font-semibold text-red-700 dark:text-red-300">{pendingRequests} cliente(s) pidieron cancelar su plan.</span>
+                    <span className="text-red-600/80 dark:text-red-300/80">{onlyRequests ? 'Ver todos los planes' : 'Ver solicitudes'}</span>
+                </button>
+            )}
             {loading ? <LoadingSkeleton variant="list" rows={4} /> : items.length === 0 ? (
                 <EmptyState title={t('posx.recurring.empty.title')} description={t('posx.recurring.empty.desc')} />
             ) : filtered.length === 0 ? (
@@ -787,8 +810,21 @@ export const RecurringPaymentsPage: React.FC = () => {
                                 {isInvoice && <span>· Link: {(rp.linkMethods || 'agilpay,ath').split(',').map(m => m === 'ath' ? 'ATH Móvil' : 'AgilPay').join(' + ')}</span>}
                                 {isInvoice && (rp.graceDays ?? 0) > 0 && <span>· {t('posx.recurring.graceLabel', { days: rp.graceDays ?? 0 })}</span>}
                             </div>
+                            {rp.cancelRequestStatus === 'pending' && (
+                                <div className="mt-2 rounded-md border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-900/20 p-2.5 text-sm">
+                                    <div className="font-semibold text-red-700 dark:text-red-300">
+                                        El cliente pidió cancelar este plan{rp.cancelRequestedAt ? ` el ${new Date(rp.cancelRequestedAt).toLocaleDateString()}` : ''}.
+                                    </div>
+                                    {rp.cancelRequestReason && <p className="text-red-700/90 dark:text-red-200/90 mt-0.5 whitespace-pre-wrap">Motivo: <span translate="no">{rp.cancelRequestReason}</span></p>}
+                                    <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs">
+                                        <span className="text-neutral-600 dark:text-neutral-300">Puede pausarlo, cancelarlo o desvincular la tarjeta con los botones de abajo.</span>
+                                        <button onClick={() => decideRequest(rp.id, 'resolved')} className="text-green-700 dark:text-green-400 hover:underline font-medium">Marcar como atendida</button>
+                                        <button onClick={() => decideRequest(rp.id, 'dismissed')} className="text-neutral-500 hover:underline">Descartar</button>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                {rp.status !== 'cancelled' && rp.status !== 'completed' && <button onClick={() => chargeNow(rp)} disabled={charging} className="text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-wait">{isInvoice ? t('posx.recurring.action.sendInvoiceNow') : t('posx.recurring.action.chargeNow')}</button>}
+                                {rp.status !== 'cancelled' && rp.status !== 'completed' && (isInvoice || !!rp.cardLast4) && <button onClick={() => chargeNow(rp)} disabled={charging} className="text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-wait">{isInvoice ? t('posx.recurring.action.sendInvoiceNow') : t('posx.recurring.action.chargeNow')}</button>}
                                 {showDeleted ? (
                                     <button onClick={() => confirmRestore(rp.id)} className="text-xs text-green-600 hover:underline">{t('common.restore')}</button>
                                 ) : (<>
@@ -798,6 +834,8 @@ export const RecurringPaymentsPage: React.FC = () => {
                                 {rp.status === 'active' && <button onClick={() => doAction(rp.id, 'pause')} className="text-xs text-amber-600 hover:underline">{t('posx.recurring.action.pause')}</button>}
                                 {rp.status === 'paused' && <button onClick={() => doAction(rp.id, 'resume')} className="text-xs text-green-600 hover:underline">{t('posx.recurring.action.resume')}</button>}
                                 {rp.status !== 'cancelled' && <button onClick={() => setToCancel(rp.id)} className="text-xs text-amber-600 hover:underline">{t('posx.recurring.action.cancel')}</button>}
+                                {!isInvoice && rp.cardLast4 && <button onClick={() => setToUnlink(rp)} className="text-xs text-red-600 hover:underline">Desvincular tarjeta</button>}
+                                {!isInvoice && !rp.cardLast4 && rp.cardUnlinkedAt && <span className="text-xs text-neutral-400">Tarjeta desvinculada el {new Date(rp.cardUnlinkedAt).toLocaleDateString()}</span>}
                                 <button onClick={() => setToDelete(rp.id)} className="text-xs text-red-600 hover:underline">{t('common.delete')}</button>
                                 </>)}
                                 <button onClick={() => setExpanded(expanded === rp.id ? null : rp.id)} className="text-xs text-neutral-500 hover:underline ml-auto">{expanded === rp.id ? t('posx.recurring.action.hide') : t('posx.recurring.action.history')} ({rp.charges.length})</button>
@@ -862,6 +900,15 @@ export const RecurringPaymentsPage: React.FC = () => {
                 title="¿Enviar el correo?"
                 message={`¿Seguro que quieres enviar el enlace para autorizar el pago recurrente a ${sendEnrollEmail.trim()}?`}
                 confirmButtonText="Sí, enviar"
+            />
+
+            <ConfirmationModal
+                isOpen={!!toUnlink}
+                onClose={() => setToUnlink(null)}
+                onConfirm={confirmUnlink}
+                title="Desvincular tarjeta"
+                message={toUnlink ? `Se quitará la tarjeta •••• ${toUnlink.cardLast4 || ''} de este plan y no se le volverá a cobrar. El plan queda en pausa. Esta acción no se puede deshacer: para volver a cobrar, el cliente tendrá que registrar una tarjeta nueva desde su enlace (botón Reanudar).` : ''}
+                confirmButtonText="Sí, desvincular"
             />
 
             <ConfirmationModal

@@ -6,6 +6,7 @@ import { AgilPayCardForm } from '../../components/pos/AgilPayCardForm';
 import { AthMovilPhonePay } from '../../components/pos/AthMovilPhonePay';
 import { TermsAcceptance } from '../../components/pos/TermsAcceptance';
 import { usePublicT } from '../../hooks/usePublicTranslation';
+import { PlanCancelRequest } from '../../components/pos/PlanCancelRequest';
 import { generatePDF, type ReceiptSale } from '../../components/pos/ReceiptModal';
 import { DEFAULT_RECEIPT_CONFIG, type ReceiptConfig } from '../../types';
 import { ApiError, API_URL } from '../../services/api';
@@ -355,6 +356,16 @@ export const PublicInvoicePage: React.FC = () => {
                     )}
                 </div>
             </div>
+            {inv.recurringPlan && (
+                <div className="max-w-lg mx-auto mt-4">
+                    <PlanCancelRequest
+                        canRequest={inv.recurringPlan.canRequestCancel}
+                        pendingSince={inv.recurringPlan.cancelRequest?.requestedAt || null}
+                        onSubmit={async (reason) => { await invoicesService.requestPlanCancel(token!, reason); }}
+                        t={t}
+                    />
+                </div>
+            )}
             <p className="text-center text-xs text-neutral-400 mt-4">{t('pay.secure')}</p>
         </div>
     );

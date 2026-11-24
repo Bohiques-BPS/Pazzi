@@ -59,6 +59,12 @@ export interface RecurringPayment {
     occurrencesDone?: number;
     description?: string | null;
     status: 'active' | 'paused' | 'cancelled' | 'completed' | 'pending_card';
+    /** Solicitud de cancelación del cliente (desde su enlace o una factura del plan). */
+    cancelRequestedAt?: string | null;
+    cancelRequestReason?: string | null;
+    cancelRequestStatus?: 'pending' | 'resolved' | 'dismissed' | null;
+    /** El negocio desvinculó la tarjeta. */
+    cardUnlinkedAt?: string | null;
     deletedAt?: string | null;
     nextChargeDate: string;
     lastChargeAt?: string | null;
@@ -126,6 +132,10 @@ export const recurringService = {
     /** Reenvía por correo el enlace de enrolamiento (autorizar tarjeta). */
     sendEnroll: (id: string, email?: string) => api.post<{ sent: boolean; to: string }>(`/payments/recurring/${id}/send-enroll`, email ? { email } : {}),
     chargeNow: (id: string, force = false) => api.post<{ status: string; message: string; reference?: string }>(`/payments/recurring/${id}/charge`, { force }),
+    /** Desvincula la tarjeta del plan (borra el token de cobro) y lo pausa. */
+    unlinkCard: (id: string) => api.post<RecurringPayment>(`/payments/recurring/${id}/unlink-card`),
+    /** Marca la solicitud de cancelación del cliente como atendida o descartada. */
+    decideCancelRequest: (id: string, decision: 'resolved' | 'dismissed') => api.post<RecurringPayment>(`/payments/recurring/${id}/cancel-request/${decision}`),
     setStatus: (id: string, action: 'pause' | 'resume' | 'cancel') => api.post<RecurringPayment>(`/payments/recurring/${id}/${action}`),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/payments/recurring/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/payments/recurring/${id}/restore`),
@@ -157,6 +167,8 @@ export interface EnrollEmailTemplate {
 export interface PublicEnroll {
     status: string;
     enrolled: boolean;
+    canRequestCancel?: boolean;
+    cancelRequest?: { status: 'pending'; requestedAt: string } | null;
     clientName?: string | null;
     amount: number;
     /** Períodos vencidos que se cobran al autorizar (enrolamiento tardío) y el total de hoy. */
@@ -174,4 +186,6 @@ export const recurringPublic = {
     get: (token: string) => api.get<PublicEnroll>(`/public/recurring/${token}`),
     enroll: (token: string, body: { card: string; expMonth: string; expYear: string; cvv: string; zipCode?: string; acceptedTerms: boolean }) =>
         api.post<{ success: boolean; reference?: string | null }>(`/public/recurring/${token}/enroll`, body),
+    /** El cliente pide cancelar su plan (no cancela solo: avisa al negocio). */
+    requestCancel: (token: string, reason: string) => api.post<{ ok: boolean }>(`/public/recurring/${token}/cancel-request`, { reason }),
 };
