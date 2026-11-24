@@ -1,7 +1,8 @@
 import React from 'react';
 import { htmlToPlainText } from '../../utils/htmlText';
 import { Task, Employee } from '../../types';
-import { ChatBubbleLeftRightIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '../icons';
+import { ChatBubbleLeftRightIcon, CalendarDaysIcon, ExclamationTriangleIcon, ArrowPathIcon } from '../icons';
+import { describeRecurrence } from '../../utils/taskRecurrence';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { taskScheduleLabel } from './TaskSchedule';
 
@@ -64,7 +65,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, commentCount, assigned
                 </span>
             )}
 
-            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 leading-snug">{task.title}</p>
+            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 leading-snug">
+                {task.recurrence && (
+                    <span title={`Se repite: ${describeRecurrence(task.recurrence)}`} className="inline-flex align-[-2px] mr-1 text-primary">
+                        <ArrowPathIcon className="w-3.5 h-3.5" />
+                    </span>
+                )}
+                {task.title}
+            </p>
 
             {task.description && (
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">

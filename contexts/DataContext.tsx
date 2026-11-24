@@ -17,7 +17,7 @@ import { isChatOpen } from '../hooks/useChatUnread';
 import { toast } from 'react-hot-toast';
 import { ShoppingCartIcon, ChatBubbleLeftRightIcon as ChatIcon } from '../components/icons';
 import { posService } from '../services/pos';
-import { normalizeTaskFromApi } from '../services/tasks';
+import { normalizeTaskFromApi, TASK_SPAWNED_EVENT } from '../services/tasks';
 import { SUPPLIER_READ_PERMS, SUPPLIER_ORDER_READ_PERMS } from '../utils/supplierPermissions';
 
 /** ¿El usuario tiene alguno de los permisos? MANAGER siempre; EMPLOYEE según su objeto de permisos. */
@@ -172,6 +172,16 @@ export const DataProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [layaways, setLayaways] = useState<Layaway[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
+    // Tarea que se repite: al completarla el servidor crea la siguiente; se suma al tablero sin recargar.
+    useEffect(() => {
+        const onSpawned = (e: Event) => {
+            const nt = (e as CustomEvent).detail;
+            if (!nt?.id) return;
+            setTasks(prev => prev.some(x => x.id === nt.id) ? prev : [...prev, nt]);
+        };
+        window.addEventListener(TASK_SPAWNED_EVENT, onSpawned);
+        return () => window.removeEventListener(TASK_SPAWNED_EVENT, onSpawned);
+    }, []);
     const [taskComments, setTaskComments] = useState<TaskComment[]>([]);
     // Estado UI session-local: legítimo persistir en localStorage (carrito en espera, último recibo)
     const [lastCompletedSale, setLastCompletedSale] = useState<Sale | null>(() => JSON.parse(localStorage.getItem('pazziLastSale') || 'null'));

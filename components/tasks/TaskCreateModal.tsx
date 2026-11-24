@@ -12,6 +12,8 @@ import { Task } from '../../types';
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, resolveSchedule } from './TaskSchedule';
+import { TaskRecurrenceFields } from './TaskRecurrenceFields';
+import type { TaskRecurrence } from '../../utils/taskRecurrence';
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string }[] = [
     { value: null, labelKey: 'cmpx.task.prio.none' },
@@ -71,6 +73,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
     const [dueDate, setDueDate] = useState('');
     const [section, setSection] = useState('');
     const [reminderOn, setReminderOn] = useState(false);
+    const [recurrence, setRecurrence] = useState<TaskRecurrence | null>(null);
     const [remindAt, setRemindAt] = useState('');
     const [assignedIds, setAssignedIds] = useState<string[]>([]);
     const [images, setImages] = useState<TaskAttachment[]>([]);
@@ -171,6 +174,7 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                 priority: priority || null,
                 dueDate: dueDate || null,
                 remindAt: reminderOn && remindAt ? new Date(remindAt).toISOString() : null,
+                ...(recurrence ? { recurrence } : {}),
                 ...(images.length ? { attachments: images } : {}),
                 ...(assignedIds.length ? { assignedEmployeeIds: assignedIds } : {}),
             } as any);
@@ -277,6 +281,8 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
                         createLabel={t('cmpx.task.section_create') || 'Crear «{q}»'}
                     />
                 </div>
+
+                <TaskRecurrenceFields value={recurrence} onChange={setRecurrence} dueDate={dueDate} onNeedDate={setDueDate} />
 
                 <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-3">
                     <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer">

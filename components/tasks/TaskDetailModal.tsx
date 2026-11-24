@@ -16,6 +16,8 @@ import { toast } from '../../hooks/useToast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, isoToLocalDT, resolveSchedule } from './TaskSchedule';
+import { TaskRecurrenceFields } from './TaskRecurrenceFields';
+import type { TaskRecurrence } from '../../utils/taskRecurrence';
 import { TaskCreateModal, type TaskPrefill } from './TaskCreateModal';
 
 interface TaskDetailModalProps {
@@ -74,6 +76,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
     };
     const [reminderOn, setReminderOn] = useState<boolean>(!!task.remindAt);
+    const [recurrence, setRecurrence] = useState<TaskRecurrence | null>(((task as any).recurrence as TaskRecurrence) || null);
     const [remindAt, setRemindAt] = useState<string>(isoToLocalInput(task.remindAt));
     const [section, setSection] = useState<string>(task.section || '');
     const [newComment, setNewComment] = useState('');
@@ -276,11 +279,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
             || section.trim() !== (task.section || '')
             || reminderOn !== !!task.remindAt
             || (reminderOn && remindAt !== isoToLocalInput(task.remindAt))
+            || JSON.stringify(recurrence || null) !== JSON.stringify((task as any).recurrence || null)
             || JSON.stringify(attachments.map(a => a.url)) !== JSON.stringify((((task as any).attachments as TaskAttachment[]) || []).map(a => a.url))
             // Texto escrito y aún no enviado (comentario, ítem de checklist, subtarea).
             || !!newComment.trim() || !!commentImage || !!newCheckItem.trim() || !!newSubtaskTitle.trim();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [title, description, assignedIds, dueDate, schedStart, schedEnd, priority, section, reminderOn, remindAt, attachments, newComment, commentImage, newCheckItem, newSubtaskTitle, task]);
+    }, [title, description, assignedIds, dueDate, schedStart, schedEnd, priority, section, reminderOn, remindAt, recurrence, attachments, newComment, commentImage, newCheckItem, newSubtaskTitle, task]);
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -313,8 +317,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                 section: section.trim() || null,
                 remindAt: remindAtIso,
                 attachments,
+                recurrence,
             });
-            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null, remindAt: remindAtIso, attachments, startAt, endAt } as any);
+            onSave(task.id, { title, description, assignedEmployeeIds: assignedIds, dueDate: dueDate || null, priority: priority || null, section: section.trim() || null, remindAt: remindAtIso, attachments, startAt, endAt, recurrence } as any);
             applyScheduleMoves(setTasks, saved?.scheduleMoves);
             toast.success(t('cmpx.task.updated_ok'));
             onClose();
@@ -722,6 +727,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
                         createLabel={t('cmpx.task.section_create') || 'Crear «{q}»'}
                     />
                 </div>
+
+                <TaskRecurrenceFields value={recurrence} onChange={setRecurrence} dueDate={dueDate} onNeedDate={setDueDate} />
 
                 {/* Recordatorio: avisa a los asignados (campana + correo) en la fecha/hora elegida. */}
                 <div className="rounded-md border border-neutral-200 dark:border-neutral-700 p-3">

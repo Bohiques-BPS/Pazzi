@@ -30,6 +30,18 @@ export interface TaskPayload {
   endAt?: string | null;
   /** Al guardar, correr en cadena las tareas siguientes que chocan (el usuario lo aceptó). */
   shiftConflicts?: boolean;
+  /** Repetición; null la quita. */
+  recurrence?: import('../utils/taskRecurrence').TaskRecurrence | null;
+}
+
+/** Si al guardar se creó la siguiente repetición de la tarea, se avisa a la app para mostrarla. */
+export const TASK_SPAWNED_EVENT = 'pazzi:task-spawned';
+function announceSpawned<T>(r: T): T {
+  const sp = (r as any)?.spawnedTask;
+  if (sp && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(TASK_SPAWNED_EVENT, { detail: normalizeTaskFromApi(sp) }));
+  }
+  return r;
 }
 
 /** Choques de horario de una tarea (ver /tasks/schedule-check). Fechas en ISO. */
@@ -126,7 +138,7 @@ export const tasksService = {
     api.post<{ count: number; ids: string[]; archived: boolean }>('/tasks/archive-bulk', data),
 
   update: (id: string, data: Partial<TaskPayload>) =>
-    api.put<any>(`/tasks/${id}`, data).then(normalizeTaskFromApi) as Promise<TaskRecord>,
+    api.put<any>(`/tasks/${id}`, data).then(announceSpawned).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
   /** `mentions` = userIds etiquetados con @ (el servidor los valida y les envía notificación). */
   addComment: (id: string, text: string, imageUrl?: string | null, mentions?: string[]) =>
@@ -161,7 +173,7 @@ export const tasksService = {
 
   /** Aprueba o rechaza una tarea pendiente; notifica al solicitante. */
   respondApproval: (id: string, decision: 'approved' | 'rejected', note?: string) =>
-    api.post<any>(`/tasks/${id}/approval-decision`, { decision, ...(note ? { note } : {}) }).then(normalizeTaskFromApi) as Promise<TaskRecord>,
+    api.post<any>(`/tasks/${id}/approval-decision`, { decision, ...(note ? { note } : {}) }).then(announceSpawned).then(normalizeTaskFromApi) as Promise<TaskRecord>,
 
   addChecklistItem: (taskId: string, text: string, assignedUserId?: string | null) =>
     api.post<ChecklistItem>(`/tasks/${taskId}/checklist`, assignedUserId ? { text, assignedUserId } : { text }),

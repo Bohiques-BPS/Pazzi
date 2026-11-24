@@ -99,6 +99,10 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const deletedSpotRef = useRef<Record<string, { index: number; archivedIndex: number }>>({});
     // Búsqueda por nombre de tarea (aplica al tablero y a la vista de archivadas).
     const [search, setSearch] = useState('');
+    // Filtro por fechas del tablero (fecha límite; si no tiene, el inicio del horario).
+    const [dateFilter, setDateFilter] = useState<string>('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
     // Vista de tareas archivadas: mismas columnas que el tablero, con filtro por columna.
     const [showArchived, setShowArchived] = useState(false);
     const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
@@ -234,6 +238,35 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
     const searchTerm = norm(search.trim());
     const matchesSearch = (tk: Task) => !searchTerm || norm(tk.title).includes(searchTerm);
 
+    const localYmd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const taskDay = (tk: Task) => tk.dueDate ? String(tk.dueDate).slice(0, 10) : (tk.startAt ? localYmd(new Date(tk.startAt)) : '');
+    const dateBounds = useMemo((): { from?: string; to?: string } => {
+        const now = new Date();
+        const today = localYmd(now);
+        const plus = (n: number) => { const d = new Date(now); d.setDate(d.getDate() + n); return localYmd(d); };
+        switch (dateFilter) {
+            case 'today': return { from: today, to: today };
+            case 'tomorrow': return { from: plus(1), to: plus(1) };
+            case 'week': { const dow = (now.getDay() + 6) % 7; return { from: plus(-dow), to: plus(6 - dow) }; } // lunes a domingo
+            case 'next7': return { from: today, to: plus(7) };
+            case 'month': return { from: localYmd(new Date(now.getFullYear(), now.getMonth(), 1)), to: localYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
+            case 'custom': return { from: dateFrom || undefined, to: dateTo || undefined };
+            default: return {};
+        }
+    }, [dateFilter, dateFrom, dateTo]);
+    const isDoneCol = (st: string) => /hecho|done|completad|terminad|finaliz/i.test(st) || st === columnNames[columnNames.length - 1];
+    const matchesDate = (tk: Task) => {
+        if (!dateFilter) return true;
+        const day = taskDay(tk);
+        if (dateFilter === 'nodate') return !day;
+        if (dateFilter === 'overdue') return !!day && day < localYmd(new Date()) && !isDoneCol(tk.status);
+        if (!day) return false;
+        const { from, to } = dateBounds;
+        return (!from || day >= from) && (!to || day <= to);
+    };
+    const filtering = !!searchTerm || !!dateFilter;
+    const matchesFilters = (tk: Task) => matchesSearch(tk) && matchesDate(tk);
+
     // Columnas del tablero: personalizadas del proyecto o las 4 por defecto.
     const columnNames = useMemo(() => {
         const custom = projects.find(p => p.id === projectId)?.taskColumns;
@@ -260,7 +293,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         const order: string[] = [...columnNames];
         for (const tk of archivedTasks) {
             if (activeSection && (tk.section || '') !== activeSection) continue;
-            if (!matchesSearch(tk)) continue;
+            if (!matchesFilters(tk)) continue;
             const col = tk.status || columnNames[0];
             if (!map[col]) { map[col] = []; if (!order.includes(col)) order.push(col); }
             map[col].push(tk);
@@ -269,7 +302,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         const names = order.filter(c => (archivedColumnFilter ? c === archivedColumnFilter : true));
         return { names, map, all: order };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [archivedTasks, columnNames, activeSection, searchTerm, archivedColumnFilter]);
+    }, [archivedTasks, columnNames, activeSection, searchTerm, archivedColumnFilter, dateFilter, dateBounds]);
 
     const addSection = () => setSectionModalOpen(true);
     const confirmAddSection = async (name: string) => {
@@ -483,6 +516,32 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                         className={inputFormStyle + ' !pl-8 !py-1.5 text-sm'}
                     />
                 </div>
+                <select
+                    value={dateFilter}
+                    onChange={e => setDateFilter(e.target.value)}
+                    className={inputFormStyle + ' !py-1.5 text-sm !w-auto' + (dateFilter ? ' !border-primary !text-primary font-medium' : '')}
+                    aria-label="Filtrar por fecha"
+                >
+                    <option value="">Todas las fechas</option>
+                    <option value="overdue">Vencidas</option>
+                    <option value="today">Hoy</option>
+                    <option value="tomorrow">Mañana</option>
+                    <option value="week">Esta semana</option>
+                    <option value="next7">Próximos 7 días</option>
+                    <option value="month">Este mes</option>
+                    <option value="nodate">Sin fecha</option>
+                    <option value="custom">Rango de fechas…</option>
+                </select>
+                {dateFilter === 'custom' && (
+                    <span className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400">
+                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputFormStyle + ' !py-1.5 text-sm !w-auto'} aria-label="Desde" />
+                        <span>a</span>
+                        <input type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)} className={inputFormStyle + ' !py-1.5 text-sm !w-auto'} aria-label="Hasta" />
+                    </span>
+                )}
+                {dateFilter && (
+                    <button type="button" onClick={() => { setDateFilter(''); setDateFrom(''); setDateTo(''); }} className="text-xs text-primary hover:underline">Quitar filtro</button>
+                )}
                 {showArchived && (
                     <select
                         value={archivedColumnFilter}
@@ -518,7 +577,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
                             </span>
                         </h3>
                         <div className="space-y-2 overflow-y-auto flex-grow min-h-[100px] p-1">
-                            {list.length === 0 && searchTerm && (
+                            {list.length === 0 && filtering && (
                                 <p className="text-xs text-neutral-500 dark:text-neutral-400 px-2">{t('cmpx.task.no_results', { q: search.trim() })}</p>
                             )}
                             {list.map(task => (
@@ -545,7 +604,7 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
             </div>
             ) : (
             <div ref={boardRef} style={{ ['--task-col-max' as any]: colMax ? `${colMax}px` : undefined }} className="flex gap-4 overflow-x-auto pb-2 items-start">
-                {columnNames.map((status) => { const columnTasks = columns[status] || []; const tasksInColumn = searchTerm ? columnTasks.filter(matchesSearch) : columnTasks; return (
+                {columnNames.map((status) => { const columnTasks = columns[status] || []; const tasksInColumn = filtering ? columnTasks.filter(matchesFilters) : columnTasks; return (
                     <div
                         key={status}
                         onDragOver={handleDragOver}

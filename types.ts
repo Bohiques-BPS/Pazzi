@@ -1027,6 +1027,9 @@ export interface Task {
     attachments?: { url: string; name?: string }[]; // imágenes adjuntas
     approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
     approvalRequestedByUserId?: string | null;
+    /** Repetición (diario / semanal / mensual / anual). Ver utils/taskRecurrence.ts. */
+    recurrence?: import('./utils/taskRecurrence').TaskRecurrence | null;
+    recurrenceNextId?: string | null;
 }
 
 export interface TaskComment {
