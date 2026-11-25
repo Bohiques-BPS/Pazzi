@@ -165,7 +165,7 @@ export const TaskRecurrenceFields: React.FC<{
                         <div className="flex flex-wrap items-center gap-2">
                             <input type="date" value={r.until || ''} onChange={e => set({ until: e.target.value || null })} className={`${FIELD} w-44`} />
                             {r.until
-                                ? <button type="button" onClick={() => set({ until: null })} className="text-xs font-medium text-primary hover:underline">Sin fecha de fin</button>
+                                ? <button type="button" onClick={() => set({ until: null })} className="h-9 px-3 rounded-md text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700" title="Quitar la fecha de fin (se repite sin fin)">Limpiar</button>
                                 : <span className="text-xs text-neutral-400">Nunca (déjalo vacío)</span>}
                         </div>
                     </div>
