@@ -42,9 +42,12 @@ function periodRange(p: Period, cs: string, ce: string): { start: string; end: s
 }
 
 /** Reportes disponibles: cómo se agrupan las ventas. Algunos solo aplican a ventas del POS. */
-const REPORTS: { key: AnalyticsGroupBy; label: string; posOnly?: boolean; invoicesOnly?: boolean }[] = [
+// 'range' = por rango de fechas (agrupa por día dentro del rango elegido).
+type ReportKey = AnalyticsGroupBy | 'range';
+const REPORTS: { key: ReportKey; label: string; posOnly?: boolean; invoicesOnly?: boolean }[] = [
     { key: 'day', label: 'Por día' },
     { key: 'month', label: 'Por mes' },
+    { key: 'range', label: 'Por rango de fechas' },
     { key: 'client', label: 'Por cliente' },
     { key: 'project', label: 'Por proyecto' },
     { key: 'product', label: 'Por producto', posOnly: true },
@@ -76,8 +79,10 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     const invoicesOnly = scope === 'invoices';
     const available = REPORTS.filter(r => invoicesOnly ? !r.posOnly : !r.invoicesOnly);
 
-    const [groupBy, setGroupBy] = useState<AnalyticsGroupBy>('day');
-    const [period, setPeriod] = useState<Period>('this_month');
+    const [groupBy, setGroupBy] = useState<ReportKey>('day');
+    // "Por día" arranca en hoy; "Por mes" en el mes completo; "Por rango" en fechas a elegir.
+    const [period, setPeriod] = useState<Period>('today');
+    const apiGroupBy: AnalyticsGroupBy = groupBy === 'range' ? 'day' : groupBy;
     const today = new Date().toISOString().slice(0, 10);
     const [customStart, setCustomStart] = useState(today);
     const [customEnd, setCustomEnd] = useState(today);
@@ -95,7 +100,7 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
         client: 'clientId', project: 'projectId', product: 'productId', category: 'categoryId',
         department: 'departmentId', caja: 'cajaId', branch: 'branchId', seller: 'sellerId',
     };
-    const dimFilter = DIM_FILTER[groupBy];
+    const dimFilter = DIM_FILTER[apiGroupBy];
     const primaryKeys: FKey[] = Array.from(new Set<FKey>([
         ...(dimFilter && allFilterKeys.includes(dimFilter) ? [dimFilter] : []),
         'clientId', 'projectId',
@@ -146,11 +151,11 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
         setLoading(true);
         try {
             const clean = Object.fromEntries(Object.entries(f).filter(([, v]) => v)) as any;
-            setData(await analyticsService.get({ scope: invoicesOnly ? 'invoices' : 'general', groupBy, startDate: start, endDate: end, ...clean }));
+            setData(await analyticsService.get({ scope: invoicesOnly ? 'invoices' : 'general', groupBy: apiGroupBy, startDate: start, endDate: end, ...clean }));
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : 'No se pudo generar el reporte.');
         } finally { setLoading(false); }
-    }, [period, customStart, customEnd, f, groupBy, invoicesOnly]);
+    }, [period, customStart, customEnd, f, apiGroupBy, invoicesOnly]);
     useEffect(() => { load(); }, [load]);
 
     const rows = useMemo(() => {
@@ -163,7 +168,7 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     }, [data, sort]);
 
     const reportLabel = available.find(r => r.key === groupBy)?.label || '';
-    const dimLabel = reportLabel.replace(/^Por /, '').replace(/^./, c => c.toUpperCase());
+    const dimLabel = groupBy === 'range' ? 'Día' : reportLabel.replace(/^Por /, '').replace(/^./, c => c.toUpperCase());
     const showQty = !invoicesOnly && ['product', 'category', 'department'].includes(groupBy);
     const columns: { key: SortKey; header: string; money?: boolean; align?: 'right'; fmt?: (r: AnalyticsRow) => string }[] = [
         { key: 'label', header: dimLabel },
@@ -196,7 +201,16 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
             {/* Tipo de reporte */}
             <div className="flex flex-wrap gap-1.5">
                 {available.map(r => (
-                    <button key={r.key} type="button" onClick={() => { setGroupBy(r.key); setSort(null); setSelectedKey(null); }}
+                    <button key={r.key} type="button" onClick={() => {
+                        setGroupBy(r.key); setSort(null); setSelectedKey(null);
+                        if (r.key === 'day') setPeriod('today');
+                        else if (r.key === 'month') setPeriod('this_month');
+                        else if (r.key === 'range') {
+                            // Rango por defecto: del 1 del mes a hoy (se cambia en Desde/Hasta).
+                            const t = new Date(); const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                            setCustomStart(ymd(new Date(t.getFullYear(), t.getMonth(), 1))); setCustomEnd(ymd(t)); setPeriod('custom');
+                        }
+                    }}
                         className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${groupBy === r.key ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}>
                         {r.label}
                     </button>
