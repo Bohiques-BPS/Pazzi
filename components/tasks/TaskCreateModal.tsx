@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast';
 import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, resolveSchedule } from './TaskSchedule';
 import { TaskRecurrenceFields } from './TaskRecurrenceFields';
 import type { TaskRecurrence } from '../../utils/taskRecurrence';
+import { withProjectMembers } from '../../utils/projectMembers';
 
 const PRIORITY_OPTIONS: { value: Task['priority']; labelKey: string }[] = [
     { value: null, labelKey: 'cmpx.task.prio.none' },
@@ -113,10 +114,10 @@ export const TaskCreateModal: React.FC<Props> = ({ status, projectId, defaultSec
         const project = projects.find(p => p.id === projectId);
         const base: any[] = !project
             ? [...getAllEmployees()]
-            : getAllEmployees().filter((e: any) => {
+            : withProjectMembers(getAllEmployees().filter((e: any) => {
                 const assigned = new Set((project.assignedEmployeeIds || []).map(String));
                 return assigned.has(String(e.userId)) || assigned.has(String(e.id)) || assigned.has(String(e.user?.id));
-            });
+            }), project); // + miembros sin ficha de empleado (p. ej. el gerente)
         if (currentUser && !base.some((e: any) => String(e.id) === currentUser.id || String(e.userId) === currentUser.id)) {
             base.push({ id: currentUser.id, userId: currentUser.id, name: currentUser.name, lastName: (currentUser as any).lastName });
         }

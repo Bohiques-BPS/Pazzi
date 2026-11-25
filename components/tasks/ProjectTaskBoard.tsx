@@ -14,6 +14,7 @@ import { PlusIcon, DocumentTextIcon, ArchiveBoxIcon, MagnifyingGlassIcon, Chevro
 import { BUTTON_PRIMARY_SM_CLASSES, BUTTON_SECONDARY_SM_CLASSES, inputFormStyle } from '../../constants';
 import { tasksService, type TaskAttachment } from '../../services/tasks';
 import { projectsService } from '../../services/projects';
+import { withProjectMembers } from '../../utils/projectMembers';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from '../../contexts/GlobalSettingsContext';
 
@@ -187,7 +188,8 @@ export const ProjectTaskBoard: React.FC<ProjectTaskBoardProps> = ({ projectId })
         await Promise.allSettled(affected.map(x => tasksService.update(x.id, { section: '' })));
     };
 
-    const allEmployees = getAllEmployees();
+    // + miembros del proyecto sin ficha de empleado (p. ej. el gerente), para verlos en las tarjetas.
+    const allEmployees = useMemo(() => withProjectMembers(getAllEmployees(), projects.find(p => p.id === projectId)), [getAllEmployees, projects, projectId]);
     // Id con el que se asigna al USUARIO CONECTADO en las tareas. Las asignaciones usan
     // (employee.userId || employee.id); resolvemos el empleado del usuario para que la
     // asignación coincida y se muestre en la tarjeta y en el editor. Fallback: su User.id.

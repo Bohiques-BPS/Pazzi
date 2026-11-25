@@ -18,6 +18,7 @@ import { deleteWithUndo } from '../../utils/deleteWithUndo';
 import { TaskScheduleFields, useScheduleGuard, applyScheduleMoves, isoToLocalDT, resolveSchedule } from './TaskSchedule';
 import { TaskRecurrenceFields } from './TaskRecurrenceFields';
 import type { TaskRecurrence } from '../../utils/taskRecurrence';
+import { withProjectMembers } from '../../utils/projectMembers';
 import { TaskCreateModal, type TaskPrefill } from './TaskCreateModal';
 
 interface TaskDetailModalProps {
@@ -145,10 +146,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose,
         // (match por userId, id de empleado, o user.id anidado), aunque sean 0.
         const base = !project
             ? [...getAllEmployees()]
-            : getAllEmployees().filter((e: any) => {
+            : withProjectMembers(getAllEmployees().filter((e: any) => {
                 const assigned = new Set((project.assignedEmployeeIds || []).map(String));
                 return assigned.has(String(e.userId)) || assigned.has(String(e.id)) || assigned.has(String(e.user?.id));
-            });
+            }), project); // + miembros sin ficha de empleado (p. ej. el gerente)
         // Incluir al USUARIO CONECTADO aunque no sea "colaborador" (p.ej. el gerente), para que pueda
         // asignarse/verse. Se agrega solo si no está ya en el pool.
         if (currentUser && !base.some((e: any) => String(e.id) === currentUser.id || String(e.userId) === currentUser.id)) {
