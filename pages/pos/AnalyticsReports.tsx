@@ -84,7 +84,53 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     const [f, setF] = useState({ branchId: '', cajaId: '', clientId: '', projectId: '', categoryId: '', departmentId: '', productId: '', sellerId: '' });
     const set = (k: keyof typeof f, v: string) => setF(prev => ({ ...prev, [k]: v }));
     const [showFilters, setShowFilters] = useState(false);
+
+    // Filtros según el reporte elegido: el de la misma dimensión va primero (p. ej. "Por departamento"
+    // muestra Departamento), después Cliente/Proyecto; el resto queda en "Más filtros".
+    type FKey = keyof typeof f;
+    const allFilterKeys: FKey[] = invoicesOnly
+        ? ['clientId', 'projectId', 'sellerId']
+        : ['clientId', 'projectId', 'productId', 'categoryId', 'departmentId', 'cajaId', 'branchId', 'sellerId'];
+    const DIM_FILTER: Partial<Record<AnalyticsGroupBy, FKey>> = {
+        client: 'clientId', project: 'projectId', product: 'productId', category: 'categoryId',
+        department: 'departmentId', caja: 'cajaId', branch: 'branchId', seller: 'sellerId',
+    };
+    const dimFilter = DIM_FILTER[groupBy];
+    const primaryKeys: FKey[] = Array.from(new Set<FKey>([
+        ...(dimFilter && allFilterKeys.includes(dimFilter) ? [dimFilter] : []),
+        'clientId', 'projectId',
+    ])).slice(0, 2);
+    // Un filtro con valor sigue visible arriba aunque se cambie de reporte.
+    for (const k of allFilterKeys) if (f[k] && !primaryKeys.includes(k)) primaryKeys.push(k);
+    const moreKeys = allFilterKeys.filter(k => !primaryKeys.includes(k));
     const activeFilters = Object.values(f).filter(Boolean).length;
+    const hiddenActive = moreKeys.filter(k => f[k]).length;
+
+    const FILTER_LABEL: Record<FKey, string> = {
+        clientId: 'Cliente', projectId: 'Proyecto', productId: 'Producto', categoryId: 'Categoría',
+        departmentId: 'Departamento', cajaId: 'Caja', branchId: 'Sucursal', sellerId: 'Vendedor',
+    };
+    const filterOptions = (k: FKey): { value: string; label: string }[] => {
+        switch (k) {
+            case 'clientId': return [...clients].sort((a, b) => clientDocName(a).localeCompare(clientDocName(b))).map(c => ({ value: c.id, label: clientDocName(c) }));
+            case 'projectId': return [...projects].sort((a, b) => a.name.localeCompare(b.name)).map(p => ({ value: p.id, label: `${(p as any).projectKey ? `[${String((p as any).projectKey).toUpperCase()}] ` : ''}${p.name}` }));
+            case 'productId': return [...products].sort((a, b) => a.name.localeCompare(b.name)).map(p => ({ value: p.id, label: p.name }));
+            case 'categoryId': return categories.map(c => ({ value: c.id, label: c.name }));
+            case 'departmentId': return departments.map(d => ({ value: d.id, label: d.name }));
+            case 'cajaId': return cajas.map(c => ({ value: c.id, label: c.name }));
+            case 'branchId': return branches.map(b => ({ value: b.id, label: b.name }));
+            case 'sellerId': return employees.map(e => ({ value: (e as any).userId || e.id, label: `${e.name} ${e.lastName || ''}`.trim() }));
+        }
+    };
+    const renderFilter = (k: FKey) => (
+        <>
+            <label className={`block text-xs mb-1 ${k === dimFilter ? 'text-primary font-medium' : 'text-neutral-500'}`}>{FILTER_LABEL[k]}</label>
+            <select value={f[k]} onChange={e => set(k, e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
+                <option value="">{['categoryId', 'cajaId', 'branchId'].includes(k) ? 'Todas' : 'Todos'}</option>
+                {filterOptions(k).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+        </>
+    );
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<AnalyticsReport | null>(null);
@@ -172,23 +218,10 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
                             <div><label className="block text-xs text-neutral-500 mb-1">Hasta</label><input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className={INPUT_SM_CLASSES} /></div>
                         </>
                     )}
-                    <div className="min-w-[180px]">
-                        <label className="block text-xs text-neutral-500 mb-1">Cliente</label>
-                        <select value={f.clientId} onChange={e => set('clientId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
-                            <option value="">Todos</option>
-                            {[...clients].sort((a, b) => clientDocName(a).localeCompare(clientDocName(b))).map(c => <option key={c.id} value={c.id}>{clientDocName(c)}</option>)}
-                        </select>
-                    </div>
-                    <div className="min-w-[180px]">
-                        <label className="block text-xs text-neutral-500 mb-1">Proyecto</label>
-                        <select value={f.projectId} onChange={e => set('projectId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}>
-                            <option value="">Todos</option>
-                            {[...projects].sort((a, b) => a.name.localeCompare(b.name)).map(p => <option key={p.id} value={p.id}>{(p as any).projectKey ? `[${String((p as any).projectKey).toUpperCase()}] ` : ''}{p.name}</option>)}
-                        </select>
-                    </div>
-                    <button type="button" onClick={() => setShowFilters(v => !v)} className={BUTTON_SECONDARY_SM_CLASSES}>
-                        {showFilters ? 'Menos filtros' : `Más filtros${activeFilters ? ` (${activeFilters})` : ''}`}
-                    </button>
+                    {primaryKeys.map(k => <div key={k} className="min-w-[180px]">{renderFilter(k)}</div>)}
+                    {moreKeys.length > 0 && <button type="button" onClick={() => setShowFilters(v => !v)} className={BUTTON_SECONDARY_SM_CLASSES}>
+                        {showFilters ? 'Menos filtros' : `Más filtros${hiddenActive ? ` (${hiddenActive})` : ''}`}
+                    </button>}
                     {activeFilters > 0 && <button type="button" onClick={() => setF({ branchId: '', cajaId: '', clientId: '', projectId: '', categoryId: '', departmentId: '', productId: '', sellerId: '' })} className={`${BUTTON_SECONDARY_SM_CLASSES} !text-red-600`}>Limpiar filtros</button>}
                     <div className="ml-auto flex gap-2">
                         <button type="button" onClick={load} className={BUTTON_SECONDARY_SM_CLASSES}>Actualizar</button>
@@ -196,27 +229,12 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
                         <button type="button" disabled={!rows.length} onClick={() => exportToPDF(title, exportCols, exportRows())} className={`${BUTTON_SECONDARY_SM_CLASSES} disabled:opacity-50`}>PDF</button>
                     </div>
                 </div>
-                {showFilters && (
+                {showFilters && moreKeys.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                        {!invoicesOnly && (
-                            <>
-                                <div><label className="block text-xs text-neutral-500 mb-1">Sucursal</label>
-                                    <select value={f.branchId} onChange={e => set('branchId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}><option value="">Todas</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-                                <div><label className="block text-xs text-neutral-500 mb-1">Caja</label>
-                                    <select value={f.cajaId} onChange={e => set('cajaId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}><option value="">Todas</option>{cajas.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                                <div><label className="block text-xs text-neutral-500 mb-1">Categoría</label>
-                                    <select value={f.categoryId} onChange={e => set('categoryId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}><option value="">Todas</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                                <div><label className="block text-xs text-neutral-500 mb-1">Departamento</label>
-                                    <select value={f.departmentId} onChange={e => set('departmentId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}><option value="">Todos</option>{departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                                <div><label className="block text-xs text-neutral-500 mb-1">Producto</label>
-                                    <select value={f.productId} onChange={e => set('productId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}><option value="">Todos</option>{[...products].sort((a, b) => a.name.localeCompare(b.name)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-                            </>
-                        )}
-                        <div><label className="block text-xs text-neutral-500 mb-1">Vendedor</label>
-                            <select value={f.sellerId} onChange={e => set('sellerId', e.target.value)} className={`${INPUT_SM_CLASSES} w-full`}><option value="">Todos</option>{employees.map(e => <option key={e.id} value={(e as any).userId || e.id}>{`${e.name} ${e.lastName || ''}`.trim()}</option>)}</select></div>
+                        {moreKeys.map(k => <div key={k}>{renderFilter(k)}</div>)}
                     </div>
                 )}
-                {data?.notes.invoicesExcluded && (
+                {data?.notes?.invoicesExcluded && (
                     <p className="text-xs text-amber-700 dark:text-amber-400">Con filtro de sucursal, caja, categoría, departamento o producto solo se incluyen ventas del POS (las facturas no tienen esos datos).</p>
                 )}
                 {data?.truncated && <p className="text-xs text-amber-700 dark:text-amber-400">El período tiene demasiados movimientos; se muestran los primeros 20,000. Reduce el rango de fechas.</p>}
