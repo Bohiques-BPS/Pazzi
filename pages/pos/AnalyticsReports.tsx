@@ -42,12 +42,10 @@ function periodRange(p: Period, cs: string, ce: string): { start: string; end: s
 }
 
 /** Reportes disponibles: cómo se agrupan las ventas. Algunos solo aplican a ventas del POS. */
-// 'range' = por rango de fechas (agrupa por día dentro del rango elegido).
-type ReportKey = AnalyticsGroupBy | 'range';
+// 'date' = por fecha: agrupa por día, o por mes si el período es largo (más de ~3 meses).
+type ReportKey = Exclude<AnalyticsGroupBy, 'day' | 'month'> | 'date';
 const REPORTS: { key: ReportKey; label: string; posOnly?: boolean; invoicesOnly?: boolean }[] = [
-    { key: 'day', label: 'Por día' },
-    { key: 'month', label: 'Por mes' },
-    { key: 'range', label: 'Por rango de fechas' },
+    { key: 'date', label: 'Por fecha' },
     { key: 'client', label: 'Por cliente' },
     { key: 'project', label: 'Por proyecto' },
     { key: 'product', label: 'Por producto', posOnly: true },
@@ -79,13 +77,17 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     const invoicesOnly = scope === 'invoices';
     const available = REPORTS.filter(r => invoicesOnly ? !r.posOnly : !r.invoicesOnly);
 
-    const [groupBy, setGroupBy] = useState<ReportKey>('day');
-    // "Por día" arranca en hoy; "Por mes" en el mes completo; "Por rango" en fechas a elegir.
-    const [period, setPeriod] = useState<Period>('today');
-    const apiGroupBy: AnalyticsGroupBy = groupBy === 'range' ? 'day' : groupBy;
+    const [groupBy, setGroupBy] = useState<ReportKey>('date');
+    const [period, setPeriod] = useState<Period>('today'); // arranca en hoy
+
     const today = new Date().toISOString().slice(0, 10);
     const [customStart, setCustomStart] = useState(today);
     const [customEnd, setCustomEnd] = useState(today);
+    const apiGroupBy: AnalyticsGroupBy = useMemo(() => {
+        if (groupBy !== 'date') return groupBy;
+        const { start, end } = periodRange(period, customStart, customEnd);
+        return (new Date(end).getTime() - new Date(start).getTime()) / 86_400_000 > 92 ? 'month' : 'day';
+    }, [groupBy, period, customStart, customEnd]);
     const [f, setF] = useState({ branchId: '', cajaId: '', clientId: '', projectId: '', categoryId: '', departmentId: '', productId: '', sellerId: '' });
     const set = (k: keyof typeof f, v: string) => setF(prev => ({ ...prev, [k]: v }));
     const [showFilters, setShowFilters] = useState(false);
@@ -144,7 +146,7 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
     // Si cambia el ámbito y el reporte elegido no aplica (p. ej. "Por producto" en Facturas), vuelve a "Por día".
-    useEffect(() => { if (!available.some(r => r.key === groupBy)) setGroupBy('day'); }, [scope]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { if (!available.some(r => r.key === groupBy)) setGroupBy('date'); }, [scope]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const load = useCallback(async () => {
         const { start, end } = periodRange(period, customStart, customEnd);
@@ -168,7 +170,7 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
     }, [data, sort]);
 
     const reportLabel = available.find(r => r.key === groupBy)?.label || '';
-    const dimLabel = groupBy === 'range' ? 'Día' : reportLabel.replace(/^Por /, '').replace(/^./, c => c.toUpperCase());
+    const dimLabel = groupBy === 'date' ? (apiGroupBy === 'month' ? 'Mes' : 'Día') : reportLabel.replace(/^Por /, '').replace(/^./, c => c.toUpperCase());
     const showQty = !invoicesOnly && ['product', 'category', 'department'].includes(groupBy);
     const columns: { key: SortKey; header: string; money?: boolean; align?: 'right'; fmt?: (r: AnalyticsRow) => string }[] = [
         { key: 'label', header: dimLabel },
@@ -203,13 +205,6 @@ export const AnalyticsReports: React.FC<{ scope: Extract<AnalyticsScope, 'genera
                 {available.map(r => (
                     <button key={r.key} type="button" onClick={() => {
                         setGroupBy(r.key); setSort(null); setSelectedKey(null);
-                        if (r.key === 'day') setPeriod('today');
-                        else if (r.key === 'month') setPeriod('this_month');
-                        else if (r.key === 'range') {
-                            // Rango por defecto: del 1 del mes a hoy (se cambia en Desde/Hasta).
-                            const t = new Date(); const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                            setCustomStart(ymd(new Date(t.getFullYear(), t.getMonth(), 1))); setCustomEnd(ymd(t)); setPeriod('custom');
-                        }
                     }}
                         className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${groupBy === r.key ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'}`}>
                         {r.label}
