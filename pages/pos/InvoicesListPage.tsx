@@ -28,6 +28,14 @@ import { invoicePdfBlobUrl, downloadInvoicePdf, openInvoicePdf, type InvoicePdfB
 import { clientDocName } from '../../utils/clientName';
 import { computeInvoiceTotals, lineDiscount, type DiscountType } from '../../utils/invoiceTotals';
 
+/** Descuento escrito: % entre 0 y 100; monto entre 0 y `max` (lo que vale la línea o la factura). */
+const clampDisc = (raw: string, type: DiscountType | undefined, max: number): string => {
+    if (raw === '' || raw == null) return '';
+    const n = Number(raw);
+    if (!isFinite(n) || n < 0) return '0';
+    const cap = type === 'amount' ? Math.max(0, max) : 100;
+    return n > cap ? String(Math.round(cap * 100) / 100) : raw;
+};
 type DraftItem = { name: string; quantity: string; unitPrice: string; description?: string; taxRate?: number; discount?: string; discountType?: DiscountType };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
 /** Convierte la descripción del producto (puede traer HTML del editor) a texto plano para la factura. */
@@ -737,8 +745,8 @@ export const InvoicesListPage: React.FC<{ mode?: 'list' | 'new' | 'edit' }> = ({
                                 <div className="w-32 flex-shrink-0"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={FIELD_MONEY} /></div>
                                 {/* Descuento de la línea: % o $ */}
                                 <div className="flex flex-shrink-0 w-28" title="Descuento de esta línea">
-                                    <input type="number" min={0} value={l.discount || ''} onChange={e => setLine(i, { discount: e.target.value })} placeholder="Desc." className={`${FIELD} w-full !rounded-r-none`} />
-                                    <button type="button" onClick={() => setLine(i, { discountType: l.discountType === 'amount' ? 'percent' : 'amount' })}
+                                    <input type="number" min={0} max={l.discountType === 'amount' ? undefined : 100} value={l.discount || ''} onChange={e => setLine(i, { discount: clampDisc(e.target.value, l.discountType, (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0)) })} placeholder="Desc." className={`${FIELD} w-full !rounded-r-none`} />
+                                    <button type="button" onClick={() => { const nt: DiscountType = l.discountType === 'amount' ? 'percent' : 'amount'; setLine(i, { discountType: nt, discount: clampDisc(l.discount || '', nt, (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0)) }); }}
                                         className="h-11 w-10 flex-shrink-0 rounded-r-md border border-l-0 border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-sm font-semibold text-primary"
                                         title="Cambiar entre porcentaje y monto">{l.discountType === 'amount' ? '$' : '%'}</button>
                                 </div>
@@ -774,8 +782,8 @@ export const InvoicesListPage: React.FC<{ mode?: 'list' | 'new' | 'edit' }> = ({
                             <span className="text-neutral-500 dark:text-neutral-400">Descuento</span>
                             <div className="flex items-center gap-2">
                                 <div className="flex">
-                                    <input type="number" min={0} value={invDiscValue} onChange={e => setInvDiscValue(e.target.value)} placeholder="0" className={`${INPUT_SM_CLASSES} w-20 text-right !rounded-r-none`} />
-                                    <button type="button" onClick={() => setInvDiscType(d => d === 'amount' ? 'percent' : 'amount')}
+                                    <input type="number" min={0} max={invDiscType === 'amount' ? undefined : 100} value={invDiscValue} onChange={e => setInvDiscValue(clampDisc(e.target.value, invDiscType, tot.linesSubtotal))} placeholder="0" className={`${INPUT_SM_CLASSES} w-20 text-right !rounded-r-none`} />
+                                    <button type="button" onClick={() => { const nt: DiscountType = invDiscType === 'amount' ? 'percent' : 'amount'; setInvDiscType(nt); setInvDiscValue(v => clampDisc(v, nt, tot.linesSubtotal)); }}
                                         className="h-9 w-9 rounded-r-md border border-l-0 border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-sm font-semibold text-primary"
                                         title="Cambiar entre porcentaje y monto">{invDiscType === 'amount' ? '$' : '%'}</button>
                                 </div>
