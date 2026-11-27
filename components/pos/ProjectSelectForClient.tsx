@@ -5,10 +5,11 @@ import { useTranslation } from '../../contexts/GlobalSettingsContext';
 import { normalizeProjectKey } from '../ui/ProjectKeyChip';
 
 interface Props {
-    /** Cliente cuyos proyectos se listan. Sin cliente, el select queda deshabilitado. */
+    /** Cliente cuyos proyectos se listan. Sin cliente se listan todos los proyectos. */
     clientId: string;
     value: string;
-    onChange: (projectId: string) => void;
+    /** `clientId` = cliente del proyecto elegido (para completar el cliente si aún no hay). */
+    onChange: (projectId: string, clientId?: string | null) => void;
     /** Nombre del proyecto actual (si ya venía vinculado y no está en la lista del cliente). */
     currentLabel?: string | null;
     className?: string;
@@ -21,16 +22,16 @@ interface Props {
  */
 export const ProjectSelectForClient: React.FC<Props> = ({ clientId, value, onChange, currentLabel, className }) => {
     const { t } = useTranslation();
-    const [options, setOptions] = useState<{ id: string; name: string; key?: string }[]>([]);
+    const [options, setOptions] = useState<{ id: string; name: string; key?: string; clientId?: string | null }[]>([]);
     const [loading, setLoading] = useState(false);
     const [unavailable, setUnavailable] = useState(false);
 
     useEffect(() => {
         let alive = true;
-        if (!clientId) { setOptions([]); setUnavailable(false); return; }
         setLoading(true);
-        projectsService.getAll({ clientId })
-            .then(list => { if (alive) { setOptions((Array.isArray(list) ? list : []).map((p: any) => ({ id: p.id, name: p.name, key: normalizeProjectKey(p.projectKey) }))); setUnavailable(false); } })
+        // Sin cliente: todos los proyectos (al elegir uno se completa su cliente).
+        projectsService.getAll(clientId ? { clientId } : {})
+            .then(list => { if (alive) { setOptions((Array.isArray(list) ? list : []).map((p: any) => ({ id: p.id, name: p.name, key: normalizeProjectKey(p.projectKey), clientId: p.clientId ?? null })).sort((a, b) => a.name.localeCompare(b.name))); setUnavailable(false); } })
             .catch(() => { if (alive) { setOptions([]); setUnavailable(true); } })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
@@ -40,19 +41,18 @@ export const ProjectSelectForClient: React.FC<Props> = ({ clientId, value, onCha
     const all = value && !options.some(o => o.id === value)
         ? [{ id: value, name: currentLabel || t('posx.invoices.project_linked'), key: '' }, ...options]
         : options;
-    const disabled = (!clientId && !value) || loading;
+    const disabled = loading;
 
     return (
         <select
             value={value}
-            onChange={e => onChange(e.target.value)}
+            onChange={e => onChange(e.target.value, options.find(o => o.id === e.target.value)?.clientId ?? null)}
             disabled={disabled}
             className={`${INPUT_SM_CLASSES} w-full disabled:opacity-60 ${className || ''}`}
             title={unavailable ? t('posx.invoices.project_unavailable') : undefined}
         >
             <option value="">
-                {!clientId && !value ? t('posx.invoices.project_pick_client_first')
-                    : loading ? t('common.loading')
+                {loading ? t('common.loading')
                     : (all.length === 0 ? t('posx.invoices.project_none_for_client') : t('posx.invoices.project_none'))}
             </option>
             {/* El prefijo va delante del nombre (un <option> solo admite texto). */}

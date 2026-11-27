@@ -691,7 +691,15 @@ export const InvoicesListPage: React.FC<{ mode?: 'list' | 'new' | 'edit' }> = ({
                         </div>
                         <div>
                             <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.invoices.project_label')} <span className="text-neutral-400">{t('cmp.onb.optional')}</span></label>
-                            <ProjectSelectForClient clientId={clientId} value={projectId} onChange={setProjectId} currentLabel={editingInvoice?.projectName} />
+                            <ProjectSelectForClient clientId={clientId} value={projectId} currentLabel={editingInvoice?.projectName} onChange={(pid, pClient) => {
+                                // Sin cliente: el proyecto trae su cliente (se completa el nombre y el correo).
+                                if (!clientId && pClient) {
+                                    onSelectClient(pClient);
+                                    const c = clients.find(x => x.id === pClient);
+                                    if (c) setClientQuery(`${c.name} ${c.lastName || ''}`.trim());
+                                }
+                                setProjectId(pid);
+                            }} />
                         </div>
                         </div>
                         <div className="max-w-3xl">

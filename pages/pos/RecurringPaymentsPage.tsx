@@ -501,7 +501,7 @@ export const RecurringPaymentsPage: React.FC = () => {
                     </div>
                     <div>
                         <label className={LABEL}>{t('posx.invoices.project_label')} <span className="text-neutral-400 text-xs font-normal">({t('cmp.onb.optional')})</span></label>
-                        <ProjectSelectForClient clientId={clientId} value={projectId} onChange={setProjectId} currentLabel={editProjectName} />
+                        <ProjectSelectForClient clientId={clientId} value={projectId} currentLabel={editProjectName} onChange={(pid, pClient) => { if (!clientId && pClient) onSelectClient(pClient); setProjectId(pid); }} />
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('posx.recurring.form.project_hint')}</p>
                     </div>
 
