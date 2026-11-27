@@ -59,7 +59,7 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
         : null;
 
     return (
-        <div className="pazzi-paper bg-white text-neutral-800 rounded-lg shadow-md border border-neutral-200 overflow-hidden text-[11px] leading-tight" style={{ width: '100%', maxWidth: 460 }}>
+        <div className="pazzi-paper bg-white text-neutral-800 rounded-lg shadow-md border border-neutral-200 overflow-hidden text-[11px] leading-tight" style={{ width: '100%', maxWidth: 640 }}>
             {/* Encabezado según plantilla */}
             {isBanner ? (
                 <div style={{ background: header }} className="text-white p-4 flex items-center justify-between">

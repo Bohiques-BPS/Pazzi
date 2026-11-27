@@ -634,7 +634,7 @@ export const InvoicesListPage: React.FC<{ mode?: 'list' | 'new' | 'edit' }> = ({
             {isEditor && (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 mb-4 space-y-3">
                     {mode === 'edit' && editId !== routeInvoiceId ? <LoadingSkeleton variant="list" rows={6} /> : !formHidden && (<>
-                    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(340px,440px)] gap-6 items-start">
+                    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(440px,42%)] gap-6 items-start">
                     {/* ── Formulario por pasos (sin tarjetas, mismo estilo) ── */}
                     <div className="space-y-6 min-w-0">
                     <section className="space-y-3">
