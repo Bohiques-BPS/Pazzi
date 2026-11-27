@@ -32,6 +32,19 @@ const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
 /** Convierte la descripción del producto (puede traer HTML del editor) a texto plano para la factura. */
 const plainDesc = (html?: string | null) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
+/** Campos del formulario de factura: un poco más grandes que los compactos. */
+const FIELD = `${INPUT_SM_CLASSES} !h-11 !px-3 !text-base`;
+/** Igual pero sin tocar el padding izquierdo (MoneyInput deja espacio para el "$"). */
+const FIELD_MONEY = `${INPUT_SM_CLASSES} !h-11 !text-base`;
+
+/** Título de cada paso del formulario de factura (sin tarjeta). */
+const StepTitle: React.FC<{ n: number; title: string }> = ({ n, title }) => (
+    <h4 className="flex items-center gap-2 text-base font-semibold text-neutral-800 dark:text-neutral-100">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">{n}</span>
+        {title}
+    </h4>
+);
+
 export const InvoicesListPage: React.FC = () => {
     const { t } = useTranslation();
     const { settings, updateSettings } = useGlobalSettings();
@@ -555,9 +568,14 @@ export const InvoicesListPage: React.FC = () => {
                         </button>
                     </div>
                     {!formHidden && (<>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(340px,440px)] gap-6 items-start">
+                    {/* ── Formulario por pasos (sin tarjetas, mismo estilo) ── */}
+                    <div className="space-y-6 min-w-0">
+                    <section className="space-y-3">
+                        <StepTitle n={1} title="Cliente" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
                         <div>
-                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.client_optional')}</label>
+                            <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.invoices.client_optional')}</label>
                             <div className="relative">
                                 <input
                                     type="text"
@@ -566,7 +584,7 @@ export const InvoicesListPage: React.FC = () => {
                                     onFocus={() => setClientOpen(true)}
                                     onBlur={() => setTimeout(() => setClientOpen(false), 150)}
                                     placeholder={t('posx.invoices.no_client')}
-                                    className={`${INPUT_SM_CLASSES} w-full`}
+                                    className={`${FIELD} w-full`}
                                     autoComplete="off"
                                 />
                                 {clientOpen && (
@@ -582,39 +600,232 @@ export const InvoicesListPage: React.FC = () => {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.client_email_label')}</label>
-                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="cliente@correo.com" className={`${INPUT_SM_CLASSES} w-full`} />
-                            <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 mt-1">
-                                <input type="checkbox" checked={sendOnCreate} onChange={e => setSendOnCreate(e.target.checked)} className="h-3.5 w-3.5" />
-                                {t('posx.invoices.send_on_create')}
-                            </label>
-                            <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 mt-1">
-                                <input type="checkbox" checked={allowPartial} onChange={e => setAllowPartial(e.target.checked)} className="h-3.5 w-3.5" />
-                                {t('posx.invoices.allow_partial')}
-                            </label>
+                            <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.invoices.client_email_label')}</label>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="cliente@correo.com" className={`${FIELD} w-full`} />
+                        </div>
+                        </div>
+                    </section>
+
+                    <section className="space-y-3 border-t border-neutral-100 dark:border-neutral-700 pt-5">
+                        <StepTitle n={2} title="Detalles" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl">
+                        <div>
+                            <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.invoices.invoice_date')}</label>
+                            <input type="date" value={invDate} max={hoyISO()} onChange={e => setInvDate(e.target.value)} className={`${FIELD} w-full`} title={t('posx.invoices.invoice_date_hint')} />
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.desc_note_label')}</label>
-                            <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder={t('posx.invoices.desc_placeholder')} className={`${INPUT_SM_CLASSES} w-full`} />
+                            <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">Vencimiento <span className="text-neutral-400">(opcional)</span></label>
+                            <input type="date" value={dueDate} min={invDate} onChange={e => setDueDate(e.target.value)} className={`${FIELD} w-full`} title="Fecha de vencimiento de la factura" />
                         </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
                         <div>
-                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.type_label')}</label>
+                            <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.invoices.type_label')}</label>
                             <InvoiceTypeSelect value={invType} onChange={setInvType} />
                         </div>
                         <div>
-                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.invoice_date')}</label>
-                            <input type="date" value={invDate} max={hoyISO()} onChange={e => setInvDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} title={t('posx.invoices.invoice_date_hint')} />
-                        </div>
-                        <div>
-                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Vencimiento <span className="text-neutral-400">(opcional)</span></label>
-                            <input type="date" value={dueDate} min={invDate} onChange={e => setDueDate(e.target.value)} className={`${INPUT_SM_CLASSES} w-full`} title="Fecha de vencimiento de la factura" />
-                        </div>
-                        <div>
-                            <label className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">{t('posx.invoices.project_label')} <span className="text-neutral-400">({t('cmp.onb.optional')})</span></label>
+                            <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.invoices.project_label')} <span className="text-neutral-400">{t('cmp.onb.optional')}</span></label>
                             <ProjectSelectForClient clientId={clientId} value={projectId} onChange={setProjectId} currentLabel={editingInvoice?.projectName} />
                         </div>
-                    </div>
+                        </div>
+                        <div className="max-w-3xl">
+                        <div>
+                            <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">{t('posx.invoices.desc_note_label')}</label>
+                            <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder={t('posx.invoices.desc_placeholder')} className={`${FIELD} w-full`} />
+                        </div>
+                        </div>
+                    </section>
 
+                    <section className="space-y-3 border-t border-neutral-100 dark:border-neutral-700 pt-5">
+                        <StepTitle n={3} title="Artículos y servicios" />
+                    <div className="space-y-2">
+                                                {lines.map((l, i) => (
+                            <div key={i} className="flex flex-col gap-1 border-b border-neutral-100 dark:border-neutral-700/60 pb-2">
+                              <div className="flex gap-2 items-center">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={l.name}
+                                        onChange={e => { setLine(i, { name: e.target.value, taxRate: undefined }); setOpenLine(i); }}
+                                        onFocus={() => setOpenLine(i)}
+                                        onBlur={() => setTimeout(() => setOpenLine(o => (o === i ? null : o)), 150)}
+                                        placeholder={t('posx.invoices.item_desc_placeholder')}
+                                        className={`${FIELD} w-full`}
+                                        autoComplete="off"
+                                    />
+                                    {openLine === i && l.name.trim() && (() => {
+                                        const q = l.name.trim().toLowerCase();
+                                        const matches = (products || []).filter(p =>
+                                            `${p.name} ${(p.skus || []).join(' ')}`.toLowerCase().includes(q)
+                                        ).slice(0, 30);
+                                        if (matches.length === 0) return null;
+                                        return (
+                                            <ul className="absolute z-30 w-full mt-1 bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                                                {matches.map(p => (
+                                                    <li
+                                                        key={p.id}
+                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? ''), taxRate: prodRate(p), ...((!l.description || !l.description.trim()) && plainDesc((p as any).description) ? { description: plainDesc((p as any).description) } : {}) }); setOpenLine(null); }}
+                                                        className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm flex justify-between gap-2"
+                                                    >
+                                                        <span className="truncate">{p.name}</span>
+                                                        <span className="text-neutral-400 whitespace-nowrap">{money(p.unitPrice || 0)}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        );
+                                    })()}
+                                </div>
+                                <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.invoices.qty_placeholder')} className={`${FIELD} w-20 flex-shrink-0`} />
+                                <div className="w-32 flex-shrink-0"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={FIELD_MONEY} /></div>
+                                {/* Total de la línea: no se encoge (antes, con nombres largos, se cortaba y solo se veía "00"). */}
+                                <span className="min-w-[6rem] flex-shrink-0 whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
+                                <button onClick={() => removeLine(i)} className="flex-shrink-0 text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
+                              </div>
+                              {/* Descripción opcional por línea (sale debajo del nombre si está activado en Config. Factura). */}
+                              <input type="text" value={l.description || ''} onChange={e => setLine(i, { description: e.target.value })} placeholder={t('cmpx.invoice.item_line_description_ph')} className={`${FIELD} w-full !text-xs`} />
+                            </div>
+                        ))}
+                        <div className="flex items-center gap-4">
+                            <button onClick={addLine} className="text-sm text-primary hover:underline">{t('posx.invoices.add_item')}</button>
+                            <button
+                                type="button"
+                                onClick={() => setProductModal({ open: true, initialName: '' })}
+                                className="text-sm text-primary hover:underline"
+                            >
+                                + {t('posx.invoices.create_product')}
+                            </button>
+                        </div>
+                    </div>
+                        <div className="max-w-sm ml-auto">
+                    <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.subtotal')}</span>
+                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTotal)}</span>
+                        </div>
+                        {(() => {
+                            // Desglose IVU Estatal / Municipal cuando está activado el breakdown.
+                            const sp = bd ? splitTax(previewTax, stateR, municipalR) : null;
+                            if (sp && sp.municipal > 0) {
+                                return (
+                                    <>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_state')}</span>
+                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.state)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_municipal')}</span>
+                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.municipal)}</span>
+                                        </div>
+                                    </>
+                                );
+                            }
+                            return (
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.tax_ivu')}</span>
+                                    <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(previewTax)}</span>
+                                </div>
+                            );
+                        })()}
+                        <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-700">
+                            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.total')}</span>
+                            <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(draftTotal + previewTax)}</span>
+                        </div>
+                    </div>
+                    {!editId && abonosTotal > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-green-600 dark:text-green-400">{t('posx.invoices.abonos_paid')}</span>
+                            <span className="font-medium text-green-600 dark:text-green-400">−{money(abonosTotal)}</span>
+                        </div>
+                    )}
+                        </div>
+                    </section>
+
+                    <section className="space-y-3 border-t border-neutral-100 dark:border-neutral-700 pt-5">
+                        <StepTitle n={4} title="Cobro" />
+                        <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                                <input type="checkbox" checked={sendOnCreate} onChange={e => setSendOnCreate(e.target.checked)} className="h-4 w-4" />
+                                {t('posx.invoices.send_on_create')}
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                                <input type="checkbox" checked={allowPartial} onChange={e => setAllowPartial(e.target.checked)} className="h-4 w-4" />
+                                {t('posx.invoices.allow_partial')}
+                            </label>
+                        </div>
+                    {/* Abonos ya realizados (opcional): la persona ya pagó parte/total al crear la factura */}
+                    {!editId && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('posx.invoices.abonos_title')}</span>
+                                {abonosTotal > 0 && <span className="text-xs text-green-600 dark:text-green-400">{t('posx.invoices.abonos_paid')}: {money(abonosTotal)}</span>}
+                            </div>
+                            {abonos.map((a, i) => (
+                                <div key={i} className="flex gap-2 items-start">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
+                                        <select value={a.method} onChange={e => setAbono(i, { method: e.target.value })} className={`${FIELD} w-full`}>
+                                            {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+                                        <MoneyInput value={a.amount} onChange={v => setAbono(i, { amount: v })} placeholder={t('posx.invoices.amount_placeholder')} className={`${FIELD_MONEY} w-full`} />
+                                        <input type="date" value={a.date} max={hoyISO()} onChange={e => setAbono(i, { date: e.target.value })} className={`${FIELD} w-full`} title={t('posx.invoices.abonos_date')} />
+                                        <input type="text" value={a.reference} onChange={e => setAbono(i, { reference: e.target.value })} placeholder={t('posx.invoices.abonos_ref')} className={`${FIELD} w-full`} />
+                                    </div>
+                                    <button onClick={() => removeAbono(i)} className="text-red-500 hover:text-red-700 px-1 mt-1.5 flex-shrink-0" title={t('posx.invoices.remove')}>✕</button>
+                                </div>
+                            ))}
+                            <button onClick={addAbono} className="text-sm text-primary hover:underline">{t('posx.invoices.abonos_add')}</button>
+                        </div>
+                    )}
+                    {/* Pagos realizados (modo edición): ver, editar y eliminar los abonos ya registrados. */}
+                    {editId && editingInvoice && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('posx.invoices.payments_made') || 'Pagos realizados'}</span>
+                                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                                    {t('posx.invoices.paid_label')}: <span className="text-green-600 dark:text-green-400 font-semibold">{money(editingInvoice.amountPaid || 0)}</span>
+                                    {' · '}{t('pos.receivable.col.balance')}: <span className="text-red-600 dark:text-red-400 font-semibold">{money(Math.max(0, (editingInvoice.total || 0) - (editingInvoice.amountPaid || 0)))}</span>
+                                </span>
+                            </div>
+                            {(!editingInvoice.payments || editingInvoice.payments.length === 0) ? (
+                                <p className="text-xs text-neutral-400 dark:text-neutral-500">{t('posx.invoices.no_payments') || 'Sin abonos registrados.'}</p>
+                            ) : (
+                                <div className="space-y-1.5">
+                                    {editingInvoice.payments.map(p => (
+                                        editingPayId === p.id ? (
+                                            <div key={p.id} className="bg-neutral-50 dark:bg-neutral-900/40 p-2 rounded space-y-2">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                                    <select value={payDraft.method} onChange={e => setPayDraft(d => ({ ...d, method: e.target.value }))} className={`${INPUT_SM_CLASSES} w-full`}>
+                                                        {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                    <MoneyInput value={payDraft.amount} onChange={v => setPayDraft(d => ({ ...d, amount: v }))} placeholder={t('posx.invoices.amount_placeholder')} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                    <input type="date" value={payDraft.date} max={hoyISO()} onChange={e => setPayDraft(d => ({ ...d, date: e.target.value }))} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                    <input type="text" value={payDraft.reference} onChange={e => setPayDraft(d => ({ ...d, reference: e.target.value }))} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} w-full`} />
+                                                </div>
+                                                <div className="flex justify-end gap-3">
+                                                    <button onClick={() => setEditingPayId(null)} className="text-sm text-neutral-500 hover:underline px-1">{t('common.cancel')}</button>
+                                                    <button onClick={saveEditPay} className="text-sm text-primary font-medium hover:underline px-1">{t('common.save')}</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div key={p.id} className="flex gap-2 items-center text-sm">
+                                                <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums w-24 text-right">{money(p.amount)}</span>
+                                                <span className="text-neutral-500 dark:text-neutral-400 w-32 truncate">{p.method || '—'}</span>
+                                                <span className="text-neutral-400 dark:text-neutral-500 flex-1 truncate" title={p.reference || ''}>{shortRef(p.reference)}</span>
+                                                <span className="text-xs text-neutral-400 dark:text-neutral-500">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ''}</span>
+                                                <button onClick={() => startEditPay(p)} className="text-blue-600 dark:text-blue-400 hover:underline px-1">{t('common.edit')}</button>
+                                                <button onClick={() => requestDeletePay(p)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
+                                            </div>
+                                        )
+                                    ))}
+                                </div>
+                            )}
+                            <button onClick={() => editingInvoice && markPaid(editingInvoice)} className="text-sm text-primary hover:underline">{t('posx.invoices.abonos_add') || '+ Registrar abono'}</button>
+                        </div>
+                    )}
+                    </section>
+
+                    {!editId && (
+                    <section className="space-y-3 border-t border-neutral-100 dark:border-neutral-700 pt-5">
+                        <StepTitle n={5} title="Diseño (opcional)" />
                     {/* AVANZADO: personalizar el diseño/textos de ESTA factura (sobre el diseño global) */}
                     {!editId && (
                         <div className="border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg">
@@ -714,198 +925,9 @@ export const InvoicesListPage: React.FC = () => {
                             )}
                         </div>
                     )}
-
-                    {/* Vista previa en vivo — SIEMPRE visible (no solo en Avanzado) */}
-                    {!editId && (
-                        <div className="border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg p-3">
-                            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">👁️ {t('posx.invoices.adv_preview') || 'Vista previa (cómo va quedando)'}</p>
-                            <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900/40 rounded-lg p-4">
-                                <InvoiceDesignPreview
-                                    design={previewMergedDesign}
-                                    business={previewBusiness}
-                                    clientName={previewClientName}
-                                    notes={description}
-                                    items={previewItems}
-                                    subtotal={draftTotal}
-                                    tax={previewTax}
-                                    total={draftTotal + previewTax}
-                                    amountPaid={abonosTotal}
-                                />
-                            </div>
-                        </div>
+                    </section>
                     )}
 
-                    <div className="space-y-2">
-                        <label className="block text-xs text-neutral-500">{t('posx.invoices.items')}</label>
-                        {lines.map((l, i) => (
-                            <div key={i} className="flex flex-col gap-1 border-b border-neutral-100 dark:border-neutral-700/60 pb-2">
-                              <div className="flex gap-2 items-center">
-                                <div className="relative flex-1">
-                                    <input
-                                        type="text"
-                                        value={l.name}
-                                        onChange={e => { setLine(i, { name: e.target.value, taxRate: undefined }); setOpenLine(i); }}
-                                        onFocus={() => setOpenLine(i)}
-                                        onBlur={() => setTimeout(() => setOpenLine(o => (o === i ? null : o)), 150)}
-                                        placeholder={t('posx.invoices.item_desc_placeholder')}
-                                        className={`${INPUT_SM_CLASSES} w-full`}
-                                        autoComplete="off"
-                                    />
-                                    {openLine === i && l.name.trim() && (() => {
-                                        const q = l.name.trim().toLowerCase();
-                                        const matches = (products || []).filter(p =>
-                                            `${p.name} ${(p.skus || []).join(' ')}`.toLowerCase().includes(q)
-                                        ).slice(0, 30);
-                                        if (matches.length === 0) return null;
-                                        return (
-                                            <ul className="absolute z-30 w-full mt-1 bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg max-h-56 overflow-y-auto">
-                                                {matches.map(p => (
-                                                    <li
-                                                        key={p.id}
-                                                        onMouseDown={() => { setLine(i, { name: p.name, unitPrice: String(p.unitPrice ?? ''), taxRate: prodRate(p), ...((!l.description || !l.description.trim()) && plainDesc((p as any).description) ? { description: plainDesc((p as any).description) } : {}) }); setOpenLine(null); }}
-                                                        className="px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-600 cursor-pointer text-sm flex justify-between gap-2"
-                                                    >
-                                                        <span className="truncate">{p.name}</span>
-                                                        <span className="text-neutral-400 whitespace-nowrap">{money(p.unitPrice || 0)}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        );
-                                    })()}
-                                </div>
-                                <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.invoices.qty_placeholder')} className={`${INPUT_SM_CLASSES} w-20 flex-shrink-0`} />
-                                <div className="w-32 flex-shrink-0"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={INPUT_SM_CLASSES} /></div>
-                                {/* Total de la línea: no se encoge (antes, con nombres largos, se cortaba y solo se veía "00"). */}
-                                <span className="min-w-[6rem] flex-shrink-0 whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
-                                <button onClick={() => removeLine(i)} className="flex-shrink-0 text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
-                              </div>
-                              {/* Descripción opcional por línea (sale debajo del nombre si está activado en Config. Factura). */}
-                              <input type="text" value={l.description || ''} onChange={e => setLine(i, { description: e.target.value })} placeholder={t('cmpx.invoice.item_line_description_ph')} className={`${INPUT_SM_CLASSES} w-full !text-xs`} />
-                            </div>
-                        ))}
-                        <div className="flex items-center gap-4">
-                            <button onClick={addLine} className="text-sm text-primary hover:underline">{t('posx.invoices.add_item')}</button>
-                            <button
-                                type="button"
-                                onClick={() => setProductModal({ open: true, initialName: '' })}
-                                className="text-sm text-primary hover:underline"
-                            >
-                                + {t('posx.invoices.create_product')}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Abonos ya realizados (opcional): la persona ya pagó parte/total al crear la factura */}
-                    {!editId && (
-                        <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('posx.invoices.abonos_title')}</span>
-                                {abonosTotal > 0 && <span className="text-xs text-green-600 dark:text-green-400">{t('posx.invoices.abonos_paid')}: {money(abonosTotal)}</span>}
-                            </div>
-                            {abonos.map((a, i) => (
-                                <div key={i} className="flex gap-2 items-start">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
-                                        <select value={a.method} onChange={e => setAbono(i, { method: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`}>
-                                            {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                                        </select>
-                                        <MoneyInput value={a.amount} onChange={v => setAbono(i, { amount: v })} placeholder={t('posx.invoices.amount_placeholder')} className={`${INPUT_SM_CLASSES} w-full`} />
-                                        <input type="date" value={a.date} max={hoyISO()} onChange={e => setAbono(i, { date: e.target.value })} className={`${INPUT_SM_CLASSES} w-full`} title={t('posx.invoices.abonos_date')} />
-                                        <input type="text" value={a.reference} onChange={e => setAbono(i, { reference: e.target.value })} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} w-full`} />
-                                    </div>
-                                    <button onClick={() => removeAbono(i)} className="text-red-500 hover:text-red-700 px-1 mt-1.5 flex-shrink-0" title={t('posx.invoices.remove')}>✕</button>
-                                </div>
-                            ))}
-                            <button onClick={addAbono} className="text-sm text-primary hover:underline">{t('posx.invoices.abonos_add')}</button>
-                        </div>
-                    )}
-
-                    {/* Pagos realizados (modo edición): ver, editar y eliminar los abonos ya registrados. */}
-                    {editId && editingInvoice && (
-                        <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{t('posx.invoices.payments_made') || 'Pagos realizados'}</span>
-                                <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                                    {t('posx.invoices.paid_label')}: <span className="text-green-600 dark:text-green-400 font-semibold">{money(editingInvoice.amountPaid || 0)}</span>
-                                    {' · '}{t('pos.receivable.col.balance')}: <span className="text-red-600 dark:text-red-400 font-semibold">{money(Math.max(0, (editingInvoice.total || 0) - (editingInvoice.amountPaid || 0)))}</span>
-                                </span>
-                            </div>
-                            {(!editingInvoice.payments || editingInvoice.payments.length === 0) ? (
-                                <p className="text-xs text-neutral-400 dark:text-neutral-500">{t('posx.invoices.no_payments') || 'Sin abonos registrados.'}</p>
-                            ) : (
-                                <div className="space-y-1.5">
-                                    {editingInvoice.payments.map(p => (
-                                        editingPayId === p.id ? (
-                                            <div key={p.id} className="bg-neutral-50 dark:bg-neutral-900/40 p-2 rounded space-y-2">
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                                                    <select value={payDraft.method} onChange={e => setPayDraft(d => ({ ...d, method: e.target.value }))} className={`${INPUT_SM_CLASSES} w-full`}>
-                                                        {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                                                    </select>
-                                                    <MoneyInput value={payDraft.amount} onChange={v => setPayDraft(d => ({ ...d, amount: v }))} placeholder={t('posx.invoices.amount_placeholder')} className={`${INPUT_SM_CLASSES} w-full`} />
-                                                    <input type="date" value={payDraft.date} max={hoyISO()} onChange={e => setPayDraft(d => ({ ...d, date: e.target.value }))} className={`${INPUT_SM_CLASSES} w-full`} />
-                                                    <input type="text" value={payDraft.reference} onChange={e => setPayDraft(d => ({ ...d, reference: e.target.value }))} placeholder={t('posx.invoices.abonos_ref')} className={`${INPUT_SM_CLASSES} w-full`} />
-                                                </div>
-                                                <div className="flex justify-end gap-3">
-                                                    <button onClick={() => setEditingPayId(null)} className="text-sm text-neutral-500 hover:underline px-1">{t('common.cancel')}</button>
-                                                    <button onClick={saveEditPay} className="text-sm text-primary font-medium hover:underline px-1">{t('common.save')}</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div key={p.id} className="flex gap-2 items-center text-sm">
-                                                <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums w-24 text-right">{money(p.amount)}</span>
-                                                <span className="text-neutral-500 dark:text-neutral-400 w-32 truncate">{p.method || '—'}</span>
-                                                <span className="text-neutral-400 dark:text-neutral-500 flex-1 truncate" title={p.reference || ''}>{shortRef(p.reference)}</span>
-                                                <span className="text-xs text-neutral-400 dark:text-neutral-500">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ''}</span>
-                                                <button onClick={() => startEditPay(p)} className="text-blue-600 dark:text-blue-400 hover:underline px-1">{t('common.edit')}</button>
-                                                <button onClick={() => requestDeletePay(p)} className="text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
-                                            </div>
-                                        )
-                                    ))}
-                                </div>
-                            )}
-                            <button onClick={() => editingInvoice && markPaid(editingInvoice)} className="text-sm text-primary hover:underline">{t('posx.invoices.abonos_add') || '+ Registrar abono'}</button>
-                        </div>
-                    )}
-
-                    <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3 space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.subtotal')}</span>
-                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTotal)}</span>
-                        </div>
-                        {(() => {
-                            // Desglose IVU Estatal / Municipal cuando está activado el breakdown.
-                            const sp = bd ? splitTax(previewTax, stateR, municipalR) : null;
-                            if (sp && sp.municipal > 0) {
-                                return (
-                                    <>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_state')}</span>
-                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.state)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-neutral-500 dark:text-neutral-400">{t('posx.cashier.sut_municipal')}</span>
-                                            <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(sp.municipal)}</span>
-                                        </div>
-                                    </>
-                                );
-                            }
-                            return (
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.tax_ivu')}</span>
-                                    <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(previewTax)}</span>
-                                </div>
-                            );
-                        })()}
-                        <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-700">
-                            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.total')}</span>
-                            <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(draftTotal + previewTax)}</span>
-                        </div>
-                    </div>
-                    {!editId && abonosTotal > 0 && (
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-green-600 dark:text-green-400">{t('posx.invoices.abonos_paid')}</span>
-                            <span className="font-medium text-green-600 dark:text-green-400">−{money(abonosTotal)}</span>
-                        </div>
-                    )}
                     <div className="flex justify-end gap-2">
                         {editId && editingInvoice && (
                             <>
@@ -919,6 +941,26 @@ export const InvoicesListPage: React.FC = () => {
                         )}
                         <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.invoices.creating') : editId ? t('posx.invoices.save_changes') : t('posx.invoices.create_invoice')}</button>
+                    </div>
+                    </div>
+
+                    {/* ── Vista previa: a la derecha, acompaña el scroll del formulario ── */}
+                    <aside className="xl:sticky xl:top-4 self-start">
+                        <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">{t('posx.invoices.adv_preview') || 'Vista previa (cómo va quedando)'}</p>
+                        <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900/40 rounded-lg p-4">
+                                <InvoiceDesignPreview
+                                    design={previewMergedDesign}
+                                    business={previewBusiness}
+                                    clientName={previewClientName}
+                                    notes={description}
+                                    items={previewItems}
+                                    subtotal={draftTotal}
+                                    tax={previewTax}
+                                    total={draftTotal + previewTax}
+                                    amountPaid={abonosTotal}
+                                />
+                        </div>
+                    </aside>
                     </div>
                     </>)}
                 </div>
