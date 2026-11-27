@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import type { Invoice } from '../services/invoices';
 import { loadImageAsDataUrl, dataUrlFormat } from './imageData';
 import { splitTax } from './taxBreakdown';
+import { lineDiscount, invoiceDisplayTotals, discountLabel } from './invoiceTotals';
 import { logoScaleOf } from './logoScale';
 
 /** Datos del negocio para el encabezado (de settings.receiptConfig). */
@@ -123,7 +124,9 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
             const q = Number(it.quantity) || 0, u = Number(it.unitPrice) || 0;
             // Descripción por línea (opcional): en su propia línea debajo del nombre.
             const desc = showLineDesc && it.description ? `\n${String(it.description).trim()}` : '';
-            return [String(it.name || '') + desc, String(q), money(u), money(q * u)];
+            const ld = lineDiscount(it);
+            const dtxt = ld > 0 ? `\nDescuento ${discountLabel(it.discount, it.discountType)} (−${money(ld)})` : '';
+            return [String(it.name || '') + desc + dtxt, String(q), money(u), money(q * u - ld)];
         }),
         styles: { fontSize: 9, cellPadding: 5 },
         headStyles: { fillColor: header, textColor: 255, fontStyle: 'bold' },
@@ -147,7 +150,10 @@ function buildInvoiceDoc(inv: Invoice, biz: InvoicePdfBusiness, logoDataUrl: str
     const paidEff = amountPaid > 0 ? amountPaid : (paid ? (inv.total || 0) : paysSum);
     const balance = Math.max(0, (inv.total || 0) - paidEff);
 
-    totRow('Subtotal:', money(inv.subtotal));
+    // Las líneas ya salen descontadas: subtotal = suma de líneas; "Descuento" = el de la factura.
+    const dt = invoiceDisplayTotals(inv as any);
+    totRow('Subtotal:', money(dt.linesSubtotal));
+    if (dt.invoiceDiscount > 0) totRow('Descuento:', '-' + money(dt.invoiceDiscount), false, [15, 157, 88]);
     if ((inv.tax || 0) > 0) {
         // Desglose IVU Estatal / Municipal (si hay tasas en settings). Si no, una sola línea "IVU".
         const sp = splitTax(inv.tax || 0, biz.taxStateRate, biz.taxMunicipalRate);

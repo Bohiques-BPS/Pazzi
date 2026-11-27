@@ -116,6 +116,8 @@ const TerminalSettingsPage = lazyNamed(() => import('./pages/pos/TerminalSetting
 const PaymentMethodsPage = lazyNamed(() => import('./pages/pos/PaymentMethodsPage'), 'PaymentMethodsPage');
 const RecurringPaymentsPage = lazyNamed(() => import('./pages/pos/RecurringPaymentsPage'), 'RecurringPaymentsPage');
 const InvoicesListPage = lazyNamed(() => import('./pages/pos/InvoicesListPage'), 'InvoicesListPage');
+const InvoiceNewPage = lazyNamed(() => import('./pages/pos/InvoicesListPage'), 'InvoiceNewPage');
+const InvoiceEditPage = lazyNamed(() => import('./pages/pos/InvoicesListPage'), 'InvoiceEditPage');
 const AttendancePage = lazyNamed(() => import('./pages/pos/AttendancePage'), 'AttendancePage');
 const POSSalesHistoryPage = lazyNamed(() => import('./pages/pos/POSSalesHistoryPage'), 'POSSalesHistoryPage'); 
 const POSInventoryPage = lazyNamed(() => import('./pages/pos/POSInventoryPage'), 'POSInventoryPage');
@@ -540,6 +542,8 @@ const AppContent: React.FC = () => {
                 <Route path="/pos/payment-methods" element={<PaymentMethodsPage />} />
                 <Route path="/pos/recurring" element={<RecurringPaymentsPage />} />
                 <Route path="/pos/invoices" element={<InvoicesListPage />} />
+                <Route path="/pos/invoices/new" element={<InvoiceNewPage />} />
+                <Route path="/pos/invoices/:id/edit" element={<InvoiceEditPage />} />
                 <Route path="/pos/deliveries" element={<DeliveriesPage />} />
                 <Route path="/pos/supplier-returns" element={<SupplierReturnsPage />} />
                 <Route path="/pos/attendance" element={<AttendancePage />} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { shortRef } from '../../utils/shortRef';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductFormModal } from '../pm/ProductFormModal';
@@ -26,8 +26,9 @@ import { useTranslation, useGlobalSettings } from '../../contexts/GlobalSettings
 import { splitTax } from '../../utils/taxBreakdown';
 import { invoicePdfBlobUrl, downloadInvoicePdf, openInvoicePdf, type InvoicePdfBusiness } from '../../utils/invoiceClientPdf';
 import { clientDocName } from '../../utils/clientName';
+import { computeInvoiceTotals, lineDiscount, type DiscountType } from '../../utils/invoiceTotals';
 
-type DraftItem = { name: string; quantity: string; unitPrice: string; description?: string; taxRate?: number };
+type DraftItem = { name: string; quantity: string; unitPrice: string; description?: string; taxRate?: number; discount?: string; discountType?: DiscountType };
 const emptyItem = (): DraftItem => ({ name: '', quantity: '1', unitPrice: '' });
 /** Convierte la descripción del producto (puede traer HTML del editor) a texto plano para la factura. */
 const plainDesc = (html?: string | null) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
@@ -45,7 +46,14 @@ const StepTitle: React.FC<{ n: number; title: string }> = ({ n, title }) => (
     </h4>
 );
 
-export const InvoicesListPage: React.FC = () => {
+/**
+ * Facturas. `mode`: 'list' (lista), 'new' (crear) o 'edit' (editar, /pos/invoices/:id/edit).
+ * Crear y editar son pantallas propias con "Volver"; la lista ya no muestra el formulario.
+ */
+export const InvoicesListPage: React.FC<{ mode?: 'list' | 'new' | 'edit' }> = ({ mode = 'list' }) => {
+    const isEditor = mode !== 'list';
+    const { id: routeInvoiceId } = useParams();
+    const location = useLocation();
     const { t } = useTranslation();
     const { settings, updateSettings } = useGlobalSettings();
     const { clients, products } = useData();
@@ -127,6 +135,13 @@ export const InvoicesListPage: React.FC = () => {
     // Proyecto al que pertenece la factura (opcional; proyectos del cliente elegido).
     const [projectId, setProjectId] = useState('');
     const [lines, setLines] = useState<DraftItem[]>([emptyItem()]);
+    // Descuento a toda la factura (además de los de cada línea).
+    const [invDiscType, setInvDiscType] = useState<DiscountType>('percent');
+    const [invDiscValue, setInvDiscValue] = useState('');
+    // Vista previa: la factura o el correo que recibe el cliente.
+    const [previewTab, setPreviewTab] = useState<'invoice' | 'email'>('invoice');
+    const [emailPrev, setEmailPrev] = useState<{ subject: string; html: string } | null>(null);
+    const [emailPrevLoading, setEmailPrevLoading] = useState(false);
     // Filtros extra
     const [cashierF, setCashierF] = useState('all');
     const [typeF, setTypeF] = useState('all');
@@ -155,13 +170,11 @@ export const InvoicesListPage: React.FC = () => {
         catch (err) { toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_restore')); }
     };
 
-    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); setProjectId(''); setFormHidden(false); };
+    const resetForm = () => { setClientId(''); setClientQuery(''); setEmail(''); setSendOnCreate(true); setAllowPartial(true); setDescription(''); setInvType(''); setEditId(null); setLines([emptyItem()]); setDesign({}); setAdvOpen(false); setAbonos([]); setInvDate(hoyISO()); setDueDate(''); setProjectId(''); setFormHidden(false); setInvDiscType('percent'); setInvDiscValue(''); };
     // Apertura directa del formulario de creación desde "+ Nuevo" del navbar (?new=1).
     useEffect(() => {
         if (invSearchParams.get('new') !== '1') return;
-        resetForm(); setShowForm(true);
-        invSearchParams.delete('new');
-        setInvSearchParams(invSearchParams, { replace: true });
+        navigate('/pos/invoices/new', { replace: true });
     }, [invSearchParams]); // eslint-disable-line
 
     // Abrir el detalle de pagos de una factura desde una notificación (?invoice=<id> o ?invoiceNo=<n>).
@@ -176,7 +189,8 @@ export const InvoicesListPage: React.FC = () => {
     }, [invSearchParams, items]); // eslint-disable-line
 
     // Abrir el formulario en modo EDICIÓN, precargado con la factura (solo pendientes/parciales).
-    const openEdit = (inv: Invoice) => {
+    const openEdit = (inv: Invoice) => navigate(`/pos/invoices/${inv.id}/edit`);
+    const loadIntoForm = (inv: Invoice) => {
         setEditId(inv.id);
         setClientId(inv.clientId || '');
         setClientQuery(inv.clientName || '');
@@ -187,17 +201,33 @@ export const InvoicesListPage: React.FC = () => {
         setInvDate(isoAFecha(inv.createdAt));
         setDueDate(inv.dueDate ? isoAFecha(inv.dueDate) : '');
         setProjectId(inv.projectId || '');
-        setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), description: (it as any).description ?? undefined, taxRate: (it as any).taxRate ?? undefined })));
+        setLines((inv.items || []).map(it => ({ name: it.name, quantity: String(it.quantity), unitPrice: String(it.unitPrice), description: (it as any).description ?? undefined, taxRate: (it as any).taxRate ?? undefined, discount: it.discount ? String(it.discount) : undefined, discountType: (it.discountType as DiscountType) || undefined })));
+        setInvDiscType((inv.discountType as DiscountType) || 'percent');
+        setInvDiscValue(inv.discountValue ? String(inv.discountValue) : '');
         setSendOnCreate(false);
         setFormHidden(false);
-        setShowForm(true);
     };
+    // Pantalla de editar: cuando carga la lista, precarga la factura (o vuelve si no existe / no se puede editar).
+    useEffect(() => {
+        if (mode !== 'edit' || !routeInvoiceId || loading || editId === routeInvoiceId) return;
+        if (!items.length) return;
+        const inv = items.find(i => i.id === routeInvoiceId);
+        if (!inv) { toast.error('No se encontró la factura.'); navigate('/pos/invoices', { replace: true }); return; }
+        loadIntoForm(inv);
+    }, [mode, routeInvoiceId, items, loading]); // eslint-disable-line
+    // Al volver de crear una factura: abrir su link/QR.
+    useEffect(() => {
+        const st: any = location.state;
+        if (mode === 'list' && st?.shareInvoice) {
+            setShare(st.shareInvoice);
+            navigate(location.pathname, { replace: true, state: null });
+        }
+    }, [location.state]); // eslint-disable-line
     const setLine = (i: number, patch: Partial<DraftItem>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
     const addLine = () => setLines(ls => [...ls, emptyItem()]);
     // Si hay varias líneas, elimina la línea; si es la única, la limpia (deja el form vacío).
     const removeLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : [emptyItem()]);
 
-    const draftTotal = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0);
 
     // Nombres de productos existentes (normalizados) para detectar líneas "inventadas".
     const productNameSet = useMemo(
@@ -216,9 +246,30 @@ export const InvoicesListPage: React.FC = () => {
     const previewMergedDesign = { ...gDesign, ...design, labels: { ...(gDesign.labels || {}), ...(design.labels || {}) } };
     const previewRC: any = (settings as any).receiptConfig || {};
     const previewBusiness = { name: previewRC.businessName, logoUrl: previewRC.logoUrl, rnc: previewRC.rnc, address: previewRC.address, phone: previewRC.phone };
-    const previewItems = lines.map(l => ({ name: l.name, quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0, description: l.description || '' }));
-    const previewTax = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0) * normRate(lineTaxRate(l)), 0);
+    const previewItems = lines.map(l => ({ name: l.name, quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0, description: l.description || '', discount: Number(l.discount) || 0, discountType: l.discountType || 'percent' as DiscountType }));
+    // Totales con descuentos (misma cuenta que el servidor).
+    const tot = useMemo(() => computeInvoiceTotals(
+        lines.map(l => ({ quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0, taxRate: normRate(lineTaxRate(l)) || 0, discount: Number(l.discount) || 0, discountType: l.discountType || 'percent' })),
+        0,
+        Number(invDiscValue) > 0 ? { type: invDiscType, value: Number(invDiscValue) } : null,
+    ), [lines, lineTaxRate, invDiscType, invDiscValue]);
+    const draftTotal = tot.linesSubtotal;
+    const previewTax = tot.tax;
     const previewClientName = invClient ? clientDocName(invClient) : (clientQuery.trim() || undefined); // alias del cliente si lo tiene
+
+    useEffect(() => {
+        if (!isEditor || previewTab !== 'email') return;
+        let alive = true;
+        const h = setTimeout(async () => {
+            setEmailPrevLoading(true);
+            try {
+                const r = await invoicesService.emailPreview({ total: tot.total, number: editId ? items.find(i => i.id === editId)?.number ?? null : null });
+                if (alive) setEmailPrev({ subject: r.subject, html: r.html });
+            } catch { if (alive) setEmailPrev(null); }
+            finally { if (alive) setEmailPrevLoading(false); }
+        }, 500);
+        return () => { alive = false; clearTimeout(h); };
+    }, [isEditor, previewTab, tot.total, editId]); // eslint-disable-line
 
     // ── Plantillas personalizadas guardadas (en receiptConfig.invoiceTemplates) ──
     const savedTemplates: { id: string; name: string; design: any }[] = (settings as any)?.receiptConfig?.invoiceTemplates || [];
@@ -247,7 +298,9 @@ export const InvoicesListPage: React.FC = () => {
             // La tasa se envía como FRACCIÓN (0.115). Si viene como % (ej. 11.5), se normaliza.
             const rawRate = lineTaxRate(l);
             const rate = rawRate == null ? null : (rawRate > 1 ? rawRate / 100 : rawRate);
-            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(l.description?.trim() ? { description: l.description.trim() } : {}), ...(rate != null ? { taxRate: rate } : {}) });
+            const dv = Math.max(0, Number(l.discount) || 0);
+            if (l.discountType !== 'amount' && dv > 100) return toast.error('El descuento de una línea no puede pasar de 100%.');
+            parsed.push({ name: l.name.trim(), quantity: q, unitPrice: p, ...(l.description?.trim() ? { description: l.description.trim() } : {}), ...(rate != null ? { taxRate: rate } : {}), ...(dv > 0 ? { discount: dv, discountType: l.discountType || 'percent' } : {}) });
         }
         if (parsed.length === 0) return toast.error(t('posx.invoices.err_no_items'));
 
@@ -294,9 +347,11 @@ export const InvoicesListPage: React.FC = () => {
                     createdAt: editingInvoice && invDate !== isoAFecha(editingInvoice.createdAt) ? fechaAIso(invDate) : undefined,
                     dueDate: dueDate || null,
                     projectId: projectId || null,
+                    discountType: Number(invDiscValue) > 0 ? invDiscType : null,
+                    discountValue: Number(invDiscValue) > 0 ? Number(invDiscValue) : null,
                 }).then(r => { if (r?.warning) toast.warning(r.warning); });
                 toast.success(t('posx.invoices.updated'));
-                setShowForm(false); resetForm(); load();
+                resetForm(); navigate('/pos/invoices');
             } else {
                 const created = await invoicesService.create({
                     clientId: clientId || undefined,
@@ -311,11 +366,12 @@ export const InvoicesListPage: React.FC = () => {
                     dueDate: dueDate || undefined,
                     initialPayments: abonos.map(a => ({ method: a.method, amount: Number(a.amount) || 0, reference: a.reference.trim() || undefined, paidAt: a.date && a.date !== hoyISO() ? fechaAIso(a.date) : undefined })).filter(a => a.amount > 0),
                     projectId: projectId || undefined,
+                    ...(Number(invDiscValue) > 0 ? { discountType: invDiscType, discountValue: Number(invDiscValue) } : {}),
                 });
                 if (created?.warning) toast.warning(created.warning);
                 toast.success(sendOnCreate && email.trim() ? t('posx.invoices.created_sent', { email: email.trim() }) : t('posx.invoices.created'));
-                setShowForm(false); resetForm(); load();
-                setShare(created); // abre el modal con el link/QR
+                resetForm();
+                navigate('/pos/invoices', { state: { shareInvoice: created } }); // la lista abre el link/QR
             }
         } catch (err) {
             toast.error(err instanceof ApiError ? err.message : t('posx.invoices.err_create'));
@@ -544,30 +600,32 @@ export const InvoicesListPage: React.FC = () => {
 
     return (
         <div>
+            {isEditor ? (
+                <div className="mb-4">
+                    <button type="button" onClick={() => navigate('/pos/invoices')} className="inline-flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400 hover:text-primary mb-1">
+                        <span aria-hidden>←</span> Volver a facturas
+                    </button>
+                    <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
+                        {mode === 'edit' ? t('posx.invoices.edit_invoice') : t('posx.invoices.new_invoice')}
+                        {mode === 'edit' && editingInvoice?.number != null && <span> #{editingInvoice.number}</span>}
+                    </h1>
+                </div>
+            ) : (<>
             <div className="flex justify-between items-center mb-2">
                 <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.title')}</h1>
                 <div className="flex items-center gap-2">
                     {/* Reportes de facturas (facturado, cobrado, por cobrar; por cliente/proyecto/estado…) */}
                     <button onClick={() => navigate('/pos/reports?section=invoices')} className={BUTTON_SECONDARY_SM_CLASSES}>Reportes</button>
                     <button onClick={() => setShowDeleted(s => !s)} className={`${BUTTON_SECONDARY_SM_CLASSES} ${showDeleted ? 'ring-1 ring-primary text-primary' : ''}`}>{showDeleted ? t('common.show_active') : t('common.show_deleted')}</button>
-                    {!showDeleted && <button onClick={() => { if (showForm) { setShowForm(false); resetForm(); } else { resetForm(); setShowForm(true); } }} className={showForm ? BUTTON_CLOSE_SM_CLASSES : BUTTON_PRIMARY_SM_CLASSES}>{showForm ? t('posx.invoices.close') : t('posx.invoices.new_invoice_btn')}</button>}
+                    {!showDeleted && <button onClick={() => navigate('/pos/invoices/new')} className={BUTTON_PRIMARY_SM_CLASSES}>{t('posx.invoices.new_invoice_btn')}</button>}
                 </div>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{t('posx.invoices.intro')}</p>
+            </>)}
 
-            {showForm && (
+            {isEditor && (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 mb-4 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-semibold text-primary">
-                            {editId ? t('posx.invoices.edit_invoice') : t('posx.invoices.new_invoice')}
-                            {editId && editingInvoice?.number != null && <span> #{editingInvoice.number}</span>}
-                            {formHidden && (clientQuery || '').trim() && <span className="font-normal text-neutral-500 dark:text-neutral-400"> · {clientQuery}</span>}
-                        </h3>
-                        <button type="button" onClick={() => setFormHidden(h => !h)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                            {formHidden ? 'Mostrar' : 'Ocultar'}
-                        </button>
-                    </div>
-                    {!formHidden && (<>
+                    {mode === 'edit' && editId !== routeInvoiceId ? <LoadingSkeleton variant="list" rows={6} /> : !formHidden && (<>
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(340px,440px)] gap-6 items-start">
                     {/* ── Formulario por pasos (sin tarjetas, mismo estilo) ── */}
                     <div className="space-y-6 min-w-0">
@@ -677,8 +735,17 @@ export const InvoicesListPage: React.FC = () => {
                                 </div>
                                 <input type="number" value={l.quantity} onChange={e => setLine(i, { quantity: e.target.value })} placeholder={t('posx.invoices.qty_placeholder')} className={`${FIELD} w-20 flex-shrink-0`} />
                                 <div className="w-32 flex-shrink-0"><MoneyInput value={l.unitPrice} onChange={v => setLine(i, { unitPrice: v })} placeholder={t('posx.invoices.price_placeholder')} className={FIELD_MONEY} /></div>
-                                {/* Total de la línea: no se encoge (antes, con nombres largos, se cortaba y solo se veía "00"). */}
-                                <span className="min-w-[6rem] flex-shrink-0 whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</span>
+                                {/* Descuento de la línea: % o $ */}
+                                <div className="flex flex-shrink-0 w-28" title="Descuento de esta línea">
+                                    <input type="number" min={0} value={l.discount || ''} onChange={e => setLine(i, { discount: e.target.value })} placeholder="Desc." className={`${FIELD} w-full !rounded-r-none`} />
+                                    <button type="button" onClick={() => setLine(i, { discountType: l.discountType === 'amount' ? 'percent' : 'amount' })}
+                                        className="h-11 w-10 flex-shrink-0 rounded-r-md border border-l-0 border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-sm font-semibold text-primary"
+                                        title="Cambiar entre porcentaje y monto">{l.discountType === 'amount' ? '$' : '%'}</button>
+                                </div>
+                                {/* Total de la línea (con su descuento): no se encoge. */}
+                                <span className="min-w-[6rem] flex-shrink-0 whitespace-nowrap text-right text-sm text-neutral-500 tabular-nums">
+                                    {(() => { const it = { quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0, discount: Number(l.discount) || 0, discountType: l.discountType || 'percent' as DiscountType }; const ld = lineDiscount(it); return (<>{ld > 0 && <span className="block text-[11px] text-neutral-400 line-through">{money(it.quantity * it.unitPrice)}</span>}{money(it.quantity * it.unitPrice - ld)}</>); })()}
+                                </span>
                                 <button onClick={() => removeLine(i)} className="flex-shrink-0 text-red-500 hover:text-red-700 px-1" title={t('posx.invoices.remove')}>✕</button>
                               </div>
                               {/* Descripción opcional por línea (sale debajo del nombre si está activado en Config. Factura). */}
@@ -701,6 +768,19 @@ export const InvoicesListPage: React.FC = () => {
                         <div className="flex items-center justify-between text-sm">
                             <span className="text-neutral-500 dark:text-neutral-400">{t('posx.invoices.subtotal')}</span>
                             <span className="text-neutral-700 dark:text-neutral-200 tabular-nums">{money(draftTotal)}</span>
+                        </div>
+                        {/* Descuento a toda la factura */}
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                            <span className="text-neutral-500 dark:text-neutral-400">Descuento</span>
+                            <div className="flex items-center gap-2">
+                                <div className="flex">
+                                    <input type="number" min={0} value={invDiscValue} onChange={e => setInvDiscValue(e.target.value)} placeholder="0" className={`${INPUT_SM_CLASSES} w-20 text-right !rounded-r-none`} />
+                                    <button type="button" onClick={() => setInvDiscType(d => d === 'amount' ? 'percent' : 'amount')}
+                                        className="h-9 w-9 rounded-r-md border border-l-0 border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-sm font-semibold text-primary"
+                                        title="Cambiar entre porcentaje y monto">{invDiscType === 'amount' ? '$' : '%'}</button>
+                                </div>
+                                <span className="text-green-600 dark:text-green-400 tabular-nums min-w-[4.5rem] text-right">{tot.invoiceDiscount > 0 ? `−${money(tot.invoiceDiscount)}` : money(0)}</span>
+                            </div>
                         </div>
                         {(() => {
                             // Desglose IVU Estatal / Municipal cuando está activado el breakdown.
@@ -728,7 +808,7 @@ export const InvoicesListPage: React.FC = () => {
                         })()}
                         <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-700">
                             <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{t('posx.invoices.total')}</span>
-                            <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(draftTotal + previewTax)}</span>
+                            <span className="text-lg font-bold text-neutral-800 dark:text-neutral-100 tabular-nums">{money(tot.total)}</span>
                         </div>
                     </div>
                     {!editId && abonosTotal > 0 && (
@@ -939,14 +1019,33 @@ export const InvoicesListPage: React.FC = () => {
                                 </button>
                             </>
                         )}
-                        <button onClick={() => { setShowForm(false); resetForm(); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
+                        <button onClick={() => { resetForm(); navigate('/pos/invoices'); }} className={BUTTON_SECONDARY_SM_CLASSES}>{t('common.cancel')}</button>
                         <button onClick={create} disabled={saving} className={`${BUTTON_PRIMARY_SM_CLASSES} disabled:opacity-50`}>{saving ? t('posx.invoices.creating') : editId ? t('posx.invoices.save_changes') : t('posx.invoices.create_invoice')}</button>
                     </div>
                     </div>
 
                     {/* ── Vista previa: a la derecha, acompaña el scroll del formulario ── */}
                     <aside className="xl:sticky xl:top-4 self-start">
-                        <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">{t('posx.invoices.adv_preview') || 'Vista previa (cómo va quedando)'}</p>
+                        <div className="flex items-center gap-1 mb-2">
+                            {([['invoice', 'Factura'], ['email', 'Correo']] as const).map(([k, label]) => (
+                                <button key={k} type="button" onClick={() => setPreviewTab(k)}
+                                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${previewTab === k ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-primary'}`}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                        {previewTab === 'email' ? (
+                            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-white">
+                                <div className="px-3 py-2 border-b border-neutral-200 text-xs text-neutral-600 space-y-0.5 bg-neutral-50">
+                                    <div><span className="text-neutral-400">Para:</span> {email.trim() || <span className="italic text-neutral-400">sin correo (agrega uno en el paso 1)</span>}</div>
+                                    <div><span className="text-neutral-400">Asunto:</span> <span className="font-medium text-neutral-800">{emailPrev?.subject || '…'}</span></div>
+                                    <div className="text-neutral-400">Adjunto: factura en PDF</div>
+                                </div>
+                                {emailPrev
+                                    ? <iframe title="Vista previa del correo" srcDoc={emailPrev.html} sandbox="" className={`w-full h-[480px] border-0 ${emailPrevLoading ? 'opacity-60' : ''}`} />
+                                    : <div className="h-40 flex items-center justify-center text-sm text-neutral-400">{emailPrevLoading ? 'Cargando…' : 'No se pudo cargar la vista previa.'}</div>}
+                            </div>
+                        ) : (
                         <div className="flex justify-center bg-neutral-100 dark:bg-neutral-900/40 rounded-lg p-4">
                                 <InvoiceDesignPreview
                                     design={previewMergedDesign}
@@ -955,17 +1054,20 @@ export const InvoicesListPage: React.FC = () => {
                                     notes={description}
                                     items={previewItems}
                                     subtotal={draftTotal}
+                                    discount={tot.invoiceDiscount}
                                     tax={previewTax}
-                                    total={draftTotal + previewTax}
+                                    total={tot.total}
                                     amountPaid={abonosTotal}
                                 />
                         </div>
+                        )}
                     </aside>
                     </div>
                     </>)}
                 </div>
             )}
 
+            {!isEditor && (<>
             {/* Barra de filtros */}
             {!loading && items.length > 0 && (
                 <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 mb-3 space-y-3">
@@ -1049,6 +1151,7 @@ export const InvoicesListPage: React.FC = () => {
                     )}
                 />
             )}
+            </>)}
 
             <ShareModal invoice={share} onClose={() => setShare(null)} />
             <PaymentsModal invoice={viewPayments} onClose={() => setViewPayments(null)} onAddPayment={() => { const inv = viewPayments; setViewPayments(null); if (inv) setPayFor(inv); }} />
@@ -1165,3 +1268,7 @@ export const InvoicesListPage: React.FC = () => {
         </div>
     );
 };
+
+/** Pantallas propias para crear y editar una factura (con "Volver a facturas"). */
+export const InvoiceNewPage: React.FC = () => <InvoicesListPage mode="new" />;
+export const InvoiceEditPage: React.FC = () => <InvoicesListPage mode="edit" />;

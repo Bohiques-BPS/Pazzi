@@ -39,7 +39,7 @@ interface CreateAction { id: string; label: string; en: string; path: string; mo
 const CREATE_ACTIONS: CreateAction[] = [
   { id: 'product',  label: 'Agregar producto',   en: 'Add product',       path: '/tienda/products?new=1',        module: AppModule.TIENDA,              perm: 'products.view' },
   { id: 'sale',     label: 'Abrir caja / cobrar', en: 'Open register / sell', path: '/pos/cashier',               module: AppModule.CAJA,                perm: 'pos.access' },
-  { id: 'invoice',  label: 'Nueva factura',       en: 'New invoice',        path: '/pos/invoices?new=1',           module: AppModule.POS,                 perm: 'pos.viewHistory' },
+  { id: 'invoice',  label: 'Nueva factura',       en: 'New invoice',        path: '/pos/invoices/new',             module: AppModule.POS,                 perm: 'pos.viewHistory' },
   { id: 'estimate', label: 'Nueva cotización',    en: 'New estimate',       path: '/pos/estimates?new=1',          module: AppModule.POS,                 perm: 'estimates.manage' },
   { id: 'recurring',label: 'Nuevo pago recurrente', en: 'New recurring payment', path: '/pos/recurring?new=1',     module: AppModule.POS,                 perm: 'pos.viewHistory' },
   { id: 'client',   label: 'Nuevo cliente',       en: 'New client',         path: '/tienda/clients?new=1',         module: AppModule.TIENDA,              perm: 'clients.view' },

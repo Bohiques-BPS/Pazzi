@@ -1,5 +1,6 @@
 import React from 'react';
 import { taxLines } from '../../utils/taxBreakdown';
+import { lineDiscount, discountLabel } from '../../utils/invoiceTotals';
 import { logoScaleOf } from '../../utils/logoScale';
 
 interface DesignLike {
@@ -26,8 +27,11 @@ interface Props {
     business: { name?: string; logoUrl?: string; rnc?: string; address?: string; phone?: string };
     clientName?: string;
     notes?: string;
-    items: { name: string; quantity: number; unitPrice: number; description?: string }[];
+    items: { name: string; quantity: number; unitPrice: number; description?: string; discount?: number; discountType?: 'percent' | 'amount' }[];
+    /** Suma de las líneas (ya con su descuento). */
     subtotal: number;
+    /** Descuento a toda la factura. */
+    discount?: number;
     tax: number;
     total: number;
     /** Abonos ya realizados (para mostrar Pagado / Saldo). */
@@ -35,7 +39,7 @@ interface Props {
 }
 
 /** Vista aproximada de cómo quedará la factura con el diseño actual (no es el PDF final). */
-export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, clientName, notes, items, subtotal, tax, total, amountPaid = 0 }) => {
+export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, clientName, notes, items, subtotal, discount = 0, tax, total, amountPaid = 0 }) => {
     const d = design || {};
     const template = d.template || 'modern';
     const header = d.headerColor || '#4CAF50';
@@ -112,10 +116,11 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
                                 {(d as any).showLineDescription && (it as any).description && (
                                     <div className="text-[10px] text-neutral-500 whitespace-pre-wrap">{(it as any).description}</div>
                                 )}
+                                {lineDiscount(it) > 0 && <div className="text-[10px] text-green-600">Descuento {discountLabel(it.discount, it.discountType)}</div>}
                             </div>
                             <div className="col-span-2 text-center">{it.quantity}</div>
                             <div className="col-span-2 text-right">{money(it.unitPrice)}</div>
-                            <div className="col-span-2 text-right px-2">{money(it.quantity * it.unitPrice)}</div>
+                            <div className="col-span-2 text-right px-2">{money(it.quantity * it.unitPrice - lineDiscount(it))}</div>
                         </div>
                     ))}
                 </div>
@@ -123,6 +128,7 @@ export const InvoiceDesignPreview: React.FC<Props> = ({ design, business, client
                 {/* Totales */}
                 <div className="ml-auto w-1/2 space-y-0.5 text-[11px]">
                     <div className="flex justify-between"><span className="text-neutral-500">{L('subtotal', 'Subtotal')}</span><span>{money(subtotal)}</span></div>
+                    {discount > 0 && <div className="flex justify-between text-green-700"><span>{L('discount', 'Descuento')}</span><span>-{money(discount)}</span></div>}
                     {taxLines(tax, undefined, undefined, L('tax', 'IVU')).map(l => (
                         <div key={l.label} className="flex justify-between"><span className="text-neutral-500">{l.label}</span><span>{money(l.amount)}</span></div>
                     ))}

@@ -9,6 +9,9 @@ export interface InvoiceItemInput {
     description?: string | null;
     /** Tasa de IVU por línea (fracción). 0 = producto exento. Omitido = tasa por defecto del negocio. */
     taxRate?: number | null;
+    /** Descuento de la línea: porcentaje o monto. */
+    discount?: number | null;
+    discountType?: 'percent' | 'amount' | null;
 }
 
 export interface Invoice {
@@ -28,9 +31,14 @@ export interface Invoice {
     warning?: string;
     publicToken: string;
     items: InvoiceItemInput[];
+    /** Base después de descuentos (subtotal + tax = total). */
     subtotal: number;
     tax: number;
     total: number;
+    /** Descuento a toda la factura y total descontado (líneas + factura). */
+    discountType?: 'percent' | 'amount' | null;
+    discountValue?: number | null;
+    discountAmount?: number | null;
     amountPaid?: number;
     description?: string | null;
     dueDate?: string | null;
@@ -78,6 +86,8 @@ export interface CreateInvoiceInput {
     createdAt?: string | null; // fecha de la factura, si no es hoy (solo hacia atras)
     dueDate?: string | null;   // vencimiento de la factura (opcional; puede ser futura)
     projectId?: string | null; // proyecto al que pertenece la factura (opcional)
+    discountType?: 'percent' | 'amount' | null; // descuento a toda la factura
+    discountValue?: number | null;
 }
 
 export interface UpdateInvoiceInput {
@@ -92,6 +102,8 @@ export interface UpdateInvoiceInput {
     type?: string | null;
     dueDate?: string | null;   // vencimiento (puede ser futura; '' o null lo limpia)
     projectId?: string | null; // vincular/desvincular proyecto (null lo quita)
+    discountType?: 'percent' | 'amount' | null;
+    discountValue?: number | null;
 }
 
 /** Términos y condiciones del negocio (Configuración de facturas): enlace o texto. */
@@ -157,6 +169,9 @@ export const invoicesService = {
     listByProject: (projectId: string) => api.get<Invoice[]>('/invoices', { projectId }),
     create: (data: CreateInvoiceInput) => api.post<Invoice>('/invoices', data),
     update: (id: string, data: UpdateInvoiceInput) => api.put<Invoice>(`/invoices/${id}`, data),
+    /** El correo tal como lo recibiría el cliente (no envía nada). */
+    emailPreview: (body: { total: number; number?: number | null }) =>
+        api.post<{ subject: string; html: string; text: string; from?: string | null }>('/invoices/email-preview', body),
     remove: (id: string) => api.delete<{ deleted: boolean; soft?: boolean; id: string }>(`/invoices/${id}`),
     restore: (id: string) => api.post<{ restored: boolean; id: string }>(`/invoices/${id}/restore`),
     markPaid: (id: string, body: { reference?: string; method?: string; amount?: number; paidAt?: string }) =>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { lineDiscount, invoiceDisplayTotals, discountLabel } from '../../utils/invoiceTotals';
 import { useParams } from 'react-router-dom';
 import { invoicesService, type PublicInvoice } from '../../services/invoices';
 import { splitTax } from '../../utils/taxBreakdown';
@@ -35,15 +36,16 @@ function saleFrom(inv: PublicInvoice): ReceiptSale {
     return {
         saleNumber: inv.number ? String(inv.number) : inv.id.slice(0, 8),
         date: inv.createdAt,
-        items: inv.items.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice, description: (it as any).description || undefined })),
-        subtotal: inv.subtotal,
+        // Precio por unidad ya con el descuento de la línea; el de la factura va en `discount`.
+        items: inv.items.map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.quantity ? (it.quantity * it.unitPrice - lineDiscount(it as any)) / it.quantity : it.unitPrice, description: (it as any).description || undefined })),
+        subtotal: invoiceDisplayTotals(inv as any).linesSubtotal,
         tax: inv.tax,
         ...(() => {
             const l = taxLines(inv.tax, undefined, { state: inv.taxStateRate ?? undefined, municipal: inv.taxMunicipalRate ?? undefined });
             const get = (k: string) => l.find(x => x.label.endsWith(k))?.amount;
             return { taxState: get('Estatal'), taxMunicipal: get('Municipal') };
         })(),
-        discount: 0,
+        discount: invoiceDisplayTotals(inv as any).invoiceDiscount,
         total: inv.total,
         payments: inv.status === 'paid'
             ? [{ method: inv.paidMethod || 'Pagado', amount: inv.total, reference: inv.paidReference || undefined }]
@@ -203,14 +205,16 @@ export const PublicInvoicePage: React.FC = () => {
                                             <div className="text-xs text-neutral-600 dark:text-neutral-300 whitespace-pre-line mt-0.5">{(it as any).description}</div>
                                         )}
                                         <div className="text-xs text-neutral-500">{it.quantity} × {money(it.unitPrice)}</div>
+                                        {lineDiscount(it as any) > 0 && <div className="text-xs text-green-600 dark:text-green-400">Descuento {discountLabel((it as any).discount, (it as any).discountType)} (−{money(lineDiscount(it as any))})</div>}
                                     </td>
-                                    <td className="py-2 text-right text-neutral-800 dark:text-neutral-100">{money(it.quantity * it.unitPrice)}</td>
+                                    <td className="py-2 text-right text-neutral-800 dark:text-neutral-100">{money(it.quantity * it.unitPrice - lineDiscount(it as any))}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                     <div className="mt-4 space-y-1 text-sm">
-                        <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>{t('pay.subtotal')}</span><span>{money(inv.subtotal)}</span></div>
+                        <div className="flex justify-between text-neutral-600 dark:text-neutral-300"><span>{t('pay.subtotal')}</span><span>{money(invoiceDisplayTotals(inv as any).linesSubtotal)}</span></div>
+                        {invoiceDisplayTotals(inv as any).invoiceDiscount > 0 && <div className="flex justify-between text-green-600 dark:text-green-400"><span>Descuento</span><span>−{money(invoiceDisplayTotals(inv as any).invoiceDiscount)}</span></div>}
                         {/* Si no hay IVU (tasas en 0 o factura exenta), no se muestran líneas de impuesto. */}
                         {(inv.tax || 0) > 0 && (inv.taxBreakdownEnabled ? (() => {
                             const sp = splitTax(inv.tax, inv.taxStateRate, inv.taxMunicipalRate);
